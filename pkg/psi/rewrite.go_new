@@ -1,15 +1,14 @@
 package psi
 
 import (
-	"go/ast"
-
-	"golang.org/x/tools/go/ast/astutil"
+	"github.com/dave/dst"
+	"github.com/dave/dst/dstutil"
 )
 
 type ApplyFunc func(*Cursor) bool
 
 type Cursor struct {
-	*astutil.Cursor
+	*dstutil.Cursor
 	node      Node
 	container *Container
 }
@@ -19,11 +18,11 @@ func (c *Cursor) Container() *Container { return c.container }
 
 func Apply(root Node, pre, post ApplyFunc) (result Node) {
 	c := &Cursor{}
-	refMap := make(map[ast.Node]Node)
+	refMap := make(map[dst.Node]Node)
 
 	refMap[root.Node()] = root
 
-	return wrapNode(astutil.Apply(root.Node(), func(cursor *astutil.Cursor) bool {
+	return wrapNode(dstutil.Apply(root.Node(), func(cursor *dstutil.Cursor) bool {
 		node := cursor.Node()
 
 		if node == nil {
@@ -52,7 +51,7 @@ func Apply(root Node, pre, post ApplyFunc) (result Node) {
 		}
 
 		return pre(c)
-	}, func(cursor *astutil.Cursor) bool {
+	}, func(cursor *dstutil.Cursor) bool {
 		node := cursor.Node()
 
 		if node == nil {

@@ -1,10 +1,10 @@
-package astparser
+package codex
 
 import (
 	"fmt"
-	"go/ast"
 	"strings"
 
+	"github.com/dave/dst"
 	"github.com/zeroflucs-given/generics/collections/stack"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
@@ -13,7 +13,7 @@ import (
 
 type FunctionContext struct {
 	Processor *NodeProcessor
-	Func      *ast.FuncDecl
+	Func      *dst.FuncDecl
 	Todos     []string
 }
 
@@ -25,7 +25,7 @@ type NodeProcessor struct {
 
 func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 	switch node := cursor.Node().(type) {
-	case *ast.FuncDecl:
+	case *dst.FuncDecl:
 		err := p.FuncStack.Push(&FunctionContext{
 			Func: node,
 		})
@@ -33,41 +33,17 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 		if err != nil {
 			panic(err)
 		}
+	}
 
-		for _, cmt := range cursor.Element().Comments() {
-			if strings.Contains(cmt.Text, "TODO") {
-				ok, currentFn := p.FuncStack.Peek()
-
-				if !ok {
-					break
-				}
-
-				currentFn.Todos = append(currentFn.Todos, cmt.Text)
-			}
-		}
-
-	case *ast.Comment:
-		if strings.Contains(node.Text, "TODO") {
+	for _, txt := range cursor.Element().Comments() {
+		if strings.Contains(txt, "TODO") {
 			ok, currentFn := p.FuncStack.Peek()
 
 			if !ok {
 				break
 			}
 
-			currentFn.Todos = append(currentFn.Todos, node.Text)
-		}
-
-	case *ast.CommentGroup:
-		for _, comment := range node.List {
-			if strings.Contains(comment.Text, "TODO") {
-				ok, currentFn := p.FuncStack.Peek()
-
-				if !ok {
-					continue
-				}
-
-				currentFn.Todos = append(currentFn.Todos, comment.Text)
-			}
+			currentFn.Todos = append(currentFn.Todos, txt)
 		}
 	}
 
@@ -75,26 +51,22 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 }
 
 func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
-	switch node := cursor.Node().(type) {
-	case *ast.FuncDecl:
+	switch cursor.Node().(type) {
+	case *dst.FuncDecl:
 		ok, currentFn := p.FuncStack.Pop()
 
 		if !ok || len(currentFn.Todos) == 0 {
 			return true
 		}
 
-		newNode, err := p.Step(currentFn, node)
+		newNode, err := p.Step(currentFn, cursor.Element())
 
 		if err != nil {
 			panic(err)
 		}
 
-		if newFunc, ok := newNode.(*ast.FuncDecl); ok {
+		if _, ok := newNode.(*dst.FuncDecl); ok {
 			cursor.Replace(newNode)
-
-			if f, ok := p.Root.Node().(*ast.File); ok {
-				f.Comments = append(f.Comments, newFunc.Doc)
-			}
 		}
 
 		return true
@@ -103,21 +75,21 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 	return true
 }
 
-func (p *NodeProcessor) Step(ctx *FunctionContext, stepRoot ast.Node) (result ast.Node, err error) {
+func (p *NodeProcessor) Step(ctx *FunctionContext, stepRoot psi.Node) (result dst.Node, err error) {
 	// Extract the comment
 	todoComment := strings.Join(ctx.Todos, "\n")
 
-	prunedRoot := psi.Apply(p.Root, func(cursor *psi.Cursor) bool {
+	prunedRoot := psi.Apply(psi.Clone(p.Root), func(cursor *psi.Cursor) bool {
 		switch node := cursor.Node().(type) {
-		case *ast.FuncDecl:
+		case *dst.FuncDecl:
 			if node != ctx.Func {
-				cursor.Replace(&ast.FuncDecl{
-					Doc:  node.Doc,
+				cursor.Replace(&dst.FuncDecl{
+					Decs: node.Decs,
 					Recv: node.Recv,
 					Name: node.Name,
 					Type: node.Type,
-					Body: &ast.BlockStmt{
-						List: []ast.Stmt{},
+					Body: &dst.BlockStmt{
+						List: []dst.Stmt{},
 					},
 				})
 			}
@@ -135,7 +107,7 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, stepRoot ast.Node) (result as
 		return nil, err
 	}
 
-	stepStr, err := ToCode(stepRoot)
+	stepStr, err := p.SourceFile.ToCode(stepRoot)
 
 	if err != nil {
 		return nil, err
@@ -149,41 +121,40 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, stepRoot ast.Node) (result as
 	}
 
 	// Parse the generated code into an AST
-	newRoot, err := Parse(gptResponse)
+	newRoot, err := p.SourceFile.Parse("_mergeContents.go", gptResponse)
 
 	if err != nil {
 		previousErr := err
 		sourceWithPreamble := fmt.Sprintf("package %s\n\n%s", "gptimport", gptResponse)
-		newRoot, err = Parse(sourceWithPreamble)
+		newRoot, err = p.SourceFile.Parse("_mergeContents.go", sourceWithPreamble)
 
 		if err != nil {
 			return nil, previousErr
 		}
 	}
 
-	rootFile := p.SourceFile.Root().Node().(*ast.File)
+	rootFile := p.SourceFile.Root().Node().(*dst.File)
 
-	for _, decl := range newRoot.Decls {
-		exists := false
-
-		if fn, ok := decl.(*ast.FuncDecl); ok {
+	for _, decl := range newRoot.Node().(*dst.File).Decls {
+		if fn, ok := decl.(*dst.FuncDecl); ok {
 			if fn.Name.Name == ctx.Func.Name.Name {
 				result = fn
-				exists = true
 			}
-		}
+		} else {
+			idx := -1
 
-		if !exists {
-			for _, d := range rootFile.Decls {
+			for i, d := range rootFile.Decls {
 				if d == decl {
-					exists = true
+					idx = i
 					break
 				}
 			}
-		}
 
-		if !exists {
-			rootFile.Decls = append(rootFile.Decls, decl)
+			if idx != -1 {
+				rootFile.Decls[idx] = decl
+			} else {
+				rootFile.Decls = append(rootFile.Decls, decl)
+			}
 		}
 	}
 

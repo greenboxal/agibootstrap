@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/greenboxal/agibootstrap/pkg/astparser"
+	"github.com/greenboxal/agibootstrap/pkg/codex"
 	"github.com/greenboxal/agibootstrap/pkg/io"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -45,7 +45,7 @@ func processFile(path string) {
 	}
 
 	// Process the AST nodes
-	updated := astparser.ProcessNodes(ast)
+	updated := codex.ProcessNodes(ast)
 
 	// Convert the AST back to code
 	newCode, err := ast.ToCode(updated)

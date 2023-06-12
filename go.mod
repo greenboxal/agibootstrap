@@ -4,16 +4,19 @@ go 1.20
 
 require (
 	github.com/gomarkdown/markdown v0.0.0-20230322041520-c84983bdbf2a
-	golang.org/x/tools v0.9.3
+	golang.org/x/tools v0.9.3 // indirect
 )
 
 require (
+	github.com/dave/dst v0.27.2
+	github.com/google/uuid v1.3.0
 	github.com/greenboxal/aip/aip-controller v0.0.0-00010101000000-000000000000
 	github.com/greenboxal/aip/aip-langchain v0.0.0-00010101000000-000000000000
 	github.com/libgit2/git2go/v31 v31.7.9
 	github.com/spf13/cobra v1.7.0
 	github.com/zeroflucs-given/generics v0.0.0-20230611080924-a806fa480d35
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
+	gonum.org/v1/gonum v0.11.0
 )
 
 require (
@@ -35,7 +38,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/graph-gophers/dataloader v5.0.0+incompatible // indirect
 	github.com/graphql-go/graphql v0.8.1 // indirect
@@ -98,8 +100,8 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
+	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
-	gonum.org/v1/gonum v0.11.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	lukechampine.com/blake3 v1.1.7 // indirect

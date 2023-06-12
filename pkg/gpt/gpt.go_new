@@ -112,3 +112,20 @@ func ParseMarkdown(md []byte) ast.Node {
 
 	return p.Parse(md)
 }
+
+type Session struct {
+}
+
+func NewSession() *Session {
+	return &Session{
+		oai:      openai.NewClient(),
+		embedder: &openai.Embedder{Client: oai, Model: openai.AdaEmbeddingV2},
+		model:    &openai.ChatLanguageModel{Client: oai, Model: "gpt-3.5-turbo"},
+	}
+}
+
+type Session struct {
+	oai      *openai.Client
+	embedder *openai.Embedder
+	model    *openai.ChatLanguageModel
+}

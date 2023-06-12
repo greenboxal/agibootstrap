@@ -1,17 +1,14 @@
 package repofs
 
-func init() {
-	// TODO: Write a package that implements fs.FS using libgit2.
-	// Opening a FS instance should be equivalent to checking out a git repo commit, optionally including uncommitted changes.
-	// Closing the FS should sync back to the git repo.
-}
-
 import (
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
+	"time"
+
 	git "github.com/libgit2/git2go/v31"
 )
 
@@ -168,12 +165,12 @@ func (d *dirIter) Next() bool {
 	if d.err != nil {
 		return false
 	}
-	if err := d.dir.Walk(func(currPath string, entry *git.TreeEntry) error {
+	if err := d.dir.Walk(func(currPath string, entry *git.TreeEntry) int {
 		if entry.Type != git.ObjectBlob {
-			return nil
+			return 0
 		}
 		d.names = append(d.names, filepath.Join(d.dirPath, currPath, entry.Name))
-		return nil
+		return 0
 	}); err != nil {
 		d.err = err
 		return false

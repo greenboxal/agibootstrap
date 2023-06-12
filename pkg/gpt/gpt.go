@@ -112,3 +112,13 @@ func ParseMarkdown(md []byte) ast.Node {
 
 	return p.Parse(md)
 }
+
+type Session struct {
+}
+
+func NewSession() *Session {
+	// TODO: Implement a Session type that can be used to store the context of a conversation.
+	// TODO: It should include (and replace) the globals `oai`, `embedder`, and `model` that are defined above.
+
+	return nil
+}
