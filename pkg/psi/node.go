@@ -48,9 +48,6 @@ func (n *NodeBase) NodeBase() Node   { return n.parent }
 func (n *NodeBase) Children() []Node { return n.children }
 
 func (n *NodeBase) addChildNode(child Node) {
-	if n == nil {
-		panic("nil node")
-	}
 	idx := slices.Index(n.children, child)
 
 	if idx != -1 {

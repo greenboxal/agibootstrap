@@ -51,6 +51,9 @@ type Retriever struct {
 }
 
 // NewRetriever creates a new instance of the Retriever
+//func NewRetriever() *Retriever {
+//	return &Retriever{}
+//}
 func NewRetriever() *Retriever {
 	return &Retriever{}
 }
