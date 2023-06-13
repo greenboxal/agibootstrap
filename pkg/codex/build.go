@@ -1,13 +1,12 @@
 package codex
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"go/ast"
 	"go/build"
 	"go/types"
-	"os/exec"
+	"path"
 
 	"golang.org/x/tools/go/packages"
 
@@ -30,22 +29,13 @@ func (be BuildError) String() string {
 // buildProject is responsible for analyzing the project and checking its types.
 // It returns a slice of BuildError and an error. BuildError contains information about type-checking errors and their associated package name, filename, line, column and error.
 func (p *Project) buildProject() (sf *psi.SourceFile, errs []*BuildError, err error) {
-	sf = psi.NewSourceFile("")
-
-	// Get the module path of the package
-	modulePath, err := getModulePath(p.rootPath)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Get the import path of the package
-	packageName := modulePath
+	sf = psi.NewSourceFile(p.rootPath)
 
 	// Set up the build context
 	buildContext := build.Default
 
 	// Get all packages in the project
-	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedTypes | packages.NeedSyntax, Dir: p.rootPath}, packageName)
+	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedTypes | packages.NeedSyntax, Dir: p.rootPath}, path.Join(p.rootPath, "..."))
 
 	if err != nil {
 		return nil, nil, err
@@ -55,14 +45,6 @@ func (p *Project) buildProject() (sf *psi.SourceFile, errs []*BuildError, err er
 	for _, pkg := range pkgs {
 		if !pkg.Types.Complete() {
 			return nil, nil, fmt.Errorf("incomplete package type info: %q", pkg.ID)
-		}
-
-		if pkg.Name == "main" {
-			continue // Skip the main package
-		}
-
-		if _, ok := pkg.Imports[packageName]; !ok {
-			continue // Skip packages that do not import the package we want to analyze
 		}
 
 		fset := sf.FileSet()
@@ -155,26 +137,4 @@ func (p *Project) Import(path string) (*types.Package, error) {
 	}
 
 	return pkgs[0].Types, nil
-}
-
-// getModulePath returns the module path of the given directory
-func getModulePath(dir string) (string, error) {
-	cmd := exec.Command("go", "list", "-m", "-json", ".")
-	cmd.Dir = dir
-
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-
-	var info struct {
-		Path string
-	}
-
-	err = json.Unmarshal(out, &info)
-	if err != nil {
-		return "", err
-	}
-
-	return info.Path, nil
 }
