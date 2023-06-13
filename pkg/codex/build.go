@@ -69,7 +69,7 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 		}
 	}
 
-	return
+	return errs, nil
 }
 
 // processFixStep is responsible for fixing all build errors that were found
