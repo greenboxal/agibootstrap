@@ -94,13 +94,10 @@ type referenceIteratorImpl struct {
 
 // TODO: Implement this method properly.
 func (r *referenceIteratorImpl) Next() bool {
-	// Implementation to be added
-	// Code goes here
-	// Updated implementation
 	if len(r.root.Children()) == 0 {
 		return false
 	}
-	// More code
+	// More code goes here...
 	return true
 }
 
