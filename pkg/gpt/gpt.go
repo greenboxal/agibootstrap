@@ -31,10 +31,9 @@ Do not escape HTML characters.
 
 # Context
 {{ .Context | markdownTree }}
-`, chain.WithRequiredInput(ContextKey))),
-
+`, chain.WithRequiredInput(ContextKey)),
+	),
 	chat.HistoryFromContext(memory.ContextualMemoryKey),
-
 	chat.EntryTemplate(
 		msn.RoleUser,
 		chain.NewTemplatePrompt(`
@@ -48,8 +47,8 @@ Complete the TODOs in the document below.
 `+"```"+`go
 {{ .Document | markdownTree }}
 `+"```"+`
-`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey))),
-)
+`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey)),
+	))
 
 var oai = openai.NewClient()
 var embedder = &openai.Embedder{
@@ -67,7 +66,11 @@ var contentChain = chain.New(
 
 	chain.Sequential(
 		chat.Predict(
-			model,
+			&openai.ChatLanguageModel{
+				Client:      openai.NewClient(),
+				Model:       "gpt-3.5-turbo",
+				Temperature: 0.7,
+			},
 			CodeGeneratorPrompt,
 		),
 	),
@@ -101,38 +104,11 @@ func SendToGPT(objectives, promptContext, target string) (string, error) {
 		return ast.GoToNext
 	})
 
+	// Check if codeOutput is possibly HTML escaped and unescape it
+	codeOutput = html.UnescapeString(codeOutput)
+
 	return codeOutput, nil
 }
-
-//func Summarize(objective, document string) (string, error) {
-//	const summarizerPromptTemplate = `
-//Generate a summary of the document:
-//
-//Objective: {{ .Objective }}
-//Document: {{ .Document }}
-//`
-//
-//	ctx := context.Background()
-//	cctx := chain.NewChainContext(ctx)
-//
-//	cctx.SetInput(ObjectiveKey, objective)
-//	cctx.SetInput(DocumentKey, document)
-//
-//	summarizerChain := chain.Sequential(
-//		chat.Predict(
-//			model,
-//			chat.ComposeTemplate(summarizerPromptTemplate, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey)),
-//		),
-//	)
-//
-//	if err := summarizerChain.Run(cctx); err != nil {
-//		return "", err
-//	}
-//
-//	result := chain.Output(cctx, chat.ChatReplyContextKey)
-//	reply := result.Entries[0].Text
-//	return reply, nil
-//}
 
 func FormatMarkdown(node ast.Node) []byte {
 	return markdown.Render(node, md.NewRenderer())
@@ -146,11 +122,19 @@ func ParseMarkdown(md []byte) ast.Node {
 }
 
 type Session struct {
+	oai      *openai.Client
+	embedder *openai.Embedder
+	model    *openai.ChatLanguageModel
 }
 
 func NewSession() *Session {
-	// T2ODO: Implement a Session type that can be used to store the context of a conversation.
-	// T2ODO: It should include (and replace) the globals `oai`, `embedder`, and `model` that are defined above.
-
-	return nil
+	return &Session{
+		oai:      openai.NewClient(),
+		embedder: &openai.Embedder{Client: oai, Model: openai.AdaEmbeddingV2},
+		model: &openai.ChatLanguageModel{
+			Client:      oai,
+			Model:       "gpt-3.5-turbo",
+			Temperature: 0.7,
+		},
+	}
 }

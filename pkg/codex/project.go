@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/build"
-	"go/token"
 	"go/types"
 	"io/fs"
 	"os"
@@ -14,7 +13,6 @@ import (
 	"path/filepath"
 
 	"github.com/dave/dst"
-	"github.com/hashicorp/go-multierror"
 	"github.com/zeroflucs-given/generics/collections/stack"
 	"golang.org/x/exp/slices"
 	"golang.org/x/tools/go/packages"
@@ -193,6 +191,8 @@ func (p *Project) processImportsStep() (changes int, err error) {
 // buildProject is responsible for analyzing the project and checking its types.
 // It returns a slice of BuildError and an error. BuildError contains information about type-checking errors and their associated package name, filename, line, column and error.
 func (p *Project) buildProject() (sf *psi.SourceFile, errs []*BuildError, err error) {
+	// TxODO: Add support for multiple packages in the same project
+	// TxODO: Add support for multiple files in the same package
 	sf = psi.NewSourceFile("")
 
 	// Get the module path of the package
@@ -266,15 +266,10 @@ func (p *Project) buildProject() (sf *psi.SourceFile, errs []*BuildError, err er
 }
 
 func (p *Project) processFixStep() (changes int, err error) {
-	sf, buildErrors, err := p.buildProject()
+	_, buildErrors, err := p.buildProject()
 
 	if err != nil {
 		return 0, err
-	}
-
-	getNodeForError := func(err *BuildError) psi.Node {
-		pos := token.Position{Filename: err.Filename, Line: err.Line, Column: err.Column}
-		return sf.FindNodeByPos(pos)
 	}
 
 	if len(buildErrors) > 0 {
@@ -282,13 +277,14 @@ func (p *Project) processFixStep() (changes int, err error) {
 		// Iterate through the build errors and process each error node
 		for i, buildError := range buildErrors {
 			strs[i] = fmt.Sprintf("%s:%d:%d: %v", buildError.Filename, buildError.Line, buildError.Column, buildError.Error)
-			// Replace the error node with the result of processing
-			node := getNodeForError(buildError)
 
-			p.ProcessNode(sf, node)
+			// TxODO: Fix the error by calling p.ProcessFix(sf, buildError) for each error
+			// Lookup the source file from the p.sourceFiles map (be sure to define it)
 
-			e := fmt.Errorf("%d errors occurred during type checking in package %s: %v", len(strs), buildError.Pkg.ID, buildErrors)
-			err = multierror.Append(err, e)
+			//p.ProcessNode(sf, node)
+
+			//e := fmt.Errorf("%d errors occurred during type checking in package %s: %v", len(strs), buildError.Pkg.ID, buildErrors)
+			//err = multierror.Append(err, e)
 		}
 
 		return
