@@ -24,8 +24,6 @@ var CodeGeneratorPrompt chat.Prompt
 var contentChain chain.Chain
 
 func init() {
-	// This is the best prompt so an LLM like GPT-3.5-TURBO (you) can generate code.
-
 	CodeGeneratorPrompt = chat.ComposeTemplate(
 		chat.EntryTemplate(
 			msn.RoleSystem,

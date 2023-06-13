@@ -21,7 +21,7 @@ type FS interface {
 	// Checkout checks out the given commit.
 	Checkout(commit string) error
 	// Commit commits the changes with the given message.
-	Commit(message string, addAll bool) (commitId string, err error)
+	Commit(message string) (commitId string, err error)
 	// Push pushes the changes to the remote repository.
 	Push() error
 	// StageAll stages all the changes.
@@ -112,7 +112,7 @@ func (g *gitFS) Checkout(commit string) error {
 	return cmd.Run()
 }
 
-func (g *gitFS) Commit(message string, addAll bool) (commitId string, err error) {
+func (g *gitFS) Commit(message string) (commitId string, err error) {
 	cmd := exec.Command("git", "status", "--porcelain")
 	cmd.Dir = g.path
 
@@ -123,16 +123,6 @@ func (g *gitFS) Commit(message string, addAll bool) (commitId string, err error)
 
 	if len(stdout) == 0 {
 		return "", nil
-	}
-
-	if addAll {
-		cmd = exec.Command("git", "add", "-A")
-		cmd.Dir = g.path
-
-		err = cmd.Run()
-		if err != nil {
-			return "", err
-		}
 	}
 
 	cmd = exec.Command("git", "commit", "-m", message)
