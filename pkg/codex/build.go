@@ -40,6 +40,8 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 
 	// Iterate through every Go package in the project
 	for _, pkg := range pkgs {
+		fmt.Printf("Checking package %s\n", pkg.Name)
+
 		if !pkg.Types.Complete() {
 			errs = append(errs, &BuildError{
 				Pkg:      pkg,
