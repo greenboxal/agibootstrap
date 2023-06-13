@@ -142,6 +142,7 @@ func (p *Project) ProcessFix(sf *psi.SourceFile, buildError *BuildError) error {
 }
 
 func (p *Project) Import(path string) (*types.Package, error) {
+	// TODO: Support go.mod replaces
 	pkgs, err := packages.Load(&packages.Config{
 		Mode: packages.NeedTypes | packages.NeedSyntax | packages.NeedImports,
 	}, path)
