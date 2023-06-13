@@ -2,7 +2,6 @@ package codex
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,24 +47,17 @@ func (p *Project) Generate() (changes int, err error) {
 }
 
 func (p *Project) processGenerateStep() (changes int, err error) {
-	err = filepath.Walk(p.rootPath, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
+	for _, path := range p.files {
 		if filepath.Ext(path) == ".go" {
 			count, err := p.processFile(path)
 
 			if err != nil {
-				fmt.Printf("Error processing file %v: %v\n", path, err)
-				return nil
+				return changes, err
 			}
 
 			changes += count
 		}
-
-		return nil
-	})
+	}
 
 	isDirty, err := p.fs.IsDirty()
 
@@ -116,6 +108,8 @@ func (p *Project) processFile(fsPath string, opts ...NodeProcessorOption) (int, 
 	if ast.Error() != nil {
 		return 0, err
 	}
+
+	p.sourceFiles[fsPath] = ast
 
 	// Process the AST nodes
 	updated := p.ProcessNodes(ast, opts...)

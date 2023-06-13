@@ -62,10 +62,18 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 		_, err = typeConfig.Check(pkg.ID, pkg.Fset, pkg.Syntax, pkg.TypesInfo)
 
 		if err != nil {
-			errs = append(errs, &BuildError{
+			buildError := &BuildError{
 				Pkg:   pkg,
 				Error: err,
-			})
+			}
+
+			if err, ok := err.(types.Error); ok {
+				buildError.Filename = err.Fset.File(err.Pos).Name()
+				buildError.Line = err.Fset.File(err.Pos).Line(err.Pos)
+				buildError.Column = err.Fset.File(err.Pos).Offset(err.Pos)
+			}
+
+			errs = append(errs, buildError)
 		}
 	}
 
@@ -82,6 +90,7 @@ func (p *Project) processFixStep() (changes int, err error) {
 
 	for _, buildError := range buildErrors {
 		sf := p.sourceFiles[buildError.Filename]
+
 		err = p.ProcessFix(sf, buildError)
 		if err != nil {
 			return 0, err
