@@ -81,7 +81,7 @@ func main() {
 				return nil
 			}
 
-			diff, err := fsRoot.GetUncommittedChanges()
+			diff, err := fsRoot.GetStagedChanges()
 
 			if err != nil {
 				return err
@@ -93,7 +93,7 @@ func main() {
 				return err
 			}
 
-			commitId, err := fsRoot.Commit(commitMessage)
+			commitId, err := fsRoot.Commit(commitMessage, false)
 
 			if err != nil {
 				return err
@@ -159,11 +159,29 @@ func processRepoStep(repoPath string) (changes int, err error) {
 		return nil
 	})
 
+	isDirty, err := fsRoot.IsDirty()
+
 	if err != nil {
 		return changes, err
 	}
 
-	commitId, err := fsRoot.Commit("TODOs added. I still don't support commit messages.")
+	if !isDirty {
+		return changes, nil
+	}
+
+	diff, err := fsRoot.GetUncommittedChanges()
+
+	if err != nil {
+		return changes, err
+	}
+
+	commitMessage, err := gpt.PrepareCommitMessage(diff)
+
+	if err != nil {
+		return changes, err
+	}
+
+	commitId, err := fsRoot.Commit(commitMessage, true)
 
 	if err != nil {
 		return changes, err
@@ -223,11 +241,13 @@ type FS interface {
 	// IsDirty returns true if there are uncommitted changes.
 	IsDirty() (bool, error)
 	// GetUncommittedChanges returns a string containing the uncommitted changes as a diff.
+	GetStagedChanges() (string, error)
+	// GetUncommittedChanges returns a string containing the uncommitted changes as a diff.
 	GetUncommittedChanges() (string, error)
 	// Checkout checks out the given commit.
 	Checkout(commit string) error
 	// Commit commits the changes with the given message.
-	Commit(message string) (commitId string, err error)
+	Commit(message string, addAll bool) (commitId string, err error)
 	// Push pushes the changes to the remote repository.
 	Push() error
 
@@ -274,6 +294,18 @@ func (g *gitFS) GetUncommittedChanges() (string, error) {
 	return string(bytes.TrimSpace(stdout)), nil
 }
 
+func (g *gitFS) GetStagedChanges() (string, error) {
+	cmd := exec.Command("git", "diff", "--cached")
+	cmd.Dir = g.path
+
+	stdout, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	return string(bytes.TrimSpace(stdout)), nil
+}
+
 func (g *gitFS) Push() error {
 	cmd := exec.Command("git", "push")
 	cmd.Dir = g.path
@@ -292,7 +324,7 @@ func (g *gitFS) Checkout(commit string) error {
 	return cmd.Run()
 }
 
-func (g *gitFS) Commit(message string) (commitId string, err error) {
+func (g *gitFS) Commit(message string, addAll bool) (commitId string, err error) {
 	cmd := exec.Command("git", "status", "--porcelain")
 	cmd.Dir = g.path
 
@@ -305,12 +337,14 @@ func (g *gitFS) Commit(message string) (commitId string, err error) {
 		return "", nil
 	}
 
-	cmd = exec.Command("git", "add", "-A")
-	cmd.Dir = g.path
+	if addAll {
+		cmd = exec.Command("git", "add", "-A")
+		cmd.Dir = g.path
 
-	err = cmd.Run()
-	if err != nil {
-		return "", err
+		err = cmd.Run()
+		if err != nil {
+			return "", err
+		}
 	}
 
 	cmd = exec.Command("git", "commit", "-m", message)
