@@ -40,6 +40,7 @@ func Parse(filename string, sourceCode string) (*SourceFile, error) {
 	return sf, nil
 }
 
+func (sf *SourceFile) Path() string            { return sf.name }
 func (sf *SourceFile) FileSet() *token.FileSet { return sf.dec.Fset }
 func (sf *SourceFile) Root() *Container        { return sf.root }
 func (sf *SourceFile) Error() error            { return sf.err }

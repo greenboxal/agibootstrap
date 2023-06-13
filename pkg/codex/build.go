@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
+	"github.com/greenboxal/agibootstrap/pkg/io"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -110,11 +111,23 @@ func (p *Project) processFixStep() (changes int, err error) {
 func (p *Project) ProcessFix(sf *psi.SourceFile, buildError *BuildError) error {
 	fmt.Printf("Fixing build error: %s\n", buildError.String())
 
-	p.ProcessNodes(sf, func(p *NodeProcessor) {
+	updated := p.ProcessNodes(sf, func(p *NodeProcessor) {
 		p.prepareObjective = func(p *NodeProcessor, ctx *FunctionContext) (string, error) {
 			return "Fix the following build error: " + buildError.String(), nil
 		}
 	})
+
+	// Convert the AST back to code
+	newCode, err := sf.ToCode(updated)
+	if err != nil {
+		return err
+	}
+
+	// Write the new code to a new file
+	err = io.WriteFile(sf.Path(), newCode)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
