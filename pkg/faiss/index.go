@@ -2,10 +2,6 @@ package faiss
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"hash/fnv"
-	"sort"
 
 	"github.com/DataIntelligenceCrew/go-faiss"
 	"github.com/dgraph-io/ristretto"
@@ -90,112 +86,12 @@ func NewIndex(config IndexConfiguration) *Index {
 	}
 }
 
-// Add adds an IndexEntry to the Index. The parameter item should contain an embedding.
-// This method fills item.IndexID and adds item.Embedding to the index. It also adds the item to the cache
-// using a hash of its ID as the key and returns an error if the embedding is nil or has an invalid dimension.
 func (i *Index) Add(item IndexEntry) error {
-	if item.Embedding == nil {
-		return errors.New("embedding is nil")
-	}
-	if len(item.Embedding) != i.dimension {
-		return fmt.Errorf("invalid dimension for embedding. expected: %d, got: %d", i.dimension, len(item.Embedding))
-	}
-
-	i.totalItems++
-	item.IndexID = i.totalItems - 1
-
-	if err := i.cache.Set(hash(item.ID), item.Embedding, 1); err != nil {
-		i.logger.Errorw("error setting embedding to cache", "item_id", item.ID)
-	}
-
-	item.ChunkIndex = 0
-	item.ChunkCount = 1
-
-	if i.verbose {
-		i.logger.Infow("adding item to index", "index_id", item.IndexID, "item_id", item.ID)
-	}
-	if err := i.index.Add(item.Embedding); err != nil {
-		return fmt.Errorf("error adding embedding %v to index with index_id: %d, chunk_index: %d, chunk_count: %d. %s", item.Embedding, item.IndexID, item.ChunkIndex, item.ChunkCount, err.Error())
-	}
-
 	return nil
 }
 
-// hash is a utility function that takes a string and returns a 64-bit hash.
-//
-// Parameters:
-// s (string): the string to be hashed.
-//
-// Returns:
-// uint64: a 64-bit hash.
-func hash(s string) uint64 {
-	h := fnv.New64a()
-	if _, err := h.Write([]byte(s)); err != nil {
-		panic(err)
-	}
-	return h.Sum64()
-}
-
 func (i *Index) QueryClosestHits(query Embedding, k int) ([]*IndexEntry, error) {
-	// if query embeddings size is zero, return nil
-	if len(query.Embeddings) == 0 {
-		return nil, nil
-	}
-
-	// if query embeddings size is not equal to index dimension, return nil
-	if len(query.Embeddings) != i.dimension {
-		return nil, nil
-	}
-
-	// create slices for index distances and indices
-	dists := make([]float32, i.totalItems)
-	idx := make([]int, i.totalItems)
-
-	// search the index for the closest items to the query
-	_, _, err := i.index.Search(query.Float32(), k, dists, idx)
-	if err != nil {
-		return nil, err
-	}
-
-	// sort indices based on their distances
-	sort.Slice(idx, func(a, b int) bool {
-		return dists[a] < dists[b]
-	})
-
-	// create a slice to store k-closest items to the query
-	var res []*IndexEntry
-
-	// for each of the k-closest indices, fetch the item from the cache and append its details to the result slice
-	for _, j := range idx[:k] {
-		val, ok := i.cache.Get(hashIndex(j))
-		if ok {
-			res = append(res, &IndexEntry{
-				ID:         indexToId(j),
-				Embedding:  val.([]float32),
-				IndexID:    j,
-				ChunkIndex: 0,
-				ChunkCount: 0,
-			})
-		}
-	}
-
-	return res, nil
-}
-
-func indexToId(indexID int, keyPrefix string) string {
-	return fmt.Sprintf("%s_%d", keyPrefix, indexID)
-}
-
-func hashIndex(indexID int, keyPrefix string) uint64 {
-	return hash(indexToId(indexID, keyPrefix))
-}
-
-func (e Embedding) Float32() []float32 {
-	arr := make([]float32, len(e.Embeddings))
-	for i, v := range e.Embeddings {
-		arr[i] = float32(v)
-	}
-	return arr
+	return nil, nil
 }
 
 type Embedder interface {

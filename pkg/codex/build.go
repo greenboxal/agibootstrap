@@ -1,13 +1,11 @@
 package codex
 
 import (
-	"errors"
 	"fmt"
 	"go/build"
 	"go/token"
 	"go/types"
 	"path"
-	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/tools/go/loader"
@@ -68,7 +66,7 @@ func (s *FixBuildStep) ProcessFix(p *Project, sf *psi.SourceFile, buildError *Bu
 
 	updated := p.ProcessNodes(sf, func(p *NodeProcessor) {
 		p.prepareObjective = func(p *NodeProcessor, ctx *FunctionContext) (string, error) {
-			return "Fix the following build error: " + buildError.String(), nil
+			return "Fix the following build error:\n\n# Error Log\n```log\n" + buildError.String() + "```", nil
 		}
 
 		p.checkShouldProcess = func(fn *FunctionContext, cursor *psi.Cursor) bool {
@@ -99,6 +97,7 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 	buildContext.Dir = p.rootPath
 
 	fset := token.NewFileSet()
+
 	pkgConfig := &packages.Config{
 		BuildFlags: []string{"-modfile", path.Join(p.rootPath, "go.mod"), "-mod=readonly"},
 		Mode:       packages.NeedName | packages.NeedFiles | packages.NeedTypes | packages.NeedSyntax | packages.NeedImports,
@@ -129,7 +128,6 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 	if err != nil {
 		return errs, err
 	}
-	pro = pro
 
 	// Iterate through every Go package in the project
 	for _, pkg := range pro.Imported {
@@ -152,29 +150,4 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 	}
 
 	return errs, nil
-}
-
-type ProjectPackageImporter struct {
-	Project *Project
-	Config  *packages.Config
-	Loader  *loader.Config
-}
-
-func (imp *ProjectPackageImporter) Import(filePath string) (*types.Package, error) {
-	if strings.HasPrefix(filePath, "github.com/greenboxal/aip/") {
-		filePath = strings.Replace(filePath, "github.com/greenboxal/aip/", "/Users/jonathanlima/IdeaProjects/aip/", 1)
-	}
-
-	// Load the package
-	pkgs, err := packages.Load(imp.Config, filePath)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if len(pkgs) != 1 {
-		return nil, errors.New("unexpected number of packages found")
-	}
-
-	return pkgs[0].Types, nil
 }
