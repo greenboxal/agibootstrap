@@ -94,7 +94,7 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 	return true
 }
 
-var hasPackageRegex = regexp.MustCompile(`^\s*package\s+([a-zA-Z0-9_]+)`)
+var hasPackageRegex = regexp.MustCompile(`^[ \t]*package\s+([a-zA-Z0-9_]+)`)
 var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#39;`)
 
 func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result dst.Node, err error) {

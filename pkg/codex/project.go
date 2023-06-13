@@ -63,7 +63,7 @@ func (p *Project) FS() repofs.FS { return p.fs }
 func (p *Project) Generate() (changes int, err error) {
 	steps := []BuildStep{
 		&CodeGenBuildStep{},
-		&FixImportsBuildStep{},
+		//&FixImportsBuildStep{},
 		&FixBuildStep{},
 	}
 
