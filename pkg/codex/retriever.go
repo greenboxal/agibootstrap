@@ -1,5 +1,5 @@
-//go:build prod
-// +build prod
+//go:build selfwip
+// +build selfwip
 
 package codex
 
@@ -11,8 +11,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
-type Retriever struct {
-}
+type Retriever struct{}
 
 var dummy dst.Node
 
@@ -24,7 +23,8 @@ func NewRetriever() *Retriever {
 func collectTypeRefs(node dst.Node, refs []*dst.Ident) []*dst.Ident {
 	switch x := node.(type) {
 	case *dst.Ident:
-		if x.Obj != nil && x.Obj.Kind == ast.Typ {
+		obj, ok := x.Obj.(*ast.Object)
+		if ok && obj != nil && obj.Kind == ast.Typ {
 			refs = append(refs, x)
 		}
 	case *dst.SelectorExpr:
@@ -90,10 +90,6 @@ func collectTypeRefs(node dst.Node, refs []*dst.Ident) []*dst.Ident {
 		for _, spec := range x.Specs {
 			refs = collectTypeRefs(spec, refs)
 		}
-	case *dst.InterfaceType:
-		for _, method := range x.Methods.List {
-			refs = collectTypeRefs(method.Type, refs)
-		}
 	}
 	return refs
 }
@@ -103,10 +99,9 @@ func (r *Retriever) Retrieve(root psi.Node) (interface{}, error) {
 	refs := []*dst.Ident{}
 
 	// Collect all type references
-	decorator.Walk(root.Ast().(*ast.File), func(node dst.Node) bool {
+	for _, node := range root.Ast().(*dst.File).Decls {
 		refs = collectTypeRefs(node, refs)
-		return true
-	})
+	}
 
 	return refs, nil
 }

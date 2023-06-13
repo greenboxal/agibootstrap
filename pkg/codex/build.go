@@ -11,7 +11,6 @@ import (
 	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/packages"
 
-	"github.com/greenboxal/agibootstrap/pkg/io"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -80,13 +79,7 @@ func (s *FixBuildStep) ProcessFix(p *Project, sf *psi.SourceFile, buildError *Bu
 		return err
 	}
 
-	// Write the new code to a new file
-	err = io.WriteFile(sf.Path(), newCode)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return sf.Replace(newCode)
 }
 
 // buildProject is responsible for analyzing the project and checking its types.
@@ -95,14 +88,14 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 	// Set up the build context
 	buildContext := build.Default
 	buildContext.Dir = p.rootPath
+	buildContext.BuildTags = []string{"selfwip", "psionly"}
 
 	fset := token.NewFileSet()
 
 	pkgConfig := &packages.Config{
-		BuildFlags: []string{"-modfile", path.Join(p.rootPath, "go.mod"), "-mod=readonly"},
-		Mode:       packages.NeedName | packages.NeedFiles | packages.NeedTypes | packages.NeedSyntax | packages.NeedImports,
-		Dir:        p.rootPath,
-		Fset:       fset,
+		Mode: packages.NeedName | packages.NeedFiles | packages.NeedTypes | packages.NeedSyntax | packages.NeedImports,
+		Dir:  p.rootPath,
+		Fset: fset,
 	}
 
 	// Get all packages in the project

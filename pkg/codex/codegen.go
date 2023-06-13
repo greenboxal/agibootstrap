@@ -10,7 +10,6 @@ import (
 	"github.com/zeroflucs-given/generics/collections/stack"
 	"golang.org/x/exp/slices"
 
-	"github.com/greenboxal/agibootstrap/pkg/io"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -57,10 +56,8 @@ func (p *Project) processFile(fsPath string, opts ...NodeProcessorOption) (int, 
 	}
 
 	if newCode != sf.OriginalText() {
-		// Write the new code to a new file
-		err = io.WriteFile(fsPath, newCode)
-		if err != nil {
-			return 0, err
+		if err := sf.Replace(newCode); err != nil {
+			return 0, nil
 		}
 
 		return 1, nil

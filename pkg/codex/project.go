@@ -1,13 +1,13 @@
 package codex
 
 import (
+	"go/token"
 	"io/fs"
 	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/io"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/vfs"
@@ -30,6 +30,8 @@ type Project struct {
 
 	files       map[string]*vfs.FileNode
 	sourceFiles map[string]*psi.SourceFile
+
+	fset *token.FileSet
 }
 
 func NewProject(rootPath string) (*Project, error) {
@@ -44,6 +46,7 @@ func NewProject(rootPath string) (*Project, error) {
 		fs:          root,
 		files:       map[string]*vfs.FileNode{},
 		sourceFiles: map[string]*psi.SourceFile{},
+		fset:        token.NewFileSet(),
 	}
 
 	if err := p.Sync(); err != nil {
@@ -173,15 +176,12 @@ func (p *Project) GetSourceFile(filename string) (_ *psi.SourceFile, err error) 
 	existing := p.sourceFiles[key]
 
 	if existing == nil {
-		existing = psi.NewSourceFile(filename)
+		existing = psi.NewSourceFile(p.fset, filename, repofs.FsFileHandle{
+			FS:   p.fs,
+			Path: strings.TrimPrefix(filename, p.rootPath+"/"),
+		})
 
-		sourceCode, err := io.ReadFile(filename)
-
-		if err != nil {
-			return nil, err
-		}
-
-		_, err = existing.Parse(filename, sourceCode)
+		err = existing.Load()
 
 		if err != nil {
 			return nil, err
