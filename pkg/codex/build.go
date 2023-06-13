@@ -95,7 +95,7 @@ func (p *Project) processFixStep() (changes int, err error) {
 		if err != nil {
 			return 0, err
 		}
-	
+
 		// Increase the count of changes made
 		changes++
 	}
