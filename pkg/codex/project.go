@@ -211,13 +211,13 @@ func (p *Project) processFixStep() (changes int, err error) {
 	}
 
 	// Iterate over each Go source file in the package
-	var errors []*Error
+	var errs []*BuildError
 	for _, file := range pkg.GoFiles {
 		// Parse the file
 		astFile, err := parser.ParseFile(fset, file, nil, parser.AllErrors)
 
 		if err != nil {
-			errors = append(errors, &Error{
+			errs = append(errs, &BuildError{
 				Filename: file,
 				Line:     0,
 				Column:   0,
@@ -234,44 +234,32 @@ func (p *Project) processFixStep() (changes int, err error) {
 		_, err = typeConfig.Check(pkg.ImportPath, fset, []*ast.File{astFile}, &info)
 
 		if err != nil {
-			errors = append(errors, &Error{
+			errs = append(errs, &BuildError{
 				Filename: file,
 				Line:     fset.Position(astFile.Pos()).Line,
 				Column:   fset.Position(astFile.Pos()).Column,
 				Error:    err,
 			})
-			// TODO: go build error - Fix this error handling
-			continue
 		}
 	}
 
-	if len(errors) > 0 {
-		errs := make([]string, len(errors))
-		for i, err := range errors {
-			errs[i] = fmt.Sprintf("%s:%d:%d: %v", err.Filename, err.Line, err.Column, err.Error)
+	if len(errs) > 0 {
+		strs := make([]string, len(errs))
+
+		for i, err := range errs {
+			strs[i] = fmt.Sprintf("%s:%d:%d: %v", err.Filename, err.Line, err.Column, err.Error)
 		}
-		return changes, fmt.Errorf("%d errors occurred during type checking: %v", len(errors), errs)
+		return changes, fmt.Errorf("%d errors occurred during type checking: %v", len(strs), errs)
 	}
 
 	return changes, nil
 }
 
-type Error struct {
+type BuildError struct {
 	Filename string
 	Line     int
 	Column   int
 	Error    error
-}
-
-// isValidParentType returns whether the given node is a valid parent node to search for an AST node
-// where a given error occurred.
-func isValidParentType(n ast.Node) bool {
-	switch n.(type) {
-	case *ast.GenDecl, *ast.FuncDecl, *ast.ValueSpec:
-		return true
-	default:
-		return false
-	}
 }
 
 func (p *Project) processGenerateStep() (changes int, err error) {
