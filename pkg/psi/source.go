@@ -5,6 +5,8 @@ import (
 	"errors"
 	"go/parser"
 	"go/token"
+	"html"
+	"strings"
 
 	"github.com/dave/dst"
 	"github.com/dave/dst/decorator"
@@ -48,6 +50,12 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result Node, er
 			}
 		}
 	}()
+
+	containsQuote := strings.Contains(sourceCode, "&#34;")
+
+	if containsQuote {
+		sourceCode = html.UnescapeString(sourceCode)
+	}
 
 	parsed, err := sf.dec.ParseFile(filename, sourceCode, parser.ParseComments)
 
