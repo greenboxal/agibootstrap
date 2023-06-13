@@ -182,8 +182,8 @@ func (i *Index) QueryClosestHits(query Embedding, k int) ([]*IndexEntry, error) 
 	return res, nil
 }
 
-func indexToId(indexID int) string {
-	return fmt.Sprintf("%s_%d", i.keyPrefix, indexID)
+func indexToId(indexID int, keyPrefix string) string {
+	return fmt.Sprintf("%s_%d", keyPrefix, indexID)
 }
 
 func hashIndex(indexID int) uint64 {
