@@ -86,84 +86,35 @@ func (p *Project) Generate() (changes int, err error) {
 }
 
 func (p *Project) processFixStep() (changes int, err error) {
-	// Execute goimports
 	for _, file := range p.files {
-		cmd := exec.Command("goimports", "-w", file)
-		err := cmd.Run()
+		opt := &imports.Options{
+			FormatOnly:  true,
+			AllErrors:   true,
+			Comments:    true,
+			TabIndent:   true,
+			TabWidth:    8,
+			Fragment:    false,
+			LeadingOnly: false,
+		}
+		code, err := os.ReadFile(file)
 		if err != nil {
 			return changes, err
 		}
-	}
 
-	// Build the project
-	cfg := &packages.Config{Mode: packages.LoadSyntax}
-	pkgs, err := packages.Load(cfg, fmt.Sprintf("./%s/...", filepath.Base(p.rootPath)))
-	if err != nil {
-		return changes, err
-	}
-
-	// Check for build errors and warnings
-	var errorBuffer bytes.Buffer
-	var warningBuffer bytes.Buffer
-	_, _ = fmt.Fprintln(&errorBuffer, "Build Errors:")
-	_, _ = fmt.Fprintln(&warningBuffer, "Build Warnings:")
-	var hasErrors bool
-	for _, pkg := range pkgs {
-		for _, err := range pkg.Errors {
-			isBuildTagError := false
-			for _, tag := range err.Tags {
-				if tag == buildtag.Bad {
-					isBuildTagError = true
-					break
-				}
-			}
-			if !isBuildTagError {
-				hasErrors = true
-				_, _ = fmt.Fprintln(&errorBuffer, err.Error())
-			}
-		}
-		for _, warn := range pkg.GoFilesWarned {
-			_, _ = fmt.Fprintln(&warningBuffer, warn.Error())
-		}
-	}
-
-	if hasErrors {
-		return changes, errors.New(errorBuffer.String())
-	}
-
-	if warningBuffer.Len() > 0 {
-		fmt.Println(warningBuffer.String())
-	}
-
-	// Re-format files
-	for _, file := range p.files {
-		err := formatFile(file)
+		newCode, err := imports.Process("", code, opt)
 		if err != nil {
 			return changes, err
 		}
-	}
 
-	return len(p.files), nil
-}
-
-// formatFile reformats a Go file using gofmt.
-func formatFile(file string) error {
-	fset := token.NewFileSet()
-	node, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
-	if err != nil {
-		return err
+		if string(newCode) != string(code) {
+			err = io.WriteFile(file, newCode)
+			if err != nil {
+				return changes, err
+			}
+			changes++
+		}
 	}
-	ast.SortImports(fset, node)
-	f, err := os.Create(file)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	err = format.Node(f, fset, node)
-	if err != nil {
-		return err
-	}
-	return nil
+	return changes, nil
 }
 
 func (p *Project) processGenerateStep() (changes int, err error) {
