@@ -44,6 +44,10 @@ func main() {
 
 			_, err = p.Generate()
 
+			if err != nil {
+				fmt.Printf("error: %s\n", err)
+			}
+
 			return err
 		},
 	}

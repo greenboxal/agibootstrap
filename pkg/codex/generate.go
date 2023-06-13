@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/dave/dst"
+	"github.com/hashicorp/go-multierror"
 	"github.com/zeroflucs-given/generics/collections/stack"
 	"golang.org/x/exp/slices"
 
@@ -19,23 +20,23 @@ func (p *Project) Generate() (changes int, err error) {
 		stepChanges, err := p.processGenerateStep()
 
 		if err != nil {
-			return changes, nil
+			return changes, err
 		}
 
 		importsChanges, err := p.processImportsStep()
 
 		if err != nil {
-			return changes, nil
+			return changes, err
 		}
 
-		//		fixChanges, err := p.processFixStep()
-		//
-		//		if err != nil {
-		//			return changes, nil
-		//		}
-		//
+		fixChanges, err := p.processFixStep()
+
+		if err != nil {
+			return changes, err
+		}
+
 		stepChanges += importsChanges
-		//stepChanges += fixChanges
+		stepChanges += fixChanges
 		changes += stepChanges
 
 		if stepChanges == 0 {
@@ -49,14 +50,18 @@ func (p *Project) Generate() (changes int, err error) {
 func (p *Project) processGenerateStep() (changes int, err error) {
 	for _, path := range p.files {
 		if filepath.Ext(path) == ".go" {
-			count, err := p.processFile(path)
+			count, e := p.processFile(path)
 
-			if err != nil {
-				return changes, err
+			if e != nil {
+				err = multierror.Append(err, e)
 			}
 
 			changes += count
 		}
+	}
+
+	if err != nil {
+		return
 	}
 
 	isDirty, err := p.fs.IsDirty()
@@ -92,6 +97,8 @@ func (p *Project) processGenerateStep() (changes int, err error) {
 }
 
 func (p *Project) processFile(fsPath string, opts ...NodeProcessorOption) (int, error) {
+	fmt.Printf("Processing file %s\n", fsPath)
+
 	// Read the file
 	code, err := os.ReadFile(fsPath)
 	if err != nil {

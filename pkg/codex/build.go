@@ -34,7 +34,10 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 	buildContext := build.Default
 
 	// Get all packages in the project
-	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedTypes | packages.NeedSyntax, Dir: p.rootPath}, path.Join(p.rootPath, "..."))
+	pkgs, err := packages.Load(&packages.Config{
+		Mode: packages.NeedTypes | packages.NeedSyntax,
+		Dir:  p.rootPath,
+	}, path.Join(p.rootPath, "..."))
 
 	if err != nil {
 		return errs, err
@@ -142,9 +145,10 @@ func (p *Project) ProcessFix(sf *psi.SourceFile, buildError *BuildError) error {
 }
 
 func (p *Project) Import(path string) (*types.Package, error) {
-	// TODO: Support go.mod replaces
+	// Load the package
 	pkgs, err := packages.Load(&packages.Config{
 		Mode: packages.NeedTypes | packages.NeedSyntax | packages.NeedImports,
+		Dir:  p.rootPath,
 	}, path)
 
 	if err != nil {

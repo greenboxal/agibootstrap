@@ -27,11 +27,17 @@ func NewProject(rootPath string) (*Project, error) {
 		return nil, err
 	}
 
-	return &Project{
+	p := &Project{
 		rootPath:    rootPath,
 		fs:          root,
 		sourceFiles: map[string]*psi.SourceFile{},
-	}, nil
+	}
+
+	if err := p.Sync(); err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 func (p *Project) RootPath() string { return p.rootPath }
