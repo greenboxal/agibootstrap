@@ -11,8 +11,8 @@ require (
 	github.com/DataIntelligenceCrew/go-faiss v0.2.0
 	github.com/dave/dst v0.27.2
 	github.com/google/uuid v1.3.0
-	github.com/greenboxal/aip/aip-controller v0.0.0-20230613173034-f6ef16d56a66
-	github.com/greenboxal/aip/aip-langchain v0.0.0-20230613173034-f6ef16d56a66
+	github.com/greenboxal/aip/aip-controller v0.0.0-20230613210128-ceee04e39305
+	github.com/greenboxal/aip/aip-langchain v0.0.0-20230613210128-ceee04e39305
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/pkg/errors v0.9.1
@@ -45,8 +45,8 @@ require (
 	github.com/graph-gophers/dataloader v5.0.0+incompatible // indirect
 	github.com/graphql-go/graphql v0.8.1 // indirect
 	github.com/graphql-go/handler v0.2.3 // indirect
-	github.com/greenboxal/aip/aip-forddb v0.0.0-20230613173034-f6ef16d56a66 // indirect
-	github.com/greenboxal/aip/aip-sdk v0.0.0-20230613173034-f6ef16d56a66 // indirect
+	github.com/greenboxal/aip/aip-forddb v0.0.0-20230613210128-ceee04e39305 // indirect
+	github.com/greenboxal/aip/aip-sdk v0.0.0-20230613210128-ceee04e39305 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfs/go-cid v0.4.1 // indirect

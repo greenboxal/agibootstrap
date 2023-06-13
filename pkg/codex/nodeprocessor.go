@@ -94,8 +94,8 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 	return true
 }
 
-var hasPackageRegex = regexp.MustCompile(`^[ \t]*package\s+([a-zA-Z0-9_]+)`)
-var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#39;`)
+var hasPackageRegex = regexp.MustCompile(`(?m)^.*package\s+([a-zA-Z0-9_]+)\n`)
+var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`)
 
 func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result dst.Node, err error) {
 	stepRoot := cursor.Element()
@@ -159,10 +159,7 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 		}
 
 		patchedCode := block.Code
-
-		if !hasPackageRegex.MatchString(block.Code) {
-			patchedCode = fmt.Sprintf("package %s\n\n%s", "gptimport", block.Code)
-		}
+		patchedCode = hasPackageRegex.ReplaceAllString(patchedCode, "package gptimport\n")
 
 		// Parse the generated code into an AST
 		newRoot, e := p.SourceFile.Parse(blockName, patchedCode)
@@ -171,11 +168,16 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 			if errList, ok := e.(scanner.ErrorList); ok {
 				if len(errList) == 1 && strings.HasPrefix(errList[0].Msg, "expected declaration, ") {
 					patchedCode = fmt.Sprintf("package gptimport_orphan\nfunc orphanSnippet%d() {\n%s\n}\n", i, block.Code)
-					newRoot, e = p.SourceFile.Parse(blockName, patchedCode)
-				}
-			}
+					newRoot2, e2 := p.SourceFile.Parse(blockName, patchedCode)
 
-			if e != nil {
+					if e2 != nil {
+						err = multierror.Append(err, e)
+						continue
+					}
+
+					newRoot = newRoot2
+				}
+			} else if e != nil {
 				err = multierror.Append(err, e)
 				continue
 			}
