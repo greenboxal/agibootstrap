@@ -67,6 +67,10 @@ func (p *Project) Generate() (changes int, err error) {
 	for {
 		stepChanges := 0
 
+		if err := p.Sync(); err != nil {
+			return changes, err
+		}
+
 		for _, step := range steps {
 			processWrapped := func() (result BuildStepResult, err error) {
 				defer func() {
@@ -142,18 +146,6 @@ func (p *Project) Sync() (err error) {
 		return nil
 	})
 
-	if err != nil {
-		return err
-	}
-
-	for _, file := range p.files {
-		_, err := p.GetSourceFile(file.Path)
-
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -211,6 +203,11 @@ func (p *Project) ImportFile(path string) error {
 	file := vfs.NewFileNode(absPath)
 
 	p.files[file.Key] = file
+	p.sourceFiles[file.Key] = nil
+
+	if _, err := p.GetSourceFile(file.Path); err != nil {
+		return err
+	}
 
 	return nil
 }
