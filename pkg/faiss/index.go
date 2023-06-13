@@ -93,7 +93,6 @@ func NewIndex(config IndexConfiguration) *Index {
 // Add adds an IndexEntry to the Index. The parameter item should contain an embedding.
 // This method fills item.IndexID and adds item.Embedding to the index. It also adds the item to the cache
 // using a hash of its ID as the key and returns an error if the embedding is nil or has an invalid dimension.
-// If the number of items in the index is equal to i.batchSize, it triggers a call to i.trainIndex().
 func (i *Index) Add(item IndexEntry) error {
 	if item.Embedding == nil {
 		return errors.New("embedding is nil")
@@ -119,10 +118,6 @@ func (i *Index) Add(item IndexEntry) error {
 		return fmt.Errorf("error adding embedding %v to index with index_id: %d, chunk_index: %d, chunk_count: %d. %s", item.Embedding, item.IndexID, item.ChunkIndex, item.ChunkCount, err.Error())
 	}
 
-	if i.totalItems%i.batchSize == 0 {
-		//TODO: The method trainIndex doesn't exist
-		return nil
-	}
 	return nil
 }
 
