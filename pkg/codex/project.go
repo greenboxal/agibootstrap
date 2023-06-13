@@ -1,6 +1,8 @@
 package codex
 
-import "github.com/greenboxal/agibootstrap/pkg/repofs"
+import (
+	"github.com/greenboxal/agibootstrap/pkg/repofs"
+)
 
 // A Project is the root of a codex project.
 // It contains all the information about the project.
@@ -10,11 +12,17 @@ type Project struct {
 	fs       repofs.FS
 }
 
-func NewProject(rootPath string) *Project {
+func NewProject(rootPath string) (*Project, error) {
+	fs, err := repofs.NewFS(rootPath)
+
+	if err != nil {
+		return nil, err
+	}
+
 	return &Project{
 		rootPath: rootPath,
-		fs:       repofs.NewOSFS(rootPath),
-	}
+		fs:       fs,
+	}, nil
 }
 
 func (p *Project) RootPath() string { return p.rootPath }
@@ -22,35 +30,20 @@ func (p *Project) RootPath() string { return p.rootPath }
 func (p *Project) FS() repofs.FS { return p.fs }
 
 func (p *Project) Sync() error {
-	rootNode, err := psi.NewDirectoryNode(p.fs, "")
+	p.files = []string{}
+	err := p.fs.Walk(p.rootPath, func(path string, info repofs.FileInfo, err error) error {
+		if isGoFile(path) {
+			p.files = append(p.files, path)
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
 
-	err = repofs.Walk(p.fs, "/", func(path string, info repofs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	return nil
+}
 
-		relPath, err := filepath.Rel("/", path)
-		if err != nil {
-			return err
-		}
-
-		if info.IsDir() {
-			err = psi.CreateDirectoryNode(rootNode, strings.Split(relPath, "/")...)
-			if err != nil {
-				return err
-			}
-		} else {
-			err = psi.CreateFileNode(rootNode, strings.Split(relPath, "/")...)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-
-	return err
+func isGoFile(path string) bool {
+	return filepath.Ext(path) == ".go"
 }
