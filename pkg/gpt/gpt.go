@@ -56,8 +56,9 @@ var embedder = &openai.Embedder{
 	Model:  openai.AdaEmbeddingV2,
 }
 var model = &openai.ChatLanguageModel{
-	Client: oai,
-	Model:  "gpt-3.5-turbo",
+	Client:      oai,
+	Model:       "gpt-3.5-turbo",
+	Temperature: 0.7,
 }
 
 var contentChain = chain.New(
@@ -117,8 +118,8 @@ type Session struct {
 }
 
 func NewSession() *Session {
-	// TODO: Implement a Session type that can be used to store the context of a conversation.
-	// TODO: It should include (and replace) the globals `oai`, `embedder`, and `model` that are defined above.
+	// T2ODO: Implement a Session type that can be used to store the context of a conversation.
+	// T2ODO: It should include (and replace) the globals `oai`, `embedder`, and `model` that are defined above.
 
 	return nil
 }
