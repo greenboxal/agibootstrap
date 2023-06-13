@@ -103,35 +103,35 @@ func SendToGPT(objectives, promptContext, target string) (string, error) {
 	return codeOutput, nil
 }
 
-func Summarize(objective, document string) (string, error) {
-	const summarizerPromptTemplate = `
-Generate a summary of the document:
-
-Objective: {{ .Objective }}
-Document: {{ .Document }}
-`
-
-	ctx := context.Background()
-	cctx := chain.NewChainContext(ctx)
-
-	cctx.SetInput(ObjectiveKey, objective)
-	cctx.SetInput(DocumentKey, document)
-
-	summarizerChain := chain.Sequential(
-		chat.Predict(
-			model,
-			chat.ComposeTemplate(summarizerPromptTemplate, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey)),
-		),
-	)
-
-	if err := summarizerChain.Run(cctx); err != nil {
-		return "", err
-	}
-
-	result := chain.Output(cctx, chat.ChatReplyContextKey)
-	reply := result.Entries[0].Text
-	return reply, nil
-}
+//func Summarize(objective, document string) (string, error) {
+//	const summarizerPromptTemplate = `
+//Generate a summary of the document:
+//
+//Objective: {{ .Objective }}
+//Document: {{ .Document }}
+//`
+//
+//	ctx := context.Background()
+//	cctx := chain.NewChainContext(ctx)
+//
+//	cctx.SetInput(ObjectiveKey, objective)
+//	cctx.SetInput(DocumentKey, document)
+//
+//	summarizerChain := chain.Sequential(
+//		chat.Predict(
+//			model,
+//			chat.ComposeTemplate(summarizerPromptTemplate, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey)),
+//		),
+//	)
+//
+//	if err := summarizerChain.Run(cctx); err != nil {
+//		return "", err
+//	}
+//
+//	result := chain.Output(cctx, chat.ChatReplyContextKey)
+//	reply := result.Entries[0].Text
+//	return reply, nil
+//}
 
 func FormatMarkdown(node ast.Node) []byte {
 	return markdown.Render(node, md.NewRenderer())

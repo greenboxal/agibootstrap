@@ -9,7 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/greenboxal/agibootstrap/pkg/codex"
+	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/io"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -27,11 +30,27 @@ func main() {
 	}
 
 	var generateCmd = &cobra.Command{
-		Use:   "generate",
+		Use:   "generate [repo path]",
 		Short: "Generate a new file",
 		Long:  "This command generates a new file.",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Generating a new file...")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			wd, err := os.Getwd()
+
+			if err != nil {
+				return err
+			}
+
+			if len(args) > 0 {
+				wd = args[0]
+			}
+
+			_, err = proceseRepo(wd)
+
+			if err != nil {
+				return err
+			}
+
+			return nil
 		},
 	}
 
@@ -39,36 +58,82 @@ func main() {
 		Use:   "commit",
 		Short: "Commit current staged changes with automatic commit message.",
 		Long:  "This command commits current staged changes with automatic commit message.",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Committing current staged changes with automatic commit message...")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			wd, err := os.Getwd()
+
+			if err != nil {
+				return err
+			}
+
+			fsRoot, err := NewFS(wd)
+
+			if err != nil {
+				return err
+			}
+
+			isDirty, err := fsRoot.IsDirty()
+
+			if err != nil {
+				return err
+			}
+
+			if !isDirty {
+				return nil
+			}
+
+			diff, err := fsRoot.GetUncommittedChanges()
+
+			if err != nil {
+				return err
+			}
+
+			commitMessage, err := gpt.PrepareCommitMessage(diff)
+
+			if err != nil {
+				return err
+			}
+
+			commitId, err := fsRoot.Commit(commitMessage)
+
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Changes committed with commit ID %s\n", commitId)
+
+			return nil
 		},
 	}
 
 	rootCmd.AddCommand(initCmd, generateCmd, commitCmd)
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		_, _ = fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(1)
 	}
 
-	// Get a list of all Go files in the current directory and subdirectories
-	repoPath := os.Args[1] // Passed as an argument
-
-	for {
-		changes, err := processRepo(repoPath)
-
-		if err != nil {
-			fmt.Printf("Error walking the path %v: %v\n", ".", err)
-			os.Exit(-1)
-		}
-
-		if changes == 0 {
-			break
-		}
-	}
+	os.Exit(0)
 }
 
-func processRepo(repoPath string) (changes int, err error) {
+func proceseRepo(repoPath string) (changes int, err error) {
+	for {
+		stepChanges, err := processRepoStep(repoPath)
+
+		if err != nil {
+			return changes, nil
+		}
+
+		if stepChanges == 0 {
+			break
+		}
+
+		changes += stepChanges
+	}
+
+	return
+}
+
+func processRepoStep(repoPath string) (changes int, err error) {
 	fsRoot, err := NewFS(repoPath)
 
 	if err != nil {
@@ -198,7 +263,7 @@ func (g *gitFS) IsDirty() (bool, error) {
 }
 
 func (g *gitFS) GetUncommittedChanges() (string, error) {
-	cmd := exec.Command("git", "status", "--porcelain")
+	cmd := exec.Command("git", "diff")
 	cmd.Dir = g.path
 
 	stdout, err := cmd.Output()
