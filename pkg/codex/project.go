@@ -11,7 +11,6 @@ type Project struct {
 }
 
 func NewProject(rootPath string) *Project {
-	// TODO: Implement
 	return &Project{
 		rootPath: rootPath,
 		fs:       repofs.NewOSFS(rootPath),
@@ -23,11 +22,35 @@ func (p *Project) RootPath() string { return p.rootPath }
 func (p *Project) FS() repofs.FS { return p.fs }
 
 func (p *Project) Sync() error {
-	// TODO: Scan all files in the project and update the project's internal state.
-	// TODO: It should create psi.FileNode and psi.DirectoryNode objects for each file and directory.
 	rootNode, err := psi.NewDirectoryNode(p.fs, "")
 	if err != nil {
 		return err
 	}
-	return rootNode.Sync()
+
+	err = repofs.Walk(p.fs, "/", func(path string, info repofs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relPath, err := filepath.Rel("/", path)
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			err = psi.CreateDirectoryNode(rootNode, strings.Split(relPath, "/")...)
+			if err != nil {
+				return err
+			}
+		} else {
+			err = psi.CreateFileNode(rootNode, strings.Split(relPath, "/")...)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	return err
 }
