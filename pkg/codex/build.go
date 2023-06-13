@@ -115,6 +115,10 @@ func (p *Project) ProcessFix(sf *psi.SourceFile, buildError *BuildError) error {
 		p.prepareObjective = func(p *NodeProcessor, ctx *FunctionContext) (string, error) {
 			return "Fix the following build error: " + buildError.String(), nil
 		}
+
+		p.checkShouldProcess = func(fn *FunctionContext, cursor *psi.Cursor) bool {
+			return true
+		}
 	})
 
 	// Convert the AST back to code

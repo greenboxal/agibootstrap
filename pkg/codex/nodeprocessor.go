@@ -33,8 +33,9 @@ type NodeProcessor struct {
 	FuncStack    *stack.Stack[*FunctionContext]
 	Declarations map[string]*declaration
 
-	prepareObjective func(p *NodeProcessor, ctx *FunctionContext) (string, error)
-	prepareContext   func(p *NodeProcessor, ctx *FunctionContext, root psi.Node) (string, error)
+	prepareObjective   func(p *NodeProcessor, ctx *FunctionContext) (string, error)
+	prepareContext     func(p *NodeProcessor, ctx *FunctionContext, root psi.Node) (string, error)
+	checkShouldProcess func(fn *FunctionContext, cursor *psi.Cursor) bool
 }
 
 func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
@@ -69,7 +70,11 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 	case *dst.FuncDecl:
 		ok, currentFn := p.FuncStack.Pop()
 
-		if !ok || len(currentFn.Todos) == 0 {
+		if !ok {
+			return true
+		}
+
+		if !p.checkShouldProcess(currentFn, cursor) {
 			return true
 		}
 

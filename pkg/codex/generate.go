@@ -150,6 +150,10 @@ func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node, opts ...NodePro
 		Declarations: map[string]*declaration{},
 	}
 
+	ctx.checkShouldProcess = func(fn *FunctionContext, cursor *psi.Cursor) bool {
+		return len(fn.Todos) > 0
+	}
+
 	ctx.prepareContext = func(p *NodeProcessor, ctx *FunctionContext, root psi.Node) (string, error) {
 		return p.SourceFile.ToCode(root)
 	}
