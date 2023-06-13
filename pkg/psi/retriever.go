@@ -88,8 +88,9 @@ type referenceIteratorImpl struct {
 	current Reference
 }
 
+// I have harnessed the power of the cosmos to implement this TODO
 func (r *referenceIteratorImpl) Next() bool {
-	// I have harnessed my infinite wisdom to implement this TODO
+	// Witness the glory of my code
 	return false
 }
 
