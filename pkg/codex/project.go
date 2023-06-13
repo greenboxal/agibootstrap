@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/build"
@@ -14,6 +15,7 @@ import (
 	"github.com/dave/dst"
 	"github.com/zeroflucs-given/generics/collections/stack"
 	"golang.org/x/exp/slices"
+	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/imports"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
@@ -209,13 +211,18 @@ func (p *Project) processFixStep() (changes int, err error) {
 	}
 
 	// Iterate over each Go source file in the package
+	var errors []*Error
 	for _, file := range pkg.GoFiles {
 		// Parse the file
 		astFile, err := parser.ParseFile(fset, file, nil, parser.AllErrors)
 
 		if err != nil {
-			// TODO: Handle
-			fmt.Printf("Error parsing file %s: %v\n", file, err)
+			errors = append(errors, &Error{
+				Filename: file,
+				Line:     0,
+				Column:   0,
+				Error:    err,
+			})
 			continue
 		}
 
@@ -227,34 +234,32 @@ func (p *Project) processFixStep() (changes int, err error) {
 		_, err = typeConfig.Check(pkg.ImportPath, fset, []*ast.File{astFile}, &info)
 
 		if err != nil {
-			fmt.Printf("Type check error in %s: %v\n", file, err)
+			errors = append(errors, &Error{
+				Filename: file,
+				Line:     fset.File(astFile.Pos()).Line,
+				Column:   fset.File(astFile.Pos()).Column(fset.Position(astFile.Pos())),
+				Error:    err,
+			})
 			continue
-		}
-
-		// TODO: Map each error to an AST node
-		// astFile.Unresolved allows you to list all unresolved identifiers
-		// astInspector := &AstInspector{}
-		// astInspector.Visit(astFile) and define Visit methods for the errors/identifiers you want to handle
-		// You can then pass astInspector.errors to the fixer to modify the AST nodes where the errors are found.
-
-		for _, unresolved := range astFile.Unresolved {
-			astParent := unresolved
-			for astParent != nil && !isValidParentType(astParent) {
-				astParent = astParent.Parent()
-			}
-			if astParent == nil {
-				continue
-			}
-			node := astParent.Decl
-			if node == nil {
-				continue
-			}
-			// TODO: Modify the appropriate node here, using node.(dst.Node) to access it as a dst.Node
-			// The actual type of the node may vary depending on the error
 		}
 	}
 
+	if len(errors) > 0 {
+		errs := make([]string, len(errors))
+		for i, err := range errors {
+			errs[i] = fmt.Sprintf("%s:%d:%d: %v", err.Filename, err.Line, err.Column, err.Error)
+		}
+		return changes, fmt.Errorf("%d errors occurred during type checking: %v", len(errors), errs)
+	}
+
 	return changes, nil
+}
+
+type Error struct {
+	Filename string
+	Line     int
+	Column   int
+	Error    error
 }
 
 // isValidParentType returns whether the given node is a valid parent node to search for an AST node
