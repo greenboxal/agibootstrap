@@ -6,6 +6,7 @@ import (
 	"go/build"
 	"go/types"
 	"path"
+	"strings"
 
 	"golang.org/x/tools/go/packages"
 
@@ -71,6 +72,10 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 			}
 
 			if err, ok := err.(types.Error); ok {
+				if !strings.HasPrefix(pkg.PkgPath, buildError.Filename) {
+					continue
+				}
+
 				buildError.Filename = err.Fset.File(err.Pos).Name()
 				buildError.Line = err.Fset.File(err.Pos).Line(err.Pos)
 				buildError.Column = err.Fset.File(err.Pos).Offset(err.Pos)
