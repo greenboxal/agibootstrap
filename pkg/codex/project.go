@@ -9,6 +9,7 @@ import (
 	"github.com/dave/dst"
 	"github.com/zeroflucs-given/generics/collections/stack"
 	"golang.org/x/exp/slices"
+	"golang.org/x/tools/imports"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/io"
@@ -88,29 +89,33 @@ func (p *Project) Generate() (changes int, err error) {
 func (p *Project) processFixStep() (changes int, err error) {
 	for _, file := range p.files {
 		opt := &imports.Options{
-			FormatOnly:  true,
-			AllErrors:   true,
-			Comments:    true,
-			TabIndent:   true,
-			TabWidth:    8,
-			Fragment:    false,
-			LeadingOnly: false,
+			FormatOnly: false,
+			AllErrors:  true,
+			Comments:   true,
+			TabIndent:  true,
+			TabWidth:   4,
+			Fragment:   false,
 		}
+
 		code, err := os.ReadFile(file)
+
 		if err != nil {
 			return changes, err
 		}
 
-		newCode, err := imports.Process("", code, opt)
+		newCode, err := imports.Process(file, code, opt)
+
 		if err != nil {
 			return changes, err
 		}
 
 		if string(newCode) != string(code) {
-			err = io.WriteFile(file, newCode)
+			err = io.WriteFile(file, string(newCode))
+
 			if err != nil {
 				return changes, err
 			}
+
 			changes++
 		}
 	}
