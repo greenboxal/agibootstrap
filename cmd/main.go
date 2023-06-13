@@ -15,6 +15,42 @@ import (
 )
 
 func main() {
+	var rootCmd = &cobra.Command{Use: "app"}
+
+	var initCmd = &cobra.Command{
+		Use:   "init",
+		Short: "Initialize a new project",
+		Long:  "This command initializes a new project.",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Initializing a new project...")
+		},
+	}
+
+	var generateCmd = &cobra.Command{
+		Use:   "generate",
+		Short: "Generate a new file",
+		Long:  "This command generates a new file.",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Generating a new file...")
+		},
+	}
+
+	var commitCmd = &cobra.Command{
+		Use:   "commit",
+		Short: "Commit current staged changes with automatic commit message.",
+		Long:  "This command commits current staged changes with automatic commit message.",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Committing current staged changes with automatic commit message...")
+		},
+	}
+
+	rootCmd.AddCommand(initCmd, generateCmd, commitCmd)
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
 	// Get a list of all Go files in the current directory and subdirectories
 	repoPath := os.Args[1] // Passed as an argument
 
