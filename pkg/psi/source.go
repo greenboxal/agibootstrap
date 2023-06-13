@@ -5,65 +5,43 @@ import (
 	"errors"
 	"go/parser"
 	"go/token"
-	"html"
-	"strings"
 
 	"github.com/dave/dst"
 	"github.com/dave/dst/decorator"
 )
 
 type SourceFile struct {
-	name   string
-	dec    *decorator.Decorator
+	name string
+	dec  *decorator.Decorator
+	fset *token.FileSet
+
+	root   Node
 	parsed *dst.File
 	err    error
 
-	root *Container
+	original string
 }
 
 func NewSourceFile(name string) *SourceFile {
-	return &SourceFile{
+	sf := &SourceFile{
 		name: name,
-		dec:  decorator.NewDecorator(token.NewFileSet()),
-	}
-}
-
-func Parse(filename string, sourceCode string) (*SourceFile, error) {
-	sf := NewSourceFile(filename)
-
-	_, err := sf.Parse(filename, sourceCode)
-
-	if err != nil {
-		return nil, err
 	}
 
-	return sf, nil
+	sf.fset = token.NewFileSet()
+	sf.dec = decorator.NewDecorator(sf.fset)
+
+	return sf
 }
 
 func (sf *SourceFile) Decorator() *decorator.Decorator { return sf.dec }
 func (sf *SourceFile) Path() string                    { return sf.name }
-func (sf *SourceFile) FileSet() *token.FileSet         { return sf.dec.Fset }
-func (sf *SourceFile) Root() *Container                { return sf.root }
+func (sf *SourceFile) FileSet() *token.FileSet         { return sf.fset }
+func (sf *SourceFile) OriginalText() string            { return sf.original }
+func (sf *SourceFile) Root() Node                      { return sf.root }
 func (sf *SourceFile) Error() error                    { return sf.err }
 
 func (sf *SourceFile) Parse(filename string, sourceCode string) (result Node, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			if e, ok := r.(error); ok {
-				err = e
-			} else {
-				err = r.(error)
-			}
-		}
-	}()
-
-	containsQuote := strings.Contains(sourceCode, "&#34;")
-
-	if containsQuote {
-		sourceCode = html.UnescapeString(sourceCode)
-	}
-
-	parsed, err := sf.dec.ParseFile(filename, sourceCode, parser.ParseComments)
+	parsed, err := decorator.ParseFile(sf.fset, filename, sourceCode, parser.ParseComments)
 
 	sf.parsed = parsed
 	sf.err = err
@@ -72,9 +50,10 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result Node, er
 		return nil, err
 	}
 
-	node := convertNode(parsed, sf).(*Container)
+	node := convertNode(parsed, sf)
 
 	if sf.root == nil {
+		sf.original = sourceCode
 		sf.root = node
 	}
 
@@ -84,10 +63,10 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result Node, er
 func (sf *SourceFile) ToCode(node Node) (string, error) {
 	var buf bytes.Buffer
 
-	f, ok := node.Node().(*dst.File)
+	f, ok := node.Ast().(*dst.File)
 
 	if !ok {
-		decl, ok := node.Node().(dst.Decl)
+		decl, ok := node.Ast().(dst.Decl)
 
 		if !ok {
 			return "", errors.New("node is not a file or decl")

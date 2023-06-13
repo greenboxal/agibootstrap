@@ -3,12 +3,11 @@ package psi
 import (
 	"github.com/dave/dst"
 	"github.com/dave/dst/dstutil"
-	"github.com/google/uuid"
 	"github.com/zeroflucs-given/generics/collections/stack"
 )
 
 type Container struct {
-	nodeBase
+	NodeBase
 
 	node     dst.Node
 	comments []string
@@ -17,10 +16,10 @@ type Container struct {
 func (c *Container) IsContainer() bool  { return true }
 func (c *Container) IsLeaf() bool       { return false }
 func (c *Container) Comments() []string { return c.comments }
-func (c *Container) Node() dst.Node     { return c.node }
+func (c *Container) Ast() dst.Node      { return c.node }
 
 type Leaf struct {
-	nodeBase
+	NodeBase
 
 	node     dst.Node
 	comments []string
@@ -28,11 +27,11 @@ type Leaf struct {
 
 func (f *Leaf) IsContainer() bool  { return false }
 func (f *Leaf) IsLeaf() bool       { return true }
-func (f *Leaf) Node() dst.Node     { return f.node }
+func (f *Leaf) Ast() dst.Node      { return f.node }
 func (f *Leaf) Comments() []string { return f.comments }
 
 func convertNode(root dst.Node, sf *SourceFile) (result Node) {
-	containerStack := stack.NewStack[*Container](16)
+	containerStack := stack.NewStack[Node](16)
 
 	dstutil.Apply(root, func(cursor *dstutil.Cursor) bool {
 		node := cursor.Node()
@@ -46,8 +45,8 @@ func convertNode(root dst.Node, sf *SourceFile) (result Node) {
 		wrapped := wrapNode(node)
 		wrapped.setParent(parent)
 
-		if c, ok := wrapped.(*Container); ok {
-			if err := containerStack.Push(c); err != nil {
+		if wrapped.IsContainer() {
+			if err := containerStack.Push(wrapped.(*Container)); err != nil {
 				panic(err)
 			}
 		}
@@ -57,7 +56,7 @@ func convertNode(root dst.Node, sf *SourceFile) (result Node) {
 		node := cursor.Node()
 		hasParent, parent := containerStack.Peek()
 
-		if hasParent && parent.node == node {
+		if hasParent && parent.Ast() == node {
 			_, result = containerStack.Pop()
 		}
 
@@ -68,7 +67,7 @@ func convertNode(root dst.Node, sf *SourceFile) (result Node) {
 }
 
 func Clone(n Node) Node {
-	return wrapNode(cloneTree(n.Node()))
+	return wrapNode(cloneTree(n.Ast()))
 }
 
 func wrapNode(node dst.Node) Node {
@@ -95,8 +94,7 @@ func buildContainer(node dst.Node) *Container {
 		node: node,
 	}
 
-	c.self = c
-	c.uuid = uuid.New().String()
+	c.Initialize(c)
 
 	_, _, dec := dstutil.Decorations(node)
 
@@ -112,8 +110,7 @@ func buildLeaf(node dst.Node) *Leaf {
 		node: node,
 	}
 
-	l.self = l
-	l.uuid = uuid.New().String()
+	l.Initialize(l)
 
 	_, _, dec := dstutil.Decorations(node)
 

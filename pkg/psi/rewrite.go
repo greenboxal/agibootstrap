@@ -9,20 +9,20 @@ type ApplyFunc func(*Cursor) bool
 
 type Cursor struct {
 	*dstutil.Cursor
-	node      Node
-	container *Container
+	node   Node
+	parent Node
 }
 
-func (c *Cursor) Element() Node         { return c.node }
-func (c *Cursor) Container() *Container { return c.container }
+func (c *Cursor) Element() Node { return c.node }
+func (c *Cursor) Parent() Node  { return c.parent }
 
 func Apply(root Node, pre, post ApplyFunc) (result Node) {
 	c := &Cursor{}
 	refMap := make(map[dst.Node]Node)
 
-	refMap[root.Node()] = root
+	refMap[root.Ast()] = root
 
-	return wrapNode(dstutil.Apply(root.Node(), func(cursor *dstutil.Cursor) bool {
+	return wrapNode(dstutil.Apply(root.Ast(), func(cursor *dstutil.Cursor) bool {
 		node := cursor.Node()
 
 		if node == nil {
@@ -38,11 +38,11 @@ func Apply(root Node, pre, post ApplyFunc) (result Node) {
 		c.Cursor = cursor
 		c.node = n
 
-		if n, ok := n.(*Container); ok {
-			c.container = n
+		if n.IsContainer() {
+			c.parent = n
 
 			for _, child := range n.Children() {
-				refMap[child.Node()] = child
+				refMap[child.Ast()] = child
 			}
 		}
 
@@ -67,9 +67,9 @@ func Apply(root Node, pre, post ApplyFunc) (result Node) {
 		c.Cursor = cursor
 		c.node = n
 
-		if c.container != nil {
-			if c.container == n {
-				c.container = c.container.Parent()
+		if c.parent != nil {
+			if c.parent == n {
+				c.parent = c.parent.Parent()
 			}
 		}
 
