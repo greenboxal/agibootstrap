@@ -143,7 +143,7 @@ func (p *Project) ProcessFix(sf *psi.SourceFile, buildError *BuildError) error {
 
 func (p *Project) Import(path string) (*types.Package, error) {
 	pkgs, err := packages.Load(&packages.Config{
-		Mode: packages.LoadTypes,
+		Mode: packages.NeedTypes | packages.NeedSyntax | packages.NeedImports,
 	}, path)
 
 	if err != nil {
