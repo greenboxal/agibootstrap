@@ -2,6 +2,7 @@ package codex
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/dave/dst"
@@ -84,11 +85,13 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 			panic(err)
 		}
 
-		return true
+		return false
 	}
 
 	return true
 }
+
+var hasPackageRegex = regexp.MustCompile(`^\s*package\s+([a-zA-Z0-9_]+)`)
 
 func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result dst.Node, err error) {
 	stepRoot := cursor.Element()
@@ -140,17 +143,15 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 		return nil, err
 	}
 
+	if !hasPackageRegex.MatchString(gptResponse) {
+		gptResponse = fmt.Sprintf("package %s\n\n%s", "gptimport", gptResponse)
+	}
+
 	// Parse the generated code into an AST
 	newRoot, err := p.SourceFile.Parse("_mergeContents.go", gptResponse)
 
 	if err != nil {
-		previousErr := err
-		sourceWithPreamble := fmt.Sprintf("package %s\n\n%s", "gptimport", gptResponse)
-		newRoot, err = p.SourceFile.Parse("_mergeContents.go", sourceWithPreamble)
-
-		if err != nil {
-			return nil, previousErr
-		}
+		return nil, err
 	}
 
 	for _, decl := range newRoot.Children() {
@@ -182,7 +183,7 @@ func (p *NodeProcessor) setExistingDeclaration(index int, name string, node psi.
 	decl.node = node.Ast()
 	decl.index = index
 
-	p.Root.Ast().(*dst.File).Decls[index] = node.Ast().(dst.Decl)
+	//p.Root.Ast().(*dst.File).Decls[index] = node.Ast().(dst.Decl)
 }
 
 func (p *NodeProcessor) MergeDeclarations(cursor *psi.Cursor, node psi.Node) bool {
