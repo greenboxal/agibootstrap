@@ -131,28 +131,35 @@ func hash(s string) uint64 {
 
 func (i *Index) QueryClosestHits(query Embedding, k int) ([]*IndexEntry, error) {
 
+	// if query embeddings size is zero, return nil
 	if len(query.Embeddings) == 0 {
-		return nil
+		return nil, nil
 	}
 
+	// if query embeddings size is not equal to index dimension, return nil
 	if len(query.Embeddings) != i.dimension {
-		return nil
+		return nil, nil
 	}
 
+	// create slices for index distances and indices
 	dists := make([]float32, i.totalItems)
 	idx := make([]int, i.totalItems)
 
-	distances, labels, err := i.index.Search(query.Float32(), k, dists, idx)
-
+	// search the index for the closest items to the query
+	_, _, err := i.index.Search(query.Float32(), k, dists, idx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	// sort indices based on their distances
 	sort.Slice(idx, func(a, b int) bool {
 		return dists[a] < dists[b]
 	})
 
+	// create a slice to store k-closest items to the query
 	var res []*IndexEntry
+
+	// for each of the k-closest indices, fetch the item from the cache and append its details to the result slice
 	for _, j := range idx[:k] {
 		val, ok := i.cache.Get(hashIndex(j))
 		if ok {
@@ -166,7 +173,7 @@ func (i *Index) QueryClosestHits(query Embedding, k int) ([]*IndexEntry, error) 
 		}
 	}
 
-	return res
+	return res, nil
 }
 
 func indexToId(indexID int) string {
