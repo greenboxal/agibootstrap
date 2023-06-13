@@ -121,6 +121,13 @@ func (i *Index) Add(item IndexEntry) error {
 	return nil
 }
 
+// hash is a utility function that takes a string and returns a 64-bit hash.
+//
+// Parameters:
+// s (string): the string to be hashed.
+//
+// Returns:
+// uint64: a 64-bit hash.
 func hash(s string) uint64 {
 	h := fnv.New64a()
 	if _, err := h.Write([]byte(s)); err != nil {
@@ -130,7 +137,6 @@ func hash(s string) uint64 {
 }
 
 func (i *Index) QueryClosestHits(query Embedding, k int) ([]*IndexEntry, error) {
-
 	// if query embeddings size is zero, return nil
 	if len(query.Embeddings) == 0 {
 		return nil, nil
