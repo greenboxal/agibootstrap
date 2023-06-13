@@ -5,13 +5,18 @@ import (
 	"errors"
 	"go/parser"
 	"go/token"
+	"io"
 
 	"github.com/dave/dst"
 	"github.com/dave/dst/decorator"
+
+	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
 
 type SourceFile struct {
-	name string
+	name   string
+	handle repofs.FileHandle
+
 	dec  *decorator.Decorator
 	fset *token.FileSet
 
@@ -22,12 +27,13 @@ type SourceFile struct {
 	original string
 }
 
-func NewSourceFile(name string) *SourceFile {
+func NewSourceFile(fset *token.FileSet, name string, handle repofs.FileHandle) *SourceFile {
 	sf := &SourceFile{
-		name: name,
+		name:   name,
+		fset:   fset,
+		handle: handle,
 	}
 
-	sf.fset = token.NewFileSet()
 	sf.dec = decorator.NewDecorator(sf.fset)
 
 	return sf
@@ -39,6 +45,44 @@ func (sf *SourceFile) FileSet() *token.FileSet         { return sf.fset }
 func (sf *SourceFile) OriginalText() string            { return sf.original }
 func (sf *SourceFile) Root() Node                      { return sf.root }
 func (sf *SourceFile) Error() error                    { return sf.err }
+
+func (sf *SourceFile) Load() error {
+	file, err := sf.handle.Get()
+
+	if err != nil {
+		return err
+	}
+
+	data, err := io.ReadAll(file)
+
+	if err != nil {
+		return err
+	}
+
+	sf.root = nil
+	sf.parsed = nil
+	sf.err = nil
+
+	_, err = sf.Parse(sf.name, string(data))
+
+	sf.err = err
+
+	return err
+}
+
+func (sf *SourceFile) Replace(code string) error {
+	if code == sf.original {
+		return nil
+	}
+
+	err := sf.handle.Put(bytes.NewBufferString(code))
+
+	if err != nil {
+		return err
+	}
+
+	return sf.Load()
+}
 
 func (sf *SourceFile) Parse(filename string, sourceCode string) (result Node, err error) {
 	parsed, err := decorator.ParseFile(sf.fset, filename, sourceCode, parser.ParseComments)
