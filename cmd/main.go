@@ -150,13 +150,27 @@ type gitFS struct {
 }
 
 func (g *gitFS) IsDirty() (bool, error) {
-	//TODO implement me
-	panic("implement me")
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = g.path
+
+	stdout, err := cmd.Output()
+	if err != nil {
+		return false, err
+	}
+
+	return len(stdout) > 0, nil
 }
 
 func (g *gitFS) GetUncommittedChanges() (string, error) {
-	//TODO implement me
-	panic("implement me")
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = g.path
+
+	stdout, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	return string(bytes.TrimSpace(stdout)), nil
 }
 
 func (g *gitFS) Push() error {
