@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/dave/dst"
 	"github.com/zeroflucs-given/generics/collections/stack"
@@ -100,7 +101,7 @@ func (p *Project) processGenerateStep() (changes int, err error) {
 	return changes, nil
 }
 
-func (p *Project) processFile(fsPath string) (int, error) {
+func (p *Project) processFile(fsPath string, opts ...NodeProcessorOption) (int, error) {
 	// Read the file
 	code, err := os.ReadFile(fsPath)
 	if err != nil {
@@ -119,7 +120,7 @@ func (p *Project) processFile(fsPath string) (int, error) {
 	}
 
 	// Process the AST nodes
-	updated := p.ProcessNodes(ast)
+	updated := p.ProcessNodes(ast, opts...)
 
 	// Convert the AST back to code
 	newCode, err := ast.ToCode(updated)
@@ -140,21 +141,33 @@ func (p *Project) processFile(fsPath string) (int, error) {
 	return 0, nil
 }
 
-func (p *Project) ProcessNodes(sf *psi.SourceFile) psi.Node {
+func (p *Project) ProcessNodes(sf *psi.SourceFile, opts ...NodeProcessorOption) psi.Node {
 	// Process the AST nodes
-	updated := p.ProcessNode(sf, sf.Root())
+	updated := p.ProcessNode(sf, sf.Root(), opts...)
 
 	// Convert the AST back to code
 	return updated
 }
 
 // ProcessNode processes the given node and returns the updated node.
-func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node) psi.Node {
+func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node, opts ...NodeProcessorOption) psi.Node {
 	ctx := &NodeProcessor{
 		SourceFile:   sf,
 		Root:         root,
 		FuncStack:    stack.NewStack[*FunctionContext](16),
 		Declarations: map[string]*declaration{},
+	}
+
+	ctx.prepareContext = func(p *NodeProcessor, ctx *FunctionContext, root psi.Node) (string, error) {
+		return p.SourceFile.ToCode(root)
+	}
+
+	ctx.prepareObjective = func(p *NodeProcessor, ctx *FunctionContext) (string, error) {
+		return strings.Join(ctx.Todos, "\n"), nil
+	}
+
+	for _, opt := range opts {
+		opt(ctx)
 	}
 
 	if ctx.SourceFile == nil {

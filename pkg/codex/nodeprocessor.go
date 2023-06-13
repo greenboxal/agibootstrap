@@ -25,11 +25,16 @@ type declaration struct {
 	name    string
 }
 
+type NodeProcessorOption func(p *NodeProcessor)
+
 type NodeProcessor struct {
 	SourceFile   *psi.SourceFile
 	Root         psi.Node
 	FuncStack    *stack.Stack[*FunctionContext]
 	Declarations map[string]*declaration
+
+	prepareObjective func(p *NodeProcessor, ctx *FunctionContext) (string, error)
+	prepareContext   func(p *NodeProcessor, ctx *FunctionContext, root psi.Node) (string, error)
 }
 
 func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
@@ -83,8 +88,11 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result dst.Node, err error) {
 	stepRoot := cursor.Element()
 
-	// Extract the comment
-	todoComment := strings.Join(ctx.Todos, "\n")
+	todoComment, err := p.prepareObjective(p, ctx)
+
+	if err != nil {
+		return nil, err
+	}
 
 	prunedRoot := psi.Apply(psi.Clone(p.Root), func(cursor *psi.Cursor) bool {
 		switch node := cursor.Node().(type) {
@@ -108,7 +116,7 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 	}, nil)
 
 	// Format Node N to string
-	contextStr, err := p.SourceFile.ToCode(prunedRoot)
+	contextStr, err := p.prepareContext(p, ctx, prunedRoot)
 
 	if err != nil {
 		return nil, err

@@ -22,6 +22,11 @@ type BuildError struct {
 	Error    error
 }
 
+func (be BuildError) String() string {
+	// Implement the BuildError string representation
+	return fmt.Sprintf("Package: %s, File: %s, Line: %d, Column: %d, Error: %s", be.Pkg.Name, be.Filename, be.Line, be.Column, be.Error.Error())
+}
+
 // buildProject is responsible for analyzing the project and checking its types.
 // It returns a slice of BuildError and an error. BuildError contains information about type-checking errors and their associated package name, filename, line, column and error.
 func (p *Project) buildProject() (sf *psi.SourceFile, errs []*BuildError, err error) {
@@ -123,6 +128,11 @@ func (p *Project) processFixStep() (changes int, err error) {
 
 // ProcessFix applies a fix to a build error
 func (p *Project) ProcessFix(sf *psi.SourceFile, buildError *BuildError) error {
+	p.ProcessNodes(sf, func(p *NodeProcessor) {
+		p.prepareObjective = func(p *NodeProcessor, ctx *FunctionContext) (string, error) {
+			return "Fix the following build error: " + buildError.Error.Error(), nil
+		}
+	})
 
 	return nil
 }
