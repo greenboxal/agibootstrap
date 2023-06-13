@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/build"
-	"go/parser"
 	"go/token"
 	"go/types"
 	"io/fs"
