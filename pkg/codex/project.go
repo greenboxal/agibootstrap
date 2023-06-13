@@ -263,6 +263,7 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 
 	return
 }
+
 func (p *Project) processFixStep() (changes int, err error) {
 	buildErrors, err := p.buildProject()
 
@@ -272,9 +273,14 @@ func (p *Project) processFixStep() (changes int, err error) {
 
 	if len(buildErrors) > 0 {
 		strs := make([]string, len(buildErrors))
-
+		// Iterate through the build errors and process each error node
 		for i, buildError := range buildErrors {
 			strs[i] = fmt.Sprintf("%s:%d:%d: %v", buildError.Filename, buildError.Line, buildError.Column, buildError.Error)
+			// Replace the error node with the result of processing
+			node := buildError.ErrorNode()
+			result := p.ProcessNode(node)
+			buildError.ReplaceNode(result)
+
 			e := fmt.Errorf("%d errors occurred during type checking in package %s: %v", len(strs), buildError.Pkg.ID, buildErrors)
 			err = multierror.Append(err, e)
 		}
