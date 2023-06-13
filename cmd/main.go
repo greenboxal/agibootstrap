@@ -36,6 +36,8 @@ func main() {
 				wd = args[0]
 			}
 
+			cmd.SilenceUsage = true
+
 			p, err := codex.NewProject(wd)
 
 			if err != nil {
@@ -63,13 +65,15 @@ func main() {
 				return err
 			}
 
+			cmd.SilenceUsage = true
+
 			p, err := codex.NewProject(wd)
 
 			if err != nil {
 				return err
 			}
 
-			return p.Commit(false)
+			return p.Commit()
 		},
 	}
 
