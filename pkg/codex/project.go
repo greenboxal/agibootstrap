@@ -123,13 +123,13 @@ func (p *Project) Generate() (changes int, err error) {
 
 		changes += importsChanges
 
-		//fixChanges, err := p.processFixStep()
+		fixChanges, err := p.processFixStep()
 
-		//if err != nil {
-		//	return changes, nil
-		//}
+		if err != nil {
+			return changes, nil
+		}
 
-		//changes += fixChanges
+		changes += fixChanges
 	}
 
 	return
@@ -189,13 +189,13 @@ func (p *Project) processImportsStep() (changes int, err error) {
 }
 
 func (p *Project) processFixStep() (changes int, err error) {
-	packageName := "path/to/package" // Replace with the package you want to analyze
+	packageName := "github.com/greenboxal/agibootstrap/cmd" // Replace with the package you want to analyze
 
 	// Set up the build context
 	buildContext := build.Default
 
 	// Get the package
-	pkg, err := buildContext.Import(packageName, p.rootPath, 0)
+	pkg, err := buildContext.Import(packageName, p.rootPath+"/cmd", 0)
 
 	if err != nil {
 		fmt.Printf("Failed to import package: %v\n", err)
