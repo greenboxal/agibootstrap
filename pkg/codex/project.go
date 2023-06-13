@@ -211,3 +211,7 @@ func (p *Project) ImportFile(path string) error {
 
 	return nil
 }
+
+func (p *Project) Reindex() error {
+	return nil
+}

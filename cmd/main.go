@@ -21,6 +21,29 @@ func main() {
 		},
 	}
 
+	var reindexCmd = &cobra.Command{ //Added reindex command
+		Use:   "reindex",
+		Short: "Reindex the project",
+		Long:  "This command reindex the project.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			wd, err := os.Getwd()
+
+			if err != nil {
+				return err
+			}
+
+			cmd.SilenceUsage = true
+
+			p, err := codex.NewProject(wd)
+
+			if err != nil {
+				return err
+			}
+
+			return p.Reindex()
+		},
+	}
+
 	var generateCmd = &cobra.Command{
 		Use:   "generate [repo path]",
 		Short: "Generate a new file",
@@ -77,7 +100,7 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(initCmd, generateCmd, commitCmd)
+	rootCmd.AddCommand(initCmd, reindexCmd, generateCmd, commitCmd) // Added reindexCmd in the command execution
 
 	if err := rootCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: %s\n", err)

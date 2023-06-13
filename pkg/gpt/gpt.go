@@ -2,17 +2,19 @@ package gpt
 
 import (
 	"context"
+	"html"
 
-	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/ast"
-	"github.com/gomarkdown/markdown/md"
-	"github.com/gomarkdown/markdown/parser"
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/memory"
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
+
+	"github.com/greenboxal/agibootstrap/pkg/utils"
+	// Register the providers.
+	_ "github.com/greenboxal/agibootstrap/pkg/utils"
 )
 
 var ObjectiveKey chain.ContextKey[string] = "Objective"
@@ -24,6 +26,7 @@ var CodeGeneratorPrompt chat.Prompt
 var contentChain chain.Chain
 
 func init() {
+
 	CodeGeneratorPrompt = chat.ComposeTemplate(
 		chat.EntryTemplate(
 			msn.RoleSystem,
@@ -96,7 +99,7 @@ func SendToGPT(objectives, promptContext, target string) (string, error) {
 	result := chain.Output(cctx, chat.ChatReplyContextKey)
 	reply := result.Entries[0].Text
 	codeOutput := ""
-	parsedReply := ParseMarkdown([]byte(reply))
+	parsedReply := utils.ParseMarkdown([]byte(reply))
 
 	ast.WalkFunc(parsedReply, func(node ast.Node, entering bool) ast.WalkStatus {
 		if entering {
@@ -104,8 +107,7 @@ func SendToGPT(objectives, promptContext, target string) (string, error) {
 			case *ast.CodeBlock:
 				if node.IsFenced {
 					unescaped := string(node.Literal)
-					//unescaped, _ = url.QueryUnescape(unescaped)
-					//unescaped = html.UnescapeString(unescaped)
+					unescaped = html.UnescapeString(unescaped)
 					codeOutput += unescaped
 				}
 			}
@@ -115,17 +117,6 @@ func SendToGPT(objectives, promptContext, target string) (string, error) {
 	})
 
 	return codeOutput, nil
-}
-
-func FormatMarkdown(node ast.Node) []byte {
-	return markdown.Render(node, md.NewRenderer())
-}
-
-func ParseMarkdown(md []byte) ast.Node {
-	extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.NoEmptyLineBeforeBlock
-	p := parser.NewWithExtensions(extensions)
-
-	return p.Parse(md)
 }
 
 type Session struct {
