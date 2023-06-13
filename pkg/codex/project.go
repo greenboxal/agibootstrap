@@ -191,8 +191,8 @@ func (p *Project) processImportsStep() (changes int, err error) {
 // buildProject is responsible for analyzing the project and checking its types.
 // It returns a slice of BuildError and an error. BuildError contains information about type-checking errors and their associated package name, filename, line, column and error.
 func (p *Project) buildProject() (sf *psi.SourceFile, errs []*BuildError, err error) {
-	// TxODO: Add support for multiple packages in the same project
-	// TxODO: Add support for multiple files in the same package
+	// TODO: Add support for multiple packages in the same project
+	// TODO: Add support for multiple files in the same package
 	sf = psi.NewSourceFile("")
 
 	// Get the module path of the package
@@ -278,7 +278,7 @@ func (p *Project) processFixStep() (changes int, err error) {
 		for i, buildError := range buildErrors {
 			strs[i] = fmt.Sprintf("%s:%d:%d: %v", buildError.Filename, buildError.Line, buildError.Column, buildError.Error)
 
-			// TxODO: Fix the error by calling p.ProcessFix(sf, buildError) for each error
+			// TODO: Fix the error by calling p.ProcessFix(sf, buildError) for each error
 			// Lookup the source file from the p.sourceFiles map (be sure to define it)
 
 			//p.ProcessNode(sf, node)

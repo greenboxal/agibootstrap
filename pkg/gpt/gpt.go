@@ -3,6 +3,7 @@ package gpt
 import (
 	"context"
 	"html"
+	"net/url"
 
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/ast"
@@ -105,7 +106,9 @@ func SendToGPT(objectives, promptContext, target string) (string, error) {
 		if entering {
 			switch node := node.(type) {
 			case *ast.CodeBlock:
-				codeOutput += html.UnescapeString(string(node.Literal))
+				unescaped, _ := url.QueryUnescape(string(node.Literal))
+				unescaped = html.UnescapeString(unescaped)
+				codeOutput += unescaped
 			}
 		}
 
