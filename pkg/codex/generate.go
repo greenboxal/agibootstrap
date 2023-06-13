@@ -23,19 +23,11 @@ func (p *Project) Generate() (changes int, err error) {
 			return changes, nil
 		}
 
-		if stepChanges == 0 {
-			break
-		}
-
-		changes += stepChanges
-
 		importsChanges, err := p.processImportsStep()
 
 		if err != nil {
 			return changes, nil
 		}
-
-		changes += importsChanges
 
 		fixChanges, err := p.processFixStep()
 
@@ -43,7 +35,13 @@ func (p *Project) Generate() (changes int, err error) {
 			return changes, nil
 		}
 
-		changes += fixChanges
+		stepChanges += importsChanges
+		stepChanges += fixChanges
+		changes += stepChanges
+
+		if stepChanges == 0 {
+			break
+		}
 	}
 
 	return
