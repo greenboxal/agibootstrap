@@ -234,10 +234,11 @@ func (p *Project) processFixStep() (changes int, err error) {
 		_, err = typeConfig.Check(pkg.ImportPath, fset, []*ast.File{astFile}, &info)
 
 		if err != nil {
+			// TODO: go build error
 			errors = append(errors, &Error{
 				Filename: file,
-				Line:     fset.File(astFile.Pos()).Line,
-				Column:   fset.File(astFile.Pos()).Column(fset.Position(astFile.Pos())),
+				Line:     fset.Position(astFile.Pos()).Line,
+				Column:   fset.Position(astFile.Pos()).Column,
 				Error:    err,
 			})
 			continue
