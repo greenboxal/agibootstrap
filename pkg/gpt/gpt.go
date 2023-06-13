@@ -105,15 +105,12 @@ func SendToGPT(objectives, promptContext, target string) (string, error) {
 		if entering {
 			switch node := node.(type) {
 			case *ast.CodeBlock:
-				codeOutput += string(node.Literal)
+				codeOutput += html.UnescapeString(string(node.Literal))
 			}
 		}
 
 		return ast.GoToNext
 	})
-
-	// Check if codeOutput is possibly HTML escaped and unescape it
-	codeOutput = html.UnescapeString(codeOutput)
 
 	return codeOutput, nil
 }
