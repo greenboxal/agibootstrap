@@ -188,7 +188,14 @@ func (p *Project) processImportsStep() (changes int, err error) {
 }
 
 func (p *Project) processFixStep() (changes int, err error) {
-	packageName := "github.com/greenboxal/agibootstrap/cmd" // Replace with the package you want to analyze
+	// Get the module path of the package
+	modulePath, err := getModulePath(p.rootPath)
+	if err != nil {
+		return 0, err
+	}
+
+	// Get the import path of the package
+	packageName := modulePath + "/cmd" // Replace with the package you want to analyze
 
 	// Set up the build context
 	buildContext := build.Default
@@ -260,6 +267,28 @@ func (p *Project) processFixStep() (changes int, err error) {
 	}
 
 	return changes, nil
+}
+
+// getModulePath returns the module path of the given directory
+func getModulePath(dir string) (string, error) {
+	cmd := exec.Command("go", "list", "-m", "-json", ".")
+	cmd.Dir = dir
+
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	var info struct {
+		Path string
+	}
+
+	err = json.Unmarshal(out, &info)
+	if err != nil {
+		return "", err
+	}
+
+	return info.Path, nil
 }
 
 type BuildError struct {
