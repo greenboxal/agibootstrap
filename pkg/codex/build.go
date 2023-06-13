@@ -89,12 +89,13 @@ func (p *Project) processFixStep() (changes int, err error) {
 	}
 
 	for _, buildError := range buildErrors {
-		sf := p.sourceFiles[buildError.Filename]
-
+		sf := p.GetSourceFile(buildError.Filename)
 		err = p.ProcessFix(sf, buildError)
+
 		if err != nil {
 			return 0, err
 		}
+	
 		// Increase the count of changes made
 		changes++
 	}

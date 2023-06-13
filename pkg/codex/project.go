@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"path/filepath"
 
+	"github.com/greenboxal/agibootstrap/pkg/io"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
@@ -51,6 +52,29 @@ func (p *Project) Sync() error {
 	}
 
 	return nil
+}
+
+func (p *Project) GetSourceFile(filename string) *psi.SourceFile {
+	existing := p.sourceFiles[filename]
+
+	if existing == nil {
+		existing = psi.NewSourceFile(filename)
+		sourceCode, err := io.ReadFile(filename)
+
+		if err != nil {
+			panic(err)
+		}
+
+		_, err = existing.Parse(filename, sourceCode)
+
+		if err != nil {
+			panic(err)
+		}
+
+		p.sourceFiles[filename] = existing
+	}
+
+	return existing
 }
 
 func isGoFile(path string) bool {
