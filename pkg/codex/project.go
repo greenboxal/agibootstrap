@@ -28,7 +28,7 @@ type Project struct {
 }
 
 func NewProject(rootPath string) (*Project, error) {
-	fs, err := repofs.NewFS(rootPath)
+	root, err := repofs.NewFS(rootPath)
 
 	if err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func NewProject(rootPath string) (*Project, error) {
 
 	return &Project{
 		rootPath: rootPath,
-		fs:       fs,
+		fs:       root,
 	}, nil
 }
 
@@ -56,6 +56,40 @@ func (p *Project) Sync() error {
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (p *Project) Commit(addAll bool) error {
+	isDirty, err := p.fs.IsDirty()
+
+	if err != nil {
+		return err
+	}
+
+	if !isDirty {
+		return nil
+	}
+
+	diff, err := p.fs.GetStagedChanges()
+
+	if err != nil {
+		return err
+	}
+
+	commitMessage, err := gpt.PrepareCommitMessage(diff)
+
+	if err != nil {
+		return err
+	}
+
+	commitId, err := p.fs.Commit(commitMessage, addAll)
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Changes committed with commit ID %s\n", commitId)
 
 	return nil
 }
@@ -88,7 +122,8 @@ func (p *Project) Generate() (changes int, err error) {
 
 func (p *Project) processFixStep() (changes int, err error) {
 	for _, file := range p.files {
-		opt := &imports.Options{
+		opt := &amp
+		imports.Options{
 			FormatOnly: false,
 			AllErrors:  true,
 			Comments:   true,
@@ -119,6 +154,14 @@ func (p *Project) processFixStep() (changes int, err error) {
 			changes++
 		}
 	}
+
+	build := exec.Command("go", "build")
+	out, err := build.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Error running go build: %s", out)
+	}
+	// Collect all the errors
+
 	return changes, nil
 }
 
@@ -240,40 +283,6 @@ func (p *Project) ProcessNodes(sf *psi.SourceFile) psi.Node {
 	}
 
 	return psi.Apply(ctx.Root, ctx.OnEnter, ctx.OnLeave)
-}
-
-func (p *Project) Commit(addAll bool) error {
-	isDirty, err := p.fs.IsDirty()
-
-	if err != nil {
-		return err
-	}
-
-	if !isDirty {
-		return nil
-	}
-
-	diff, err := p.fs.GetStagedChanges()
-
-	if err != nil {
-		return err
-	}
-
-	commitMessage, err := gpt.PrepareCommitMessage(diff)
-
-	if err != nil {
-		return err
-	}
-
-	commitId, err := p.fs.Commit(commitMessage, addAll)
-
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Changes committed with commit ID %s\n", commitId)
-
-	return nil
 }
 
 func isGoFile(path string) bool {
