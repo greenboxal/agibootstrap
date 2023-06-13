@@ -237,9 +237,35 @@ func (p *Project) processFixStep() (changes int, err error) {
 		// astInspector.Visit(astFile) and define Visit methods for the errors/identifiers you want to handle
 		// You can then pass astInspector.errors to the fixer to modify the AST nodes where the errors are found.
 
+		for _, unresolved := range astFile.Unresolved {
+			astParent := unresolved
+			for astParent != nil && !isValidParentType(astParent) {
+				astParent = astParent.Parent()
+			}
+			if astParent == nil {
+				continue
+			}
+			node := astParent.Decl
+			if node == nil {
+				continue
+			}
+			// TODO: Modify the appropriate node here, using node.(dst.Node) to access it as a dst.Node
+			// The actual type of the node may vary depending on the error
+		}
 	}
 
 	return changes, nil
+}
+
+// isValidParentType returns whether the given node is a valid parent node to search for an AST node
+// where a given error occurred.
+func isValidParentType(n ast.Node) bool {
+	switch n.(type) {
+	case *ast.GenDecl, *ast.FuncDecl, *ast.ValueSpec:
+		return true
+	default:
+		return false
+	}
 }
 
 func (p *Project) processGenerateStep() (changes int, err error) {
