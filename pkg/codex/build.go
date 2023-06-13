@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"go/build"
+	"go/token"
 	"go/types"
 	"path"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/packages"
 
 	"github.com/greenboxal/agibootstrap/pkg/io"
@@ -16,7 +18,7 @@ import (
 )
 
 type BuildError struct {
-	Pkg      *packages.Package
+	Pkg      string
 	Filename string
 	Line     int
 	Column   int
@@ -25,7 +27,7 @@ type BuildError struct {
 
 func (be BuildError) String() string {
 	// Implement the BuildError string representation
-	return fmt.Sprintf("Package: %s, File: %s, Line: %d, Column: %d, Error: %s", be.Pkg.Name, be.Filename, be.Line, be.Column, be.Error.Error())
+	return fmt.Sprintf("Package: %s, File: %s, Line: %d, Column: %d, Error: %s", be.Pkg, be.Filename, be.Line, be.Column, be.Error.Error())
 }
 
 // FixBuildStep is responsible for fixing all build errors that were found
@@ -94,54 +96,52 @@ func (s *FixBuildStep) ProcessFix(p *Project, sf *psi.SourceFile, buildError *Bu
 func (p *Project) buildProject() (errs []*BuildError, err error) {
 	// Set up the build context
 	buildContext := build.Default
+	buildContext.Dir = p.rootPath
+
+	fset := token.NewFileSet()
+	pkgConfig := &packages.Config{
+		BuildFlags: []string{"-modfile", path.Join(p.rootPath, "go.mod"), "-mod=readonly"},
+		Mode:       packages.NeedName | packages.NeedFiles | packages.NeedTypes | packages.NeedSyntax | packages.NeedImports,
+		Dir:        p.rootPath,
+		Fset:       fset,
+	}
 
 	// Get all packages in the project
-	pkgs, err := packages.Load(&packages.Config{
-		Mode: packages.NeedTypes | packages.NeedSyntax,
-		Dir:  p.rootPath,
-	}, path.Join(p.rootPath, "..."))
+	pkgs, err := packages.Load(pkgConfig, path.Join(p.rootPath, "..."))
 
 	if err != nil {
 		return errs, err
 	}
 
-	// Iterate through every Go package in the project
+	lconf := loader.Config{
+		Build:       &buildContext,
+		Cwd:         p.rootPath,
+		ImportPkgs:  map[string]bool{},
+		AllowErrors: true,
+	}
+
 	for _, pkg := range pkgs {
-		fmt.Printf("Checking package %s\n", pkg.ID)
+		lconf.Import(pkg.PkgPath)
+	}
 
-		if !pkg.Types.Complete() {
-			errs = append(errs, &BuildError{
-				Pkg:      pkg,
-				Filename: pkg.GoFiles[0],
-				Line:     0,
-				Column:   0,
-				Error:    errors.New("type-checking incomplete"),
-			})
-			continue
-		}
+	pro, err := lconf.Load()
 
-		// Create the type checker
-		typeConfig := &types.Config{
-			GoVersion: "1.20.3",
-			Error:     func(err error) { /* ignore parse errors */ },
-			Importer:  &ProjectPackageImporter{Project: p},
-			Sizes:     types.SizesFor(buildContext.Compiler, buildContext.GOARCH), // Required for type-checking constants
-		}
+	if err != nil {
+		return errs, err
+	}
+	pro = pro
 
-		// Iterate over each Go source file in the package
-		_, err = typeConfig.Check(pkg.ID, pkg.Fset, pkg.Syntax, pkg.TypesInfo)
+	// Iterate through every Go package in the project
+	for _, pkg := range pro.Imported {
+		fmt.Printf("Checking package %s\n", pkg.Pkg.Name())
 
-		if err != nil {
+		for _, err := range pkg.Errors {
 			buildError := &BuildError{
-				Pkg:   pkg,
+				Pkg:   pkg.Pkg.Path(),
 				Error: err,
 			}
 
 			if err, ok := err.(types.Error); ok {
-				if !strings.HasPrefix(pkg.PkgPath, buildError.Filename) {
-					continue
-				}
-
 				buildError.Filename = err.Fset.File(err.Pos).Name()
 				buildError.Line = err.Fset.File(err.Pos).Line(err.Pos)
 				buildError.Column = err.Fset.File(err.Pos).Offset(err.Pos)
@@ -156,14 +156,17 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 
 type ProjectPackageImporter struct {
 	Project *Project
+	Config  *packages.Config
+	Loader  *loader.Config
 }
 
-func (imp *ProjectPackageImporter) Import(path string) (*types.Package, error) {
+func (imp *ProjectPackageImporter) Import(filePath string) (*types.Package, error) {
+	if strings.HasPrefix(filePath, "github.com/greenboxal/aip/") {
+		filePath = strings.Replace(filePath, "github.com/greenboxal/aip/", "/Users/jonathanlima/IdeaProjects/aip/", 1)
+	}
+
 	// Load the package
-	pkgs, err := packages.Load(&packages.Config{
-		Mode: packages.NeedTypes | packages.NeedSyntax | packages.NeedImports,
-		Dir:  imp.Project.RootPath(),
-	}, path)
+	pkgs, err := packages.Load(imp.Config, filePath)
 
 	if err != nil {
 		return nil, err

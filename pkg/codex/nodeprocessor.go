@@ -185,29 +185,6 @@ func (p *NodeProcessor) setExistingDeclaration(index int, name string, node psi.
 	p.Root.Ast().(*dst.File).Decls[index] = node.Ast().(dst.Decl)
 }
 
-func getDeclarationNames(node psi.Node) []string {
-	var names []string
-
-	switch d := node.Ast().(type) {
-	case *dst.GenDecl:
-		for _, spec := range d.Specs {
-
-			switch s := spec.(type) {
-			case *dst.ValueSpec: // for constants and variables
-				for _, name := range s.Names {
-					names = append(names, name.Name)
-				}
-			case *dst.TypeSpec: // for types
-				names = append(names, s.Name.Name)
-			}
-		}
-	case *dst.FuncDecl: // for functions
-		names = append(names, d.Name.Name)
-	}
-
-	return names
-}
-
 func (p *NodeProcessor) MergeDeclarations(cursor *psi.Cursor, node psi.Node) bool {
 	names := getDeclarationNames(node)
 
@@ -238,4 +215,27 @@ func (p *NodeProcessor) ReplaceDeclarationAt(cursor *psi.Cursor, decl psi.Node, 
 	cursor.Replace(decl.Ast())
 	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
 	p.setExistingDeclaration(index, name, decl)
+}
+
+func getDeclarationNames(node psi.Node) []string {
+	var names []string
+
+	switch d := node.Ast().(type) {
+	case *dst.GenDecl:
+		for _, spec := range d.Specs {
+
+			switch s := spec.(type) {
+			case *dst.ValueSpec: // for constants and variables
+				for _, name := range s.Names {
+					names = append(names, name.Name)
+				}
+			case *dst.TypeSpec: // for types
+				names = append(names, s.Name.Name)
+			}
+		}
+	case *dst.FuncDecl: // for functions
+		names = append(names, d.Name.Name)
+	}
+
+	return names
 }
