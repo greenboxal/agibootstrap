@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/build"
+	"go/token"
 	"go/types"
 	"path"
 
@@ -28,9 +29,7 @@ func (be BuildError) String() string {
 
 // buildProject is responsible for analyzing the project and checking its types.
 // It returns a slice of BuildError and an error. BuildError contains information about type-checking errors and their associated package name, filename, line, column and error.
-func (p *Project) buildProject() (sf *psi.SourceFile, errs []*BuildError, err error) {
-	sf = psi.NewSourceFile(p.rootPath)
-
+func (p *Project) buildProject() (errs []*BuildError, err error) {
 	// Set up the build context
 	buildContext := build.Default
 
@@ -38,16 +37,16 @@ func (p *Project) buildProject() (sf *psi.SourceFile, errs []*BuildError, err er
 	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedTypes | packages.NeedSyntax, Dir: p.rootPath}, path.Join(p.rootPath, "..."))
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Iterate through every Go package in the project
 	for _, pkg := range pkgs {
 		if !pkg.Types.Complete() {
-			return nil, nil, fmt.Errorf("incomplete package type info: %q", pkg.ID)
+			return nil, fmt.Errorf("incomplete package type info: %q", pkg.ID)
 		}
 
-		fset := sf.FileSet()
+		fset := token.NewFileSet()
 
 		// Create the type checker
 		typeConfig := &types.Config{
@@ -86,7 +85,7 @@ func (p *Project) buildProject() (sf *psi.SourceFile, errs []*BuildError, err er
 
 // processFixStep is responsible for fixing all build errors that were found
 func (p *Project) processFixStep() (changes int, err error) {
-	_, buildErrors, err := p.buildProject()
+	buildErrors, err := p.buildProject()
 
 	if err != nil {
 		return 0, err
