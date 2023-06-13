@@ -6,7 +6,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 )
 
-func (p *Project) Commit(addAll bool) error {
+func (p *Project) Commit() error {
 	isDirty, err := p.fs.IsDirty()
 
 	if err != nil {
@@ -29,7 +29,7 @@ func (p *Project) Commit(addAll bool) error {
 		return err
 	}
 
-	commitId, err := p.fs.Commit(commitMessage, addAll)
+	commitId, err := p.fs.Commit(commitMessage)
 
 	if err != nil {
 		return err

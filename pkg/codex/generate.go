@@ -30,39 +30,7 @@ func (g *CodeGenBuildStep) Process(p *Project) (result BuildStepResult, err erro
 		}
 	}
 
-	if err != nil {
-		return
-	}
-
-	isDirty, err := p.fs.IsDirty()
-
-	if err != nil {
-		return result, err
-	}
-
-	if !isDirty {
-		return result, nil
-	}
-
-	err = p.fs.StageAll()
-
-	if err != nil {
-		return result, err
-	}
-
-	err = p.Commit(false)
-
-	if err != nil {
-		return result, err
-	}
-
-	err = p.fs.Push()
-
-	if err != nil {
-		return result, err
-	}
-
-	return result, nil
+	return result, err
 }
 
 func (p *Project) processFile(fsPath string, opts ...NodeProcessorOption) (int, error) {
@@ -151,13 +119,13 @@ func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node, opts ...NodePro
 	}
 
 	if ctx.SourceFile.Root().Node() == nil {
-		panic("SourceFile.Root().Node() is nil")
+		panic("SourceFile.Root().Ast() is nil")
 	}
 
-	rootFile := ctx.SourceFile.Root().Node().(*dst.File)
+	rootFile := ctx.SourceFile.Root().Ast().(*dst.File)
 
 	for _, child := range ctx.Root.Children() {
-		decl, ok := child.Node().(dst.Decl)
+		decl, ok := child.Ast().(dst.Decl)
 
 		if !ok {
 			continue

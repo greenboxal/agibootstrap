@@ -56,14 +56,28 @@ func (p *Project) Generate() (changes int, err error) {
 	steps := []BuildStep{
 		&CodeGenBuildStep{},
 		&FixImportsBuildStep{},
-		&FixBuildStep{},
+		//&FixBuildStep{},
 	}
 
 	for {
 		stepChanges := 0
 
 		for _, step := range steps {
-			result, err := step.Process(p)
+			processWrapped := func() (result BuildStepResult, err error) {
+				defer func() {
+					if r := recover(); r != nil {
+						if e, ok := r.(error); ok {
+							err = e
+						} else {
+							err = r.(error)
+						}
+					}
+				}()
+
+				return step.Process(p)
+			}
+
+			result, err := processWrapped()
 
 			if err != nil {
 				return changes, err
@@ -77,6 +91,18 @@ func (p *Project) Generate() (changes int, err error) {
 		}
 
 		changes += stepChanges
+
+		if err = p.fs.StageAll(); err != nil {
+			return
+		}
+
+		if err = p.Commit(); err != nil {
+			return
+		}
+	}
+
+	if err = p.fs.Push(); err != nil {
+		return
 	}
 
 	return

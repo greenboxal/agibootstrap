@@ -154,7 +154,7 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 	}
 
 	for _, decl := range newRoot.Children() {
-		if funcType, ok := decl.Node().(*dst.FuncDecl); ok && funcType.Name.Name == ctx.Func.Name.Name {
+		if funcType, ok := decl.Ast().(*dst.FuncDecl); ok && funcType.Name.Name == ctx.Func.Name.Name {
 			p.ReplaceDeclarationAt(cursor, decl, ctx.Func.Name.Name)
 		} else {
 			p.MergeDeclarations(cursor, decl)
@@ -170,7 +170,7 @@ func (p *NodeProcessor) setExistingDeclaration(index int, name string, node psi.
 	if decl == nil {
 		decl = &declaration{
 			name:    name,
-			node:    node.Node(),
+			node:    node.Ast(),
 			element: node,
 			index:   index,
 		}
@@ -179,16 +179,16 @@ func (p *NodeProcessor) setExistingDeclaration(index int, name string, node psi.
 	}
 
 	decl.element = node
-	decl.node = node.Node()
+	decl.node = node.Ast()
 	decl.index = index
 
-	p.Root.Node().(*dst.File).Decls[index] = node.Node().(dst.Decl)
+	p.Root.Ast().(*dst.File).Decls[index] = node.Ast().(dst.Decl)
 }
 
 func getDeclarationNames(node psi.Node) []string {
 	var names []string
 
-	switch d := node.Node().(type) {
+	switch d := node.Ast().(type) {
 	case *dst.GenDecl:
 		for _, spec := range d.Specs {
 
@@ -218,7 +218,7 @@ func (p *NodeProcessor) MergeDeclarations(cursor *psi.Cursor, node psi.Node) boo
 			p.InsertDeclarationAt(cursor, name, node)
 		} else {
 			if cursor.Node() == previous.node {
-				cursor.Replace(node.Node())
+				cursor.Replace(node.Ast())
 			}
 
 			p.setExistingDeclaration(previous.index, name, node)
@@ -229,13 +229,13 @@ func (p *NodeProcessor) MergeDeclarations(cursor *psi.Cursor, node psi.Node) boo
 }
 
 func (p *NodeProcessor) InsertDeclarationAt(cursor *psi.Cursor, name string, decl psi.Node) {
-	cursor.InsertAfter(decl.Node())
-	index := slices.Index(p.Root.Node().(*dst.File).Decls, decl.Node().(dst.Decl))
+	cursor.InsertAfter(decl.Ast())
+	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
 	p.setExistingDeclaration(index, name, decl)
 }
 
 func (p *NodeProcessor) ReplaceDeclarationAt(cursor *psi.Cursor, decl psi.Node, name string) {
-	cursor.Replace(decl.Node())
-	index := slices.Index(p.Root.Node().(*dst.File).Decls, decl.Node().(dst.Decl))
+	cursor.Replace(decl.Ast())
+	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
 	p.setExistingDeclaration(index, name, decl)
 }
