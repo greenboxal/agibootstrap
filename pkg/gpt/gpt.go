@@ -2,6 +2,7 @@ package gpt
 
 import (
 	"context"
+	"html"
 
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/ast"
