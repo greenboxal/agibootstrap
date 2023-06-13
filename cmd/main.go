@@ -1,13 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	fs "io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -15,6 +12,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/io"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
 
 func main() {
@@ -65,7 +63,7 @@ func main() {
 				return err
 			}
 
-			fsRoot, err := NewFS(wd)
+			fsRoot, err := repofs.NewFS(wd)
 
 			if err != nil {
 				return err
@@ -134,7 +132,7 @@ func proceseRepo(repoPath string) (changes int, err error) {
 }
 
 func processRepoStep(repoPath string) (changes int, err error) {
-	fsRoot, err := NewFS(repoPath)
+	fsRoot, err := repofs.NewFS(repoPath)
 
 	if err != nil {
 		fmt.Printf("Error opening %v as git repository: %v\n", repoPath, err)
@@ -199,7 +197,7 @@ func processRepoStep(repoPath string) (changes int, err error) {
 	return changes, nil
 }
 
-func processFile(fsRoot FS, fsPath string) (int, error) {
+func processFile(fsRoot repofs.FS, fsPath string) (int, error) {
 	// Read the file
 	code, err := os.ReadFile(fsPath)
 	if err != nil {
@@ -233,132 +231,4 @@ func processFile(fsRoot FS, fsPath string) (int, error) {
 	}
 
 	return 0, nil
-}
-
-type FS interface {
-	fs.FS
-
-	// IsDirty returns true if there are uncommitted changes.
-	IsDirty() (bool, error)
-	// GetUncommittedChanges returns a string containing the uncommitted changes as a diff.
-	GetStagedChanges() (string, error)
-	// GetUncommittedChanges returns a string containing the uncommitted changes as a diff.
-	GetUncommittedChanges() (string, error)
-	// Checkout checks out the given commit.
-	Checkout(commit string) error
-	// Commit commits the changes with the given message.
-	Commit(message string, addAll bool) (commitId string, err error)
-	// Push pushes the changes to the remote repository.
-	Push() error
-
-	// Path returns the path to the repository.
-	Path() string
-}
-
-func NewFS(repoPath string) (FS, error) {
-	base := os.DirFS(repoPath)
-
-	return &gitFS{
-		FS: base,
-
-		path: repoPath,
-	}, nil
-}
-
-type gitFS struct {
-	fs.FS
-	path string
-}
-
-func (g *gitFS) IsDirty() (bool, error) {
-	cmd := exec.Command("git", "status", "--porcelain")
-	cmd.Dir = g.path
-
-	stdout, err := cmd.Output()
-	if err != nil {
-		return false, err
-	}
-
-	return len(stdout) > 0, nil
-}
-
-func (g *gitFS) GetUncommittedChanges() (string, error) {
-	cmd := exec.Command("git", "diff")
-	cmd.Dir = g.path
-
-	stdout, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-
-	return string(bytes.TrimSpace(stdout)), nil
-}
-
-func (g *gitFS) GetStagedChanges() (string, error) {
-	cmd := exec.Command("git", "diff", "--cached")
-	cmd.Dir = g.path
-
-	stdout, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-
-	return string(bytes.TrimSpace(stdout)), nil
-}
-
-func (g *gitFS) Push() error {
-	cmd := exec.Command("git", "push")
-	cmd.Dir = g.path
-
-	return cmd.Run()
-}
-
-func (g *gitFS) Path() string {
-	return g.path
-}
-
-func (g *gitFS) Checkout(commit string) error {
-	cmd := exec.Command("git", "checkout", commit)
-	cmd.Dir = g.path
-
-	return cmd.Run()
-}
-
-func (g *gitFS) Commit(message string, addAll bool) (commitId string, err error) {
-	cmd := exec.Command("git", "status", "--porcelain")
-	cmd.Dir = g.path
-
-	stdout, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-
-	if len(stdout) == 0 {
-		return "", nil
-	}
-
-	if addAll {
-		cmd = exec.Command("git", "add", "-A")
-		cmd.Dir = g.path
-
-		err = cmd.Run()
-		if err != nil {
-			return "", err
-		}
-	}
-
-	cmd = exec.Command("git", "commit", "-m", message)
-	cmd.Dir = g.path
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	err = cmd.Run()
-	if err != nil {
-		return "", fmt.Errorf("%s: %s", err, strings.TrimSpace(stderr.String()))
-	}
-
-	return strings.Split(out.String(), " ")[1], nil
 }
