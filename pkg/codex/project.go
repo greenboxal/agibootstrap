@@ -2,6 +2,11 @@ package codex
 
 import (
 	"fmt"
+	"go/ast"
+	"go/build"
+	"go/parser"
+	"go/token"
+	"go/types"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -108,22 +113,45 @@ func (p *Project) Generate() (changes int, err error) {
 
 		changes += stepChanges
 
-		fixChanges, err := p.processFixStep()
+		importsChanges, err := p.processImportsStep()
 
 		if err != nil {
 			return changes, nil
 		}
 
-		changes += fixChanges
+		changes += importsChanges
+
+		//fixChanges, err := p.processFixStep()
+
+		//if err != nil {
+		//	return changes, nil
+		//}
+
+		//changes += fixChanges
 	}
 
 	return
 }
 
-func (p *Project) processFixStep() (changes int, err error) {
+func (p *Project) Import(path string) (*types.Package, error) {
+	pkgs, err := packages.Load(&packages.Config{
+		Mode: packages.LoadTypes,
+	}, path)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(pkgs) != 1 {
+		return nil, errors.New("unexpected number of packages found")
+	}
+
+	return pkgs[0].Types, nil
+}
+
+func (p *Project) processImportsStep() (changes int, err error) {
 	for _, file := range p.files {
-		opt := &amp
-		imports.Options{
+		opt := &imports.Options{
 			FormatOnly: false,
 			AllErrors:  true,
 			Comments:   true,
@@ -155,12 +183,61 @@ func (p *Project) processFixStep() (changes int, err error) {
 		}
 	}
 
-	build := exec.Command("go", "build")
-	out, err := build.CombinedOutput()
+	return
+}
+
+func (p *Project) processFixStep() (changes int, err error) {
+	packageName := "path/to/package" // Replace with the package you want to analyze
+
+	// Set up the build context
+	buildContext := build.Default
+
+	// Get the package
+	pkg, err := buildContext.Import(packageName, p.rootPath, 0)
+
 	if err != nil {
-		fmt.Printf("Error running go build: %s", out)
+		fmt.Printf("Failed to import package: %v\n", err)
+		return
 	}
-	// Collect all the errors
+
+	// Create the file set
+	fset := token.NewFileSet()
+
+	// Create the type checker
+	typeConfig := &types.Config{
+		Importer: p,
+	}
+
+	// Iterate over each Go source file in the package
+	for _, file := range pkg.GoFiles {
+		// Parse the file
+		astFile, err := parser.ParseFile(fset, file, nil, parser.AllErrors)
+
+		if err != nil {
+			// TODO: Handle
+			fmt.Printf("Error parsing file %s: %v\n", file, err)
+			continue
+		}
+
+		// Type-check the file
+		info := types.Info{
+			Types: make(map[ast.Expr]types.TypeAndValue),
+		}
+
+		_, err = typeConfig.Check(pkg.ImportPath, fset, []*ast.File{astFile}, &info)
+
+		if err != nil {
+			fmt.Printf("Type check error in %s: %v\n", file, err)
+			continue
+		}
+
+		// TODO: Map each error to an AST node
+		// astFile.Unresolved allows you to list all unresolved identifiers
+		// astInspector := &AstInspector{}
+		// astInspector.Visit(astFile) and define Visit methods for the errors/identifiers you want to handle
+		// You can then pass astInspector.errors to the fixer to modify the AST nodes where the errors are found.
+
+	}
 
 	return changes, nil
 }
