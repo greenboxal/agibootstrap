@@ -128,7 +128,9 @@ func (p *Project) processFixStep() (changes int, err error) {
 
 // ProcessFix applies a fix to a build error. It takes in a psi.SourceFile pointer and a BuildError pointer and returns an error.
 // The function sets the 'prepareObjective' field of the NodeProcessor passed into the p.ProcessNodes function to a function that returns a string that includes the build error message.
-// TODO: Add more details about the intended behavior of this function and any expected input or output parameters.
+// The 'prepareObjective' function is responsible for generating a string that describes what needs to be done to fix a build error.
+// The expected input parameters are the psi.SourceFile 'sf' and pointer to the BuildError 'buildError' that needs to be fixed.
+// The expected output parameter is an error, which is nil if the process finishes successfully.
 func (p *Project) ProcessFix(sf *psi.SourceFile, buildError *BuildError) error {
 	p.ProcessNodes(sf, func(p *NodeProcessor) {
 		p.prepareObjective = func(p *NodeProcessor, ctx *FunctionContext) (string, error) {
