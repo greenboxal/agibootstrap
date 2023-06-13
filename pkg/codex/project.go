@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"io/fs"
 	"path/filepath"
 
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
@@ -36,8 +37,8 @@ func (p *Project) FS() repofs.FS { return p.fs }
 func (p *Project) Sync() error {
 	p.files = []string{}
 
-	err := filepath.WalkDir(p.rootPath, func(path string, info fs.DirEntry, err error) error {
-		if !info.IsDir() && isGoFile(path) {
+	err := filepath.WalkDir(p.rootPath, func(path string, d fs.DirEntry, err error) error {
+		if !d.IsDir() && isGoFile(path) {
 			p.files = append(p.files, path)
 		}
 		return nil
