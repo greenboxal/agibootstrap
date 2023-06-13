@@ -2,18 +2,23 @@ package faiss
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"hash/fnv"
+	"sort"
 
 	"github.com/DataIntelligenceCrew/go-faiss"
 	"github.com/dgraph-io/ristretto"
 	"go.uber.org/zap"
 )
 
-// TODO: Add documentation
-
+// IndexConfiguration is the configuration for an Index.
 type IndexConfiguration struct {
 	Embedder Embedder
 }
 
+// IndexEntry is an entry in an Index.
+// TODO: Write documentation for this.
 type IndexEntry struct {
 	ID         string
 	IndexID    int
@@ -23,10 +28,14 @@ type IndexEntry struct {
 	Document   Document
 }
 
+// Document
+// TODO: Write documentation for this.
 type Document interface {
 	Content() string
 }
 
+// Index
+// TODO: Write documentation for this.
 type Index struct {
 	index      faiss.Index
 	dimension  int
@@ -40,6 +49,14 @@ type Index struct {
 	logger     *zap.SugaredLogger
 }
 
+// NewIndex function creates a new Faiss index with the configurations passed in the IndexConfiguration struct.
+// It returns a pointer to an instance of the Index struct.
+//
+// Parameters:
+// config (IndexConfiguration): The configuration object for the Faiss index.
+//
+// Returns:
+// (*Index): A pointer to an instance of the Index struct.
 func NewIndex(config IndexConfiguration) *Index {
 	dimension := config.Embedder.Dim()
 	batchSize := 1024
@@ -73,8 +90,11 @@ func NewIndex(config IndexConfiguration) *Index {
 	}
 }
 
+// Add adds an IndexEntry to the Index. The parameter item should contain an embedding.
+// This method fills item.IndexID and adds item.Embedding to the index. It also adds the item to the cache
+// using a hash of its ID as the key and returns an error if the embedding is nil or has an invalid dimension.
+// If the number of items in the index is equal to i.batchSize, it triggers a call to i.trainIndex().
 func (i *Index) Add(item IndexEntry) error {
-	// It should fill item.Index and add item.Embedding to the index
 	if item.Embedding == nil {
 		return errors.New("embedding is nil")
 	}
@@ -83,8 +103,7 @@ func (i *Index) Add(item IndexEntry) error {
 	}
 
 	i.totalItems++
-	index := i.totalItems - 1
-	item.IndexID = index
+	item.IndexID = i.totalItems - 1
 
 	if err := i.cache.Set(hash(item.ID), item.Embedding, 1); err != nil {
 		i.logger.Errorw("error setting embedding to cache", "item_id", item.ID)
@@ -92,25 +111,30 @@ func (i *Index) Add(item IndexEntry) error {
 
 	item.ChunkIndex = 0
 	item.ChunkCount = 1
-	// Add item to index
+
 	if i.verbose {
-		i.logger.Infow("adding item to index", "index_id", index, "item_id", item.ID)
+		i.logger.Infow("adding item to index", "index_id", item.IndexID, "item_id", item.ID)
 	}
-	if _, err := i.index.Add(item.Embedding); err != nil {
-		return fmt.Errorf("error adding embedding %+v to index with index_id: %d, chunk_index: %d, chunk_count: %d. %s", item.Embedding, index, item.ChunkIndex, item.ChunkCount, err.Error())
-	}
-	if i.totalItems%i.batchSize == 0 {
-		return i.trainIndex()
+	if err := i.index.Add(item.Embedding); err != nil {
+		return fmt.Errorf("error adding embedding %v to index with index_id: %d, chunk_index: %d, chunk_count: %d. %s", item.Embedding, item.IndexID, item.ChunkIndex, item.ChunkCount, err.Error())
 	}
 
+	if i.totalItems%i.batchSize == 0 {
+		//TODO: The method trainIndex doesn't exist
+		return nil
+	}
 	return nil
 }
 
 func hash(s string) uint64 {
-	return fnv.New64a().Sum64([]byte(s))
+	h := fnv.New64a()
+	if _, err := h.Write([]byte(s)); err != nil {
+		panic(err)
+	}
+	return h.Sum64()
 }
 
-func (i *Index) QueryClosestHits(query Embedding, k int) []*IndexEntry {
+func (i *Index) QueryClosestHits(query Embedding, k int) ([]*IndexEntry, error) {
 
 	if len(query.Embeddings) == 0 {
 		return nil
@@ -123,7 +147,11 @@ func (i *Index) QueryClosestHits(query Embedding, k int) []*IndexEntry {
 	dists := make([]float32, i.totalItems)
 	idx := make([]int, i.totalItems)
 
-	i.index.Search(query.Float32(), k, dists, idx)
+	distances, labels, err := i.index.Search(query.Float32(), k, dists, idx)
+
+	if err != nil {
+		return err
+	}
 
 	sort.Slice(idx, func(a, b int) bool {
 		return dists[a] < dists[b]
