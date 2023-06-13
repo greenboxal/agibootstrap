@@ -121,19 +121,20 @@ func (sf *SourceFile) ToCode(node Node) (string, error) {
 func (sf *SourceFile) FindNodeByPos(pos token.Position) Node {
 	var findNode func(n Node) Node
 
-	//start recursive findNode function
+	// This function searches for the node that contains the given position by recursively traversing the AST.
+	// Empty nodes are ignored. The variable `n` is a node to be searched for.
+	// Returns the found node or nil if not found.
 	findNode = func(n Node) Node {
-		//find information about node position using the Decorations.Store
+		// Get the node's position and end from Decorations.Store.
 		posInfo := sf.dec.Decorations().NodeDecs(n.Node())
-		//check if pos is inside node range
+
 		if posInfo == nil || !posInfo.Pos().IsValid() || !posInfo.End().IsValid() {
-			// if there's no posInfo or pos and end pos aren't valid, return nil
+			// Node without a valid position information.
 			return nil
 		}
-
+		// Search for a node that contains the given position.
 		if posInfo.Pos() <= pos && posInfo.End() >= pos {
-			// check for node with children
-			// if matches, recurse on children
+			// If the node contains children, search them recursively.
 			if nn, ok := n.(NodeContainer); ok {
 				for _, child := range nn.Children() {
 					if res := findNode(child); res != nil {
