@@ -186,8 +186,8 @@ func indexToId(indexID int, keyPrefix string) string {
 	return fmt.Sprintf("%s_%d", keyPrefix, indexID)
 }
 
-func hashIndex(indexID int) uint64 {
-	return fnv.New64a().Sum64([]byte(indexToId(indexID)))
+func hashIndex(indexID int, keyPrefix string) uint64 {
+	return fnv.New64a().Sum64([]byte(indexToId(indexID, keyPrefix)))
 }
 
 func (e Embedding) Float32() []float32 {
