@@ -63,7 +63,7 @@ Complete the TODOs in the document below.
 			chat.Predict(
 				&openai.ChatLanguageModel{
 					Client:      openai.NewClient(),
-					Model:       "gpt-3.5-turbo",
+					Model:       "gpt-3.5-turbo-16k",
 					Temperature: 0.7,
 				},
 				CodeGeneratorPrompt,
@@ -79,11 +79,34 @@ var embedder = &openai.Embedder{
 }
 var model = &openai.ChatLanguageModel{
 	Client:      oai,
-	Model:       "gpt-3.5-turbo",
+	Model:       "gpt-3.5-turbo-16k",
 	Temperature: 0.7,
 }
 
-func SendToGPT(objectives, promptContext, target string) (string, error) {
+type CodeBlock struct {
+	Language string
+	Code     string
+}
+
+func ExtractCodeBlocks(root ast.Node) (blocks []CodeBlock) {
+	ast.WalkFunc(root, func(node ast.Node, entering bool) ast.WalkStatus {
+		if entering {
+			switch node := node.(type) {
+			case *ast.CodeBlock:
+				blocks = append(blocks, CodeBlock{
+					Language: string(node.Info),
+					Code:     string(node.Literal),
+				})
+			}
+		}
+
+		return ast.GoToNext
+	})
+
+	return
+}
+
+func SendToGPT(objectives, promptContext, target string) ([]CodeBlock, error) {
 	ctx := context.Background()
 	cctx := chain.NewChainContext(ctx)
 
@@ -92,30 +115,14 @@ func SendToGPT(objectives, promptContext, target string) (string, error) {
 	cctx.SetInput(DocumentKey, target)
 
 	if err := contentChain.Run(cctx); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	result := chain.Output(cctx, chat.ChatReplyContextKey)
 	reply := result.Entries[0].Text
-	codeOutput := ""
 	parsedReply := utils.ParseMarkdown([]byte(reply))
 
-	ast.WalkFunc(parsedReply, func(node ast.Node, entering bool) ast.WalkStatus {
-		if entering {
-			switch node := node.(type) {
-			case *ast.CodeBlock:
-				if node.IsFenced {
-					unescaped := string(node.Literal)
-					//unescaped = html.UnescapeString(unescaped)
-					codeOutput += unescaped
-				}
-			}
-		}
-
-		return ast.GoToNext
-	})
-
-	return codeOutput, nil
+	return ExtractCodeBlocks(parsedReply), nil
 }
 
 type Session struct {
@@ -130,7 +137,7 @@ func NewSession() *Session {
 		embedder: &openai.Embedder{Client: oai, Model: openai.AdaEmbeddingV2},
 		model: &openai.ChatLanguageModel{
 			Client:      oai,
-			Model:       "gpt-3.5-turbo",
+			Model:       "gpt-3.5-turbo-16k",
 			Temperature: 0.7,
 		},
 	}

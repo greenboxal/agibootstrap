@@ -2,10 +2,13 @@ package codex
 
 import (
 	"fmt"
+	"go/scanner"
+	"html"
 	"regexp"
 	"strings"
 
 	"github.com/dave/dst"
+	"github.com/hashicorp/go-multierror"
 	"github.com/zeroflucs-given/generics/collections/stack"
 	"golang.org/x/exp/slices"
 
@@ -92,6 +95,7 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 }
 
 var hasPackageRegex = regexp.MustCompile(`^\s*package\s+([a-zA-Z0-9_]+)`)
+var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#39;`)
 
 func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result dst.Node, err error) {
 	stepRoot := cursor.Element()
@@ -137,28 +141,52 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 	}
 
 	// Send the string and comment to gpt-3.5-turbo and get a response
-	gptResponse, err := gpt.SendToGPT(todoComment, contextStr, stepStr)
+	codeBlocks, err := gpt.SendToGPT(todoComment, contextStr, stepStr)
 
 	if err != nil {
 		return nil, err
 	}
 
-	if !hasPackageRegex.MatchString(gptResponse) {
-		gptResponse = fmt.Sprintf("package %s\n\n%s", "gptimport", gptResponse)
-	}
+	for i, block := range codeBlocks {
+		if block.Language == "" {
+			block.Language = "go"
+		}
 
-	// Parse the generated code into an AST
-	newRoot, err := p.SourceFile.Parse("_mergeContents.go", gptResponse)
+		blockName := fmt.Sprintf("_mergeContents_%d.%s", i, block.Language)
 
-	if err != nil {
-		return nil, err
-	}
+		if hasHtmlEscapeRegex.MatchString(block.Code) {
+			block.Code = html.UnescapeString(block.Code)
+		}
 
-	for _, decl := range newRoot.Children() {
-		if funcType, ok := decl.Ast().(*dst.FuncDecl); ok && funcType.Name.Name == ctx.Func.Name.Name {
-			p.ReplaceDeclarationAt(cursor, decl, ctx.Func.Name.Name)
-		} else {
-			p.MergeDeclarations(cursor, decl)
+		patchedCode := block.Code
+
+		if !hasPackageRegex.MatchString(block.Code) {
+			patchedCode = fmt.Sprintf("package %s\n\n%s", "gptimport", block.Code)
+		}
+
+		// Parse the generated code into an AST
+		newRoot, e := p.SourceFile.Parse(blockName, patchedCode)
+
+		if e != nil {
+			if errList, ok := e.(scanner.ErrorList); ok {
+				if len(errList) == 1 && strings.HasPrefix(errList[0].Msg, "expected declaration, ") {
+					patchedCode = fmt.Sprintf("package gptimport_orphan\nfunc orphanSnippet%d() {\n%s\n}\n", i, block.Code)
+					newRoot, e = p.SourceFile.Parse(blockName, patchedCode)
+				}
+			}
+
+			if e != nil {
+				err = multierror.Append(err, e)
+				continue
+			}
+		}
+
+		for _, decl := range newRoot.Children() {
+			if funcType, ok := decl.Ast().(*dst.FuncDecl); ok && funcType.Name.Name == ctx.Func.Name.Name {
+				p.ReplaceDeclarationAt(cursor, decl, ctx.Func.Name.Name)
+			} else {
+				p.MergeDeclarations(cursor, decl)
+			}
 		}
 	}
 
