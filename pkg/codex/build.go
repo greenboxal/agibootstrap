@@ -22,8 +22,8 @@ type BuildError struct {
 	Error    error
 }
 
+// Implement the String() method for BuildError
 func (be BuildError) String() string {
-	// Implement the BuildError string representation
 	return fmt.Sprintf("Package: %s, File: %s, Line: %d, Column: %d, Error: %s", be.Pkg, be.Filename, be.Line, be.Column, be.Error.Error())
 }
 

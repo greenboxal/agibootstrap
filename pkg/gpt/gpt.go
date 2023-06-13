@@ -22,7 +22,8 @@ var DocumentKey chain.ContextKey[string] = "Document"
 
 // CodeGeneratorPrompt is the prompt used to generate code.
 var CodeGeneratorPrompt chat.Prompt
-var contentChain chain.Chain
+var CodeGeneratorChain chain.Chain
+
 var oai = openai.NewClient()
 var embedder = &openai.Embedder{
 	Client: oai,
@@ -67,7 +68,7 @@ Address all TODOs in the document below by implementing the necessary changes in
 `, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey)),
 		))
 
-	contentChain = chain.New(
+	CodeGeneratorChain = chain.New(
 		chain.WithName("GoCodeGenerator"),
 
 		chain.Sequential(
@@ -112,7 +113,7 @@ func Invoke(ctx context.Context, contextBag ContextBag) ([]CodeBlock, error) {
 	cctx.SetInput(DocumentKey, contextBag[string(DocumentKey)])
 	cctx.SetInput(ContextKey, contextBag)
 
-	if err := contentChain.Run(cctx); err != nil {
+	if err := CodeGeneratorChain.Run(cctx); err != nil {
 		return nil, err
 	}
 
@@ -131,7 +132,7 @@ func SendToGPT(objectives, promptContext, target string) ([]CodeBlock, error) {
 	cctx.SetInput(ContextKey, promptContext)
 	cctx.SetInput(DocumentKey, target)
 
-	if err := contentChain.Run(cctx); err != nil {
+	if err := CodeGeneratorChain.Run(cctx); err != nil {
 		return nil, err
 	}
 

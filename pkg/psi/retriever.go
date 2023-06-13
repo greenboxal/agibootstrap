@@ -68,22 +68,7 @@ type referenceIteratorImpl struct {
 	current Reference
 }
 
-// TODO: Implement the logic for iterating over the references
 func (r *referenceIteratorImpl) Next() bool {
-	if r.root == nil {
-		return false
-	}
-
-	// Implement the logic for iterating over the references
-	// Placeholder logic for now
-	// Replace the placeholder logic with actual logic to iterate over the references
-	// and update the current reference accordingly
-	if r.index < len(r.root.Children()) {
-		r.current = r.root.Children()[r.index]
-		r.index++
-		return true
-	}
-
 	return false
 }
 

@@ -63,8 +63,8 @@ func (p *Project) FS() repofs.FS { return p.fs }
 func (p *Project) Generate() (changes int, err error) {
 	steps := []BuildStep{
 		&CodeGenBuildStep{},
-		//&FixImportsBuildStep{},
-		&FixBuildStep{},
+		&FixImportsBuildStep{},
+		//&FixBuildStep{},
 	}
 
 	for {
@@ -209,9 +209,5 @@ func (p *Project) ImportFile(path string) error {
 		return err
 	}
 
-	return nil
-}
-
-func (p *Project) Reindex() error {
 	return nil
 }

@@ -17,8 +17,9 @@ type CodeGenBuildStep struct{}
 
 func (g *CodeGenBuildStep) Process(p *Project) (result BuildStepResult, err error) {
 	for _, file := range p.files {
-		if filepath.Ext(file.Path) == ".go" {
-			count, e := p.processFile(file.Path)
+		filePath := file.Path
+		if filepath.Ext(filePath) == ".go" {
+			count, e := p.processFile(filePath)
 
 			if e != nil {
 				err = multierror.Append(err, e)
@@ -76,6 +77,20 @@ func (p *Project) ProcessNodes(sf *psi.SourceFile, opts ...NodeProcessorOption) 
 
 // ProcessNode processes the given node and returns the updated node.
 func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node, opts ...NodeProcessorOption) psi.Node {
+	//buildContext := build.Default
+	//buildContext.Dir = p.rootPath
+	//buildContext.BuildTags = []string{"selfwip", "psionly"}
+
+	//lconf := loader.Config{
+	//	Build:       &buildContext,
+	//	Cwd:         p.rootPath,
+	//	AllowErrors: true,
+	//}
+
+	//lconf.Import(filepath.Dir(sf.Path()))
+
+	//pro, _ := lconf.Load()
+
 	ctx := &NodeProcessor{
 		SourceFile:   sf,
 		Root:         root,
