@@ -10,13 +10,14 @@ require (
 require (
 	github.com/DataIntelligenceCrew/go-faiss v0.2.0
 	github.com/dave/dst v0.27.2
-	github.com/dgraph-io/ristretto v0.1.1
 	github.com/google/uuid v1.3.0
-	github.com/greenboxal/aip/aip-controller v0.0.0-20230612213801-f86eb7acc160
-	github.com/greenboxal/aip/aip-langchain v0.0.0-20230612213801-f86eb7acc160
+	github.com/greenboxal/aip/aip-controller v0.0.0-20230613173034-f6ef16d56a66
+	github.com/greenboxal/aip/aip-langchain v0.0.0-20230613173034-f6ef16d56a66
+	github.com/hashicorp/go-multierror v1.1.1
+	github.com/ipfs/go-datastore v0.6.0
+	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.7.0
 	github.com/zeroflucs-given/generics v0.0.0-20230611080924-a806fa480d35
-	go.uber.org/zap v1.24.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	gonum.org/v1/gonum v0.13.0
 )
@@ -30,7 +31,6 @@ require (
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/eientei/wsgraphql v1.4.2 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/gertd/go-pluralize v0.2.1 // indirect
@@ -40,16 +40,14 @@ require (
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/glog v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/graph-gophers/dataloader v5.0.0+incompatible // indirect
 	github.com/graphql-go/graphql v0.8.1 // indirect
 	github.com/graphql-go/handler v0.2.3 // indirect
-	github.com/greenboxal/aip/aip-forddb v0.0.0-20230612213801-f86eb7acc160 // indirect
-	github.com/greenboxal/aip/aip-sdk v0.0.0-20230612213801-f86eb7acc160 // indirect
+	github.com/greenboxal/aip/aip-forddb v0.0.0-20230613173034-f6ef16d56a66 // indirect
+	github.com/greenboxal/aip/aip-sdk v0.0.0-20230613173034-f6ef16d56a66 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfs/go-cid v0.4.1 // indirect
 	github.com/ipld/go-ipld-prime v0.20.0 // indirect
@@ -67,7 +65,6 @@ require (
 	github.com/multiformats/go-varint v0.0.7 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.2 // indirect
 	github.com/polydawn/refmt v0.89.0 // indirect
 	github.com/prometheus/client_golang v1.15.1 // indirect
@@ -102,7 +99,8 @@ require (
 	go.uber.org/dig v1.17.0 // indirect
 	go.uber.org/fx v1.20.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.9.0 // indirect
+	go.uber.org/zap v1.24.0 // indirect
+	golang.org/x/crypto v0.10.0 // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/sys v0.9.0 // indirect
 	golang.org/x/text v0.10.0 // indirect
@@ -111,6 +109,8 @@ require (
 	lukechampine.com/blake3 v1.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+replace github.com/greenboxal/aip => /Users/jonathanlima/IdeaProjects/aip
 
 replace github.com/greenboxal/aip/aip-langchain => /Users/jonathanlima/IdeaProjects/aip/aip-langchain
 
