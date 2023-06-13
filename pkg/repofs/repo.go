@@ -24,6 +24,8 @@ type FS interface {
 	Commit(message string, addAll bool) (commitId string, err error)
 	// Push pushes the changes to the remote repository.
 	Push() error
+	// StageAll stages all the changes.
+	StageAll() error
 
 	// Path returns the path to the repository.
 	Path() string
@@ -42,6 +44,18 @@ func NewFS(repoPath string) (FS, error) {
 type gitFS struct {
 	fs.FS
 	path string
+}
+
+func (g *gitFS) StageAll() error {
+	cmd := exec.Command("git", "add", "-A")
+	cmd.Dir = g.path
+
+	err := cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (g *gitFS) IsDirty() (bool, error) {

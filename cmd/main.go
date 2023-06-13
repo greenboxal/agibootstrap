@@ -65,7 +65,7 @@ func main() {
 				return err
 			}
 
-			return p.Commit()
+			return p.Commit(false)
 		},
 	}
 

@@ -61,7 +61,7 @@ func (p *Project) Sync() error {
 
 func (p *Project) Generate() (changes int, err error) {
 	for {
-		stepChanges, err := p.processRepoStep()
+		stepChanges, err := p.processGenerateStep()
 
 		if err != nil {
 			return changes, nil
@@ -72,12 +72,101 @@ func (p *Project) Generate() (changes int, err error) {
 		}
 
 		changes += stepChanges
+
+		fixChanges, err := p.processFixStep()
+
+		if err != nil {
+			return changes, nil
+		}
+
+		changes += fixChanges
 	}
 
 	return
 }
 
-func (p *Project) processRepoStep() (changes int, err error) {
+func (p *Project) processFixStep() (changes int, err error) {
+	// Execute goimports
+	for _, file := range p.files {
+		cmd := exec.Command("goimports", "-w", file)
+		err := cmd.Run()
+		if err != nil {
+			return changes, err
+		}
+	}
+
+	// Build the project
+	cfg := &packages.Config{Mode: packages.LoadSyntax}
+	pkgs, err := packages.Load(cfg, fmt.Sprintf("./%s/...", filepath.Base(p.rootPath)))
+	if err != nil {
+		return changes, err
+	}
+
+	// Check for build errors and warnings
+	var errorBuffer bytes.Buffer
+	var warningBuffer bytes.Buffer
+	_, _ = fmt.Fprintln(&errorBuffer, "Build Errors:")
+	_, _ = fmt.Fprintln(&warningBuffer, "Build Warnings:")
+	var hasErrors bool
+	for _, pkg := range pkgs {
+		for _, err := range pkg.Errors {
+			isBuildTagError := false
+			for _, tag := range err.Tags {
+				if tag == buildtag.Bad {
+					isBuildTagError = true
+					break
+				}
+			}
+			if !isBuildTagError {
+				hasErrors = true
+				_, _ = fmt.Fprintln(&errorBuffer, err.Error())
+			}
+		}
+		for _, warn := range pkg.GoFilesWarned {
+			_, _ = fmt.Fprintln(&warningBuffer, warn.Error())
+		}
+	}
+
+	if hasErrors {
+		return changes, errors.New(errorBuffer.String())
+	}
+
+	if warningBuffer.Len() > 0 {
+		fmt.Println(warningBuffer.String())
+	}
+
+	// Re-format files
+	for _, file := range p.files {
+		err := formatFile(file)
+		if err != nil {
+			return changes, err
+		}
+	}
+
+	return len(p.files), nil
+}
+
+// formatFile reformats a Go file using gofmt.
+func formatFile(file string) error {
+	fset := token.NewFileSet()
+	node, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
+	if err != nil {
+		return err
+	}
+	ast.SortImports(fset, node)
+	f, err := os.Create(file)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	err = format.Node(f, fset, node)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *Project) processGenerateStep() (changes int, err error) {
 	err = filepath.Walk(p.rootPath, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -107,25 +196,17 @@ func (p *Project) processRepoStep() (changes int, err error) {
 		return changes, nil
 	}
 
-	diff, err := p.fs.GetUncommittedChanges()
+	err = p.fs.StageAll()
 
 	if err != nil {
 		return changes, err
 	}
 
-	commitMessage, err := gpt.PrepareCommitMessage(diff)
+	err = p.Commit(false)
 
 	if err != nil {
 		return changes, err
 	}
-
-	commitId, err := p.fs.Commit(commitMessage, true)
-
-	if err != nil {
-		return changes, err
-	}
-
-	fmt.Printf("Changes committed with commit ID %s\n", commitId)
 
 	err = p.fs.Push()
 
@@ -205,7 +286,7 @@ func (p *Project) ProcessNodes(sf *psi.SourceFile) psi.Node {
 	return psi.Apply(ctx.Root, ctx.OnEnter, ctx.OnLeave)
 }
 
-func (p *Project) Commit() error {
+func (p *Project) Commit(addAll bool) error {
 	isDirty, err := p.fs.IsDirty()
 
 	if err != nil {
@@ -228,7 +309,7 @@ func (p *Project) Commit() error {
 		return err
 	}
 
-	commitId, err := p.fs.Commit(commitMessage, false)
+	commitId, err := p.fs.Commit(commitMessage, addAll)
 
 	if err != nil {
 		return err
