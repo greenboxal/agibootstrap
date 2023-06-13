@@ -3,7 +3,6 @@ package codex
 import (
 	"errors"
 	"fmt"
-	"go/ast"
 	"go/build"
 	"go/types"
 	"path"
@@ -60,18 +59,13 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 		}
 
 		// Iterate over each Go source file in the package
-		for _, file := range pkg.Syntax {
-			_, err = typeConfig.Check(pkg.ID, pkg.Fset, []*ast.File{file}, pkg.TypesInfo)
+		_, err = typeConfig.Check(pkg.ID, pkg.Fset, pkg.Syntax, pkg.TypesInfo)
 
-			if err != nil {
-				errs = append(errs, &BuildError{
-					Pkg:      pkg,
-					Filename: pkg.Fset.File(file.Pos()).Name(),
-					Line:     pkg.Fset.Position(file.Pos()).Line,
-					Column:   pkg.Fset.Position(file.Pos()).Column,
-					Error:    err,
-				})
-			}
+		if err != nil {
+			errs = append(errs, &BuildError{
+				Pkg:   pkg,
+				Error: err,
+			})
 		}
 	}
 
