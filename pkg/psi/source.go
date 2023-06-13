@@ -119,5 +119,24 @@ func (sf *SourceFile) ToCode(node Node) (string, error) {
 }
 
 func (sf *SourceFile) FindNodeByPos(pos token.Position) Node {
-	return sf.root.FindNodeByPos(pos)
+	var findNode func(n Node) Node
+	findNode = func(n Node) Node {
+		startPos := sf.dec.Decorations().StartOf(n.Node()).Pos()
+		endPos := sf.dec.Decorations().EndOf(n.Node()).Pos()
+		// check if pos is inside node range
+		if startPos <= pos && endPos >= pos {
+			// check for node with children
+			// if matches, recurses on children
+			if nn, ok := n.(NodeContainer); ok {
+				for _, child := range nn.Children() {
+					if res := findNode(child); res != nil {
+						return res
+					}
+				}
+			}
+			return n
+		}
+		return nil
+	}
+	return findNode(sf.root)
 }
