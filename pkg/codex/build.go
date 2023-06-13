@@ -45,7 +45,7 @@ func (p *Project) buildProject() (sf *psi.SourceFile, errs []*BuildError, err er
 	buildContext := build.Default
 
 	// Get all packages in the project
-	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedTypes | packages.NeedSyntax}, p.rootPath)
+	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedTypes | packages.NeedSyntax, Dir: p.rootPath}, packageName)
 
 	if err != nil {
 		return nil, nil, err
