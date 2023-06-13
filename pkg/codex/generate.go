@@ -28,14 +28,14 @@ func (p *Project) Generate() (changes int, err error) {
 			return changes, nil
 		}
 
-		fixChanges, err := p.processFixStep()
-
-		if err != nil {
-			return changes, nil
-		}
-
+		//		fixChanges, err := p.processFixStep()
+		//
+		//		if err != nil {
+		//			return changes, nil
+		//		}
+		//
 		stepChanges += importsChanges
-		stepChanges += fixChanges
+		//stepChanges += fixChanges
 		changes += stepChanges
 
 		if stepChanges == 0 {
