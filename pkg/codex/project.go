@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 
 	"github.com/dave/dst"
+	"github.com/hashicorp/go-multierror"
 	"github.com/zeroflucs-given/generics/collections/stack"
 	"golang.org/x/exp/slices"
 	"golang.org/x/tools/go/packages"
@@ -189,11 +190,13 @@ func (p *Project) processImportsStep() (changes int, err error) {
 	return
 }
 
-func (p *Project) processFixStep() (changes int, err error) {
+// buildProject is responsible for analyzing the project and checking its types.
+// It returns a slice of BuildError and an error. BuildError contains information about type-checking errors and their associated package name, filename, line, column and error.
+func (p *Project) buildProject() (errs []*BuildError, err error) {
 	// Get the module path of the package
 	modulePath, err := getModulePath(p.rootPath)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	// Get the import path of the package
@@ -206,13 +209,13 @@ func (p *Project) processFixStep() (changes int, err error) {
 	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedTypes | packages.NeedSyntax}, p.rootPath)
 
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	// Iterate through every Go package in the project
 	for _, pkg := range pkgs {
 		if !pkg.Types.Complete() {
-			return 0, fmt.Errorf("incomplete package type info: %q", pkg.ID)
+			return nil, fmt.Errorf("incomplete package type info: %q", pkg.ID)
 		}
 
 		if pkg.Name == "main" {
@@ -234,7 +237,6 @@ func (p *Project) processFixStep() (changes int, err error) {
 		}
 
 		// Iterate over each Go source file in the package
-		var errs []*BuildError
 		for _, file := range pkg.Syntax {
 			// Type-check the file
 			info := types.Info{
@@ -249,6 +251,7 @@ func (p *Project) processFixStep() (changes int, err error) {
 
 			if err != nil {
 				errs = append(errs, &BuildError{
+					Pkg:      pkg,
 					Filename: pkg.Fset.File(file.Pos()).Name(),
 					Line:     fset.Position(file.Pos()).Line,
 					Column:   fset.Position(file.Pos()).Column,
@@ -256,16 +259,27 @@ func (p *Project) processFixStep() (changes int, err error) {
 				})
 			}
 		}
+	}
 
-		if len(errs) > 0 {
-			strs := make([]string, len(errs))
+	return
+}
+func (p *Project) processFixStep() (changes int, err error) {
+	buildErrors, err := p.buildProject()
 
-			for i, err := range errs {
-				strs[i] = fmt.Sprintf("%s:%d:%d: %v", err.Filename, err.Line, err.Column, err.Error)
-			}
+	if err != nil {
+		return 0, err
+	}
 
-			return changes, fmt.Errorf("%d errors occurred during type checking in package %s: %v", len(strs), pkg.ID, errs)
+	if len(buildErrors) > 0 {
+		strs := make([]string, len(buildErrors))
+
+		for i, buildError := range buildErrors {
+			strs[i] = fmt.Sprintf("%s:%d:%d: %v", buildError.Filename, buildError.Line, buildError.Column, buildError.Error)
+			e := fmt.Errorf("%d errors occurred during type checking in package %s: %v", len(strs), buildError.Pkg.ID, buildErrors)
+			err = multierror.Append(err, e)
 		}
+
+		return
 	}
 
 	return changes, nil
@@ -294,6 +308,7 @@ func getModulePath(dir string) (string, error) {
 }
 
 type BuildError struct {
+	Pkg      *packages.Package
 	Filename string
 	Line     int
 	Column   int
