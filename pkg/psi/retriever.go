@@ -97,7 +97,9 @@ func (r *referenceIteratorImpl) Next() bool {
 	if len(r.root.Children()) == 0 {
 		return false
 	}
-	// More code goes here...
+
+	// Your implementation here...
+
 	return true
 }
 
