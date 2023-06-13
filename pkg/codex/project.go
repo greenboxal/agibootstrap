@@ -9,6 +9,14 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
 
+type BuildStepResult struct {
+	Changes int
+}
+
+type BuildStep interface {
+	Process(p *Project) (result BuildStepResult, err error)
+}
+
 // A Project is the root of a codex project.
 // It contains all the information about the project.
 // It is also the entry point for all codex operations.
@@ -44,6 +52,36 @@ func (p *Project) RootPath() string { return p.rootPath }
 
 func (p *Project) FS() repofs.FS { return p.fs }
 
+func (p *Project) Generate() (changes int, err error) {
+	steps := []BuildStep{
+		&CodeGenBuildStep{},
+		&FixImportsBuildStep{},
+		&FixBuildStep{},
+	}
+
+	for {
+		stepChanges := 0
+
+		for _, step := range steps {
+			result, err := step.Process(p)
+
+			if err != nil {
+				return changes, err
+			}
+
+			stepChanges += result.Changes
+		}
+
+		if stepChanges == 0 {
+			break
+		}
+
+		changes += stepChanges
+	}
+
+	return
+}
+
 func (p *Project) Sync() error {
 	p.files = []string{}
 
@@ -53,6 +91,7 @@ func (p *Project) Sync() error {
 		}
 		return nil
 	})
+
 	if err != nil {
 		return err
 	}

@@ -15,39 +15,9 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
-func (p *Project) Generate() (changes int, err error) {
-	for {
-		stepChanges, err := p.processGenerateStep()
+type CodeGenBuildStep struct{}
 
-		if err != nil {
-			return changes, err
-		}
-
-		importsChanges, err := p.processImportsStep()
-
-		if err != nil {
-			return changes, err
-		}
-
-		fixChanges, err := p.processFixStep()
-
-		if err != nil {
-			return changes, err
-		}
-
-		stepChanges += importsChanges
-		stepChanges += fixChanges
-		changes += stepChanges
-
-		if stepChanges == 0 {
-			break
-		}
-	}
-
-	return
-}
-
-func (p *Project) processGenerateStep() (changes int, err error) {
+func (g *CodeGenBuildStep) Process(p *Project) (result BuildStepResult, err error) {
 	for _, path := range p.files {
 		if filepath.Ext(path) == ".go" {
 			count, e := p.processFile(path)
@@ -56,7 +26,7 @@ func (p *Project) processGenerateStep() (changes int, err error) {
 				err = multierror.Append(err, e)
 			}
 
-			changes += count
+			result.Changes += count
 		}
 	}
 
@@ -67,33 +37,32 @@ func (p *Project) processGenerateStep() (changes int, err error) {
 	isDirty, err := p.fs.IsDirty()
 
 	if err != nil {
-		return changes, err
+		return result, err
 	}
 
 	if !isDirty {
-		return changes, nil
+		return result, nil
 	}
 
 	err = p.fs.StageAll()
 
 	if err != nil {
-		return changes, err
+		return result, err
 	}
 
 	err = p.Commit(false)
 
 	if err != nil {
-		return changes, err
+		return result, err
 	}
 
 	err = p.fs.Push()
 
 	if err != nil {
-		fmt.Printf("Error pushing the changes: %v\n", err)
-		return changes, err
+		return result, err
 	}
 
-	return changes, nil
+	return result, nil
 }
 
 func (p *Project) processFile(fsPath string, opts ...NodeProcessorOption) (int, error) {

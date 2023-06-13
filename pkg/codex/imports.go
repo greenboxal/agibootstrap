@@ -8,7 +8,9 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/io"
 )
 
-func (p *Project) processImportsStep() (changes int, err error) {
+type FixImportsBuildStep struct{}
+
+func (s *FixImportsBuildStep) Process(p *Project) (result BuildStepResult, err error) {
 	for _, file := range p.files {
 		opt := &imports.Options{
 			FormatOnly: false,
@@ -22,23 +24,23 @@ func (p *Project) processImportsStep() (changes int, err error) {
 		code, err := os.ReadFile(file)
 
 		if err != nil {
-			return changes, err
+			return result, err
 		}
 
 		newCode, err := imports.Process(file, code, opt)
 
 		if err != nil {
-			return changes, err
+			return result, err
 		}
 
 		if string(newCode) != string(code) {
 			err = io.WriteFile(file, string(newCode))
 
 			if err != nil {
-				return changes, err
+				return result, err
 			}
 
-			changes++
+			result.Changes++
 		}
 	}
 
