@@ -99,6 +99,7 @@ func (r *referenceIteratorImpl) Next() bool {
 	}
 
 	// Your implementation here...
+	// Implementation details here...
 
 	return true
 }
