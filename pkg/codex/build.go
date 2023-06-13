@@ -97,9 +97,6 @@ func (p *Project) processFixStep() (changes int, err error) {
 		if err != nil {
 			return 0, err
 		}
-
-		// Increase the count of changes made
-		changes++
 	}
 
 	return changes, nil
@@ -111,9 +108,11 @@ func (p *Project) processFixStep() (changes int, err error) {
 // The expected input parameters are the psi.SourceFile 'sf' and pointer to the BuildError 'buildError' that needs to be fixed.
 // The expected output parameter is an error, which is nil if the process finishes successfully.
 func (p *Project) ProcessFix(sf *psi.SourceFile, buildError *BuildError) error {
+	fmt.Printf("Fixing build error: %s\n", buildError.String())
+
 	p.ProcessNodes(sf, func(p *NodeProcessor) {
 		p.prepareObjective = func(p *NodeProcessor, ctx *FunctionContext) (string, error) {
-			return "Fix the following build error: " + buildError.Error.Error(), nil
+			return "Fix the following build error: " + buildError.String(), nil
 		}
 	})
 
