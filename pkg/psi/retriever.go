@@ -89,11 +89,12 @@ type referenceIteratorImpl struct {
 	current Reference
 }
 
-// Next returns true if there are any references left to process.
+// TODO: Implement this method properly.
 func (r *referenceIteratorImpl) Next() bool {
 	// Implementation to be added
 	// TODO: Implement this method properly.
-	return false
+	// Code would go here
+	return true
 }
 
 // Reference returns the current reference

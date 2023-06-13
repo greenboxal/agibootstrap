@@ -159,6 +159,14 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 		}
 
 		patchedCode := block.Code
+		pkgIndex := hasPackageRegex.FindStringIndex(patchedCode)
+
+		if len(pkgIndex) > 0 {
+			patchedCode = fmt.Sprintf("%s%s%s", patchedCode[:pkgIndex[1]], "\n", patchedCode[pkgIndex[1]:])
+		} else {
+			patchedCode = fmt.Sprintf("package gptimport\n%s", patchedCode)
+		}
+
 		patchedCode = hasPackageRegex.ReplaceAllString(patchedCode, "package gptimport\n")
 
 		// Parse the generated code into an AST
