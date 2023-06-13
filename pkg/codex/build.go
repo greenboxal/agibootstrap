@@ -57,16 +57,7 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 
 		// Iterate over each Go source file in the package
 		for _, file := range pkg.Syntax {
-			// Type-check the file
-			info := types.Info{
-				Types:      make(map[ast.Expr]types.TypeAndValue),
-				Defs:       make(map[*ast.Ident]types.Object),
-				Uses:       make(map[*ast.Ident]types.Object),
-				Implicits:  make(map[ast.Node]types.Object),
-				Selections: make(map[*ast.SelectorExpr]*types.Selection),
-			}
-
-			_, err = typeConfig.Check(pkg.ID, fset, []*ast.File{file}, &info)
+			_, err = typeConfig.Check(pkg.ID, fset, []*ast.File{file}, pkg.TypesInfo)
 
 			if err != nil {
 				errs = append(errs, &BuildError{
