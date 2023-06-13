@@ -117,3 +117,7 @@ func (sf *SourceFile) ToCode(node Node) (string, error) {
 
 	return buf.String(), nil
 }
+
+func (sf *SourceFile) FindNodeByPos(pos token.Position) Node {
+	return sf.root.FindNodeByPos(pos)
+}

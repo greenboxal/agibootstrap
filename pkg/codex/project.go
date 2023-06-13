@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/build"
+	"go/token"
 	"go/types"
 	"io/fs"
 	"os"
