@@ -14,7 +14,7 @@ type FS interface {
 
 	// IsDirty returns true if there are uncommitted changes.
 	IsDirty() (bool, error)
-	// GetUncommittedChanges returns a string containing the uncommitted changes as a diff.
+	// GetStagedChanges returns a string containing the staged changes as a diff.
 	GetStagedChanges() (string, error)
 	// GetUncommittedChanges returns a string containing the uncommitted changes as a diff.
 	GetUncommittedChanges() (string, error)

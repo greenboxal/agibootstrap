@@ -226,35 +226,3 @@ func (p *NodeProcessor) ReplaceDeclarationAt(cursor *psi.Cursor, decl psi.Node, 
 	index := slices.Index(p.Root.Node().(*dst.File).Decls, decl.Node().(dst.Decl))
 	p.setExistingDeclaration(index, name, decl)
 }
-
-// ProcessNodes processes all AST nodes.
-func ProcessNodes(sf *psi.SourceFile) psi.Node {
-	ctx := &NodeProcessor{
-		SourceFile:   sf,
-		Root:         sf.Root(),
-		FuncStack:    stack.NewStack[*FunctionContext](16),
-		Declarations: map[string]*declaration{},
-	}
-
-	for _, child := range sf.Root().Children() {
-		decl, ok := child.Node().(dst.Decl)
-
-		if !ok {
-			continue
-		}
-
-		index := slices.Index(ctx.Root.Node().(*dst.File).Decls, decl)
-
-		if index == -1 {
-			continue
-		}
-
-		names := getDeclarationNames(child)
-
-		for _, name := range names {
-			ctx.setExistingDeclaration(index, name, child)
-		}
-	}
-
-	return psi.Apply(ctx.Root, ctx.OnEnter, ctx.OnLeave)
-}
