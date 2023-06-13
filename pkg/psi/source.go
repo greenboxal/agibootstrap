@@ -28,12 +28,16 @@ func NewSourceFile(name string) *SourceFile {
 	}
 }
 
-func Parse(filename string, sourceCode string) *SourceFile {
+func Parse(filename string, sourceCode string) (*SourceFile, error) {
 	sf := NewSourceFile(filename)
 
-	_, _ = sf.Parse(filename, sourceCode)
+	_, err := sf.Parse(filename, sourceCode)
 
-	return sf
+	if err != nil {
+		return nil, err
+	}
+
+	return sf, nil
 }
 
 func (sf *SourceFile) FileSet() *token.FileSet { return sf.dec.Fset }

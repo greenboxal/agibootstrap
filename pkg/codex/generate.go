@@ -108,7 +108,11 @@ func (p *Project) processFile(fsPath string) (int, error) {
 	}
 
 	// Parse the file into an AST
-	ast := psi.Parse(fsPath, string(code))
+	ast, err := psi.Parse(fsPath, string(code))
+
+	if err != nil {
+		return 0, err
+	}
 
 	if ast.Error() != nil {
 		return 0, err
@@ -153,14 +157,28 @@ func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node) psi.Node {
 		Declarations: map[string]*declaration{},
 	}
 
-	for _, child := range sf.Root().Children() {
+	if ctx.SourceFile == nil {
+		panic("SourceFile is nil")
+	}
+
+	if ctx.SourceFile.Root() == nil {
+		panic("SourceFile.Root() is nil")
+	}
+
+	if ctx.SourceFile.Root().Node() == nil {
+		panic("SourceFile.Root().Node() is nil")
+	}
+
+	rootFile := ctx.SourceFile.Root().Node().(*dst.File)
+
+	for _, child := range ctx.Root.Children() {
 		decl, ok := child.Node().(dst.Decl)
 
 		if !ok {
 			continue
 		}
 
-		index := slices.Index(ctx.Root.Node().(*dst.File).Decls, decl)
+		index := slices.Index(rootFile.Decls, decl)
 
 		if index == -1 {
 			continue
