@@ -220,8 +220,6 @@ func (p *NodeProcessor) setExistingDeclaration(index int, name string, node psi.
 	decl.element = node
 	decl.node = node.Ast()
 	decl.index = index
-
-	//p.Root.Ast().(*dst.File).Decls[index] = node.Ast().(dst.Decl)
 }
 
 func (p *NodeProcessor) MergeDeclarations(cursor *psi.Cursor, node psi.Node) bool {
