@@ -194,62 +194,70 @@ func (p *Project) processFixStep() (changes int, err error) {
 	// Set up the build context
 	buildContext := build.Default
 
-	// Get the package
-	pkg, err := buildContext.Import(packageName, p.rootPath+"/cmd", 0)
+	// Get all packages in the project
+	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedTypes | packages.NeedSyntax}, p.rootPath)
 
 	if err != nil {
-		fmt.Printf("Failed to import package: %v\n", err)
-		return
+		return 0, err
 	}
 
-	// Create the file set
-	fset := token.NewFileSet()
-
-	// Create the type checker
-	typeConfig := &types.Config{
-		Importer: p,
-	}
-
-	// Iterate over each Go source file in the package
-	var errs []*BuildError
-	for _, file := range pkg.GoFiles {
-		// Parse the file
-		astFile, err := parser.ParseFile(fset, file, nil, parser.AllErrors)
-
-		if err != nil {
-			errs = append(errs, &BuildError{
-				Filename: file,
-				Line:     0,
-				Column:   0,
-				Error:    err,
-			})
-			continue
+	// Iterate through every Go package in the project
+	for _, pkg := range pkgs {
+		if !pkg.Types.Complete() {
+			return 0, fmt.Errorf("incomplete package type info: %q", pkg.ID)
 		}
 
-		// Type-check the file
-		info := types.Info{
-			Types: make(map[ast.Expr]types.TypeAndValue),
+		if pkg.Name == "main" {
+			continue // Skip the main package
 		}
 
-		_, err = typeConfig.Check(pkg.ImportPath, fset, []*ast.File{astFile}, &info)
-
-		if err != nil {
-			errs = append(errs, &BuildError{
-				Filename: file,
-				Line:     fset.Position(astFile.Pos()).Line,
-				Column:   fset.Position(astFile.Pos()).Column,
-				Error:    err,
-			})
+		if _, ok := pkg.Imports[packageName]; !ok {
+			continue // Skip packages that do not import the package we want to analyze
 		}
-	}
 
-	if len(errs) > 0 {
-		strs := make([]string, len(errs))
+		// Create the file set
+		fset := token.NewFileSet()
 
-		for i, err := range errs {
-			strs[i] = fmt.Sprintf("%s:%d:%d: %v", err.Filename, err.Line, err.Column, err.Error)
+		// Create the type checker
+		typeConfig := &types.Config{
+			Error:    func(err error) { /* ignore parse errors */ },
+			Importer: p,
+			Sizes:    types.SizesFor(buildContext.Compiler, buildContext.GOARCH), // Required for type-checking constants
 		}
-		return changes, fmt.Errorf("%d errors occurred during type checking: %v", len(strs), errs)
+
+		// Iterate over each Go source file in the package
+		var errs []*BuildError
+		for _, file := range pkg.Syntax {
+			// Type-check the file
+			info := types.Info{
+				Types:      make(map[ast.Expr]types.TypeAndValue),
+				Defs:       make(map[*ast.Ident]types.Object),
+				Uses:       make(map[*ast.Ident]types.Object),
+				Implicits:  make(map[ast.Node]types.Object),
+				Selections: make(map[*ast.SelectorExpr]*types.Selection),
+			}
+
+			_, err = typeConfig.Check(pkg.ID, fset, []*ast.File{file}, &info)
+
+			if err != nil {
+				errs = append(errs, &BuildError{
+					Filename: pkg.Fset.File(file.Pos()).Name(),
+					Line:     fset.Position(file.Pos()).Line,
+					Column:   fset.Position(file.Pos()).Column,
+					Error:    err,
+				})
+			}
+		}
+
+		if len(errs) > 0 {
+			strs := make([]string, len(errs))
+
+			for i, err := range errs {
+				strs[i] = fmt.Sprintf("%s:%d:%d: %v", err.Filename, err.Line, err.Column, err.Error)
+			}
+
+			return changes, fmt.Errorf("%d errors occurred during type checking in package %s: %v", len(strs), pkg.ID, errs)
+		}
 	}
 
 	return changes, nil
