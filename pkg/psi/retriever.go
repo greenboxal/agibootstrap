@@ -78,6 +78,13 @@ func (r *referenceIteratorImpl) Next() bool {
 	// TODO: Return true or false based on whether there are any references left to process
 	// TODO: Update the `current` field with the next reference
 
+	// Check if there are any references left to process
+	if len(r.visited) > 0 {
+		r.current = *r.visited[0] // Set the current reference to the first reference in the visited map
+		r.visited = r.visited[1:] // Remove the first reference from the visited map
+		return true
+	}
+
 	r.current = Reference{} // Set the current reference to an empty value
 	return false            // There are no more references to process
 }

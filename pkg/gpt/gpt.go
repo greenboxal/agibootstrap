@@ -67,6 +67,7 @@ Complete the TODOs in the document below.
 					Temperature: 0.7,
 				},
 				CodeGeneratorPrompt,
+				chat.WithMaxTokens(10000),
 			),
 		),
 	)
