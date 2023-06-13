@@ -21,11 +21,16 @@ var ContextKey chain.ContextKey[string] = "Context"
 var DocumentKey chain.ContextKey[string] = "Document"
 
 // CodeGeneratorPrompt is the prompt used to generate code.
-// TODO: Make this the best prompt so an LLM like GPT-3.5-TURBO (you) can generate code.
-var CodeGeneratorPrompt = chat.ComposeTemplate(
-	chat.EntryTemplate(
-		msn.RoleSystem,
-		chain.NewTemplatePrompt(`
+var CodeGeneratorPrompt chat.Prompt
+var contentChain chain.Chain
+
+func init() {
+	// This is the best prompt so an LLM like GPT-3.5-TURBO (you) can generate code.
+
+	CodeGeneratorPrompt = chat.ComposeTemplate(
+		chat.EntryTemplate(
+			msn.RoleSystem,
+			chain.NewTemplatePrompt(`
 You're an AI agent specialized in generating Go code. Complete the request below.
 You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
 Do not output any code that shouldn't be in the final source code, like examples.
@@ -34,11 +39,11 @@ Do not emit any code that is not valid Go code. You can use the context below to
 # Context
 {{ .Context | markdownTree }}
 `, chain.WithRequiredInput(ContextKey)),
-	),
-	chat.HistoryFromContext(memory.ContextualMemoryKey),
-	chat.EntryTemplate(
-		msn.RoleUser,
-		chain.NewTemplatePrompt(`
+		),
+		chat.HistoryFromContext(memory.ContextualMemoryKey),
+		chat.EntryTemplate(
+			msn.RoleUser,
+			chain.NewTemplatePrompt(`
 # Request
 Complete the TODOs in the document below.
 
@@ -50,7 +55,23 @@ Complete the TODOs in the document below.
 {{ .Document | markdownTree }}
 `+"```"+`
 `, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey)),
-	))
+		))
+
+	contentChain = chain.New(
+		chain.WithName("GoCodeGenerator"),
+
+		chain.Sequential(
+			chat.Predict(
+				&openai.ChatLanguageModel{
+					Client:      openai.NewClient(),
+					Model:       "gpt-3.5-turbo",
+					Temperature: 0.7,
+				},
+				CodeGeneratorPrompt,
+			),
+		),
+	)
+}
 
 var oai = openai.NewClient()
 var embedder = &openai.Embedder{
@@ -62,21 +83,6 @@ var model = &openai.ChatLanguageModel{
 	Model:       "gpt-3.5-turbo",
 	Temperature: 0.7,
 }
-
-var contentChain = chain.New(
-	chain.WithName("GoCodeGenerator"),
-
-	chain.Sequential(
-		chat.Predict(
-			&openai.ChatLanguageModel{
-				Client:      openai.NewClient(),
-				Model:       "gpt-3.5-turbo",
-				Temperature: 0.7,
-			},
-			CodeGeneratorPrompt,
-		),
-	),
-)
 
 func SendToGPT(objectives, promptContext, target string) (string, error) {
 	ctx := context.Background()
