@@ -56,7 +56,7 @@ DO NOT output Go code outside of a function. Always output complete functions.
 			msn.RoleUser,
 			chain.NewTemplatePrompt(`
 # Request
-Complete the following TODOs in the Document at the end:
+Address all TODOs in the document below by implementing the necessary changes in the code.
 
 {{ .Objective }}
 

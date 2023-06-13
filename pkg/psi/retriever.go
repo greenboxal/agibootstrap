@@ -68,10 +68,21 @@ type referenceIteratorImpl struct {
 	current Reference
 }
 
+// TODO: Implement the logic for iterating over the references
 func (r *referenceIteratorImpl) Next() bool {
-	// TODO: Implement the logic for iterating over the references
+	if r.root == nil {
+		return false
+	}
 
+	// Implement the logic for iterating over the references
 	// Placeholder logic for now
+	r.current = Reference{
+		Referer:             r.root,
+		Referee:             nil,
+		DeclarationDistance: 0,
+		ReferenceDistance:   0,
+	}
+
 	return true
 }
 
