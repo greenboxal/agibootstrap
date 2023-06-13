@@ -20,6 +20,8 @@ var ObjectiveKey chain.ContextKey[string] = "Objective"
 var ContextKey chain.ContextKey[string] = "Context"
 var DocumentKey chain.ContextKey[string] = "Document"
 
+// CodeGeneratorPrompt is the prompt used to generate code.
+// TODO: Make this the best prompt so an LLM like GPT-3.5-TURBO (you) can generate code.
 var CodeGeneratorPrompt = chat.ComposeTemplate(
 	chat.EntryTemplate(
 		msn.RoleSystem,
