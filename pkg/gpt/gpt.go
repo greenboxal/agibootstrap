@@ -103,6 +103,27 @@ func SendToGPT(objectives, promptContext, target string) (string, error) {
 	return codeOutput, nil
 }
 
+func Summarize(objective string, document string) (string, error) {
+	parsedDoc := ParseMarkdown([]byte(document))
+
+	var summary string
+	ast.WalkFunc(parsedDoc, func(node ast.Node, entering bool) ast.WalkStatus {
+		if entering {
+			switch header := node.(type) {
+			case *ast.Heading:
+				if header.Level == 1 {
+					summary = string(header.FirstChild.Literal)
+					return ast.Terminate
+				}
+			}
+		}
+
+		return ast.GoToNext
+	})
+
+	return summary, nil
+}
+
 func FormatMarkdown(node ast.Node) []byte {
 	return markdown.Render(node, md.NewRenderer())
 }
