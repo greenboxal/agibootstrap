@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/build"
-	"go/token"
 	"go/types"
 	"io/fs"
 	"os"
@@ -192,11 +191,13 @@ func (p *Project) processImportsStep() (changes int, err error) {
 
 // buildProject is responsible for analyzing the project and checking its types.
 // It returns a slice of BuildError and an error. BuildError contains information about type-checking errors and their associated package name, filename, line, column and error.
-func (p *Project) buildProject() (errs []*BuildError, err error) {
+func (p *Project) buildProject() (sf *psi.SourceFile, errs []*BuildError, err error) {
+	sf = psi.NewSourceFile("")
+
 	// Get the module path of the package
 	modulePath, err := getModulePath(p.rootPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Get the import path of the package
@@ -209,13 +210,13 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedTypes | packages.NeedSyntax}, p.rootPath)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Iterate through every Go package in the project
 	for _, pkg := range pkgs {
 		if !pkg.Types.Complete() {
-			return nil, fmt.Errorf("incomplete package type info: %q", pkg.ID)
+			return nil, nil, fmt.Errorf("incomplete package type info: %q", pkg.ID)
 		}
 
 		if pkg.Name == "main" {
@@ -226,8 +227,7 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 			continue // Skip packages that do not import the package we want to analyze
 		}
 
-		// Create the file set
-		fset := token.NewFileSet()
+		fset := sf.FileSet()
 
 		// Create the type checker
 		typeConfig := &types.Config{
@@ -265,10 +265,15 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 }
 
 func (p *Project) processFixStep() (changes int, err error) {
-	buildErrors, err := p.buildProject()
+	sf, buildErrors, err := p.buildProject()
 
 	if err != nil {
 		return 0, err
+	}
+
+	getNodeForError := func(err *BuildError) psi.Node {
+		pos := token.Position{Filename: err.Filename, Line: err.Line, Column: err.Column}
+		return sf.FindNodeByPos(pos)
 	}
 
 	if len(buildErrors) > 0 {
@@ -277,9 +282,9 @@ func (p *Project) processFixStep() (changes int, err error) {
 		for i, buildError := range buildErrors {
 			strs[i] = fmt.Sprintf("%s:%d:%d: %v", buildError.Filename, buildError.Line, buildError.Column, buildError.Error)
 			// Replace the error node with the result of processing
-			node := buildError.ErrorNode()
-			result := p.ProcessNode(node)
-			buildError.ReplaceNode(result)
+			node := getNodeForError(buildError)
+
+			p.ProcessNode(sf, node)
 
 			e := fmt.Errorf("%d errors occurred during type checking in package %s: %v", len(strs), buildError.Pkg.ID, buildErrors)
 			err = multierror.Append(err, e)
@@ -409,11 +414,19 @@ func (p *Project) processFile(fsPath string) (int, error) {
 	return 0, nil
 }
 
-// ProcessNodes processes all AST nodes.
 func (p *Project) ProcessNodes(sf *psi.SourceFile) psi.Node {
+	// Process the AST nodes
+	updated := p.ProcessNode(sf, sf.Root())
+
+	// Convert the AST back to code
+	return updated
+}
+
+// ProcessNode processes the given node and returns the updated node.
+func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node) psi.Node {
 	ctx := &NodeProcessor{
 		SourceFile:   sf,
-		Root:         sf.Root(),
+		Root:         root,
 		FuncStack:    stack.NewStack[*FunctionContext](16),
 		Declarations: map[string]*declaration{},
 	}
