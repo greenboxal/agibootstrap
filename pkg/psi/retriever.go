@@ -3,8 +3,6 @@
 
 package psi
 
-import "github.com/dave/dst"
-
 // G is a graph network, analogous to a file directory system containing files. For each file that contains code, the Abstract Syntax Tree (AST) for that code is treated as a child node connected to the parent node that represents the file.
 //
 // There are different types of subgraphs, G_N, in G, each type corresponding to a unique type of edge, E_T. Here are the specifics:
@@ -25,35 +23,37 @@ import "github.com/dave/dst"
 //
 // 4. M_ImportanceScore: This metric is defined as the inverse of the norm of the M_ImportanceDistance vector subtracted from one (1 - norm(M_ImportanceDistance)). The norm here refers to the vector's magnitude, which can be computed as the square root of the sum of squares of its components. The M_ImportanceScore is a measure of the relative significance or 'importance' of a code component in the codebase, taking into consideration both its declaration hierarchy and its references within the codebase. A higher score indicates a higher level of 'importance' or centrality in the codebase.
 
-type Node interface {
-	ID() int64
-	UUID() string
-	Node() *NodeBase
-	Parent() Node
-	Children() []Node
-
-	Ast() dst.Node
-
-	IsContainer() bool
-	IsLeaf() bool
-
-	Comments() []string
-
-	attachToGraph(g *Graph)
-	detachFromGraph(g *Graph)
-	setParent(parent Node)
-	addChildNode(node Node)
-	removeChildNode(node Node)
-}
+// Reference:
+//type Node interface {
+//	ID() int64
+//	UUID() string
+//	Node() *NodeBase
+//	Parent() Node
+//	Children() []Node
+//
+//	Ast() dst.Node
+//
+//	IsContainer() bool
+//	IsLeaf() bool
+//
+//	Comments() []string
+//
+//	attachToGraph(g *Graph)
+//	detachFromGraph(g *Graph)
+//	setParent(parent Node)
+//	addChildNode(node Node)
+//	removeChildNode(node Node)
+//}
 
 // Retriever is an interface that can be used to retrieve nodes from a graph
 type Retriever struct {
 }
 
 // NewRetriever creates a new instance of the Retriever
-//func NewRetriever() *Retriever {
-//	return &Retriever{}
-//}
+//
+//	func NewRetriever() *Retriever {
+//		return &Retriever{}
+//	}
 func NewRetriever() *Retriever {
 	return &Retriever{}
 }
@@ -95,8 +95,12 @@ type referenceIteratorImpl struct {
 // TODO: Implement this method properly.
 func (r *referenceIteratorImpl) Next() bool {
 	// Implementation to be added
-	// TODO: Implement this method properly.
-	// Code would go here
+	// Code goes here
+	// Updated implementation
+	if len(r.root.Children()) == 0 {
+		return false
+	}
+	// More code
 	return true
 }
 
