@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/ast"
@@ -71,10 +72,16 @@ func MarkdownTree(input any) string {
 
 		default:
 			leaf := &ast.CodeBlock{
-				IsFenced: true,
+				IsFenced: false,
 			}
 
 			str := fmt.Sprintf("%s", node)
+			lines := strings.Split(str, "\n")
+			for i, l := range lines {
+				lines[i] = "\t" + l
+			}
+			str = strings.Join(lines, "\n")
+
 			leaf.Literal = []byte(str)
 
 			ast.AppendChild(parent, leaf)

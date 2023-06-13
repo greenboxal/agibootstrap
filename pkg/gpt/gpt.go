@@ -2,7 +2,6 @@ package gpt
 
 import (
 	"context"
-	"html"
 
 	"github.com/gomarkdown/markdown/ast"
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
@@ -107,7 +106,7 @@ func SendToGPT(objectives, promptContext, target string) (string, error) {
 			case *ast.CodeBlock:
 				if node.IsFenced {
 					unescaped := string(node.Literal)
-					unescaped = html.UnescapeString(unescaped)
+					//unescaped = html.UnescapeString(unescaped)
 					codeOutput += unescaped
 				}
 			}

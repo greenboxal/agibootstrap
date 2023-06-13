@@ -2,13 +2,13 @@ package psi
 
 import (
 	"bytes"
-	"errors"
 	"go/parser"
 	"go/token"
 	"io"
 
 	"github.com/dave/dst"
 	"github.com/dave/dst/decorator"
+	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
@@ -85,6 +85,18 @@ func (sf *SourceFile) Replace(code string) error {
 }
 
 func (sf *SourceFile) Parse(filename string, sourceCode string) (result Node, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if e, ok := r.(error); ok {
+				err = e
+			} else {
+				err = r.(error)
+			}
+
+			err = errors.Wrap(err, "panic while parsing file: "+filename)
+		}
+	}()
+
 	parsed, err := decorator.ParseFile(sf.fset, filename, sourceCode, parser.ParseComments)
 
 	sf.parsed = parsed
