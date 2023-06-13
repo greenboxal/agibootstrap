@@ -3,10 +3,14 @@ package codex
 import (
 	"io/fs"
 	"path/filepath"
+	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/io"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
+	"github.com/greenboxal/agibootstrap/pkg/vfs"
 )
 
 type BuildStepResult struct {
@@ -24,7 +28,7 @@ type Project struct {
 	rootPath string
 	fs       repofs.FS
 
-	files       []string
+	files       map[string]*vfs.FileNode
 	sourceFiles map[string]*psi.SourceFile
 }
 
@@ -38,6 +42,7 @@ func NewProject(rootPath string) (*Project, error) {
 	p := &Project{
 		rootPath:    rootPath,
 		fs:          root,
+		files:       map[string]*vfs.FileNode{},
 		sourceFiles: map[string]*psi.SourceFile{},
 	}
 
@@ -108,13 +113,32 @@ func (p *Project) Generate() (changes int, err error) {
 	return
 }
 
-func (p *Project) Sync() error {
-	p.files = []string{}
+var validExtensions = []string{".go"}
 
-	err := filepath.WalkDir(p.rootPath, func(path string, d fs.DirEntry, err error) error {
-		if !d.IsDir() && isGoFile(path) {
-			p.files = append(p.files, path)
+func (p *Project) Sync() (err error) {
+
+	err = filepath.WalkDir(p.rootPath, func(path string, d fs.DirEntry, err error) error {
+		if !d.IsDir() {
+			valid := false
+
+			for _, ext := range validExtensions {
+				if strings.HasSuffix(path, ext) {
+					valid = true
+					break
+				}
+			}
+
+			if !valid {
+				return nil
+			}
+
+			err := p.ImportFile(path)
+
+			if err != nil {
+				return err
+			}
 		}
+
 		return nil
 	})
 
@@ -122,32 +146,71 @@ func (p *Project) Sync() error {
 		return err
 	}
 
+	for _, file := range p.files {
+		_, err := p.GetSourceFile(file.Path)
+
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (p *Project) GetSourceFile(filename string) *psi.SourceFile {
-	existing := p.sourceFiles[filename]
+func (p *Project) GetSourceFile(filename string) (_ *psi.SourceFile, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if e, ok := r.(error); ok {
+				err = e
+			} else {
+				err = r.(error)
+			}
+
+			err = errors.Wrap(err, "failed to get source file "+filename)
+		}
+	}()
+
+	absPath, err := filepath.Abs(filename)
+
+	if err != nil {
+		return nil, err
+	}
+
+	key := strings.ToLower(absPath)
+
+	existing := p.sourceFiles[key]
 
 	if existing == nil {
 		existing = psi.NewSourceFile(filename)
+
 		sourceCode, err := io.ReadFile(filename)
 
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		_, err = existing.Parse(filename, sourceCode)
 
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		p.sourceFiles[filename] = existing
 	}
 
-	return existing
+	return existing, nil
 }
 
-func isGoFile(path string) bool {
-	return filepath.Ext(path) == ".go"
+func (p *Project) ImportFile(path string) error {
+	absPath, err := filepath.Abs(path)
+
+	if err != nil {
+		return err
+	}
+
+	file := vfs.NewFileNode(absPath)
+
+	p.files[file.Key] = file
+
+	return nil
 }

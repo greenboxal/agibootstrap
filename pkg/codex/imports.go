@@ -21,20 +21,20 @@ func (s *FixImportsBuildStep) Process(p *Project) (result BuildStepResult, err e
 			Fragment:   false,
 		}
 
-		code, err := os.ReadFile(file)
+		code, err := os.ReadFile(file.Path)
 
 		if err != nil {
 			return result, err
 		}
 
-		newCode, err := imports.Process(file, code, opt)
+		newCode, err := imports.Process(file.Path, code, opt)
 
 		if err != nil {
 			return result, err
 		}
 
 		if string(newCode) != string(code) {
-			err = io.WriteFile(file, string(newCode))
+			err = io.WriteFile(file.Path, string(newCode))
 
 			if err != nil {
 				return result, err

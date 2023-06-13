@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
 	"golang.org/x/tools/go/packages"
 
 	"github.com/greenboxal/agibootstrap/pkg/io"
@@ -38,11 +39,17 @@ func (s *FixBuildStep) Process(p *Project) (result BuildStepResult, err error) {
 	}
 
 	for _, buildError := range buildErrors {
-		sf := p.GetSourceFile(buildError.Filename)
-		err = s.ProcessFix(p, sf, buildError)
+		sf, e := p.GetSourceFile(buildError.Filename)
+
+		if e != nil {
+			err = multierror.Append(err, e)
+			continue
+		}
+
+		e = s.ProcessFix(p, sf, buildError)
 
 		if err != nil {
-			return result, err
+			err = multierror.Append(err, e)
 		}
 	}
 

@@ -2,7 +2,6 @@ package codex
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -18,9 +17,9 @@ import (
 type CodeGenBuildStep struct{}
 
 func (g *CodeGenBuildStep) Process(p *Project) (result BuildStepResult, err error) {
-	for _, path := range p.files {
-		if filepath.Ext(path) == ".go" {
-			count, e := p.processFile(path)
+	for _, file := range p.files {
+		if filepath.Ext(file.Path) == ".go" {
+			count, e := p.processFile(file.Path)
 
 			if e != nil {
 				err = multierror.Append(err, e)
@@ -36,41 +35,34 @@ func (g *CodeGenBuildStep) Process(p *Project) (result BuildStepResult, err erro
 func (p *Project) processFile(fsPath string, opts ...NodeProcessorOption) (int, error) {
 	fmt.Printf("Processing file %s\n", fsPath)
 
-	// Read the file
-	code, err := os.ReadFile(fsPath)
-	if err != nil {
-		return 0, err
-	}
-
-	// Parse the file into an AST
-	ast, err := psi.Parse(fsPath, string(code))
+	sf, err := p.GetSourceFile(fsPath)
 
 	if err != nil {
 		return 0, err
 	}
 
-	if ast.Error() != nil {
+	if sf.Error() != nil {
 		return 0, err
 	}
 
-	p.sourceFiles[fsPath] = ast
+	p.sourceFiles[fsPath] = sf
 
 	// Process the AST nodes
-	updated := p.ProcessNodes(ast, opts...)
+	updated := p.ProcessNodes(sf, opts...)
 
 	// Convert the AST back to code
-	newCode, err := ast.ToCode(updated)
+	newCode, err := sf.ToCode(updated)
 	if err != nil {
 		return 0, err
 	}
 
-	// Write the new code to a new file
-	err = io.WriteFile(fsPath, newCode)
-	if err != nil {
-		return 0, err
-	}
+	if newCode != sf.OriginalText() {
+		// Write the new code to a new file
+		err = io.WriteFile(fsPath, newCode)
+		if err != nil {
+			return 0, err
+		}
 
-	if newCode != string(code) {
 		return 1, nil
 	}
 
