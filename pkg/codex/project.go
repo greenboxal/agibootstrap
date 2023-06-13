@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go/ast"
@@ -9,6 +10,7 @@ import (
 	"go/types"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/dave/dst"
@@ -195,7 +197,7 @@ func (p *Project) processFixStep() (changes int, err error) {
 	}
 
 	// Get the import path of the package
-	packageName := modulePath + "/cmd" // Replace with the package you want to analyze
+	packageName := modulePath
 
 	// Set up the build context
 	buildContext := build.Default
