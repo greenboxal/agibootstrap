@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/build"
-	"go/token"
 	"go/types"
 	"path"
 
@@ -46,8 +45,6 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 			return nil, fmt.Errorf("incomplete package type info: %q", pkg.ID)
 		}
 
-		fset := token.NewFileSet()
-
 		// Create the type checker
 		typeConfig := &types.Config{
 			Error:    func(err error) { /* ignore parse errors */ },
@@ -57,14 +54,14 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 
 		// Iterate over each Go source file in the package
 		for _, file := range pkg.Syntax {
-			_, err = typeConfig.Check(pkg.ID, fset, []*ast.File{file}, pkg.TypesInfo)
+			_, err = typeConfig.Check(pkg.ID, pkg.Fset, []*ast.File{file}, pkg.TypesInfo)
 
 			if err != nil {
 				errs = append(errs, &BuildError{
 					Pkg:      pkg,
 					Filename: pkg.Fset.File(file.Pos()).Name(),
-					Line:     fset.Position(file.Pos()).Line,
-					Column:   fset.Position(file.Pos()).Column,
+					Line:     pkg.Fset.Position(file.Pos()).Line,
+					Column:   pkg.Fset.Position(file.Pos()).Column,
 					Error:    err,
 				})
 			}
