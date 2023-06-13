@@ -36,13 +36,20 @@ func (p *Project) buildProject() (errs []*BuildError, err error) {
 	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedTypes | packages.NeedSyntax, Dir: p.rootPath}, path.Join(p.rootPath, "..."))
 
 	if err != nil {
-		return nil, err
+		return errs, err
 	}
 
 	// Iterate through every Go package in the project
 	for _, pkg := range pkgs {
 		if !pkg.Types.Complete() {
-			return nil, fmt.Errorf("incomplete package type info: %q", pkg.ID)
+			errs = append(errs, &BuildError{
+				Pkg:      pkg,
+				Filename: pkg.GoFiles[0],
+				Line:     0,
+				Column:   0,
+				Error:    errors.New("type-checking incomplete"),
+			})
+			continue
 		}
 
 		// Create the type checker
@@ -79,17 +86,14 @@ func (p *Project) processFixStep() (changes int, err error) {
 		return 0, err
 	}
 
-	if len(buildErrors) > 0 {
-		// Iterate through the build errors and process each error node
-		for _, buildError := range buildErrors {
-			sf := p.sourceFiles[buildError.Filename]
-			err = p.ProcessFix(sf, buildError)
-			if err != nil {
-				return 0, err
-			}
-			// Increase the count of changes made
-			changes++
+	for _, buildError := range buildErrors {
+		sf := p.sourceFiles[buildError.Filename]
+		err = p.ProcessFix(sf, buildError)
+		if err != nil {
+			return 0, err
 		}
+		// Increase the count of changes made
+		changes++
 	}
 
 	return changes, nil
