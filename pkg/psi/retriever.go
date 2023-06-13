@@ -76,14 +76,15 @@ func (r *referenceIteratorImpl) Next() bool {
 
 	// Implement the logic for iterating over the references
 	// Placeholder logic for now
-	r.current = Reference{
-		Referer:             r.root,
-		Referee:             nil,
-		DeclarationDistance: 0,
-		ReferenceDistance:   0,
+	// Replace the placeholder logic with actual logic to iterate over the references
+	// and update the current reference accordingly
+	if r.index < len(r.root.Children()) {
+		r.current = r.root.Children()[r.index]
+		r.index++
+		return true
 	}
 
-	return true
+	return false
 }
 
 // Reference returns the current reference
