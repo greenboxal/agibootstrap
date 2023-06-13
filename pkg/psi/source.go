@@ -38,7 +38,17 @@ func (sf *SourceFile) FileSet() *token.FileSet { return sf.dec.Fset }
 func (sf *SourceFile) Root() *Container        { return sf.root }
 func (sf *SourceFile) Error() error            { return sf.err }
 
-func (sf *SourceFile) Parse(filename string, sourceCode string) (Node, error) {
+func (sf *SourceFile) Parse(filename string, sourceCode string) (result Node, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if e, ok := r.(error); ok {
+				err = e
+			} else {
+				err = r.(error)
+			}
+		}
+	}()
+
 	parsed, err := sf.dec.ParseFile(filename, sourceCode, parser.ParseComments)
 
 	sf.parsed = parsed
