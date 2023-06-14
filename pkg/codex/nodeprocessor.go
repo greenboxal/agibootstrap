@@ -192,6 +192,7 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 // Return Processed Code:
 // 10. Return the processed code as a dst.Node.
 func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *psi.Cursor) (result dst.Node, err error) {
+	// TODO: Split this function into smaller functions.
 	stepRoot := cursor.Element()
 
 	todoComment, err := p.prepareObjective(p, scope)
@@ -280,6 +281,99 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *psi.
 	}
 
 	return
+}
+
+func orphanSnippet0() {
+	// TODO: Split this function into smaller functions.
+	stepRoot := cursor.Element()
+
+	todoComment, err := p.prepareObjective(p, scope)
+	if err != nil {
+		return nil, err
+	}
+
+	prunedRoot := psi.Apply(psi.Clone(p.Root), func(cursor *psi.Cursor) bool {
+		return true
+	}, nil)
+
+	stepStr, err := p.SourceFile.ToCode(stepRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	req := gpt.Request{
+		Document:  stepStr,
+		Objective: todoComment,
+		Context:   gpt.ContextBag{},
+	}
+
+	fullContext, err := p.prepareContext(p, scope, prunedRoot, req)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Context = fullContext
+
+	codeBlocks, err := gpt.Invoke(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, block := range codeBlocks {
+		if block.Language == "" {
+			block.Language = "go"
+		}
+
+		blockName := fmt.Sprintf("_mergeContents_%d.%s", i, block.Language)
+
+		if hasHtmlEscapeRegex.MatchString(block.Code) {
+			block.Code = html.UnescapeString(block.Code)
+		}
+
+		patchedCode := block.Code
+		pkgIndex := hasPackageRegex.FindStringIndex(patchedCode)
+
+		if len(pkgIndex) > 0 {
+			patchedCode = fmt.Sprintf("%s%s%s", patchedCode[:pkgIndex[1]], "\n", patchedCode[pkgIndex[1]:])
+		} else {
+			patchedCode = fmt.Sprintf("package gptimport\n%s", patchedCode)
+		}
+
+		patchedCode = hasPackageRegex.ReplaceAllString(patchedCode, "package gptimport\n")
+
+		newRoot, e := p.SourceFile.Parse(blockName, patchedCode)
+		if e != nil {
+			if errList, ok := e.(scanner.ErrorList); ok {
+				if len(errList) == 1 && strings.HasPrefix(errList[0].Msg, "expected declaration, ") {
+					patchedCode = fmt.Sprintf("package gptimport_orphan\nfunc orphanSnippet%d() {\n%s\n}\n", i, block.Code)
+					newRoot2, e2 := p.SourceFile.Parse(blockName, patchedCode)
+
+					if e2 != nil {
+						err = multierror.Append(err, e)
+						continue
+					}
+
+					newRoot = newRoot2
+				}
+			} else if e != nil {
+				err = multierror.Append(err, e)
+				continue
+			}
+		}
+
+		MergeFiles(newRoot.Ast().(*dst.File), newRoot.Ast().(*dst.File))
+
+		for _, decl := range newRoot.Children() {
+			if funcType, ok := decl.Ast().(*dst.FuncDecl); ok && funcType.Name.Name == scope.Node.Ast().(*dst.FuncDecl).Name.Name {
+				p.ReplaceDeclarationAt(cursor, decl, funcType.Name.Name)
+			} else {
+				p.MergeDeclarations(cursor, decl)
+			}
+		}
+	}
+
+	return
+
 }
 
 // MergeDeclarations merges the declarations of a node into the NodeProcessor.

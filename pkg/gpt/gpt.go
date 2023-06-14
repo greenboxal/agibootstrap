@@ -22,7 +22,7 @@ var embedder = &openai.Embedder{
 var model = &openai.ChatLanguageModel{
 	Client:      oai,
 	Model:       "gpt-3.5-turbo-16k",
-	Temperature: 0.0,
+	Temperature: 0.7,
 }
 
 // CodeBlock represents a block of code with its language and code content.
