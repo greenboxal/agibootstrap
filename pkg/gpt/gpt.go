@@ -75,7 +75,7 @@ Address all TODOs in the document below.
 			chat.Predict(
 				model,
 				CodeGeneratorPrompt,
-				chat.WithMaxTokens(10000),
+				chat.WithMaxTokens(12000),
 			),
 		),
 	)
