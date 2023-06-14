@@ -301,6 +301,8 @@ func (r *Repository) Init() error {
 	return nil
 }
 
+var config Config
+
 // Update method updates the FTI repository
 func (r *Repository) Update() error {
 	// TODO: Improve based on design
@@ -363,8 +365,24 @@ func (r *Repository) Update() error {
 	return nil
 }
 
+// TODO: Read config file and perform necessary setup based on the configuration
+func ReadConfigFile(filepath string) (Config, error) {
+	configData, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return Config{}, err
+	}
+
+	var config Config
+	err = json.Unmarshal(configData, &config)
+	if err != nil {
+		return Config{}, err
+	}
+
+	return config, nil
+}
+
 func GenerateEmbeddings(sprintf string) (interface{}, interface{}) {
-	// TODO: Improve based on design
+	// Add your code here to generate embeddings for the given snapshot file path
 	fmt.Println("Generating embeddings for snapshot file:", sprintf)
 	return nil, nil
 }
