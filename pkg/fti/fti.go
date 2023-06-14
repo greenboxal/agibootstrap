@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
+	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
 )
 
@@ -331,6 +333,12 @@ func (r *Repository) Update() error {
 	ftiPath := filepath.Join(r.RepoPath, ".fti")
 	indexDir := filepath.Join(ftiPath, "index")
 
+	// Read the configuration file
+	config, err := ReadConfigFile(filepath.Join(ftiPath, "config.json"))
+	if err != nil {
+		return err
+	}
+
 	// Retrieve the list of chunkSize and overlap binary snapshot files from the `index` directory
 	files, err := ioutil.ReadDir(indexDir)
 	if err != nil {
@@ -352,6 +360,7 @@ func (r *Repository) Update() error {
 		if err != nil {
 			return err
 		}
+		snapshotFile.Close()
 
 		// Unmarshal the snapshot data into a map to get hash and chunk specification
 		var snapshot map[string]interface{}
@@ -362,7 +371,6 @@ func (r *Repository) Update() error {
 		hash := snapshot["hash"].(string)
 		chunkSize := int(snapshot["chunkSize"].(float64))
 		overlap := int(snapshot["overlap"].(float64))
-		snapshotFile.Close()
 
 		// TODO: Implement chunking as defined in the spec
 		chunks, err := chunkFile(filepath.Join(r.RepoPath, f.Name()), chunkSize, overlap)
@@ -393,18 +401,33 @@ func (r *Repository) Update() error {
 	return nil
 }
 
-func generateEmbeddings(chunks []string) ([]Embedding, error) {
+func generateEmbeddings(chunks []string) ([]llm.Embedding, error) {
 	// Add your code here to generate embeddings for the given chunks
 	fmt.Println("Generating embeddings for chunks:", chunks)
 	return nil, nil
 }
 
-// TODO: Implement chunking as defined in the spec
 func chunkFile(filepath string, chunkSize int, overlap int) ([]string, error) {
-	// Add your code here to chunk the file according to the specified chunk size and overlap
-	fmt.Println("Chunking file:", filepath, "with chunk size:", chunkSize, "and overlap:", overlap)
-	// Replace the following line with your implementation
-	return nil, nil
+	fileData, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	fileSize := len(fileData)
+
+	chunks := make([]string, 0)
+
+	for i := 0; i < fileSize-chunkSize; i += chunkSize - overlap {
+		end := i + chunkSize
+		if end > fileSize {
+			end = fileSize
+		}
+
+		chunk := fileData[i:end]
+		chunks = append(chunks, string(chunk))
+	}
+
+	return chunks, nil
 }
 
 // ReadConfigFile reads the config file and performs necessary setup based on the configuration
