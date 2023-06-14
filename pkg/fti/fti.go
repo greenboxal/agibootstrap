@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+
+	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
 )
 
 /*
@@ -259,10 +261,28 @@ import (
 	"encoding/json"
 )
 
+// Reference types:
+//type Embedder interface {
+//	MaxTokensPerChunk() int
+//
+//	GetEmbeddings(ctx context.Context, chunks []string) ([]Embedding, error)
+//}
+//
+//type Embedding struct {
+//	Embeddings []float32
+//}
 // Repository type
+
 type Repository struct {
 	RepoPath string
 	FTIPath  string
+	config   Config
+}
+
+var oai = openai.NewClient()
+var embedder = &openai.Embedder{
+	Client: oai,
+	Model:  openai.AdaEmbeddingV2,
 }
 
 // Init method initializes a new FTI repository
