@@ -47,9 +47,9 @@ type Indexer struct {
 	index   Index
 }
 
-// Additional function to fetch documents to index
+// getDocuments is a helper function to fetch documents.
+// TODO: Replace the placeholder implementation with actual implementation.
 func getDocuments() []Document {
-	// TODO: Implement fetching of documents to index
-	// You can replace this with your actual implementation
+	// Placeholder implementation
 	return []Document{}
 }
