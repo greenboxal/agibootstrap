@@ -24,18 +24,22 @@ import (
 // Fields:
 // - Processor: A pointer to the NodeProcessor struct.
 // - Node: The psi.Node representing the current function.
-// - Todos: A slice of strings representing the TODO comments associated with the function.
+// - Todos: A slice of strings representing the todos comments associated with the function.
 type FunctionContext struct {
 	Processor *NodeProcessor
 	Node      psi.Node
 	Todos     []string
 }
 
-// TODO: Implement methods for handling Processor, Node, and Todos in the FunctionContext struct.
-
-// TODO: Implement methods for handling Processor, Node, and Todos in the FunctionContext struct.
-
-// TODO: Write documentation explaining the process, the steps involved and its purpose.
+// declaration represents a declaration in the code.
+//
+// It contains information about the declaration such as the AST node, the PSI node, the index, and the name.
+//
+// Fields:
+// - node: The AST node representing the declaration.
+// - element: The PSI node representing the declaration.
+// - index: The index of the declaration.
+// - name: The name of the declaration.
 type declaration struct {
 	node    dst.Node
 	element psi.Node
