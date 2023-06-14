@@ -159,28 +159,38 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 	return true
 }
 
-// Step processes the code and generates a response.
-// The Step function follows a series of steps to generate the code and address the TODOs:
-// 1. Obtain the root element of the cursor using cursor.Element().
-// 2. Prepare the todoComment using p.prepareObjective function with the NodeProcessor and NodeScope.
-// 3. Prune the root by applying the Clone method of the psi package on p.Root and iterating through each cursor element and returning true.
-// 4. Convert the stepRoot to a string using p.SourceFile.ToCode method.
-// 5. Create a new gpt.Request with stepStr as the Document and todoComment as the Objective, and an empty ContextBag.
-// 6. Prepare the fullContext by calling p.prepareContext with the NodeProcessor, NodeScope, prunedRoot, and req parameters.
-// 7. Set the fullContext as the Context of req.
-// 8. Invoke the gpt.Invoke function with ctx and req to get the codeBlocks response.
-// 9. Iterate through each codeBlock in codeBlocks.
-//   - If the block's Language is empty, assign it as "go".
-//   - Generate a blockName using the fmt.Sprintf function by appending "mergeContents_#", i, and block.Language.
-//   - If the block.Code contains HTML escape sequences, unescape it using the html.UnescapeString function.
-//   - Modify the package declaration by wrapping the block.Code with "package gptimport".
-//   - Parse the generated code into a new AST using p.SourceFile.Parse with blockName and patchedCode.
-//   - Merge the newRoot.Ast().(*dst.File) with the existing newRoot.Ast().(*dst.File) using the MergeFiles function.
-//   - Iterate over each declaration (decl) in newRoot.Children() and check if it's a function and its name matches the name of the current function.
-//   - If the declaration is a function and its name matches, replace the declaration at the specified position in the cursor with the new declaration using the p.ReplaceDeclarationAt function.
-//   - Otherwise, merge the declaration with the existing declarations using the p.MergeDeclarations function.
+// The Step function is responsible for code processing and response generation. The algorithm is divided into several groups of steps:
 //
-// 10. Return the generated code as a dst.Node.
+// Acquiring and Preparing Elements:
+// 1. Retrieve the root element from the cursor using the cursor.Element() method.
+// 2. Formulate the todoComment with the p.prepareObjective function, which takes the NodeProcessor and NodeScope as inputs.
+//
+// Cloning and Pruning:
+// 3. Make a clone of the root with the psi.Clone method from the psi package, applied to p.Root. Prune this cloned root by iterating through each cursor element and returning true.
+//
+// String Conversion and Request Preparation:
+// 4. Convert the stepRoot into a string format using the p.SourceFile.ToCode method.
+// 5. Construct a new gpt.Request object, where the Document is stepStr, the Objective is todoComment, and the Context is an empty ContextBag.
+//
+// Context Setup and Invocation:
+// 6. Craft the fullContext using the p.prepareContext function with the NodeProcessor, NodeScope, prunedRoot, and req as parameters.
+// 7. Assign fullContext as the Context of req.
+// 8. Execute the gpt.Invoke function using ctx and req, yielding a codeBlocks response.
+//
+// Code Blocks Processing:
+// 9. Iterate over each codeBlock in codeBlocks, performing the following:
+//   - If the Language attribute of the block is empty, set it to "go".
+//   - Create a blockName with the fmt.Sprintf function by concatenating "mergeContents_#", i, and block.Language.
+//   - Unescape HTML escape sequences in block.Code using the html.UnescapeString function.
+//   - Modify the package declaration by enclosing block.Code with "package gptimport".
+//   - Parse the modified code into a new Abstract Syntax Tree (AST) using p.SourceFile.Parse, with blockName and patchedCode as inputs.
+//   - Merge the newly created AST (newRoot.Ast().(*dst.File)) with the existing AST using the MergeFiles function.
+//   - For each declaration (decl) in newRoot.Children(), check if it is a function and if its name matches the current function's name.
+//   - If yes, replace the current declaration in the cursor with the new one using p.ReplaceDeclarationAt.
+//   - If no, merge the new declaration with the existing declarations using p.MergeDeclarations.
+//
+// Return Processed Code:
+// 10. Return the processed code as a dst.Node.
 func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *psi.Cursor) (result dst.Node, err error) {
 	stepRoot := cursor.Element()
 
