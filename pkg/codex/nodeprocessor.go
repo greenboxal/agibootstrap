@@ -277,8 +277,14 @@ func (p *NodeProcessor) MergeDeclarations(cursor *psi.Cursor, node psi.Node) boo
 	return true
 }
 
-// InsertDeclarationAt
-// TODO: Write documentation explaining the process, the steps involved and its purpose.
+// InsertDeclarationAt inserts a declaration after the given cursor.
+// It takes a psi.Cursor, a name string, and a decl psi.Node.
+// The process involves the following steps:
+// 1. Calling the InsertAfter method of the cursor and passing decl.Ast() to insert the declaration after the cursor.
+// 2. Getting the current index of decl in the root file's declarations using the slices.Index method.
+// 3. Calling the setExistingDeclaration method of the NodeProcessor to update the existing declaration information.
+//
+// The purpose of InsertDeclarationAt is to insert a declaration at a specific position in the AST and update the declaration information in the NodeProcessor for further processing and code generation.
 func (p *NodeProcessor) InsertDeclarationAt(cursor *psi.Cursor, name string, decl psi.Node) {
 	cursor.InsertAfter(decl.Ast())
 	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
