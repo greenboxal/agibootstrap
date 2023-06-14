@@ -1,8 +1,11 @@
 package fti
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -294,12 +297,10 @@ func NewRepository() {
 
 // Metadata represents the metadata of an object snapshot
 type Metadata struct {
+	FileName     string `json:"fileName"`
 	ObjectHash   string `json:"objectHash"`
-	ChunkSize    int    `json:"chunkSize"`
-	Overlap      int    `json:"overlap"`
 	CreationTime string `json:"creationTime"`
 	FileSize     int64  `json:"fileSize"`
-	TotalChunks  int    `json:"totalChunks"`
 }
 
 // ObjectSnapshot represents a snapshot of file chunks
@@ -389,7 +390,6 @@ func WriteConfigFile(filepath string, configData []byte) error {
 	return nil
 }
 
-// Update method updates the FTI repository
 func (r *Repository) Update() error {
 	ftiPath := filepath.Join(r.RepoPath, ".fti")
 	indexDir := filepath.Join(ftiPath, "index")
@@ -415,11 +415,25 @@ func (r *Repository) Update() error {
 		// Check if the file already exists in the objects directory
 		objectPath := filepath.Join(ftiPath, "objects", fileHash)
 		if _, err := os.Stat(objectPath); !os.IsNotExist(err) {
+			dirPath := filepath.Join(ftiPath, "objects", fileHash)
+			err = os.Mkdir(dirPath, os.ModePerm)
+			if err != nil {
+				return err
+			}
 			continue
 		}
 
-		// Retrieve snapshot information from filename
-		snapshot := parseSnapshotFilename(f.Name())
+		// Write updated metadata file for current snapshot file
+		info, err := os.Stat(filePath)
+		if err != nil {
+			return err
+		}
+		metadata := Metadata{
+			FileName:     f.Name(),
+			ObjectHash:   fileHash,
+			CreationTime: info.ModTime().String(),
+			FileSize:     info.Size(),
+		}
 
 		// Generate chunks and embeddings for each chunk specification
 		for _, chunkSize := range r.config.ChunkSizes {
@@ -434,27 +448,18 @@ func (r *Repository) Update() error {
 					return err
 				}
 
-				// Write updated metadata file for current snapshot file
-				metadata := Metadata{
-					ObjectHash:   snapshot.Hash,
-					ChunkSize:    chunkSize,
-					Overlap:      overlap,
-					CreationTime: "",
-					FileSize:     0,
-					TotalChunks:  len(chunks),
-				}
-				err = writeMetadataFile(filepath.Join(ftiPath, "objects", snapshot.Hash, "metadata.json"), metadata)
-				if err != nil {
-					return err
-				}
-
 				// Update object file for current snapshot file
-				objectPath := filepath.Join(snapshot.Hash, fmt.Sprintf("%dm%d.bin", chunkSize, overlap))
-				err = UpdateObjectFile(ftiPath, objectPath, embeddings)
+				objectPath := filepath.Join(ftiPath, "objects", fileHash, fmt.Sprintf("%dm%d.bin", chunkSize, overlap))
+				err = UpdateObjectFile(objectPath, embeddings)
 				if err != nil {
 					return err
 				}
 			}
+		}
+
+		err = writeMetadataFile(filepath.Join(ftiPath, "objects", fileHash, "metadata.json"), metadata)
+		if err != nil {
+			return err
 		}
 	}
 
