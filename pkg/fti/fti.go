@@ -627,7 +627,8 @@ func (r *Repository) lookupInverseIndex(embedding llm.Embedding, path string) (s
 	high := len(entries) - 1
 	var embeddingBytes []byte
 	var ok bool
-	if embeddingBytes, ok = embedding.(bytes.Buffer); !ok {
+
+	if embeddingBytes, ok := embedding.Vector.([]byte); !ok {
 		return "", 0, 0, errors.New("embedding is not of type bytes.Buffer")
 	}
 
