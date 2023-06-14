@@ -434,19 +434,30 @@ func (r *Repository) Update() error {
 		}
 
 		// Update object file for current snapshot file
-		objectFilePath := filepath.Join(ftiPath, "objects", snapshot.Hash, fmt.Sprintf("%dm%d.bin", snapshot.ChunkSize, snapshot.Overlap))
-		objectFile, err := os.Create(objectFilePath)
+		objectPath := filepath.Join(snapshot.Hash, fmt.Sprintf("%dm%d.bin", snapshot.ChunkSize, snapshot.Overlap))
+		err = UpdateObjectFile(ftiPath, objectPath, embeddings)
 		if err != nil {
 			return err
 		}
-		err = binary.Write(objectFile, binary.LittleEndian, embeddings)
-		if err != nil {
-			return err
-		}
-		objectFile.Close()
 	}
 
 	fmt.Println("Updating repository at:", r.RepoPath)
+	return nil
+}
+
+// UpdateObjectFile updates the object file for a snapshot file
+func UpdateObjectFile(ftiPath, objectPath string, embeddings []llm.Embedding) error {
+	objectFilePath := filepath.Join(ftiPath, "objects", objectPath)
+	objectFile, err := os.Create(objectFilePath)
+	if err != nil {
+		return err
+	}
+	err = binary.Write(objectFile, binary.LittleEndian, embeddings)
+	if err != nil {
+		return err
+	}
+	objectFile.Close()
+
 	return nil
 }
 
