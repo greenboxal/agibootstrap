@@ -653,8 +653,8 @@ func (r *Repository) Query(query string) error {
 // Implement the lookupInverseIndex method based on the design using FAISS (faiss.Index)
 func (r *Repository) lookupInverseIndex(embedding llm.Embedding, path string) (string, int64, int64, error) {
 	// Load the index from the file
-	index := &faiss.Index{}
-	if err := index.Load(path); err != nil {
+	index, err := faiss.Index.ReadIndex(path)
+	if err != nil {
 		return "", 0, 0, err
 	}
 
