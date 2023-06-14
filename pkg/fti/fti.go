@@ -383,6 +383,14 @@ func ReadConfigFile(filepath string) (Config, error) {
 	return config, nil
 }
 
+// Config represents the configuration parameters for the FTI repository
+type Config struct {
+	ChunkSizes          []int  `json:"ChunkSizes"`
+	Overlaps            []int  `json:"Overlaps"`
+	EmbeddingAPI        string `json:"EmbeddingAPI"`
+	EmbeddingDimensions int    `json:"EmbeddingDimensions"`
+}
+
 func GenerateEmbeddings(sprintf string) (interface{}, interface{}) {
 	// Add your code here to generate embeddings for the given snapshot file path
 	fmt.Println("Generating embeddings for snapshot file:", sprintf)
