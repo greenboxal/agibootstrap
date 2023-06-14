@@ -42,9 +42,9 @@ type Indexer struct {
 	index Index
 }
 
-func (p *Project) Reindex() error {
-	indexer := &Indexer{}
-	return indexer.Index()
+func (indexer *Indexer) Index() error {
+	// TODO: implement
+	return nil
 }
 
 func (p *Project) Reindex() error {

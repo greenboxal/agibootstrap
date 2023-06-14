@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"context"
 	"fmt"
 	"go/scanner"
 	"html"
@@ -126,7 +127,14 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 	}
 
 	// Send the string and comment to gpt-3.5-turbo and get a response
-	codeBlocks, err := gpt.SendToGPT(todoComment, contextStr, stepStr)
+	codeBlocks, err := gpt.Invoke(context.TODO(), gpt.Request{
+		Document:  stepStr,
+		Objective: todoComment,
+
+		Context: gpt.ContextBag{
+			"outer_context": contextStr,
+		},
+	})
 
 	if err != nil {
 		return nil, err

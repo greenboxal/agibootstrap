@@ -45,17 +45,15 @@ You're an AI agent specialized in generating Go code. Complete the request below
 You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
 Do not emit any code that is not valid Go code. You can use the context below to help you.
 DO NOT output Go code outside of a function. Always output complete functions.
-
-# Context
-`+"```"+`go
-{{ .Context }}
-`+"```"+`
 `, chain.WithRequiredInput(ContextKey)),
 		),
 		chat.HistoryFromContext(memory.ContextualMemoryKey),
 		chat.EntryTemplate(
 			msn.RoleUser,
 			chain.NewTemplatePrompt(`
+# Context
+{{ .Context | markdownTree }}
+
 # Request
 Address all TODOs in the document below by implementing the necessary changes in the code.
 
@@ -63,7 +61,7 @@ Address all TODOs in the document below by implementing the necessary changes in
 
 # Document
 `+"```"+`go
-{{ .Document | markdownTree }}
+{{ .Document }}
 `+"```"+`
 `, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey)),
 		))
@@ -106,12 +104,20 @@ func ExtractCodeBlocks(root ast.Node) (blocks []CodeBlock) {
 
 type ContextBag map[string]any
 
-func Invoke(ctx context.Context, contextBag ContextBag) ([]CodeBlock, error) {
+type Request struct {
+	Chain   chain.Chain
+	Context ContextBag
+
+	Objective string
+	Document  string
+}
+
+func Invoke(ctx context.Context, req Request) ([]CodeBlock, error) {
 	cctx := chain.NewChainContext(ctx)
 
-	cctx.SetInput(ObjectiveKey, contextBag[string(ObjectiveKey)])
-	cctx.SetInput(DocumentKey, contextBag[string(DocumentKey)])
-	cctx.SetInput(ContextKey, contextBag)
+	cctx.SetInput(ObjectiveKey, req.Objective)
+	cctx.SetInput(DocumentKey, req.Document)
+	cctx.SetInput(ContextKey, req.Context)
 
 	if err := CodeGeneratorChain.Run(cctx); err != nil {
 		return nil, err
