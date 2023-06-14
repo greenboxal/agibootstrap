@@ -29,18 +29,22 @@ Here are some examples of how to use the PSI package:
 // Create a new PSI graph
 graph := psi.NewGraph()
 
-// Create a file node
-fileNode := psi.NewFileNode("example.go")
-
-// Add the file node to the graph
+// Add a file node to the graph
+fileNode := psi.NewFileNode("main.go")
 graph.AddNode(fileNode)
 
-// Create an AST node
+// Create an AST node for the file
 astNode := psi.NewASTNode(fileNode)
+graph.AddNode(astNode)
 
-// Add the AST node to the file node
-fileNode.AddChildNode(astNode)
+// Add comments to the file node
+fileNode.AddComment("This is a sample file")
+
+// Print the parent node of the AST node
+parent := astNode.Parent()
+fmt.Println(parent)
 
 This is just a basic overview of the PSI package and its components. More detailed documentation can be found in the source code and accompanying documentation.
 */
+// TODO: Add more examples
 func init() {}
