@@ -37,6 +37,7 @@ package readme
 
 // Please refer to the documentation and examples provided by each package for detailed usage instructions and examples.
 
+// init initializes the readme package.
 func init() {
-
+	// TODO: Improve the documentation Godoc
 }
