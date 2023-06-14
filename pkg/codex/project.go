@@ -15,17 +15,18 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/vfs"
 )
 
+// BuildStepResult represents the result of a build step.
+// It contains the number of changes made during the build step.
 type BuildStepResult struct {
 	Changes int
 }
 
+// TODO: Write documentation
 type BuildStep interface {
 	Process(p *Project) (result BuildStepResult, err error)
 }
 
-// A Project is the root of a codex project.
-// It contains all the information about the project.
-// It is also the entry point for all codex operations.
+// TODO: Write documentation
 type Project struct {
 	rootPath string
 	fs       repofs.FS
@@ -164,6 +165,7 @@ func (p *Project) Generate(isSingleStep bool) (changes int, err error) {
 
 var validExtensions = []string{".go"}
 
+// TODO: Write documentation
 func (p *Project) Sync() (err error) {
 
 	err = filepath.WalkDir(p.rootPath, func(path string, d fs.DirEntry, err error) error {
@@ -194,6 +196,7 @@ func (p *Project) Sync() (err error) {
 	return nil
 }
 
+// TODO: Write documentation
 func (p *Project) GetSourceFile(filename string) (_ *psi.SourceFile, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -235,6 +238,7 @@ func (p *Project) GetSourceFile(filename string) (_ *psi.SourceFile, err error) 
 	return existing, nil
 }
 
+// TODO: Write documentation
 func (p *Project) ImportFile(path string) error {
 	absPath, err := filepath.Abs(path)
 
@@ -254,6 +258,7 @@ func (p *Project) ImportFile(path string) error {
 	return nil
 }
 
+// TODO: Write documentation
 func (p *Project) Reindex() error {
 	return nil
 }
