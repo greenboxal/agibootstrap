@@ -1,10 +1,6 @@
 package indexing
 
-import (
-	"context"
-
-	"github.com/greenboxal/agibootstrap/pkg/codex"
-)
+import "context"
 
 type Index interface {
 	Add(ctx context.Context, document Document) ([]IndexEntry, error)
@@ -40,16 +36,4 @@ type Document interface {
 
 	// Content returns the content of the document.
 	Content() string
-}
-
-type Indexer struct {
-	project *codex.Project
-	index   Index
-}
-
-func orphanSnippet0() {
-	// TODO: Replace the placeholder implementation with actual implementation.
-	// Replace the placeholder implementation with an actual implementation here.
-	return []Document{}
-
 }
