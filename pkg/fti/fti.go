@@ -288,7 +288,6 @@ type Repository struct {
 }
 
 func NewRepository() {
-	// TODO: Define all types needed by the design
 }
 
 // Metadata represents the metadata of an object snapshot
@@ -354,8 +353,36 @@ func (r *Repository) Init() error {
 		return fmt.Errorf("failed to create index folder: %v", err)
 	}
 
+	// TODO: Write the default config
+
 	fmt.Println("Initializing repository at:", r.RepoPath)
 	return nil
+}
+
+func orphanSnippet0() {
+	// TODO: Write the default config
+
+	// Write the default config
+	defaultConfig := Config{
+		ChunkSizes:          []int{1024, 2048, 4096},
+		Overlaps:            []int{256, 512, 1024},
+		EmbeddingAPI:        "OpenAI",
+		EmbeddingDimensions: 768,
+	}
+
+	// Convert the default config to JSON
+	defaultConfigData, err := json.Marshal(defaultConfig)
+	if err != nil {
+		return fmt.Errorf("failed to marshal default config: %v", err)
+	}
+
+	// Write the default config to the config file
+	configFilePath := fmt.Sprintf("%s/.fti/config.json", r.RepoPath)
+	err = ioutil.WriteFile(configFilePath, defaultConfigData, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to write default config file: %v", err)
+	}
+
 }
 
 // Update method updates the FTI repository
@@ -458,6 +485,22 @@ func chunkFile(filepath string, chunkSize int, overlap int) ([]string, error) {
 	return chunks, nil
 }
 
+// Query method enables users to query the FTI repository
+func (r *Repository) Query(query string) error {
+	// Improve based on design
+	fmt.Println("Querying repository at:", r.FTIPath, "with query:", query)
+	// Query logic goes here
+	return nil
+}
+
+// Config represents the configuration parameters for the FTI repository
+type Config struct {
+	ChunkSizes          []int  `json:"ChunkSizes"`
+	Overlaps            []int  `json:"Overlaps"`
+	EmbeddingAPI        string `json:"EmbeddingAPI"`
+	EmbeddingDimensions int    `json:"EmbeddingDimensions"`
+}
+
 // ReadConfigFile reads the config file and performs necessary setup based on the configuration
 func ReadConfigFile(filepath string) (Config, error) {
 	configData, err := ioutil.ReadFile(filepath)
@@ -472,20 +515,4 @@ func ReadConfigFile(filepath string) (Config, error) {
 	}
 
 	return config, nil
-}
-
-// Config represents the configuration parameters for the FTI repository
-type Config struct {
-	ChunkSizes          []int  `json:"ChunkSizes"`
-	Overlaps            []int  `json:"Overlaps"`
-	EmbeddingAPI        string `json:"EmbeddingAPI"`
-	EmbeddingDimensions int    `json:"EmbeddingDimensions"`
-}
-
-// Query method enables users to query the FTI repository
-func (r *Repository) Query(query string) error {
-	// Improve based on design
-	fmt.Println("Querying repository at:", r.FTIPath, "with query:", query)
-	// Query logic goes here
-	return nil
 }
