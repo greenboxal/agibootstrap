@@ -20,22 +20,21 @@ package codex
 //
 // ## Intended Usage
 //
-// ...
+// TODO: Add intended usage documentation here
 
 // TODO: Intermediate step needed
 
 // ## Build Steps
 //
-// ...
+// TODO: Add build steps documentation here
 
 // TODO: Expand the "Build Steps" section above
 
 // ## Project
 //
-// ...
+// TODO: Add project documentation here
 
 // TODO: Expand the "Project" section above
-
 */
 
 // TODO: Expand the design document above
