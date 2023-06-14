@@ -584,7 +584,7 @@ func (r *Repository) Query(query string) error {
 		return err
 	}
 	// Perform inverse index lookup
-	objectHash, chunkIndex, _, err := r.lookupInverseIndex(queryEmbedding[0].Embeddings, indexPath)
+	objectHash, chunkIndex, _, err := r.lookupInverseIndex(queryEmbedding[0], indexPath)
 	if err != nil {
 		return err
 	}
@@ -608,7 +608,7 @@ func (r *Repository) Query(query string) error {
 	return nil
 }
 
-func (r *Repository) lookupInverseIndex(embedding []llm.Embedding, path string) (string, int64, int64, error) {
+func (r *Repository) lookupInverseIndex(embedding llm.Embedding, path string) (string, int64, int64, error) {
 	// Read the inverse index file
 	indexData, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -627,9 +627,9 @@ func (r *Repository) lookupInverseIndex(embedding []llm.Embedding, path string) 
 	high := len(entries) - 1
 	for low <= high {
 		mid := (low + high) / 2
-		if bytes.Compare(embedding, entries[mid].Identifier) == 0 {
-			return entries[mid].ObjectHash, entries[mid].ChunkIndex, entries[mid].ChunkIndex, nil
-		} else if bytes.Compare(embedding, entries[mid].Identifier) < 0 {
+		if bytes.Compare(embedding.Embeddings, entries[mid].Identifier) == 0 {
+			return entries[mid].ObjectHash, entries[mid].ChunkIndex, entries[mid].ChunkOffset, nil
+		} else if bytes.Compare(embedding.Embeddings, entries[mid].Identifier) < 0 {
 			high = mid - 1
 		} else {
 			low = mid + 1
@@ -638,6 +638,14 @@ func (r *Repository) lookupInverseIndex(embedding []llm.Embedding, path string) 
 
 	// Return an error if the embedding is not found in the inverse index
 	return "", 0, 0, errors.New("embedding not found in the inverse index")
+}
+
+// Entry represents an entry in the inverse index
+type Entry struct {
+	Identifier  []byte
+	ObjectHash  string
+	ChunkIndex  int64
+	ChunkOffset int64
 }
 
 // Implement the retrieveObjectSnapshot method based on the design
