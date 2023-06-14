@@ -333,12 +333,6 @@ func (r *Repository) Update() error {
 	ftiPath := filepath.Join(r.RepoPath, ".fti")
 	indexDir := filepath.Join(ftiPath, "index")
 
-	// Read the configuration file
-	config, err := ReadConfigFile(filepath.Join(ftiPath, "config.json"))
-	if err != nil {
-		return err
-	}
-
 	// Retrieve the list of chunkSize and overlap binary snapshot files from the `index` directory
 	files, err := ioutil.ReadDir(indexDir)
 	if err != nil {
@@ -362,18 +356,14 @@ func (r *Repository) Update() error {
 		}
 		snapshotFile.Close()
 
-		// Unmarshal the snapshot data into a map to get hash and chunk specification
-		var snapshot map[string]interface{}
+		// Unmarshal the snapshot data into a struct to get hash and chunk specification
+		var snapshot Snapshot
 		err = json.Unmarshal(snapshotData, &snapshot)
 		if err != nil {
 			return err
 		}
-		hash := snapshot["hash"].(string)
-		chunkSize := int(snapshot["chunkSize"].(float64))
-		overlap := int(snapshot["overlap"].(float64))
 
-		// TODO: Implement chunking as defined in the spec
-		chunks, err := chunkFile(filepath.Join(r.RepoPath, f.Name()), chunkSize, overlap)
+		chunks, err := chunkFile(filepath.Join(r.RepoPath, f.Name()), snapshot.ChunkSize, snapshot.Overlap)
 		if err != nil {
 			return err
 		}
@@ -385,7 +375,7 @@ func (r *Repository) Update() error {
 		}
 
 		// Update object file for current snapshot file
-		objectFilePath := filepath.Join(ftiPath, "objects", hash, fmt.Sprintf("%dm%d.bin", chunkSize, overlap))
+		objectFilePath := filepath.Join(ftiPath, "objects", snapshot.Hash, fmt.Sprintf("%dm%d.bin", snapshot.ChunkSize, snapshot.Overlap))
 		objectFile, err := os.Create(objectFilePath)
 		if err != nil {
 			return err
@@ -401,13 +391,19 @@ func (r *Repository) Update() error {
 	return nil
 }
 
-func generateEmbeddings(chunks []string) ([]e.Embedding, error) {
+// Snapshot represents the structure of a snapshot file
+type Snapshot struct {
+	Hash      string `json:"hash"`
+	ChunkSize int    `json:"chunkSize"`
+	Overlap   int    `json:"overlap"`
+}
+
+func generateEmbeddings(chunks []string) ([]llm.Embedding, error) {
 	// Add your code here to generate embeddings for the given chunks
 	fmt.Println("Generating embeddings for chunks:", chunks)
 	return nil, nil
 }
 
-// TODO: Implement chunking as defined in the spec
 func chunkFile(filepath string, chunkSize int, overlap int) ([]string, error) {
 	fileData, err := ioutil.ReadFile(filepath)
 	if err != nil {
