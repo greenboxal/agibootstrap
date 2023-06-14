@@ -274,7 +274,10 @@ func (r *Repository) Init() error {
 	}
 
 	// Use the config file to set up the repository
-	// TODO: Read config file and perform necessary setup based on the configuration
+	config, err := ReadConfigFile(fmt.Sprintf("%s/.fti/config.json", r.RepoPath))
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %v", err)
+	}
 
 	// Create .fti folder
 	ftiPath := fmt.Sprintf("%s/.fti", r.RepoPath)
@@ -305,7 +308,6 @@ var config Config
 
 // Update method updates the FTI repository
 func (r *Repository) Update() error {
-	// TODO: Improve based on design
 	ftiPath := fmt.Sprintf("%s/.fti", r.RepoPath)
 	indexDir := fmt.Sprintf("%s/index", ftiPath)
 
