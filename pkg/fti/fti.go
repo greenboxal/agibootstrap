@@ -813,7 +813,14 @@ func (oi *OnlineIndex) lookupEntry(idx int64) (*OnlineIndexEntry, error) {
 	existing := oi.mapping[idx]
 
 	if existing == nil {
-		// TODO: Read file from oi.Repository.ResolveDbPath("index/%d", idx)
+		indexFilePath := oi.Repository.ResolveDbPath("index", strconv.FormatInt(idx, 10))
+
+		data, err := ioutil.ReadFile(indexFilePath)
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO: Deserialize the data into an OnlineIndexEntry object
 
 		oi.mapping[idx] = existing
 	}
