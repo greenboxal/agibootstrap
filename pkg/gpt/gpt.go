@@ -95,6 +95,8 @@ func Invoke(ctx context.Context, req Request) ([]CodeBlock, error) {
 }
 
 // TODO: Document this.
+
+// TODO: Document this.
 func SendToGPT(objectives, promptContext, target string) ([]CodeBlock, error) {
 	ctx := context.Background()
 	cctx := chain.NewChainContext(ctx)
