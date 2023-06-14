@@ -6,6 +6,25 @@ Self bootstrapped general purpose coder AGI (the "G" is joke?).
     
     That way we can also auto generate the README.
 
+## Usage
+
+```go
+Usage:
+  go run ./cmd/agib [command]
+
+Available Commands:
+  commit      Commit current staged changes with automatic commit message.
+  completion  Generate the autocompletion script for the specified shell
+  generate    Generate a new file
+  help        Help about any command
+  init        Initialize a new project
+
+Flags:
+  -h, --help   help for app
+
+Use "app [command] --help" for more information about a command.
+```
+
 ## Genesis
 
 This codebase had its inception as a single ChatGPT 4 prompt, in pure markdown, brainstorming about it design.
