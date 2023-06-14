@@ -69,7 +69,7 @@ func NewProject(rootPath string) (*Project, error) {
 	return p, nil
 }
 
-// TODO: Write documentation
+// RootPath returns the root path of the project.
 func (p *Project) RootPath() string { return p.rootPath }
 
 // TODO: Write documentation
