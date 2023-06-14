@@ -72,12 +72,12 @@ func NewProject(rootPath string) (*Project, error) {
 // RootPath returns the root path of the project.
 func (p *Project) RootPath() string { return p.rootPath }
 
-// TODO: Write documentation
+// FS returns the file system interface of the project.
+// It provides methods for managing the project's files and directories.
 func (p *Project) FS() repofs.FS { return p.fs }
 
 // TODO: Write documentation
-func (p *Project) Generate() (changes int, err error) {
-	isSingleStep := true
+func (p *Project) Generate(isSingleStep bool) (changes int, err error) {
 
 	steps := []BuildStep{
 		&CodeGenBuildStep{},

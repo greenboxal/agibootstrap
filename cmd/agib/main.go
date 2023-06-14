@@ -67,7 +67,7 @@ func main() {
 				return err
 			}
 
-			_, err = p.Generate()
+			_, err = p.Generate(false)
 
 			if err != nil {
 				fmt.Printf("error: %s\n", err)
