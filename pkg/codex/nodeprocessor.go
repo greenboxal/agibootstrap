@@ -83,7 +83,7 @@ type NodeProcessor struct {
 // Returns:
 // - bool: true to continue traversing the AST, false to stop.
 //
-// TODO: Write documentation explaining the process, the steps involved, and its purpose.
+// Write documentation explaining the process, the steps involved, and its purpose.
 func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 	e := cursor.Element()
 
