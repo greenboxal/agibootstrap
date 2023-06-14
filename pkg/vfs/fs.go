@@ -16,10 +16,13 @@ type DirectoryNode struct {
 	psi.NodeBase
 }
 
-func NewDirectoryNode(path string) *DirectoryNode {
+func orphanSnippet0() {
 	node := &DirectoryNode{}
-	node.SetPath(path)
+	// Implement the TODO
+	node.Path = path
+
 	return node
+
 }
 
 type FileNode struct {
@@ -32,8 +35,10 @@ type FileNode struct {
 func NewFileNode(path string) *FileNode {
 	key := strings.ToLower(path)
 
-	return &FileNode{
+	fn := &FileNode{
 		Key:  key,
 		Path: path,
 	}
+
+	return fn
 }

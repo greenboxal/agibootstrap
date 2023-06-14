@@ -53,12 +53,8 @@ func MarkdownTree(input any) string {
 		switch node := node.(type) {
 		case map[string]any:
 			for k, v := range node {
-				heading := &ast.Heading{
-					Level:     depth,
-					IsSpecial: true,
-				}
-
-				heading.Literal = []byte(k)
+				h := strings.Repeat("#", depth+1)
+				heading := ParseMarkdown([]byte(fmt.Sprintf("%s%s", h, k)))
 
 				walk(v, depth+1, k, heading)
 
