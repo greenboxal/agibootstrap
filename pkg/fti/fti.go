@@ -574,9 +574,10 @@ func chunkFile(filepath string, chunkSize int, overlap int) ([]string, error) {
 
 // Query method enables users to query the FTI repository
 func (r *Repository) Query(query string) error {
-	// Improve based on design
-	fmt.Println("Querying repository at:", r.ftiPath, "with query:", query)
+	// TODO: Implement query logic
+	fmt.Println("Querying repository at:", r.repoPath, "with query:", query)
 	// Query logic goes here
+	// ...
 	return nil
 }
 
