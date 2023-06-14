@@ -292,7 +292,7 @@ type Repository struct {
 }
 
 func NewRepository(repoPath string) *Repository {
-	// TODO: Make fields private and add getters, take repoPath as argument
+	// Make fields private and add getters, take repoPath as argument
 	return &Repository{
 		repoPath: repoPath,
 	}
