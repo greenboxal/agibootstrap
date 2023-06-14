@@ -6,6 +6,8 @@ import (
 
 type FixImportsBuildStep struct{}
 
+// FixImportsBuildStep is responsible for fixing all import errors in the project.
+// It processes each file in the project and formats the imports using the goimports tool.
 func (s *FixImportsBuildStep) Process(p *Project) (result BuildStepResult, err error) {
 	for _, file := range p.files {
 		opt := &imports.Options{
@@ -46,5 +48,5 @@ func (s *FixImportsBuildStep) Process(p *Project) (result BuildStepResult, err e
 		}
 	}
 
-	return
+	return result, nil
 }
