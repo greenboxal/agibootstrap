@@ -52,10 +52,8 @@ func ExtractCodeBlocks(root ast.Node) (blocks []CodeBlock) {
 	return
 }
 
-// Document this.
 type ContextBag map[string]any
 
-// Document this.
 type Request struct {
 	Chain     chain.Chain
 	Context   ContextBag
@@ -63,7 +61,14 @@ type Request struct {
 	Document  string
 }
 
-// TODO: Document this.
+// PrepareContext prepares the context for the given request.
+//
+// Parameters:
+// - ctx: The context.Context for the operation.
+// - req: The Request containing the input data.
+//
+// Returns:
+// - chain.ChainContext: The prepared chain context.
 func PrepareContext(ctx context.Context, req Request) chain.ChainContext {
 	cctx := chain.NewChainContext(ctx)
 
