@@ -577,22 +577,22 @@ func (r *Repository) Query(query string) error {
 	// Implement query logic based on the design
 	objectsPath := filepath.Join(r.ftiPath, "objects")
 	indexPath := filepath.Join(r.ftiPath, "index", "inverseIndex.bin")
-	queryEmbedding, err := generateEmbedding(query, r.config.EmbeddingAPI)
+	queryEmbedding, err := generateEmbeddings([]string{query})
 	if err != nil {
 		return err
 	}
 	// Perform inverse index lookup
-	objectHash, chunkIndex, err := lookupInverseIndex(queryEmbedding, indexPath)
+	objectHash, chunkIndex, err := r.lookupInverseIndex(queryEmbedding, indexPath)
 	if err != nil {
 		return err
 	}
 	// Retrieve object snapshot
-	objectSnapshot, err := retrieveObjectSnapshot(objectHash, objectsPath)
+	objectSnapshot, err := r.retrieveObjectSnapshot(objectHash, objectsPath)
 	if err != nil {
 		return err
 	}
 	// Retrieve metadata for the object snapshot
-	metadata, err := loadMetadata(objectHash, objectsPath)
+	metadata, err := r.loadMetadata(objectHash, objectsPath)
 	if err != nil {
 		return err
 	}
@@ -604,6 +604,100 @@ func (r *Repository) Query(query string) error {
 	fmt.Println("Metadata:", metadata)
 	fmt.Println("Chunk:", chunk)
 	return nil
+}
+
+func (r *Repository) lookupInverseIndex(embedding []llm.Embedding, path string) (string, int64, int64, error) {
+	// Implement lookupInverseIndex based on the design
+
+	// Read the inverse index file
+	indexData, err := ioutil.ReadFile(path)
+	if err != nil {
+		return "", 0, 0, err
+	}
+
+	// Convert the index entries into a slice of Entry structs
+	entries := make([]Entry, 0)
+	err = binary.Read(bytes.NewReader(indexData), binary.LittleEndian, &entries)
+	if err != nil {
+		return "", 0, 0, err
+	}
+
+	// Perform a binary search to find the corresponding entry for the embedding
+	low := 0
+	high := len(entries) - 1
+	for low <= high {
+		mid := (low + high) / 2
+		if bytes.Compare(embedding, entries[mid].Identifier) == 0 {
+			return entries[mid].ObjectHash, entries[mid].ChunkIndex, nil
+		} else if bytes.Compare(embedding, entries[mid].Identifier) < 0 {
+			high = mid - 1
+		} else {
+			low = mid + 1
+		}
+	}
+
+	// Return an error if the embedding is not found in the inverse index
+	return "", 0, 0, errors.New("embedding not found in the inverse index")
+}
+
+// Implement the retrieveObjectSnapshot method based on the design
+func (r *Repository) retrieveObjectSnapshot(hash interface{}, path string) (ObjectSnapshot, error) {
+	objectPath := filepath.Join(path, hash.(string))
+	snapshots, err := ioutil.ReadDir(objectPath)
+	if err != nil {
+		return ObjectSnapshot{}, err
+	}
+
+	// Iterate over the snapshots to retrieve the embedding data
+	var embeddings []Embedding
+	for _, snapshot := range snapshots {
+		if snapshot.IsDir() {
+			continue
+		}
+
+		snapshotFilename := snapshot.Name()
+		snapshotInfo := parseSnapshotFilename(snapshotFilename)
+
+		// Read the embedding data from the snapshot file
+		snapshotFilePath := filepath.Join(objectPath, snapshotFilename)
+		snapshotFile, err := os.Open(snapshotFilePath)
+		if err != nil {
+			return ObjectSnapshot{}, err
+		}
+		defer snapshotFile.Close()
+
+		// Read the embeddings from the snapshot file
+		var snapshotEmbeddings []Embedding
+		err = binary.Read(snapshotFile, binary.LittleEndian, &snapshotEmbeddings)
+		if err != nil {
+			return ObjectSnapshot{}, err
+		}
+		embeddings = append(embeddings, snapshotEmbeddings...)
+	}
+
+	return ObjectSnapshot{
+		Hash:       hash.(string),
+		ChunkSize:  snapshots[0].ChunkSize, // Assuming all snapshots have the same chunk size
+		Overlap:    snapshots[0].Overlap,   // Assuming all snapshots have the same overlap
+		Embeddings: embeddings,
+	}, nil
+}
+
+// Implement the loadMetadata method based on the design
+func (r *Repository) loadMetadata(hash interface{}, path string) (Metadata, error) {
+	metadataFilePath := filepath.Join(path, hash.(string), "metadata.json")
+	metadataData, err := ioutil.ReadFile(metadataFilePath)
+	if err != nil {
+		return Metadata{}, err
+	}
+
+	var metadata Metadata
+	err = json.Unmarshal(metadataData, &metadata)
+	if err != nil {
+		return Metadata{}, err
+	}
+
+	return metadata, nil
 }
 
 // Config represents the configuration parameters for the FTI repository
