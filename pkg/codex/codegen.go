@@ -110,7 +110,13 @@ func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node, opts ...NodePro
 
 		result := gpt.ContextBag{}
 
-		hits, err := p.repo.Query(context.Background(), req.Document+" "+req.Objective, 10)
+		result["file"], err = processor.SourceFile.ToCode(root)
+
+		if err != nil {
+			return nil, err
+		}
+
+		hits, err := p.repo.Query(context.Background(), result["file"].(string), 10)
 
 		if err != nil {
 			return nil, err
@@ -120,12 +126,6 @@ func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node, opts ...NodePro
 			key := fmt.Sprintf("hit%d", i)
 
 			result[key] = hit.Entry.Chunk.Content
-		}
-
-		result["file"], err = processor.SourceFile.ToCode(root)
-
-		if err != nil {
-			return nil, err
 		}
 
 		return result, nil
