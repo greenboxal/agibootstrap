@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
@@ -403,13 +405,26 @@ func (r *Repository) Update() error {
 			continue
 		}
 
+		// Calculate the file hash
+		filePath := filepath.Join(r.RepoPath, f.Name())
+		fileHash, err := calculateFileHash(filePath)
+		if err != nil {
+			return err
+		}
+
+		// Check if the file already exists in the objects directory
+		objectPath := filepath.Join(ftiPath, "objects", fileHash)
+		if _, err := os.Stat(objectPath); !os.IsNotExist(err) {
+			continue
+		}
+
 		// Retrieve snapshot information from filename
 		snapshot := parseSnapshotFilename(f.Name())
 
 		// Generate chunks and embeddings for each chunk specification
 		for _, chunkSize := range r.config.ChunkSizes {
 			for _, overlap := range r.config.Overlaps {
-				chunks, err := chunkFile(filepath.Join(r.RepoPath, f.Name()), chunkSize, overlap)
+				chunks, err := chunkFile(filePath, chunkSize, overlap)
 				if err != nil {
 					return err
 				}
@@ -445,6 +460,22 @@ func (r *Repository) Update() error {
 
 	fmt.Println("Updating repository at:", r.RepoPath)
 	return nil
+}
+
+// Calculate the hash of a file
+func calculateFileHash(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // Write metadata file for a snapshot
