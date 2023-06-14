@@ -1,5 +1,7 @@
 # AGIBootstrap
 
+![AGIBootstrap banner by DALL-E](docs/images/agib-dalle.jpg)
+
 AGIBootstrap is a self-bootstrapped artificial general intelligence (AGI) system designed for general coding tasks.
 The 'G' in AGI is often considered a humorous exaggeration due to the current limitations of AGI technology.
 
