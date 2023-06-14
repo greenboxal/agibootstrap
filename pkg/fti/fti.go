@@ -463,11 +463,24 @@ func writeMetadataFile(filepath string, metadata Metadata) error {
 
 // Parse snapshot filename to retrieve snapshot information
 func parseSnapshotFilename(filename string) Snapshot {
-	// TODO: Implement snapshot filename parsing logic
+	// Split the filename by "_" to extract hash, chunk size, and overlap
+	split := strings.Split(filename, "_")
+
+	// Retrieve hash from filename
+	hash := split[0]
+
+	// Retrieve chunk size from filename
+	chunkSizeStr := strings.TrimSuffix(strings.TrimPrefix(split[1], "m"), "b")
+	chunkSize, _ := strconv.Atoi(chunkSizeStr)
+
+	// Retrieve overlap from filename
+	overlapStr := strings.TrimSuffix(split[2], ".bin")
+	overlap, _ := strconv.Atoi(overlapStr)
+
 	return Snapshot{
-		Hash:      "", // TODO: Retrieve hash from filename
-		ChunkSize: 0,  // TODO: Retrieve chunk size from filename
-		Overlap:   0,  // TODO: Retrieve overlap from filename
+		Hash:      hash,
+		ChunkSize: chunkSize,
+		Overlap:   overlap,
 	}
 }
 
