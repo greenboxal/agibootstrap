@@ -17,12 +17,21 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
+// FunctionContext represents the context of a function.
+//
+// The ProcessContext stores information about the processor, node, and todos associated with a function.
+//
+// Fields:
+// - Processor: A pointer to the NodeProcessor struct.
+// - Node: The psi.Node representing the current function.
+// - Todos: A slice of strings representing the TODO comments associated with the function.
 type FunctionContext struct {
 	Processor *NodeProcessor
 	Node      psi.Node
 	Todos     []string
 }
 
+// TODO: Write documentation explaining the process, the steps involved and its purpose.
 type declaration struct {
 	node    dst.Node
 	element psi.Node
@@ -30,8 +39,10 @@ type declaration struct {
 	name    string
 }
 
+// TODO: Write documentation explaining the process, the steps involved and its purpose.
 type NodeProcessorOption func(p *NodeProcessor)
 
+// TODO: Write documentation explaining the process, the steps involved and its purpose.
 type NodeProcessor struct {
 	Project      *Project
 	SourceFile   *psi.SourceFile
@@ -44,6 +55,7 @@ type NodeProcessor struct {
 	checkShouldProcess func(fn *FunctionContext, cursor *psi.Cursor) bool
 }
 
+// TODO: Write documentation explaining the process, the steps involved and its purpose.
 func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 	e := cursor.Element()
 
@@ -72,6 +84,7 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 	return true
 }
 
+// TODO: Write documentation explaining the process, the steps involved and its purpose.
 func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 	e := cursor.Element()
 
@@ -102,6 +115,7 @@ var hasPackageRegex = regexp.MustCompile(`(?m)^.*package\s+([a-zA-Z0-9_]+)\n`)
 var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`)
 
 // Step processes the code and generates a response
+// TODO: Write documentation explaining the process, the steps involved and its purpose.
 func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result dst.Node, err error) {
 	stepRoot := cursor.Element()
 
@@ -283,6 +297,7 @@ func (p *NodeProcessor) setExistingDeclaration(index int, name string, node psi.
 	decl.index = index
 }
 
+// TODO: Write documentation explaining the process, the steps involved and its purpose.
 func (p *NodeProcessor) MergeDeclarations(cursor *psi.Cursor, node psi.Node) bool {
 	names := getDeclarationNames(node)
 
@@ -303,12 +318,14 @@ func (p *NodeProcessor) MergeDeclarations(cursor *psi.Cursor, node psi.Node) boo
 	return true
 }
 
+// TODO: Write documentation explaining the process, the steps involved and its purpose.
 func (p *NodeProcessor) InsertDeclarationAt(cursor *psi.Cursor, name string, decl psi.Node) {
 	cursor.InsertAfter(decl.Ast())
 	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
 	p.setExistingDeclaration(index, name, decl)
 }
 
+// TODO: Write documentation explaining the process, the steps involved and its purpose.
 func (p *NodeProcessor) ReplaceDeclarationAt(cursor *psi.Cursor, decl psi.Node, name string) {
 	cursor.Replace(decl.Ast())
 	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
