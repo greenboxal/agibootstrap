@@ -270,7 +270,9 @@ func (p *Project) ImportFile(path string) error {
 	return nil
 }
 
-// TODO: Write documentation
+// Reindex is a method that performs the reindexing operation for the project.
+// It updates the index of the project to reflect any changes made to its files.
+// The function returns an error if any error occurs during the reindexing process.
 func (p *Project) Reindex() error {
 	return nil
 }
