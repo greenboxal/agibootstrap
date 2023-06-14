@@ -285,16 +285,21 @@ var embedder = &openai.Embedder{
 	Model:  openai.AdaEmbeddingV2,
 }
 
-// Repository type
 type Repository struct {
-	// TODO: Make variables private and add getters
-	RepoPath string
-	FTIPath  string
+	repoPath string
+	ftiPath  string
 	config   Config
 }
 
-func NewRepository() *Repository {
-	return &Repository{}
+func NewRepository(repoPath string) *Repository {
+	// TODO: Make fields private and add getters, take repoPath as argument
+	return &Repository{
+		repoPath: repoPath,
+	}
+}
+
+func (r *Repository) RepoPath() string {
+	return r.repoPath
 }
 
 // Metadata represents the metadata of an object snapshot
