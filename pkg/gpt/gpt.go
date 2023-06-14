@@ -61,7 +61,7 @@ Always output code using code blocks. You can use the following template to outp
 {{ .Context | markdownTree }}
 
 # Request
-Address all TODOs in the document below by implementing the necessary changes in the code.
+Address all TODOs in the document below.
 
 {{ .Objective }}
 
