@@ -3,6 +3,7 @@ package fti
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -12,16 +13,20 @@ import (
 	"io"
 	"io/fs"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
+	"github.com/DataIntelligenceCrew/go-faiss"
 	"github.com/greenboxal/aip/aip-langchain/pkg/chunkers"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/pkg/errors"
+	ignore "github.com/sabhiram/go-gitignore"
 )
 
 /*
@@ -355,7 +360,6 @@ type Config struct {
 	} `json:"embedding"`
 
 	ChunkSpecs []ChunkSpec `json:"chunk_specs"`
-	Ignore     []string
 }
 
 type Repository struct {
@@ -367,10 +371,13 @@ type Repository struct {
 
 	embedder llm.Embedder
 	chunker  chunkers.Chunker
+	index    *OnlineIndex
+
+	ignore *ignore.GitIgnore
 }
 
-func NewRepository(repoPath string) (*Repository, error) {
-	r := &Repository{}
+func NewRepository(repoPath string) (r *Repository, err error) {
+	r = &Repository{}
 
 	r.chunker = chunkers.TikToken{}
 	r.embedder = &openai.Embedder{
@@ -392,6 +399,12 @@ func NewRepository(repoPath string) (*Repository, error) {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
+	}
+
+	r.index, err = NewOnlineIndex(r)
+
+	if err != nil {
+		return nil, err
 	}
 
 	return r, nil
@@ -417,152 +430,10 @@ func (r *Repository) OpenFile(filePath string) (fs.File, error) {
 	return os.OpenFile(filePath, os.O_RDONLY, os.ModePerm)
 }
 
-func (r *Repository) Init() error {
-	// Create the .fti directory
-	err := os.Mkdir(r.ftiPath, os.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	configData, err := json.MarshalIndent(defaultConfig, "", "\t")
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile(r.configPath, configData, os.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r *Repository) Update(ctx context.Context) error {
-	for it := r.IterateFiles(ctx); it.Next(); {
-		f := it.Item()
-
-		if err := r.UpdateFile(ctx, f); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
-	fh, err := r.OpenFile(f.Path)
-
-	if err != nil {
-		return err
-	}
-
-	defer fh.Close()
-
-	hasher := sha256.New()
-	reader := io.TeeReader(fh, hasher)
-	data, err := io.ReadAll(reader)
-
-	if err != nil {
-		return err
-	}
-
-	h := hasher.Sum(nil)
-
-	for _, chunkSpec := range r.config.ChunkSpecs {
-		if err := r.updateFileWithSpec(ctx, f, chunkSpec, h, data); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-type ObjectSnapshotImage struct {
-	Chunks     []chunkers.Chunk
-	Embeddings []llm.Embedding
-}
-
-func (osi *ObjectSnapshotImage) ReadFrom(r io.Reader) (int, error) {
-	return 0, nil
-}
-
-func (osi *ObjectSnapshotImage) WriteTo(w io.Writer) (int, error) {
-	img := image.NewRGBA(image.Rect(0, 0, len(osi.Chunks)*25, 25))
-
-	for i, chunk := range osi.Chunks {
-		embedding := osi.Embeddings[i]
-
-		r := uint8(embedding.Embeddings[0] * 255)
-		g := uint8(embedding.Embeddings[1] * 255)
-		b := uint8(embedding.Embeddings[2] * 255)
-
-		c := color.RGBA{r, g, b, 255}
-
-		for j := 0; j < 25; j++ {
-			for k := 0; k < 25; k++ {
-				img.Set(i*25+j, k, c)
-			}
-		}
-
-		fmt.Printf("Chunk: %s\n", chunk.Content)
-		fmt.Printf("Embedding: %v\n", embedding)
-	}
-
-	err := png.Encode(w, img)
-	if err != nil {
-		return 0, err
-	}
-
-	return 0, nil
-}
-
-func (r *Repository) buildImage(ctx context.Context, f FileCursor, chunks []chunkers.Chunk, embeddings []llm.Embedding) (*ObjectSnapshotImage, error) {
-	image := &ObjectSnapshotImage{
-		Chunks:     chunks,
-		Embeddings: embeddings,
-	}
-
-	return image, nil
-}
-
-func (r *Repository) Query() error {
-	return nil
-}
-
-func (r *Repository) IterateFiles(ctx context.Context) Iterator[FileCursor] {
-	files := IterateFiles(ctx, r.repoPath)
-
-	files = Filter(files, func(f FileCursor) bool {
-		if f.IsDir() {
-			return false
-		}
-
-		relPath, err := filepath.Rel(r.ftiPath, f.Path)
-
-		if err == nil && !strings.HasPrefix(relPath, "..") {
-			return false
-		}
-
-		if r.IsIgnored(f.Path) {
-			return false
-		}
-
-		return true
-	})
-
-	return files
-}
-
 func (r *Repository) IsIgnored(name string) bool {
 	p := r.RelativeToRoot(name)
 
-	for _, pattern := range r.config.Ignore {
-		if matched, _ := filepath.Match(pattern, p); matched {
-			return true
-		}
-	}
-
-	return false
+	return r.ignore.MatchesPath(p)
 }
 
 func (r *Repository) RelativeToRoot(name string) string {
@@ -604,32 +475,148 @@ func (r *Repository) loadConfig() error {
 func (r *Repository) loadIgnoreFile() error {
 	ignoreFilePath := r.ResolvePath(".ftiignore")
 
-	data, err := os.ReadFile(ignoreFilePath)
+	if !r.FileExists(ignoreFilePath) {
+		return nil
+	}
+
+	result, err := ignore.CompileIgnoreFile(ignoreFilePath)
 
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-
 		return err
 	}
 
-	patterns := strings.Split(string(data), "\n")
-
-	for i, pattern := range patterns {
-		patterns[i] = strings.TrimSpace(pattern)
-	}
-
-	r.config.Ignore = patterns
+	r.ignore = result
 
 	return nil
 }
 
-func (r *Repository) updateFileWithSpec(ctx context.Context, f FileCursor, spec ChunkSpec, h []byte, data []byte) error {
-	chunks, err := r.chunker.SplitTextIntoChunks(ctx, string(data), spec.MaxTokens, spec.Overlap)
+func (r *Repository) IterateFiles(ctx context.Context) Iterator[FileCursor] {
+	files := IterateFiles(ctx, r.repoPath)
+
+	files = Filter(files, func(f FileCursor) bool {
+		if f.IsDir() {
+			return false
+		}
+
+		relPath, err := filepath.Rel(r.ftiPath, f.Path)
+
+		if err == nil && !strings.HasPrefix(relPath, "..") {
+			return false
+		}
+
+		if r.IsIgnored(f.Path) {
+			return false
+		}
+
+		return true
+	})
+
+	return files
+}
+
+func (r *Repository) Init() error {
+	// Create the .fti directory
+	err := os.Mkdir(r.ftiPath, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	configData, err := json.MarshalIndent(defaultConfig, "", "\t")
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(r.configPath, configData, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Repository) Update(ctx context.Context) error {
+	for it := r.IterateFiles(ctx); it.Next(); {
+		f := it.Item()
+
+		if err := r.UpdateFile(ctx, f); err != nil {
+			return err
+		}
+	}
+
+	err := faiss.WriteIndex(r.index.idx, r.ResolveDbPath("index.faiss"))
 
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
+	fmt.Printf("Updating file %s\n", f.Path)
+
+	fh, err := r.OpenFile(f.Path)
+
+	if err != nil {
+		return err
+	}
+
+	defer fh.Close()
+
+	hasher := sha256.New()
+	reader := io.TeeReader(fh, hasher)
+	data, err := io.ReadAll(reader)
+
+	if err != nil {
+		return err
+	}
+
+	h := hasher.Sum(nil)
+	fileHash := hex.EncodeToString(h)
+
+	fileDir := r.ResolveDbPath("objects", fileHash)
+	metaPath := filepath.Join(fileDir, "meta.json")
+
+	if err := os.MkdirAll(fileDir, os.ModePerm); err != nil {
+		return err
+	}
+
+	meta := &ObjectSnapshotMetadata{
+		Path:       f.Path,
+		Hash:       fileHash,
+		ChunkCount: make([]int, len(r.config.ChunkSpecs)),
+	}
+
+	for i, chunkSpec := range r.config.ChunkSpecs {
+		img, err := r.updateFileWithSpec(ctx, chunkSpec, fileDir, data)
+
+		if err != nil {
+			return err
+		}
+
+		meta.ChunkCount[i] = len(img.Chunks)
+	}
+
+	serialized, err := json.MarshalIndent(meta, "", "\t")
+
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(metaPath, serialized, os.ModePerm); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Repository) updateFileWithSpec(ctx context.Context, spec ChunkSpec, fileDir string, data []byte) (*ObjectSnapshotImage, error) {
+	imagePath := filepath.Join(fileDir, fmt.Sprintf("%dm%d.png", spec.MaxTokens, spec.Overlap))
+
+	chunks, err := r.chunker.SplitTextIntoChunks(ctx, string(data), spec.MaxTokens, spec.Overlap)
+
+	if err != nil {
+		return nil, err
 	}
 
 	chunksStr := make([]string, len(chunks))
@@ -641,31 +628,228 @@ func (r *Repository) updateFileWithSpec(ctx context.Context, f FileCursor, spec 
 	embeddings, err := r.embedder.GetEmbeddings(ctx, chunksStr)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	image, err := r.buildImage(ctx, f, chunks, embeddings)
-
-	if err != nil {
-		return err
+	img := &ObjectSnapshotImage{
+		Chunks:     chunks,
+		Embeddings: embeddings,
 	}
 
-	fileHash := hex.EncodeToString(h)
-	imagePath := r.ResolveDbPath("objects", fileHash, fmt.Sprintf("%dm%d.fti", spec.MaxTokens, spec.Overlap))
+	for i, chunk := range chunks {
+		emb := embeddings[i]
+
+		chunkPath := filepath.Join(fileDir, fmt.Sprintf("%dm%d.%d.txt", spec.MaxTokens, spec.Overlap, chunk.Index))
+		embPath := filepath.Join(fileDir, fmt.Sprintf("%dm%d.%d.f32", spec.MaxTokens, spec.Overlap, chunk.Index))
+
+		if err := os.WriteFile(chunkPath, []byte(chunk.Content), os.ModePerm); err != nil {
+			return nil, err
+		}
+
+		buffer := make([]byte, len(emb.Embeddings)*4)
+
+		for j, f := range emb.Embeddings {
+			binary.LittleEndian.PutUint32(buffer[j*4:], math.Float32bits(f))
+		}
+
+		if err := os.WriteFile(embPath, buffer, os.ModePerm); err != nil {
+			return nil, err
+		}
+	}
 
 	fh, err := os.OpenFile(imagePath, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer fh.Close()
 
-	if _, err := image.WriteTo(fh); err != nil {
+	if _, err := img.WriteTo(fh); err != nil {
+		return nil, err
+	}
+
+	if err := r.index.Add(img); err != nil {
+		return nil, err
+	}
+
+	return img, nil
+}
+
+func (r *Repository) Query(ctx context.Context, query string) error {
+	if err := r.loadIndex(); err != nil {
 		return err
 	}
 
+	embs, err := r.embedder.GetEmbeddings(ctx, []string{query})
+
+	if err != nil {
+		return err
+	}
+
+	hits, err := r.index.Query(embs[0], 10)
+
+	if err != nil {
+		return err
+	}
+
+	for _, hit := range hits {
+		fmt.Printf("Hit: %#+v\n", hit)
+	}
+
 	return nil
+}
+
+func (r *Repository) loadIndex() error {
+	p := r.ResolveDbPath("index.faiss")
+
+	if !r.FileExists(p) {
+		return nil
+	}
+
+	idx, err := faiss.ReadIndex(p, faiss.IOFlagMmap)
+
+	if err != nil {
+		return nil
+	}
+
+	if r.index.idx != nil {
+		r.index.idx.Delete()
+		r.index.idx = nil
+	}
+
+	r.index.idx = idx
+
+	return nil
+}
+
+type OnlineIndex struct {
+	Repository *Repository
+
+	m       sync.RWMutex
+	idx     faiss.Index
+	mapping map[int64]*OnlineIndexEntry
+}
+
+type OnlineIndexEntry struct {
+	Index     int64
+	Chunk     chunkers.Chunk
+	Embedding llm.Embedding
+}
+
+func NewOnlineIndex(repo *Repository) (*OnlineIndex, error) {
+	var err error
+
+	oi := &OnlineIndex{
+		Repository: repo,
+
+		mapping: map[int64]*OnlineIndexEntry{},
+	}
+
+	oi.idx, err = faiss.NewIndexFlatIP(1536)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return oi, nil
+}
+
+func (oi *OnlineIndex) Add(img *ObjectSnapshotImage) error {
+	oi.m.Lock()
+	defer oi.m.Unlock()
+
+	baseIndex := oi.idx.Ntotal()
+
+	for i, emb := range img.Embeddings {
+		if err := oi.idx.Add(emb.Embeddings); err != nil {
+			return err
+		}
+
+		entry := &OnlineIndexEntry{
+			Index:     baseIndex + int64(i),
+			Chunk:     img.Chunks[i],
+			Embedding: emb,
+		}
+
+		oi.mapping[entry.Index] = entry
+	}
+
+	return nil
+}
+
+type OnlineIndexQueryHit struct {
+	Entry    *OnlineIndexEntry
+	Distance float32
+}
+
+func (oi *OnlineIndex) Query(q llm.Embedding, k int64) ([]OnlineIndexQueryHit, error) {
+	distances, indices, err := oi.idx.Search(q.Embeddings, k)
+
+	if err != nil {
+		return nil, err
+	}
+
+	hits := make([]OnlineIndexQueryHit, len(indices))
+
+	for i, idx := range indices {
+		hits[i] = OnlineIndexQueryHit{
+			Entry:    oi.mapping[idx],
+			Distance: distances[i],
+		}
+	}
+
+	return hits, nil
+}
+
+type ObjectSnapshotMetadata struct {
+	Path       string `json:"path"`
+	Hash       string `json:"hash"`
+	ChunkCount []int  `json:"chunk_count"`
+}
+
+type ObjectSnapshotImage struct {
+	Chunks     []chunkers.Chunk
+	Embeddings []llm.Embedding
+}
+
+func (osi *ObjectSnapshotImage) ReadFrom(r io.Reader) (int, error) {
+	return 0, nil
+}
+
+func (osi *ObjectSnapshotImage) WriteTo(w io.Writer) (int, error) {
+	img := image.NewRGBA(image.Rect(0, 0, len(osi.Chunks)*25, 25))
+
+	for i, _ := range osi.Chunks {
+		embedding := osi.Embeddings[i]
+		n := 25
+
+		for x := 0; x < n; x++ {
+			for y := 0; y < n; y++ {
+				idx := (y*n + x) * 3
+
+				if idx >= len(embedding.Embeddings) {
+					continue
+				}
+
+				c := color.RGBA{
+					R: uint8(embedding.Embeddings[idx+0] * 256.0),
+					G: uint8(embedding.Embeddings[idx+1] * 255.0),
+					B: uint8(embedding.Embeddings[idx+2] * 255.0),
+					A: 255,
+				}
+
+				img.Set(i*25+x, y, c)
+			}
+		}
+	}
+
+	err := png.Encode(w, img)
+	if err != nil {
+		return 0, err
+	}
+
+	return 0, nil
 }
 
 type Iterator[T any] interface {

@@ -9,7 +9,7 @@ import (
 )
 
 var QueryCmd = &cobra.Command{
-	Use:   "query [path] --query [query terms]",
+	Use:   "query [query terms]",
 	Short: "Query the FTI repository",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -25,7 +25,7 @@ var QueryCmd = &cobra.Command{
 			panic(err)
 		}
 
-		return r.Query()
+		return r.Query(cmd.Context(), args[0])
 	},
 }
 

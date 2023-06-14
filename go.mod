@@ -15,7 +15,9 @@ require (
 	github.com/greenboxal/aip/aip-langchain v0.0.0-20230613210128-ceee04e39305
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/ipfs/go-datastore v0.6.0
+	github.com/jbenet/goprocess v0.1.4
 	github.com/pkg/errors v0.9.1
+	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/spf13/cobra v1.7.0
 	github.com/zeroflucs-given/generics v0.0.0-20230611080924-a806fa480d35
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
@@ -51,7 +53,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfs/go-cid v0.4.1 // indirect
 	github.com/ipld/go-ipld-prime v0.20.0 // indirect
-	github.com/jbenet/goprocess v0.1.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
