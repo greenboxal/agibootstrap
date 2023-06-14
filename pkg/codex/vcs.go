@@ -6,6 +6,10 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 )
 
+// Commit commits the changes made in the project to the file system.
+// It checks if there are any changes to commit, prepares the commit message,
+// and then performs the commit. If there are no changes, it returns nil.
+// It returns an error if any occurs during the commit process.
 func (p *Project) Commit() error {
 	isDirty, err := p.fs.IsDirty()
 

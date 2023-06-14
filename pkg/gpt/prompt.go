@@ -16,9 +16,7 @@ var CodeGeneratorPrompt chat.Prompt
 var CodeGeneratorChain chain.Chain
 
 func init() {
-	// TODO: Document this whole file
-
-	// TODO: Document the `init()` function.
+	// TODO: Suggest improvements to the code below so the objective effectiveness is improved. Leave the suggestions as comments.
 	CodeGeneratorPrompt = chat.ComposeTemplate(
 		chat.EntryTemplate(
 			msn.RoleSystem,
@@ -49,7 +47,6 @@ func init() {
 			`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey), chain.WithRequiredInput(ContextKey)),
 		))
 
-	// TODO: Document the `CodeGeneratorChain` variable.
 	CodeGeneratorChain = chain.New(
 		chain.WithName("GoCodeGenerator"),
 
