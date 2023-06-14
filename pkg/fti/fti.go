@@ -328,8 +328,8 @@ var config Config
 
 // Update method updates the FTI repository
 func (r *Repository) Update() error {
-	ftiPath := fmt.Sprintf("%s/.fti", r.RepoPath)
-	indexDir := fmt.Sprintf("%s/index", ftiPath)
+	ftiPath := filepath.Join(r.RepoPath, ".fti")
+	indexDir := filepath.Join(ftiPath, "index")
 
 	// Retrieve the list of chunkSize and overlap binary snapshot files from the `index` directory
 	files, err := ioutil.ReadDir(indexDir)
@@ -343,7 +343,7 @@ func (r *Repository) Update() error {
 		}
 
 		// Read snapshot file into memory
-		snapshotFilePath := fmt.Sprintf("%s/%s", indexDir, f.Name())
+		snapshotFilePath := filepath.Join(indexDir, f.Name())
 		snapshotFile, err := os.Open(snapshotFilePath)
 		if err != nil {
 			return err
@@ -364,14 +364,20 @@ func (r *Repository) Update() error {
 		overlap := int(snapshot["overlap"].(float64))
 		snapshotFile.Close()
 
+		// TODO: Implement chunking as defined in the spec
+		chunks, err := chunkFile(filepath.Join(r.RepoPath, f.Name()), chunkSize, overlap)
+		if err != nil {
+			return err
+		}
+
 		// Generate embeddings for current snapshot file
-		embeddings, err := embedder.GetEmbeddings(ctx, chunks)
+		embeddings, err := generateEmbeddings(chunks)
 		if err != nil {
 			return err
 		}
 
 		// Update object file for current snapshot file
-		objectFilePath := fmt.Sprintf("%s/objects/%s/%d_%d.bin", ftiPath, hash, chunkSize, overlap)
+		objectFilePath := filepath.Join(ftiPath, "objects", hash, fmt.Sprintf("%dm%d.bin", chunkSize, overlap))
 		objectFile, err := os.Create(objectFilePath)
 		if err != nil {
 			return err
@@ -385,6 +391,19 @@ func (r *Repository) Update() error {
 
 	fmt.Println("Updating repository at:", r.RepoPath)
 	return nil
+}
+
+func generateEmbeddings(chunks []string) ([]Embedding, error) {
+	// Add your code here to generate embeddings for the given chunks
+	fmt.Println("Generating embeddings for chunks:", chunks)
+	return nil, nil
+}
+
+// TODO: Implement chunking as defined in the spec
+func chunkFile(filepath string, chunkSize int, overlap int) ([]string, error) {
+	// Add your code here to chunk the file according to the specified chunk size and overlap
+	fmt.Println("Chunking file:", filepath, "with chunk size:", chunkSize, "and overlap:", overlap)
+	return nil, nil
 }
 
 // ReadConfigFile reads the config file and performs necessary setup based on the configuration
