@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/gomarkdown/markdown/ast"
-	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
-	"github.com/greenboxal/aip/aip-langchain/pkg/memory"
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
@@ -15,14 +13,6 @@ import (
 	// Register the providers.
 	_ "github.com/greenboxal/agibootstrap/pkg/utils"
 )
-
-var ObjectiveKey chain.ContextKey[string] = "Objective"
-var ContextKey chain.ContextKey[any] = "Context"
-var DocumentKey chain.ContextKey[string] = "Document"
-
-// CodeGeneratorPrompt is the prompt used to generate code.
-var CodeGeneratorPrompt chat.Prompt
-var CodeGeneratorChain chain.Chain
 
 var oai = openai.NewClient()
 var embedder = &openai.Embedder{
@@ -35,57 +25,13 @@ var model = &openai.ChatLanguageModel{
 	Temperature: 0.5,
 }
 
-func init() {
-
-	CodeGeneratorPrompt = chat.ComposeTemplate(
-		chat.EntryTemplate(
-			msn.RoleSystem,
-			chain.NewTemplatePrompt(`
-# Context
-{{ .Context | markdownTree 2 }}
-
-You're an AI agent specialized in generating Go code. Complete the request below.
-You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
-Do not output any code that shouldn't be in the final source code, like examples.
-Do not emit any code that is not valid Go code. You can use the context below to help you.
-`, chain.WithRequiredInput(ContextKey))),
-
-		chat.HistoryFromContext(memory.ContextualMemoryKey),
-		chat.EntryTemplate(
-			msn.RoleUser,
-			chain.NewTemplatePrompt(`
-
-# Request
-Address all TODOs in the document below.
-
-# TODOs:
-{{ .Objective }}
-
-# Document
-`+"```"+`go
-{{ .Document }}
-`+"```"+`
-`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey), chain.WithRequiredInput(ContextKey)),
-		))
-
-	CodeGeneratorChain = chain.New(
-		chain.WithName("GoCodeGenerator"),
-
-		chain.Sequential(
-			chat.Predict(
-				model,
-				CodeGeneratorPrompt,
-				chat.WithMaxTokens(12000),
-			),
-		),
-	)
-}
-
+// CodeBlock represents a block of code with its language and code content.
 type CodeBlock struct {
 	Language string
 	Code     string
 }
 
+// TODO: Document this.
 func ExtractCodeBlocks(root ast.Node) (blocks []CodeBlock) {
 	ast.WalkFunc(root, func(node ast.Node, entering bool) ast.WalkStatus {
 		if entering {
@@ -104,8 +50,10 @@ func ExtractCodeBlocks(root ast.Node) (blocks []CodeBlock) {
 	return
 }
 
+// TODO: Document this.
 type ContextBag map[string]any
 
+// TODO: Document this.
 type Request struct {
 	Chain   chain.Chain
 	Context ContextBag
@@ -114,6 +62,7 @@ type Request struct {
 	Document  string
 }
 
+// TODO: Document this.
 func PrepareContext(ctx context.Context, req Request) chain.ChainContext {
 	cctx := chain.NewChainContext(ctx)
 
@@ -124,6 +73,7 @@ func PrepareContext(ctx context.Context, req Request) chain.ChainContext {
 	return cctx
 }
 
+// TODO: Document this.
 func Invoke(ctx context.Context, req Request) ([]CodeBlock, error) {
 	cctx := PrepareContext(ctx, req)
 
@@ -138,6 +88,7 @@ func Invoke(ctx context.Context, req Request) ([]CodeBlock, error) {
 	return ExtractCodeBlocks(parsedReply), nil
 }
 
+// TODO: Document this.
 func SendToGPT(objectives, promptContext, target string) ([]CodeBlock, error) {
 	ctx := context.Background()
 	cctx := chain.NewChainContext(ctx)
