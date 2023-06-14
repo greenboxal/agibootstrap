@@ -264,27 +264,29 @@ import (
 )
 
 // Reference types:
-//type Embedder interface {
+//type llm.Embedder interface {
 //	MaxTokensPerChunk() int
 //
 //	GetEmbeddings(ctx context.Context, chunks []string) ([]Embedding, error)
 //}
 //
-//type Embedding struct {
+//type llm.Embedding struct {
 //	Embeddings []float32
 //}
-// Repository type
-
-type Repository struct {
-	RepoPath string
-	FTIPath  string
-	config   Config
-}
 
 var oai = openai.NewClient()
 var embedder = &openai.Embedder{
 	Client: oai,
 	Model:  openai.AdaEmbeddingV2,
+}
+
+// TODO: Define all types needed by the design
+
+// Repository type
+type Repository struct {
+	RepoPath string
+	FTIPath  string
+	config   Config
 }
 
 // Init method initializes a new FTI repository
@@ -325,8 +327,6 @@ func (r *Repository) Init() error {
 	fmt.Println("Initializing repository at:", r.RepoPath)
 	return nil
 }
-
-var config Config
 
 // Update method updates the FTI repository
 func (r *Repository) Update() error {
@@ -449,12 +449,6 @@ type Config struct {
 	Overlaps            []int  `json:"Overlaps"`
 	EmbeddingAPI        string `json:"EmbeddingAPI"`
 	EmbeddingDimensions int    `json:"EmbeddingDimensions"`
-}
-
-func GenerateEmbeddings(sprintf string) (interface{}, interface{}) {
-	// Add your code here to generate embeddings for the given snapshot file path
-	fmt.Println("Generating embeddings for snapshot file:", sprintf)
-	return nil, nil
 }
 
 // Query method enables users to query the FTI repository
