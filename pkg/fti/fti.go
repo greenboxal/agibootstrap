@@ -43,7 +43,21 @@ type Repository struct {
 
 // Init method initializes a new FTI repository
 func (r *Repository) Init() error {
-	// initialization logic goes here
+	ftiPath := fmt.Sprintf("%s/.fti", r.RepoPath)
+	err := os.Mkdir(ftiPath, os.ModePerm) // Creates the .fti folder
+	if err != nil {
+		return err
+	}
+	// Objects folder
+	err = os.Mkdir(fmt.Sprintf("%s/objects", ftiPath), os.ModePerm)
+	if err != nil {
+		return err
+	}
+	// Index folder
+	err = os.Mkdir(fmt.Sprintf("%s/index", ftiPath), os.ModePerm)
+	if err != nil {
+		return err
+	}
 	fmt.Println("Initializing repository at:", r.RepoPath)
 	return nil
 }
