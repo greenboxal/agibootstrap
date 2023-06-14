@@ -280,13 +280,43 @@ var embedder = &openai.Embedder{
 	Model:  openai.AdaEmbeddingV2,
 }
 
-// TODO: Define all types needed by the design
-
 // Repository type
 type Repository struct {
 	RepoPath string
 	FTIPath  string
 	config   Config
+}
+
+func NewRepository() {
+	// TODO: Define all types needed by the design
+}
+
+// Metadata represents the metadata of an object snapshot
+type Metadata struct {
+	ObjectHash   string
+	ChunkSize    int
+	Overlap      int
+	CreationTime string
+	FileSize     int64
+	TotalChunks  int
+}
+
+// ObjectSnapshot represents a snapshot of file chunks
+type ObjectSnapshot struct {
+	Hash       string
+	ChunkSize  int
+	Overlap    int
+	Embeddings []Embedding
+}
+
+// Embedding represents an embedding vector
+type Embedding struct {
+	Vector []float32
+}
+
+// Chunk represents a chunk of data within a file
+type Chunk struct {
+	Data string
 }
 
 // Init method initializes a new FTI repository
@@ -399,6 +429,7 @@ type Snapshot struct {
 }
 
 func generateEmbeddings(chunks []string) ([]llm.Embedding, error) {
+
 	// Add your code here to generate embeddings for the given chunks
 	fmt.Println("Generating embeddings for chunks:", chunks)
 	return nil, nil
