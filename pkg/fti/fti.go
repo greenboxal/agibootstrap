@@ -33,6 +33,7 @@ The Inverse Index resides under the `.fti/index/` directory and represents a cru
 
 import (
 	"fmt"
+	"os"
 )
 
 // Repository type
@@ -64,7 +65,61 @@ func (r *Repository) Init() error {
 
 // Update method updates the FTI repository
 func (r *Repository) Update() error {
-	// update logic goes here
+	ftiPath := fmt.Sprintf("%s/.fti", r.RepoPath)
+	indexDir := fmt.Sprintf("%s/index", ftiPath)
+
+	// Retrieve the list of chunkSize and overlap binary snapshot files from the `index` directory
+	files, err := ioutil.ReadDir(indexDir)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+
+		// Read snapshot file into memory
+		snapshotFilePath := fmt.Sprintf("%s/%s", indexDir, f.Name())
+		snapshotFile, err := os.Open(snapshotFilePath)
+		if err != nil {
+			return err
+		}
+		snapshotData, err := ioutil.ReadAll(snapshotFile)
+		if err != nil {
+			return err
+		}
+
+		// Unmarshal the snapshot data into a map to get hash and chunk specification
+		var snapshot map[string]interface{}
+		err = json.Unmarshal(snapshotData, &snapshot)
+		if err != nil {
+			return err
+		}
+		hash := snapshot["hash"].(string)
+		chunkSize := int(snapshot["chunkSize"].(float64))
+		overlap := int(snapshot["overlap"].(float64))
+		snapshotFile.Close()
+
+		// Generate embeddings for current snapshot file
+		embeddings, err := GenerateEmbeddings(fmt.Sprintf("%s/%d_%d.bin", ftiPath, chunkSize, overlap))
+		if err != nil {
+			return err
+		}
+
+		// Update object file for current snapshot file
+		objectFilePath := fmt.Sprintf("%s/objects/%s/%d_%d.bin", ftiPath, hash, chunkSize, overlap)
+		objectFile, err := os.Create(objectFilePath)
+		if err != nil {
+			return err
+		}
+		err = binary.Write(objectFile, binary.LittleEndian, embeddings)
+		if err != nil {
+			return err
+		}
+		objectFile.Close()
+	}
+
 	fmt.Println("Updating repository at:", r.RepoPath)
 	return nil
 }
