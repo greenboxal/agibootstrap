@@ -267,7 +267,6 @@ type Repository struct {
 
 // Init method initializes a new FTI repository
 func (r *Repository) Init() error {
-	// TODO: Improve based on the design
 	ftiPath := fmt.Sprintf("%s/.fti", r.RepoPath)
 	err := os.Mkdir(ftiPath, os.ModePerm) // Creates the .fti folder
 	if err != nil {
