@@ -34,7 +34,7 @@ func Json(input any) string {
 
 	return string(data)
 }
-func MarkdownTree(input any) string {
+func MarkdownTree(initialDepth int, input any) string {
 	var payload any
 
 	data, err := json.Marshal(input)
@@ -53,8 +53,8 @@ func MarkdownTree(input any) string {
 		switch node := node.(type) {
 		case map[string]any:
 			for k, v := range node {
-				h := strings.Repeat("#", depth+1)
-				heading := ParseMarkdown([]byte(fmt.Sprintf("%s%s", h, k)))
+				h := strings.Repeat("#", depth)
+				heading := ParseMarkdown([]byte(fmt.Sprintf("%s %s", h, k)))
 
 				walk(v, depth+1, k, heading)
 
@@ -86,7 +86,7 @@ func MarkdownTree(input any) string {
 
 	root := &ast.Document{}
 
-	walk(payload, 0, "", root)
+	walk(payload, initialDepth, "", root)
 
 	str := string(FormatMarkdown(root))
 

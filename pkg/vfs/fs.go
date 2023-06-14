@@ -6,23 +6,30 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
+// A FsNode is a node in the virtual file system.
 type FsNode interface {
 	psi.Node
 
 	Path() string
 }
 
+// A DirectoryNode is a directory in the virtual file system.
 type DirectoryNode struct {
 	psi.NodeBase
+
+	key  string
+	path string
 }
 
-func orphanSnippet0() {
-	node := &DirectoryNode{}
-	// Implement the TODO
-	node.Path = path
+func NewDirectoryNode(path string) *DirectoryNode {
+	key := strings.ToLower(path)
 
-	return node
+	dn := &DirectoryNode{
+		key:  key,
+		path: path,
+	}
 
+	return dn
 }
 
 type FileNode struct {

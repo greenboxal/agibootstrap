@@ -52,7 +52,7 @@ Do not emit any code that is not valid Go code. You can use the context below to
 			msn.RoleUser,
 			chain.NewTemplatePrompt(`
 # Context
-{{ .Context | markdownTree }}
+{{ .Context | markdownTree 2 }}
 
 # Request
 Address all TODOs in the document below.
