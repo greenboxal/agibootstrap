@@ -122,19 +122,18 @@ func (sf *SourceFile) ToCode(node Node) (string, error) {
 	f, ok := node.Ast().(*dst.File)
 
 	if !ok {
-		decl, ok := node.Ast().(dst.Decl)
-
-		if !ok {
-			return "", errors.New("node is not a file or decl")
-		}
+		var decls []dst.Decl
 
 		obj := &dst.Object{}
 
-		switch decl := decl.(type) {
+		switch n := node.Ast().(type) {
 		case *dst.FuncDecl:
 			obj.Kind = dst.Fun
+
+			decls = append(decls, n)
+
 		case *dst.GenDecl:
-			switch decl.Tok {
+			switch n.Tok {
 			case token.CONST:
 				obj.Kind = dst.Con
 			case token.TYPE:
@@ -142,21 +141,31 @@ func (sf *SourceFile) ToCode(node Node) (string, error) {
 			case token.VAR:
 				obj.Kind = dst.Var
 			}
+
+			decls = append(decls, n)
+
+		case *dst.TypeSpec:
+			obj.Kind = dst.Typ
+
+			decls = append(decls, &dst.GenDecl{
+				Tok:   token.TYPE,
+				Specs: []dst.Spec{n},
+			})
+
+		default:
+			return "", errors.New("node is not a file or decl")
 		}
 
 		f = &dst.File{
 			Name:       sf.parsed.Name,
-			Decls:      []dst.Decl{decl},
+			Decls:      decls,
 			Scope:      dst.NewScope(nil),
 			Imports:    sf.parsed.Imports,
 			Unresolved: sf.parsed.Unresolved,
 			Decs:       sf.parsed.Decs,
 		}
 
-		f.Scope.Insert(&dst.Object{
-			Kind: dst.Var,
-			Decl: decl,
-		})
+		f.Scope.Insert(obj)
 	}
 
 	err := decorator.Fprint(&buf, f)

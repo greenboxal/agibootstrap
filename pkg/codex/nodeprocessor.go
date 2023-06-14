@@ -18,7 +18,7 @@ import (
 
 type FunctionContext struct {
 	Processor *NodeProcessor
-	Func      *dst.FuncDecl
+	Node      psi.Node
 	Todos     []string
 }
 
@@ -43,10 +43,11 @@ type NodeProcessor struct {
 }
 
 func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
-	switch node := cursor.Node().(type) {
-	case *dst.FuncDecl:
+	e := cursor.Element()
+
+	if e.IsContainer() {
 		err := p.FuncStack.Push(&FunctionContext{
-			Func: node,
+			Node: cursor.Element(),
 		})
 
 		if err != nil {
@@ -70,8 +71,9 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 }
 
 func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
-	switch cursor.Node().(type) {
-	case *dst.FuncDecl:
+	e := cursor.Element()
+
+	if e.IsContainer() {
 		ok, currentFn := p.FuncStack.Pop()
 
 		if !ok {
@@ -107,23 +109,6 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 	}
 
 	prunedRoot := psi.Apply(psi.Clone(p.Root), func(cursor *psi.Cursor) bool {
-		switch node := cursor.Node().(type) {
-		case *dst.FuncDecl:
-			if node != ctx.Func {
-				cursor.Replace(&dst.FuncDecl{
-					Decs: node.Decs,
-					Recv: node.Recv,
-					Name: node.Name,
-					Type: node.Type,
-					Body: &dst.BlockStmt{
-						List: []dst.Stmt{},
-					},
-				})
-			}
-
-			return false
-		}
-
 		return true
 	}, nil)
 
@@ -192,9 +177,11 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 		}
 
 		for _, decl := range newRoot.Children() {
-			if funcType, ok := decl.Ast().(*dst.FuncDecl); ok && funcType.Name.Name == ctx.Func.Name.Name {
-				p.ReplaceDeclarationAt(cursor, decl, ctx.Func.Name.Name)
-			} else {
+			switch n := decl.Ast().(type) {
+			case *dst.FuncDecl:
+				p.ReplaceDeclarationAt(cursor, decl, n.Name.Name)
+
+			case *dst.GenDecl:
 				p.MergeDeclarations(cursor, decl)
 			}
 		}

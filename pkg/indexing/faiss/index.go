@@ -10,6 +10,8 @@ import (
 	"github.com/DataIntelligenceCrew/go-faiss"
 	"github.com/greenboxal/aip/aip-langchain/pkg/chunkers"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
+
+	"github.com/greenboxal/agibootstrap/pkg/indexing"
 )
 
 //// faiss.Index is a Faiss index.
@@ -75,37 +77,6 @@ type IndexConfiguration struct {
 	Chunker chunkers.Chunker
 }
 
-// IndexEntry represents a single entry in the index.
-type IndexEntry struct {
-	// DocumentID is the unique ID for the document.
-	DocumentID string
-	// IndexID is the unique ID for the index.
-	IndexID int
-	// ChunkIndex is the index of the chunk in the document.
-	ChunkIndex int
-	// ChunkCount is the total number of chunks in the document.
-	ChunkCount int
-	// Embedding is the embedding for the chunk.
-	Embedding []float32
-}
-
-// SearchHit represents a single search hit.
-type SearchHit struct {
-	IndexEntry
-
-	// Distance is the distance between the query and the document.
-	Distance float32
-}
-
-// Document represents a single document.
-type Document interface {
-	// ID returns the unique ID for the document.
-	ID() string
-
-	// Content returns the content of the document.
-	Content() string
-}
-
 // Index is an index for semantic search.
 // It is a wrapper around a FAISS index that allows for indexing and querying.
 // It's designed to be used with an embedder like OpenAI's AdaV2.
@@ -145,7 +116,7 @@ func NewIndex(objectStore ObjectStore, config IndexConfiguration) (*Index, error
 }
 
 // Add adds a document to the index.
-func (idx *Index) Add(ctx context.Context, document Document) ([]IndexEntry, error) {
+func (idx *Index) Add(ctx context.Context, document indexing.Document) ([]indexing.IndexEntry, error) {
 	// Extract the chunks from the document's content.
 	chunks, err := idx.chunker.SplitTextIntoChunks(ctx, document.Content(), idx.embedder.MaxTokensPerChunk(), 32)
 	if err != nil {
@@ -162,7 +133,7 @@ func (idx *Index) Add(ctx context.Context, document Document) ([]IndexEntry, err
 		return nil, fmt.Errorf("failed to get embeddings: %w", err)
 	}
 
-	var entries []IndexEntry
+	var entries []indexing.IndexEntry
 	for j, embedding := range embeddings {
 		// Get the embedding for the current chunk.
 		float32Embedding := embedding.Float32()
@@ -173,7 +144,7 @@ func (idx *Index) Add(ctx context.Context, document Document) ([]IndexEntry, err
 		}
 
 		// Create an IndexEntry for the current chunk.
-		entry := IndexEntry{
+		entry := indexing.IndexEntry{
 			DocumentID: document.ID(),
 			IndexID:    j,
 			ChunkIndex: j,
@@ -184,7 +155,7 @@ func (idx *Index) Add(ctx context.Context, document Document) ([]IndexEntry, err
 		// Use the ObjectStore to store the embedding.
 		for j, embedding := range embeddings {
 			float32Embedding := embedding.Float32()
-			entry := IndexEntry{
+			entry := indexing.IndexEntry{
 				DocumentID: document.ID(),
 				IndexID:    j,
 				ChunkIndex: j,
@@ -219,7 +190,7 @@ func (idx *Index) Add(ctx context.Context, document Document) ([]IndexEntry, err
 
 // QueryClosestHits returns the closest hits for the given query.
 // It searches the index with the query, and returns the top k entries, where each entry consists of an index ID and a distance.
-func (idx *Index) QueryClosestHits(ctx context.Context, query string, k int64) ([]SearchHit, error) {
+func (idx *Index) QueryClosestHits(ctx context.Context, query string, k int64) ([]indexing.SearchHit, error) {
 	// Get the embedding for the query.
 	embedding, err := idx.embedder.GetEmbeddings(ctx, []string{query})
 
@@ -231,7 +202,7 @@ func (idx *Index) QueryClosestHits(ctx context.Context, query string, k int64) (
 }
 
 // QueryClosestHitsWithEmbedding returns the closest hits for the given query.
-func (idx *Index) QueryClosestHitsWithEmbedding(ctx context.Context, query llm.Embedding, k int64) ([]SearchHit, error) {
+func (idx *Index) QueryClosestHitsWithEmbedding(ctx context.Context, query llm.Embedding, k int64) ([]indexing.SearchHit, error) {
 	f32embeddings := query.Float32()
 
 	// Search the index for the top k hits.
@@ -241,7 +212,7 @@ func (idx *Index) QueryClosestHitsWithEmbedding(ctx context.Context, query llm.E
 		return nil, fmt.Errorf("failed to search index: %w", err)
 	}
 	// Map index IDs and distances to index entries.
-	entries := make([]SearchHit, len(indices))
+	entries := make([]indexing.SearchHit, len(indices))
 
 	for j, index := range indices {
 		// Look up the document ID and other fields from the index.
@@ -251,7 +222,7 @@ func (idx *Index) QueryClosestHitsWithEmbedding(ctx context.Context, query llm.E
 			return nil, fmt.Errorf("failed to get index entry: %w", err)
 		}
 
-		entries[j] = SearchHit{
+		entries[j] = indexing.SearchHit{
 			IndexEntry: entry,
 
 			Distance: distances[j],
@@ -262,8 +233,8 @@ func (idx *Index) QueryClosestHitsWithEmbedding(ctx context.Context, query llm.E
 }
 
 // GetEntryByID Get the index entry with the given ID.
-func (idx *Index) GetEntryByID(ctx context.Context, id int64) (IndexEntry, error) {
-	entry := IndexEntry{
+func (idx *Index) GetEntryByID(ctx context.Context, id int64) (indexing.IndexEntry, error) {
+	entry := indexing.IndexEntry{
 		DocumentID: "",
 		IndexID:    int(id),
 		ChunkIndex: 0,

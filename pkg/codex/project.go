@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"fmt"
 	"go/token"
 	"io/fs"
 	"path/filepath"
@@ -61,6 +62,8 @@ func (p *Project) RootPath() string { return p.rootPath }
 func (p *Project) FS() repofs.FS { return p.fs }
 
 func (p *Project) Generate() (changes int, err error) {
+	isSingleStep := true
+
 	steps := []BuildStep{
 		&CodeGenBuildStep{},
 		&FixImportsBuildStep{},
@@ -81,7 +84,7 @@ func (p *Project) Generate() (changes int, err error) {
 						if e, ok := r.(error); ok {
 							err = e
 						} else {
-							err = r.(error)
+							err = fmt.Errorf("%v", e)
 						}
 					}
 				}()
@@ -110,6 +113,10 @@ func (p *Project) Generate() (changes int, err error) {
 
 		if err = p.Commit(); err != nil {
 			return
+		}
+
+		if isSingleStep {
+			break
 		}
 	}
 

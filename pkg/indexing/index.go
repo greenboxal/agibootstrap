@@ -1,4 +1,4 @@
-package codex
+package indexing
 
 import "context"
 
@@ -36,18 +36,4 @@ type Document interface {
 
 	// Content returns the content of the document.
 	Content() string
-}
-
-type Indexer struct {
-	index Index
-}
-
-func (p *Project) Reindex() error {
-	indexer := &Indexer{}
-	return indexer.Index()
-}
-
-func (p *Project) Reindex() error {
-	indexer := &Indexer{}
-	return indexer.Index()
 }
