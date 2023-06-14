@@ -116,6 +116,20 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 	return true
 }
 
+// OnLeave method is called when leaving a node during
+// the AST traversal. It checks if the node is a container,
+// and if so, pops the top FunctionContext from the FuncStack.
+// It also checks if the current function should be processed
+// and calls the Step method to process the function if necessary.
+//
+// Parameters:
+// - cursor: The psi.Cursor representing the current node.
+//
+// Returns:
+// - bool: true to continue traversing the AST, false to stop.
+//
+// OnLeave is responsible for popping the top FunctionContext from the FuncStack if the current node is a container.
+// Additionally, it checks if the current function should be processed and calls the Step method to process the function if necessary.
 func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 	e := cursor.Element()
 

@@ -15,6 +15,8 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/vfs"
 )
 
+var validExtensions = []string{".go"}
+
 // BuildStepResult represents the result of a build step.
 // It contains the number of changes made during the build step.
 type BuildStepResult struct {
@@ -166,8 +168,6 @@ func (p *Project) Generate(isSingleStep bool) (changes int, err error) {
 	// Return the total number of changes and no error
 	return
 }
-
-var validExtensions = []string{".go"}
 
 // Sync synchronizes the project with the file system.
 // It scans all files in the project directory and imports
