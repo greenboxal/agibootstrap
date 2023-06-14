@@ -114,6 +114,7 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 func orphanSnippet0() {
 	e := cursor.Element()
 
+	// Check if the node is a container
 	if e.IsContainer() {
 		err := p.FuncStack.Push(&FunctionContext{
 			Node:  cursor.Element(),
@@ -125,6 +126,7 @@ func orphanSnippet0() {
 		}
 	}
 
+	// Scan the comments of the node for TODOs and store them in the current FunctionContext
 	for _, txt := range cursor.Element().Comments() {
 		if strings.Contains(txt, "TODO") {
 			ok, currentFn := p.FuncStack.Peek()
