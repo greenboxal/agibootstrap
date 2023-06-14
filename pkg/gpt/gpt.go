@@ -31,7 +31,7 @@ var embedder = &openai.Embedder{
 }
 var model = &openai.ChatLanguageModel{
 	Client:      oai,
-	Model:       "gpt-3.5-turbo",
+	Model:       "gpt-3.5-turbo-16k",
 	Temperature: 1,
 }
 
@@ -43,14 +43,8 @@ func init() {
 			chain.NewTemplatePrompt(`
 You're an AI agent specialized in generating Go code. Complete the request below.
 You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
+Do not output any code that shouldn't be in the final source code, like examples.
 Do not emit any code that is not valid Go code. You can use the context below to help you.
-DO NOT output Go code outside of a function. Always output complete functions.
-
-Always output code using code blocks. You can use the following template to output code: 
-`+"```"+`go
-	// ...
-`+"```"+`
-
 `)),
 
 		chat.HistoryFromContext(memory.ContextualMemoryKey),
