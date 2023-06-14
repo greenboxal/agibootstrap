@@ -30,7 +30,7 @@ Include a title followed by a descriptive list of changes. Be sure to include th
 
 # Diff
 `+"```"+`go
-{{ .Document | markdownTree }}
+{{ .Document | markdownTree 2 }}
 `+"```"+`
 `, chain.WithRequiredInput(DocumentKey))),
 )
