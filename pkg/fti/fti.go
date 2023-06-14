@@ -287,12 +287,14 @@ var embedder = &openai.Embedder{
 
 // Repository type
 type Repository struct {
+	// TODO: Make variables private and add getters
 	RepoPath string
 	FTIPath  string
 	config   Config
 }
 
-func NewRepository() {
+func NewRepository() *Repository {
+	return &Repository{}
 }
 
 // Metadata represents the metadata of an object snapshot
@@ -393,7 +395,6 @@ func WriteConfigFile(filepath string, configData []byte) error {
 func (r *Repository) Update() error {
 	ftiPath := filepath.Join(r.RepoPath, ".fti")
 	objectsDir := filepath.Join(ftiPath, "objects")
-	indexDir := filepath.Join(ftiPath, "index")
 
 	// Walk the repository directory to retrieve the list of files
 	err := filepath.WalkDir(r.RepoPath, func(filePath string, d os.DirEntry, err error) error {
@@ -515,8 +516,7 @@ func parseSnapshotFilename(filename string) Snapshot {
 }
 
 // UpdateObjectFile updates the object file for a snapshot file
-func UpdateObjectFile(ftiPath, objectPath string, embeddings []llm.Embedding) error {
-	objectFilePath := filepath.Join(ftiPath, "objects", objectPath)
+func UpdateObjectFile(objectFilePath string, embeddings []llm.Embedding) error {
 	objectFile, err := os.Create(objectFilePath)
 	if err != nil {
 		return err
