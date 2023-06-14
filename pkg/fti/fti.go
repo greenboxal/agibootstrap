@@ -267,22 +267,34 @@ type Repository struct {
 
 // Init method initializes a new FTI repository
 func (r *Repository) Init() error {
+	// Check if the repository is already initialized
+	_, err := os.Stat(fmt.Sprintf("%s/.fti", r.RepoPath))
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("repository is already initialized")
+	}
+
+	// Use the config file to set up the repository
+	// TODO: Read config file and perform necessary setup based on the configuration
+
+	// Create .fti folder
 	ftiPath := fmt.Sprintf("%s/.fti", r.RepoPath)
-	err := os.Mkdir(ftiPath, os.ModePerm) // Creates the .fti folder
+	err = os.Mkdir(ftiPath, os.ModePerm)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create .fti folder: %v", err)
 	}
 
-	// Objects folder
-	err = os.Mkdir(fmt.Sprintf("%s/objects", ftiPath), os.ModePerm)
+	// Create objects folder
+	objectsPath := fmt.Sprintf("%s/objects", ftiPath)
+	err = os.Mkdir(objectsPath, os.ModePerm)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create objects folder: %v", err)
 	}
 
-	// Index folder
-	err = os.Mkdir(fmt.Sprintf("%s/index", ftiPath), os.ModePerm)
+	// Create index folder
+	indexPath := fmt.Sprintf("%s/index", ftiPath)
+	err = os.Mkdir(indexPath, os.ModePerm)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create index folder: %v", err)
 	}
 
 	fmt.Println("Initializing repository at:", r.RepoPath)
@@ -291,6 +303,7 @@ func (r *Repository) Init() error {
 
 // Update method updates the FTI repository
 func (r *Repository) Update() error {
+	// TODO: Improve based on design
 	ftiPath := fmt.Sprintf("%s/.fti", r.RepoPath)
 	indexDir := fmt.Sprintf("%s/index", ftiPath)
 
@@ -351,12 +364,15 @@ func (r *Repository) Update() error {
 }
 
 func GenerateEmbeddings(sprintf string) (interface{}, interface{}) {
-
+	// TODO: Improve based on design
+	fmt.Println("Generating embeddings for snapshot file:", sprintf)
+	return nil, nil
 }
 
 // Query method enables users to query the FTI repository
 func (r *Repository) Query(query string) error {
-	// query logic goes here
-	fmt.Println("Querying repository at:", r.RepoPath, "with query:", query)
+	// Improve based on design
+	fmt.Println("Querying repository at:", r.FTIPath, "with query:", query)
+	// Query logic goes here
 	return nil
 }
