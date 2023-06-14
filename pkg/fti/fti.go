@@ -1,20 +1,15 @@
 package fti
 
 import (
-	"crypto/sha256"
-	"encoding/binary"
-	"encoding/hex"
-	"fmt"
+	"encoding/json"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
-	"github.com/DataIntelligenceCrew/go-faiss"
-	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
+	"github.com/pkg/errors"
 )
 
 /*
@@ -265,10 +260,6 @@ function queryFTI(QueryInput string, RepoPath string) {
 The query operation offers a powerful tool for users to delve into their indexed data, providing quick and easy access to specific file chunks based on their content. It is an essential part of the FTI's functionality, allowing the system to provide the content-addressable file indexing that is its primary purpose.
 */
 
-import (
-	"encoding/json"
-)
-
 // Reference types:
 //type llm.Embedder interface {
 //	MaxTokensPerChunk() int
@@ -329,444 +320,168 @@ var embedder = &openai.Embedder{
 	Model:  openai.AdaEmbeddingV2,
 }
 
+type ChunkSpec struct {
+	MaxTokens int `json:"max_tokens"`
+	Overlap   int `json:"overlap"`
+}
+
+type Config struct {
+	Embedding struct {
+		Provider string `json:"provider"`
+		Model    string `json:"model"`
+	} `json:"embedding"`
+
+	ChunkSpecs []ChunkSpec `json:"chunk_specs"`
+}
+
 type Repository struct {
-	repoPath string
-	ftiPath  string
-	config   Config
+	config Config
+
+	repoPath   string
+	ftiPath    string
+	configPath string
 }
 
-func NewRepository(repoPath string) *Repository {
-	// Make fields private and add getters, take repoPath as argument
-	return &Repository{
-		repoPath: repoPath,
+func NewRepository(repoPath string) (*Repository, error) {
+	r := &Repository{}
+
+	r.repoPath = repoPath
+	r.ftiPath = filepath.Join(r.repoPath, ".fti")
+	r.configPath = r.ResolveDbPath("config.json")
+
+	if err := r.loadConfig(); err != nil {
+		if err != ErrNoConfig {
+			return nil, err
+		}
 	}
+
+	return r, nil
 }
 
-func (r *Repository) RepoPath() string {
-	return r.repoPath
+func (r *Repository) RepoPath() string { return r.repoPath }
+
+func (r *Repository) ResolveDbPath(p ...string) string {
+	return filepath.Join(r.ftiPath, filepath.Join(p...))
 }
 
-// Metadata represents the metadata of an object snapshot
-type Metadata struct {
-	FileName     string `json:"fileName"`
-	ObjectHash   string `json:"objectHash"`
-	CreationTime string `json:"creationTime"`
-	FileSize     int64  `json:"fileSize"`
+func (r *Repository) ResolvePath(p ...string) string {
+	return filepath.Join(r.repoPath, filepath.Join(p...))
 }
 
-// ObjectSnapshot represents a snapshot of file chunks
-type ObjectSnapshot struct {
-	Hash       string      `json:"hash"`
-	ChunkSize  int         `json:"chunkSize"`
-	Overlap    int         `json:"overlap"`
-	Embeddings []Embedding `json:"embeddings"`
+func (r *Repository) FileExists(filePath string) bool {
+	_, err := os.Stat(filePath)
+
+	return err == nil
 }
 
-// Embedding represents an embedding vector
-type Embedding struct {
-	Vector []float32 `json:"vector"`
+func (r *Repository) OpenFile(filePath string) (fs.File, error) {
+	return os.OpenFile(filePath, os.O_RDONLY, os.ModePerm)
 }
 
-// Chunk represents a chunk of data within a file
-type Chunk struct {
-	Data string `json:"data"`
-}
-
-// Init method initializes a new FTI repository
 func (r *Repository) Init() error {
-	// Check if the repository is already initialized
-	_, err := os.Stat(fmt.Sprintf("%s/.fti", r.RepoPath))
-	if !os.IsNotExist(err) {
-		return fmt.Errorf("repository is already initialized")
-	}
-
-	// Use the config file to set up the repository
-	r.config, err = ReadConfigFile(fmt.Sprintf("%s/.fti/config.json", r.RepoPath))
+	// Create the .fti directory
+	err := os.Mkdir(r.ftiPath, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("failed to read config file: %v", err)
+		return err
 	}
 
-	// Create .fti folder
-	ftiPath := fmt.Sprintf("%s/.fti", r.RepoPath)
-	err = os.Mkdir(ftiPath, os.ModePerm)
+	configData, err := json.MarshalIndent(defaultConfig, "", "\t")
 	if err != nil {
-		return fmt.Errorf("failed to create .fti folder: %v", err)
+		return err
 	}
 
-	// Create objects folder
-	objectsPath := fmt.Sprintf("%s/objects", ftiPath)
-	err = os.Mkdir(objectsPath, os.ModePerm)
+	err = ioutil.WriteFile(r.configPath, configData, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("failed to create objects folder: %v", err)
+		return err
 	}
 
-	// Create index folder
-	indexPath := fmt.Sprintf("%s/index", ftiPath)
-	err = os.Mkdir(indexPath, os.ModePerm)
-	if err != nil {
-		return fmt.Errorf("failed to create index folder: %v", err)
-	}
-
-	// Write the default config
-	defaultConfig := Config{
-		ChunkSizes:          []int{1024, 2048, 4096},
-		Overlaps:            []int{256, 512, 1024},
-		EmbeddingAPI:        "OpenAI",
-		EmbeddingDimensions: 768,
-	}
-
-	// Convert the default config to JSON
-	defaultConfigData, err := json.Marshal(defaultConfig)
-	if err != nil {
-		return fmt.Errorf("failed to marshal default config: %v", err)
-	}
-
-	// Write the default config to the config file
-	configFilePath := fmt.Sprintf("%s/.fti/config.json", r.RepoPath)
-	err = WriteConfigFile(configFilePath, defaultConfigData)
-	if err != nil {
-		return fmt.Errorf("failed to write default config file: %v", err)
-	}
-
-	fmt.Println("Initializing repository at:", r.RepoPath)
-	return nil
-}
-
-// WriteConfigFile writes the given config data to the specified file
-func WriteConfigFile(filepath string, configData []byte) error {
-	err := os.WriteFile(filepath, configData, os.ModePerm)
-	if err != nil {
-		return fmt.Errorf("failed to write config file: %v", err)
-	}
 	return nil
 }
 
 func (r *Repository) Update() error {
-	ftiPath := filepath.Join(r.repoPath, ".fti")
-	objectsDir := filepath.Join(ftiPath, "objects")
+	return nil
+}
 
-	// Walk the repository directory to retrieve the list of files
-	err := filepath.WalkDir(r.repoPath, func(filePath string, d os.DirEntry, err error) error {
-		if !d.IsDir() && d.Name() != "index.bin" {
-			// Calculate the file hash
-			fileHash, err := calculateFileHash(filePath)
-			if err != nil {
-				return err
-			}
+func (r *Repository) Query() error {
+	return nil
+}
 
-			// Check if the file already exists in the objects directory
-			objectPath := filepath.Join(objectsDir, fileHash)
-			if _, err := os.Stat(objectPath); !os.IsNotExist(err) {
-				return nil
-			}
+func (r *Repository) loadConfig() error {
+	if !r.FileExists(r.configPath) {
+		return ErrNoConfig
+	}
 
-			// Write updated metadata file for current snapshot file
-			info, err := os.Stat(filePath)
-			if err != nil {
-				return err
-			}
-			metadata := Metadata{
-				FileName:     d.Name(),
-				ObjectHash:   fileHash,
-				CreationTime: info.ModTime().String(),
-				FileSize:     info.Size(),
-			}
+	f, err := r.OpenFile(r.configPath)
 
-			// Generate chunks and embeddings for each chunk specification
-			for _, chunkSize := range r.config.ChunkSizes {
-				for _, overlap := range r.config.Overlaps {
-					chunks, err := chunkFile(filePath, chunkSize, overlap)
-					if err != nil {
-						return err
-					}
+	if err != nil {
+		return err
+	}
 
-					embeddings, err := generateEmbeddings(chunks)
-					if err != nil {
-						return err
-					}
+	defer f.Close()
 
-					// Update object file for current snapshot file
-					objPath := filepath.Join(objectPath, fmt.Sprintf("%dm%d.bin", chunkSize, overlap))
-					err = UpdateObjectFile(objPath, embeddings)
-					if err != nil {
-						return err
-					}
-				}
-			}
+	data, err := io.ReadAll(f)
 
-			err = writeMetadataFile(filepath.Join(objectPath, "metadata.json"), metadata)
-			if err != nil {
-				return err
-			}
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(data, &r.config); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type FileIterator interface {
+	Next() bool
+	File() fs.File
+}
+
+type filteredFileIterator struct {
+}
+
+type osFileIterator struct {
+	dirPath string
+}
+
+func (i *osFileIterator) Next() bool {
+	// TODO: Walk the tree to return results
+	filePath := ""
+	err := filepath.Walk(i.dirPath, func(path string, info fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
-
+		if !info.IsDir() {
+			filePath = path
+		}
 		return nil
 	})
-
 	if err != nil {
-		return err
+		return false
 	}
+	return filePath != ""
+}
 
-	fmt.Println("Updating repository at:", r.RepoPath)
+func (i *osFileIterator) File() fs.File {
 	return nil
 }
 
-// Calculate the hash of a file
-func calculateFileHash(filePath string) (string, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(hash.Sum(nil)), nil
+func IterateFiles(dirPath string) FileIterator {
+	return &osFileIterator{dirPath: dirPath}
 }
 
-// Write metadata file for a snapshot
-func writeMetadataFile(filepath string, metadata Metadata) error {
-	metadataData, err := json.Marshal(metadata)
-	if err != nil {
-		return err
-	}
+var ErrNoConfig = errors.New("no config file found")
 
-	err = ioutil.WriteFile(filepath, metadataData, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// Parse snapshot filename to retrieve snapshot information
-func parseSnapshotFilename(filename string) Snapshot {
-	// Split the filename by "_" to extract hash, chunk size, and overlap
-	split := strings.Split(filename, "_")
-
-	// Retrieve hash from filename
-	hash := split[0]
-
-	// Retrieve chunk size from filename
-	chunkSizeStr := strings.TrimSuffix(strings.TrimPrefix(split[1], "m"), "b")
-	chunkSize, _ := strconv.Atoi(chunkSizeStr)
-
-	// Retrieve overlap from filename
-	overlapStr := strings.TrimSuffix(split[2], ".bin")
-	overlap, _ := strconv.Atoi(overlapStr)
-
-	return Snapshot{
-		Hash:      hash,
-		ChunkSize: chunkSize,
-		Overlap:   overlap,
-	}
-}
-
-// UpdateObjectFile updates the object file for a snapshot file
-func UpdateObjectFile(objectFilePath string, embeddings []llm.Embedding) error {
-	objectFile, err := os.Create(objectFilePath)
-	if err != nil {
-		return err
-	}
-	err = binary.Write(objectFile, binary.LittleEndian, embeddings)
-	if err != nil {
-		return err
-	}
-	objectFile.Close()
-
-	return nil
-}
-
-// Snapshot represents the structure of a snapshot file
-type Snapshot struct {
-	Hash      string `json:"hash"`
-	ChunkSize int    `json:"chunkSize"`
-	Overlap   int    `json:"overlap"`
-}
-
-func generateEmbeddings(chunks []string) ([]llm.Embedding, error) {
-
-	// Add your code here to generate embeddings for the given chunks
-	fmt.Println("Generating embeddings for chunks:", chunks)
-	return nil, nil
-}
-
-func chunkFile(filepath string, chunkSize int, overlap int) ([]string, error) {
-	fileData, err := ioutil.ReadFile(filepath)
-	if err != nil {
-		return nil, err
-	}
-
-	fileSize := len(fileData)
-
-	chunks := make([]string, 0)
-
-	for i := 0; i < fileSize-chunkSize; i += chunkSize - overlap {
-		end := i + chunkSize
-		if end > fileSize {
-			end = fileSize
-		}
-
-		chunk := fileData[i:end]
-		chunks = append(chunks, string(chunk))
-	}
-
-	return chunks, nil
-}
-
-// Query method enables users to query the FTI repository
-func (r *Repository) Query(query string) error {
-	// Implement query logic based on the design
-	objectsPath := filepath.Join(r.ftiPath, "objects")
-	indexPath := filepath.Join(r.ftiPath, "index", "inverseIndex.bin")
-	queryEmbedding, err := generateEmbeddings([]string{query})
-	if err != nil {
-		return err
-	}
-	// Perform inverse index lookup
-	objectHash, chunkIndex, _, err := r.lookupInverseIndex(queryEmbedding[0], indexPath)
-	if err != nil {
-		return err
-	}
-	// Retrieve object snapshot
-	objectSnapshot, err := r.retrieveObjectSnapshot(objectHash, objectsPath)
-	if err != nil {
-		return err
-	}
-	// Retrieve metadata for the object snapshot
-	metadata, err := r.loadMetadata(objectHash, objectsPath)
-	if err != nil {
-		return err
-	}
-	// Extract the relevant chunk from the object snapshot
-	chunk := objectSnapshot.Embeddings[chunkIndex]
-	// Return the retrieved information
-	fmt.Println("Query result:")
-	fmt.Println("Object Hash:", objectSnapshot.Hash)
-	fmt.Println("Metadata:", metadata)
-	fmt.Println("Chunk:", chunk)
-	return nil
-}
-
-// Implement the lookupInverseIndex method based on the design using FAISS (faiss.Index)
-func (r *Repository) lookupInverseIndex(embedding llm.Embedding, path string) (string, int64, int64, error) {
-	// Load the index from the file
-	index, err := faiss.Index.ReadIndex(path)
-	if err != nil {
-		return "", 0, 0, err
-	}
-
-	// Convert the embedding vector to a float slice
-	embeddingVector := make([]float32, len(embedding.Embeddings))
-	for i, val := range embedding.Embeddings {
-		embeddingVector[i] = float32(val)
-	}
-
-	// Query the index with the embedding vector
-	distances, labels, err := index.Search(embeddingVector, 1)
-	if err != nil {
-		return "", 0, 0, err
-	}
-
-	// Extract the object hash, chunk index, and chunk offset from the labels
-	objectHash := string(labels[0])
-	chunkIndex := int64(labels[0] >> 32)
-	chunkOffset := int64(labels[0] & (1<<32 - 1))
-
-	return objectHash, chunkIndex, chunkOffset, nil
-}
-
-// Entry represents an entry in the inverse index
-type Entry struct {
-	Identifier  []byte
-	ObjectHash  string
-	ChunkIndex  int64
-	ChunkOffset int64
-}
-
-// Implement the retrieveObjectSnapshot method based on the design
-func (r *Repository) retrieveObjectSnapshot(hash interface{}, path string) (ObjectSnapshot, error) {
-	objectPath := filepath.Join(path, hash.(string))
-	snapshots, err := ioutil.ReadDir(objectPath)
-	if err != nil {
-		return ObjectSnapshot{}, err
-	}
-
-	snapshotInfo := parseSnapshotFilename(snapshots[0].Name())
-
-	// Iterate over the snapshots to retrieve the embedding data
-	var embeddings []Embedding
-	for _, snapshot := range snapshots {
-		if snapshot.IsDir() {
-			continue
-		}
-
-		snapshotFilename := snapshot.Name()
-
-		// Read the embedding data from the snapshot file
-		snapshotFilePath := filepath.Join(objectPath, snapshotFilename)
-		snapshotFile, err := os.Open(snapshotFilePath)
-		if err != nil {
-			return ObjectSnapshot{}, err
-		}
-		defer snapshotFile.Close()
-
-		// Read the embeddings from the snapshot file
-		var snapshotEmbeddings []Embedding
-		err = binary.Read(snapshotFile, binary.LittleEndian, &snapshotEmbeddings)
-		if err != nil {
-			return ObjectSnapshot{}, err
-		}
-		embeddings = append(embeddings, snapshotEmbeddings...)
-	}
-
-	return ObjectSnapshot{
-		Hash:       hash.(string),
-		ChunkSize:  snapshotInfo.ChunkSize,
-		Overlap:    snapshotInfo.Overlap,
-		Embeddings: embeddings,
-	}, nil
-}
-
-// Implement the loadMetadata method based on the design
-func (r *Repository) loadMetadata(hash interface{}, path string) (Metadata, error) {
-	metadataFilePath := filepath.Join(path, hash.(string), "metadata.json")
-	metadataData, err := ioutil.ReadFile(metadataFilePath)
-	if err != nil {
-		return Metadata{}, err
-	}
-
-	var metadata Metadata
-	err = json.Unmarshal(metadataData, &metadata)
-	if err != nil {
-		return Metadata{}, err
-	}
-
-	return metadata, nil
-}
-
-// Config represents the configuration parameters for the FTI repository
-type Config struct {
-	ChunkSizes          []int  `json:"ChunkSizes"`
-	Overlaps            []int  `json:"Overlaps"`
-	EmbeddingAPI        string `json:"EmbeddingAPI"`
-	EmbeddingDimensions int    `json:"EmbeddingDimensions"`
-}
-
-// ReadConfigFile reads the config file and performs necessary setup based on the configuration
-func ReadConfigFile(filepath string) (Config, error) {
-	configData, err := ioutil.ReadFile(filepath)
-	if err != nil {
-		return Config{}, err
-	}
-
-	var config Config
-	err = json.Unmarshal(configData, &config)
-	if err != nil {
-		return Config{}, err
-	}
-
-	return config, nil
+var defaultConfig = Config{
+	Embedding: struct {
+		Provider string `json:"provider"`
+		Model    string `json:"model"`
+	}{
+		Provider: "OpenAI",
+		Model:    "AdaEmbeddingV2",
+	},
+	ChunkSpecs: []ChunkSpec{
+		{MaxTokens: 512, Overlap: 128},
+		{MaxTokens: 1024, Overlap: 256},
+	},
 }
