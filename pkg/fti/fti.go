@@ -487,26 +487,27 @@ func (osi *ObjectSnapshotImage) ReadFrom(r io.Reader) (int, error) {
 }
 
 func (osi *ObjectSnapshotImage) WriteTo(w io.Writer) (int, error) {
-	img := image.NewRGBA(image.Rect(0, 0, len(osi.Chunks), 1))
+	img := image.NewRGBA(image.Rect(0, 0, len(osi.Chunks)*25, 25))
 
 	for i, chunk := range osi.Chunks {
 		embedding := osi.Embeddings[i]
 
-		// Set the chunk color based on its type
-		c, ok := colors[chunk.Type]
-		if !ok {
-			c = color.RGBA{0, 0, 0, 255} // Black (default color)
+		r := uint8(embedding.Embeddings[0] * 255)
+		g := uint8(embedding.Embeddings[1] * 255)
+		b := uint8(embedding.Embeddings[2] * 255)
+
+		c := color.RGBA{r, g, b, 255}
+
+		for j := 0; j < 25; j++ {
+			for k := 0; k < 25; k++ {
+				img.Set(i*25+j, k, c)
+			}
 		}
 
-		// Draw a single-pixel rectangle with the chunk color
-		img.Set(i, 0, c)
-
-		// Pretty print the chunk and embeddings
 		fmt.Printf("Chunk: %s\n", chunk.Content)
 		fmt.Printf("Embedding: %v\n", embedding)
 	}
 
-	// Encode the image as PNG and write it to the writer
 	err := png.Encode(w, img)
 	if err != nil {
 		return 0, err
