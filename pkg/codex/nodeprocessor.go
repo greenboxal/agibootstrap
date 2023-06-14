@@ -184,18 +184,76 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 			}
 		}
 
-		for _, decl := range newRoot.Children() {
-			switch n := decl.Ast().(type) {
-			case *dst.FuncDecl:
-				p.ReplaceDeclarationAt(cursor, decl, n.Name.Name)
+		MergeFiles(newRoot.Ast().(*dst.File), newRoot.Ast().(*dst.File))
 
-			case *dst.GenDecl:
+		for _, decl := range newRoot.Children() {
+			if funcType, ok := decl.Ast().(*dst.FuncDecl); ok && funcType.Name.Name == ctx.Node.Ast().(*dst.FuncDecl).Name.Name {
+				p.ReplaceDeclarationAt(cursor, decl, funcType.Name.Name)
+			} else {
 				p.MergeDeclarations(cursor, decl)
 			}
 		}
 	}
 
 	return
+}
+
+func MergeFiles(file1, file2 *dst.File) *dst.File {
+	mergedFile := file1
+	newDecls := make([]dst.Decl, 0)
+
+	for _, decl2 := range file2.Decls {
+		found := false
+		switch decl2 := decl2.(type) {
+		case *dst.FuncDecl:
+			for i, decl1 := range mergedFile.Decls {
+				if decl1, ok := decl1.(*dst.FuncDecl); ok && decl1.Name.Name == decl2.Name.Name {
+					mergedFile.Decls[i] = decl2
+					found = true
+					break
+				}
+			}
+		case *dst.GenDecl:
+			for _, spec2 := range decl2.Specs {
+				switch spec2 := spec2.(type) {
+				case *dst.TypeSpec:
+					for i, decl1 := range mergedFile.Decls {
+						if decl1, ok := decl1.(*dst.GenDecl); ok {
+							for j, spec1 := range decl1.Specs {
+								if spec1, ok := spec1.(*dst.TypeSpec); ok && spec1.Name.Name == spec2.Name.Name {
+									decl1.Specs[j] = spec2
+									found = true
+									break
+								}
+							}
+						}
+						mergedFile.Decls[i] = decl1
+					}
+				case *dst.ValueSpec:
+					for i, decl1 := range mergedFile.Decls {
+						if decl1, ok := decl1.(*dst.GenDecl); ok {
+							for j, spec1 := range decl1.Specs {
+								if spec1, ok := spec1.(*dst.ValueSpec); ok && spec1.Names[0].Name == spec2.Names[0].Name {
+									decl1.Specs[j] = spec2
+									found = true
+									break
+								}
+							}
+						}
+						mergedFile.Decls[i] = decl1
+					}
+				}
+			}
+		}
+
+		if !found {
+			newDecls = append(newDecls, decl2)
+		}
+	}
+
+	mergedFile.Decls = append(mergedFile.Decls, newDecls...)
+
+	return mergedFile
 }
 
 func (p *NodeProcessor) setExistingDeclaration(index int, name string, node psi.Node) {

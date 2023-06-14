@@ -21,6 +21,8 @@ type DirectoryNode struct {
 	path string
 }
 
+// NewDirectoryNode creates a new DirectoryNode with the specified path.
+// The key of the DirectoryNode is set to the lowercase version of the path.
 func NewDirectoryNode(path string) *DirectoryNode {
 	key := strings.ToLower(path)
 

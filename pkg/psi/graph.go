@@ -1,6 +1,8 @@
 package psi
 
-import "gonum.org/v1/gonum/graph/multi"
+import (
+	"gonum.org/v1/gonum/graph/multi"
+)
 
 type Graph struct {
 	*multi.DirectedGraph
