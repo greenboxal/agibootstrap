@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"context"
 	"fmt"
 	"go/token"
 	"io/fs"
@@ -28,7 +29,7 @@ type BuildStepResult struct {
 type BuildStep interface {
 	// Process executes the build step logic on the given project.
 	// It returns the result of the build step and any error that occurred during the process.
-	Process(p *Project) (result BuildStepResult, err error)
+	Process(ctx context.Context, p *Project) (result BuildStepResult, err error)
 }
 
 // Project represents a codex project.
@@ -91,7 +92,7 @@ func (p *Project) FS() repofs.FS { return p.fs }
 // If isSingleStep is true, the process stops after the first step
 // that makes changes. The function returns the total number of changes
 // made during the generation process and an error if any.
-func (p *Project) Generate(isSingleStep bool) (changes int, err error) {
+func (p *Project) Generate(ctx context.Context, isSingleStep bool) (changes int, err error) {
 	// Define the list of build steps to be executed
 	steps := []BuildStep{
 		&CodeGenBuildStep{},
@@ -123,7 +124,7 @@ func (p *Project) Generate(isSingleStep bool) (changes int, err error) {
 				}()
 
 				// Execute the build step and return the result
-				return step.Process(p)
+				return step.Process(ctx, p)
 			}
 
 			// Execute the build step and handle any errors

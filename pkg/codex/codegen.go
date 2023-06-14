@@ -17,11 +17,11 @@ import (
 
 type CodeGenBuildStep struct{}
 
-func (g *CodeGenBuildStep) Process(p *Project) (result BuildStepResult, err error) {
+func (g *CodeGenBuildStep) Process(ctx context.Context, p *Project) (result BuildStepResult, err error) {
 	for _, file := range p.files {
 		filePath := file.Path
 		if filepath.Ext(filePath) == ".go" {
-			count, e := p.processFile(filePath)
+			count, e := p.processFile(ctx, filePath)
 
 			if e != nil {
 				err = multierror.Append(err, e)
@@ -34,7 +34,7 @@ func (g *CodeGenBuildStep) Process(p *Project) (result BuildStepResult, err erro
 	return result, err
 }
 
-func (p *Project) processFile(fsPath string, opts ...NodeProcessorOption) (int, error) {
+func (p *Project) processFile(ctx context.Context, fsPath string, opts ...NodeProcessorOption) (int, error) {
 	fmt.Printf("Processing file %s\n", fsPath)
 
 	sf, err := p.GetSourceFile(fsPath)
@@ -50,7 +50,7 @@ func (p *Project) processFile(fsPath string, opts ...NodeProcessorOption) (int, 
 	p.sourceFiles[fsPath] = sf
 
 	// Process the AST nodes
-	updated := p.ProcessNodes(sf, opts...)
+	updated := p.ProcessNodes(ctx, sf, opts...)
 
 	// Convert the AST back to code
 	newCode, err := sf.ToCode(updated)
@@ -69,16 +69,16 @@ func (p *Project) processFile(fsPath string, opts ...NodeProcessorOption) (int, 
 	return 0, nil
 }
 
-func (p *Project) ProcessNodes(sf *psi.SourceFile, opts ...NodeProcessorOption) psi.Node {
+func (p *Project) ProcessNodes(ctx context.Context, sf *psi.SourceFile, opts ...NodeProcessorOption) psi.Node {
 	// Process the AST nodes
-	updated := p.ProcessNode(sf, sf.Root(), opts...)
+	updated := p.ProcessNode(ctx, sf, sf.Root(), opts...)
 
 	// Convert the AST back to code
 	return updated
 }
 
 // ProcessNode processes the given node and returns the updated node.
-func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node, opts ...NodeProcessorOption) psi.Node {
+func (p *Project) ProcessNode(ctx context.Context, sf *psi.SourceFile, root psi.Node, opts ...NodeProcessorOption) psi.Node {
 	//buildContext := build.Default
 	//buildContext.Dir = p.rootPath
 	//buildContext.BuildTags = []string{"selfwip", "psionly"}
@@ -93,19 +93,21 @@ func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node, opts ...NodePro
 
 	//pro, _ := lconf.Load()
 
-	ctx := &NodeProcessor{
+	processor := &NodeProcessor{
 		Project:      p,
 		SourceFile:   sf,
 		Root:         root,
-		FuncStack:    stack.NewStack[*FunctionContext](16),
+		FuncStack:    stack.NewStack[*NodeScope](16),
 		Declarations: map[string]*declaration{},
 	}
 
-	ctx.checkShouldProcess = func(fn *FunctionContext, cursor *psi.Cursor) bool {
+	processor.ctx, processor.cancel = context.WithCancel(ctx)
+
+	processor.checkShouldProcess = func(fn *NodeScope, cursor *psi.Cursor) bool {
 		return len(fn.Todos) > 0
 	}
 
-	ctx.prepareContext = func(processor *NodeProcessor, ctx *FunctionContext, root psi.Node, req gpt.Request) (gpt.ContextBag, error) {
+	processor.prepareContext = func(processor *NodeProcessor, ctx *NodeScope, root psi.Node, req gpt.Request) (gpt.ContextBag, error) {
 		var err error
 
 		result := gpt.ContextBag{}
@@ -131,29 +133,29 @@ func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node, opts ...NodePro
 		return result, nil
 	}
 
-	ctx.prepareObjective = func(p *NodeProcessor, ctx *FunctionContext) (string, error) {
+	processor.prepareObjective = func(p *NodeProcessor, ctx *NodeScope) (string, error) {
 		return strings.Join(ctx.Todos, "\n"), nil
 	}
 
 	for _, opt := range opts {
-		opt(ctx)
+		opt(processor)
 	}
 
-	if ctx.SourceFile == nil {
+	if processor.SourceFile == nil {
 		panic("SourceFile is nil")
 	}
 
-	if ctx.SourceFile.Root() == nil {
+	if processor.SourceFile.Root() == nil {
 		panic("SourceFile.Root() is nil")
 	}
 
-	if ctx.SourceFile.Root().Node() == nil {
+	if processor.SourceFile.Root().Node() == nil {
 		panic("SourceFile.Root().Ast() is nil")
 	}
 
-	rootFile := ctx.SourceFile.Root().Ast().(*dst.File)
+	rootFile := processor.SourceFile.Root().Ast().(*dst.File)
 
-	for _, child := range ctx.Root.Children() {
+	for _, child := range processor.Root.Children() {
 		decl, ok := child.Ast().(dst.Decl)
 
 		if !ok {
@@ -169,9 +171,9 @@ func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node, opts ...NodePro
 		names := getDeclarationNames(child)
 
 		for _, name := range names {
-			ctx.setExistingDeclaration(index, name, child)
+			processor.setExistingDeclaration(index, name, child)
 		}
 	}
 
-	return psi.Apply(ctx.Root, ctx.OnEnter, ctx.OnLeave)
+	return psi.Apply(processor.Root, processor.OnEnter, processor.OnLeave)
 }

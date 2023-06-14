@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"context"
 	"fmt"
 	"go/build"
 	"go/token"
@@ -30,7 +31,7 @@ func (be BuildError) String() string {
 // FixBuildStep is responsible for fixing all build errors that were found
 type FixBuildStep struct{}
 
-func (s *FixBuildStep) Process(p *Project) (result BuildStepResult, err error) {
+func (s *FixBuildStep) Process(ctx context.Context, p *Project) (result BuildStepResult, err error) {
 	buildErrors, err := p.buildProject()
 
 	if err != nil {
@@ -45,7 +46,7 @@ func (s *FixBuildStep) Process(p *Project) (result BuildStepResult, err error) {
 			continue
 		}
 
-		e = s.ProcessFix(p, sf, buildError)
+		e = s.ProcessFix(ctx, p, sf, buildError)
 
 		if err != nil {
 			err = multierror.Append(err, e)
@@ -60,15 +61,15 @@ func (s *FixBuildStep) Process(p *Project) (result BuildStepResult, err error) {
 // The 'prepareObjective' function is responsible for generating a string that describes what needs to be done to fix a build error.
 // The expected input parameters are the psi.SourceFile 'sf' and pointer to the BuildError 'buildError' that needs to be fixed.
 // The expected output parameter is an error, which is nil if the process finishes successfully.
-func (s *FixBuildStep) ProcessFix(p *Project, sf *psi.SourceFile, buildError *BuildError) error {
+func (s *FixBuildStep) ProcessFix(ctx context.Context, p *Project, sf *psi.SourceFile, buildError *BuildError) error {
 	fmt.Printf("Fixing build error: %s\n", buildError.String())
 
-	updated := p.ProcessNodes(sf, func(p *NodeProcessor) {
-		p.prepareObjective = func(p *NodeProcessor, ctx *FunctionContext) (string, error) {
+	updated := p.ProcessNodes(ctx, sf, func(p *NodeProcessor) {
+		p.prepareObjective = func(p *NodeProcessor, ctx *NodeScope) (string, error) {
 			return "Fix the following build error:\n\n# Error Log\n```log\n" + buildError.String() + "```", nil
 		}
 
-		p.checkShouldProcess = func(fn *FunctionContext, cursor *psi.Cursor) bool {
+		p.checkShouldProcess = func(fn *NodeScope, cursor *psi.Cursor) bool {
 			return true
 		}
 	})

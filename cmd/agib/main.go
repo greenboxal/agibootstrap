@@ -67,7 +67,7 @@ func main() {
 				return err
 			}
 
-			_, err = p.Generate(false)
+			_, err = p.Generate(cmd.Context(), false)
 
 			if err != nil {
 				fmt.Printf("error: %s\n", err)

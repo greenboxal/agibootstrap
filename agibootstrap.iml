@@ -11,7 +11,9 @@
   </component>
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
-    <content url="file://$MODULE_DIR$" />
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/.fti" />
+    </content>
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>

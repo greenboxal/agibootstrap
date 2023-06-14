@@ -20,7 +20,7 @@ import (
 var hasPackageRegex = regexp.MustCompile(`(?m)^.*package\s+([a-zA-Z0-9_]+)\n`)
 var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`)
 
-// FunctionContext represents the context of a function.
+// NodeScope represents the context of a function.
 //
 // The ProcessContext stores information about the processor, node, and todos associated avec with a function.
 //
@@ -28,7 +28,7 @@ var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`
 // - Processor: A pointer to the NodeProcessor struct.
 // - Node: The psi.Node representing the current function.
 // - Todos: A slice of strings representing the todos comments associated with the function.
-type FunctionContext struct {
+type NodeScope struct {
 	Processor *NodeProcessor
 	Node      psi.Node
 	Todos     []string
@@ -60,21 +60,24 @@ type NodeProcessorOption func(p *NodeProcessor)
 // It is used to configure the behavior of the NodeProcessor. Each option is a function that takes
 // a pointer to the NodeProcessor as a parameter and modifies its properties in some way.
 type NodeProcessor struct {
-	Project      *Project                       // The project associated with the NodeProcessor.
-	SourceFile   *psi.SourceFile                // The source file being processed.
-	Root         psi.Node                       // The root node of the AST being processed.
-	FuncStack    *stack.Stack[*FunctionContext] // A stack of FunctionContexts.
-	Declarations map[string]*declaration        // A map of declaration names to declaration information.
+	Project      *Project                 // The project associated with the NodeProcessor.
+	SourceFile   *psi.SourceFile          // The source file being processed.
+	Root         psi.Node                 // The root node of the AST being processed.
+	FuncStack    *stack.Stack[*NodeScope] // A stack of FunctionContexts.
+	Declarations map[string]*declaration  // A map of declaration names to declaration information.
 
-	prepareObjective   func(p *NodeProcessor, ctx *FunctionContext) (string, error)                                                 // A function to prepare the objective for GPT-3.
-	prepareContext     func(p *NodeProcessor, ctx *FunctionContext, root psi.Node, baseRequest gpt.Request) (gpt.ContextBag, error) // A function to prepare the context for GPT-3.
-	checkShouldProcess func(fn *FunctionContext, cursor *psi.Cursor) bool                                                           // A function to check if a function should be processed.
+	prepareObjective   func(p *NodeProcessor, ctx *NodeScope) (string, error)                                                 // A function to prepare the objective for GPT-3.
+	prepareContext     func(p *NodeProcessor, ctx *NodeScope, root psi.Node, baseRequest gpt.Request) (gpt.ContextBag, error) // A function to prepare the context for GPT-3.
+	checkShouldProcess func(fn *NodeScope, cursor *psi.Cursor) bool                                                           // A function to check if a function should be processed.
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // OnEnter method is called when entering a node during
 // the AST traversal. It checks if the node is a container,
-// and if so, pushes a new FunctionContext onto the FuncStack.
-// Additionally, it scans the comments of the node for TODOs and stores them in the current FunctionContext.
+// and if so, pushes a new NodeScope onto the FuncStack.
+// Additionally, it scans the comments of the node for TODOs and stores them in the current NodeScope.
 //
 // Parameters:
 // - cursor: The psi.Cursor representing the current node.
@@ -82,13 +85,13 @@ type NodeProcessor struct {
 // Returns:
 // - bool: true to continue traversing the AST, false to stop.
 //
-// OnEnter is responsible for pushing a new FunctionContext onto the FuncStack if the current node is a container.
-// Additionally, it scans the comments of the node for TODOs and stores them in the current FunctionContext.
+// OnEnter is responsible for pushing a new NodeScope onto the FuncStack if the current node is a container.
+// Additionally, it scans the comments of the node for TODOs and stores them in the current NodeScope.
 func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 	e := cursor.Element()
 
 	if e.IsContainer() {
-		err := p.FuncStack.Push(&FunctionContext{
+		err := p.FuncStack.Push(&NodeScope{
 			Processor: p,
 			Node:      cursor.Element(),
 			Todos:     make([]string, 0),
@@ -118,7 +121,7 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 
 // OnLeave method is called when leaving a node during
 // the AST traversal. It checks if the node is a container,
-// and if so, pops the top FunctionContext from the FuncStack.
+// and if so, pops the top NodeScope from the FuncStack.
 // It also checks if the current function should be processed
 // and calls the Step method to process the function if necessary.
 //
@@ -128,7 +131,7 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 // Returns:
 // - bool: true to continue traversing the AST, false to stop.
 //
-// OnLeave is responsible for popping the top FunctionContext from the FuncStack if the current node is a container.
+// OnLeave is responsible for popping the top NodeScope from the FuncStack if the current node is a container.
 // Additionally, it checks if the current function should be processed and calls the Step method to process the function if necessary.
 func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 	e := cursor.Element()
@@ -144,7 +147,7 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 			return true
 		}
 
-		_, err := p.Step(currentFn, cursor)
+		_, err := p.Step(p.ctx, currentFn, cursor)
 
 		if err != nil {
 			panic(err)
@@ -158,14 +161,14 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 
 // Step processes the code and generates a response
 //
-// The Step function is responsible for generating code by processing the given code and context. The function takes a FunctionContext and a psi.Cursor as parameters and returns the generated code as a dst.Node. It follows a series of steps to generate the code and address the TODOs:
+// The Step function is responsible for generating code by processing the given code and context. The function takes a NodeScope and a psi.Cursor as parameters and returns the generated code as a dst.Node. It follows a series of steps to generate the code and address the TODOs:
 //
 // 1. Obtain the root element of the cursor using cursor.Element().
-// 2. Prepare the todoComment using p.prepareObjective function with the NodeProcessor and FunctionContext.
+// 2. Prepare the todoComment using p.prepareObjective function with the NodeProcessor and NodeScope.
 // 3. Prune the root by applying the Clone method of the psi package on p.Root and iterating through each cursor element and returning true.
 // 4. Convert the stepRoot to a string using p.SourceFile.ToCode method.
 // 5. Create a new gpt.Request with stepStr as the Document and todoComment as the Objective, and an empty ContextBag.
-// 6. Prepare the fullContext by calling p.prepareContext with the NodeProcessor, FunctionContext, prunedRoot, and req parameters.
+// 6. Prepare the fullContext by calling p.prepareContext with the NodeProcessor, NodeScope, prunedRoot, and req parameters.
 // 7. Set the fullContext as the Context of req.
 // 8. Invoke the gpt.Invoke function with context.TODO() and req to get the codeBlocks response.
 // 9. Iterate through each codeBlock in codeBlocks.
@@ -184,12 +187,12 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 //   - Otherwise, merge the declaration with the existing declarations using the p.MergeDeclarations function.
 //
 // 10. Return the generated code as a dst.Node.
-func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result dst.Node, err error) {
+func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *psi.Cursor) (result dst.Node, err error) {
 	// Obtain the root element of the cursor using cursor.Element().
 	stepRoot := cursor.Element()
 
-	// Prepare the todoComment using p.prepareObjective function with the NodeProcessor and FunctionContext.
-	todoComment, err := p.prepareObjective(p, ctx)
+	// Prepare the todoComment using p.prepareObjective function with the NodeProcessor and NodeScope.
+	todoComment, err := p.prepareObjective(p, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -213,8 +216,8 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 		Context: gpt.ContextBag{},
 	}
 
-	// Prepare the fullContext by calling p.prepareContext with the NodeProcessor, FunctionContext, prunedRoot, and req parameters.
-	fullContext, err := p.prepareContext(p, ctx, prunedRoot, req)
+	// Prepare the fullContext by calling p.prepareContext with the NodeProcessor, NodeScope, prunedRoot, and req parameters.
+	fullContext, err := p.prepareContext(p, scope, prunedRoot, req)
 	if err != nil {
 		return nil, err
 	}
@@ -222,8 +225,8 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 	// Set the fullContext as the Context of req.
 	req.Context = fullContext
 
-	// Invoke the gpt.Invoke function with context.TODO() and req to get the codeBlocks response.
-	codeBlocks, err := gpt.Invoke(context.TODO(), req)
+	// Ask GPT to generate code with the given context.
+	codeBlocks, err := gpt.Invoke(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +287,7 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 
 		// Iterate over each declaration (decl) in newRoot.Children() and check if it's a function and its name matches the name of the current function.
 		for _, decl := range newRoot.Children() {
-			if funcType, ok := decl.Ast().(*dst.FuncDecl); ok && funcType.Name.Name == ctx.Node.Ast().(*dst.FuncDecl).Name.Name {
+			if funcType, ok := decl.Ast().(*dst.FuncDecl); ok && funcType.Name.Name == scope.Node.Ast().(*dst.FuncDecl).Name.Name {
 				// If the declaration is a function and its name matches, replace the declaration at the specified position in the cursor with the new declaration using the p.ReplaceDeclarationAt function.
 				p.ReplaceDeclarationAt(cursor, decl, funcType.Name.Name)
 			} else {
