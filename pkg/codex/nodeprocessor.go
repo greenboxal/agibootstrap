@@ -101,6 +101,7 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 var hasPackageRegex = regexp.MustCompile(`(?m)^.*package\s+([a-zA-Z0-9_]+)\n`)
 var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`)
 
+// Step processes the code and generates a response
 func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result dst.Node, err error) {
 	stepRoot := cursor.Element()
 
