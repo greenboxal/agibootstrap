@@ -3,6 +3,7 @@ package fti
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/fs"
 	"io/ioutil"
@@ -10,7 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
+	"github.com/greenboxal/aip/aip-langchain/pkg/chunkers"
+	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
+	"github.com/jbenet/goprocess"
+	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/pkg/errors"
 )
 
@@ -316,11 +320,22 @@ The query operation offers a powerful tool for users to delve into their indexed
 //	Delete()
 //}
 
-var oai = openai.NewClient()
-var embedder = &openai.Embedder{
-	Client: oai,
-	Model:  openai.AdaEmbeddingV2,
+var defaultConfig = Config{
+	Embedding: struct {
+		Provider string `json:"provider"`
+		Model    string `json:"model"`
+	}{
+		Provider: "OpenAI",
+		Model:    "AdaEmbeddingV2",
+	},
+	ChunkSpecs: []ChunkSpec{
+		{MaxTokens: 512, Overlap: 128},
+		{MaxTokens: 1024, Overlap: 256},
+	},
 }
+
+var ErrNoConfig = errors.New("no config file found")
+var ErrAbort = errors.New("abort")
 
 type ChunkSpec struct {
 	MaxTokens int `json:"max_tokens"`
@@ -343,6 +358,9 @@ type Repository struct {
 	repoPath   string
 	ftiPath    string
 	configPath string
+
+	embedder llm.Embedder
+	chunker  chunkers.Chunker
 }
 
 func NewRepository(repoPath string) (*Repository, error) {
@@ -411,7 +429,7 @@ func (r *Repository) Update(ctx context.Context) error {
 	for it := r.IterateFiles(ctx); it.Next(); {
 		f := it.Item()
 
-		if err := r.UpdateFile(f); err != nil {
+		if err := r.UpdateFile(ctx, f); err != nil {
 			return err
 		}
 	}
@@ -419,14 +437,59 @@ func (r *Repository) Update(ctx context.Context) error {
 	return nil
 }
 
-func (r *Repository) UpdateFile(f FileCursor) error {
+func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
+	fh, err := r.OpenFile(f.Path)
+
+	if err != nil {
+		return err
+	}
+
+	defer fh.Close()
+
+	data, err := io.ReadAll(fh)
+
+	if err != nil {
+		return err
+	}
+
+	for _, chunkSpec := range r.config.ChunkSpecs {
+		chunks, err := r.chunker.SplitTextIntoChunks(ctx, string(data), chunkSpec.MaxTokens, chunkSpec.Overlap)
+
+		if err != nil {
+			return err
+		}
+
+		chunksStr := make([]string, len(chunks))
+
+		for i, chunk := range chunks {
+			chunksStr[i] = chunk.Content
+		}
+
+		embeddings, err := r.embedder.GetEmbeddings(ctx, chunksStr)
+
+		if err != nil {
+			return err
+		}
+
+		for i, chunk := range chunks {
+			embedding := embeddings[i]
+
+			// Pretty print the chunk and embeddings
+			fmt.Printf("Chunk: %s\n", chunk.Content)
+			fmt.Printf("Embedding: %v\n", embedding)
+		}
+	}
+
+	return nil
+}
+
+func (r *Repository) Query() error {
 	return nil
 }
 
 func (r *Repository) IterateFiles(ctx context.Context) Iterator[FileCursor] {
 	files := IterateFiles(ctx, r.repoPath)
 
-	// Check if the file is in the .fti directory
 	files = Filter(files, func(f FileCursor) bool {
 		if f.IsDir() {
 			return false
@@ -457,7 +520,7 @@ func (r *Repository) IsIgnored(name string) bool {
 		}
 	}
 
-	return true
+	return false
 }
 
 func (r *Repository) RelativeToRoot(name string) string {
@@ -468,10 +531,6 @@ func (r *Repository) RelativeToRoot(name string) string {
 	}
 
 	return p
-}
-
-func (r *Repository) Query() error {
-	return nil
 }
 
 func (r *Repository) loadConfig() error {
@@ -665,19 +724,72 @@ type FileCursor struct {
 	Err  error
 }
 
-var ErrNoConfig = errors.New("no config file found")
-var ErrAbort = errors.New("abort")
+type taskContext struct {
+	ctx            context.Context
+	proc           goprocess.Process
+	current, total int
+	err            error
+	done           chan struct{}
+}
 
-var defaultConfig = Config{
-	Embedding: struct {
-		Provider string `json:"provider"`
-		Model    string `json:"model"`
-	}{
-		Provider: "OpenAI",
-		Model:    "AdaEmbeddingV2",
-	},
-	ChunkSpecs: []ChunkSpec{
-		{MaxTokens: 512, Overlap: 128},
-		{MaxTokens: 1024, Overlap: 256},
-	},
+func (t *taskContext) Context() context.Context {
+	return t.ctx
+}
+
+func (t *taskContext) Update(current, total int) {
+	t.current = current
+	t.total = total
+}
+
+func (t *taskContext) Err() error {
+	t.Wait()
+	return t.err
+}
+
+func (t *taskContext) Cancel() {
+
+}
+
+func (t *taskContext) Wait() {
+	_, _ = <-t.done
+}
+
+func SpawnTask(ctx context.Context, task Task) TaskHandle {
+	tc := &taskContext{ctx: ctx}
+
+	parent := goprocessctx.WithContext(ctx)
+
+	tc.proc = goprocess.GoChild(parent, func(proc goprocess.Process) {
+		defer proc.CloseAfterChildren()
+		defer close(tc.done)
+
+		if err := task.Run(tc); err != nil {
+			tc.err = err
+		}
+	})
+
+	return tc
+}
+
+type TaskProgress interface {
+	Context() context.Context
+	Update(current, total int)
+}
+
+type TaskHandle interface {
+	Context() context.Context
+
+	Cancel()
+	Wait()
+	Err() error
+}
+
+type TaskFunc func(progress TaskProgress) error
+
+func (f TaskFunc) Run(progress TaskProgress) error {
+	return f(progress)
+}
+
+type Task interface {
+	Run(progress TaskProgress) error
 }
