@@ -37,6 +37,9 @@ type Project struct {
 	fset *token.FileSet
 }
 
+// NewProject creates a new codex project with the given root path.
+// It initializes the project file system, repository, and other required data structures.
+// It returns a pointer to the created Project object and an error if any.
 func NewProject(rootPath string) (*Project, error) {
 	root, err := repofs.NewFS(rootPath)
 
@@ -66,10 +69,13 @@ func NewProject(rootPath string) (*Project, error) {
 	return p, nil
 }
 
+// TODO: Write documentation
 func (p *Project) RootPath() string { return p.rootPath }
 
+// TODO: Write documentation
 func (p *Project) FS() repofs.FS { return p.fs }
 
+// TODO: Write documentation
 func (p *Project) Generate() (changes int, err error) {
 	isSingleStep := true
 

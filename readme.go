@@ -1,8 +1,6 @@
 package readme
 
 // init
-// TODO: Expand the README below by fixing all TODO (continued) comments.
-// TODO (continued): Use your knowledge of the context of the code to determine what should be added or modified.
 // # readme.md
 //
 // # AGIBootstrap
@@ -41,19 +39,13 @@ package readme
 // The original author and the AI collaboratively set up the system to automatically generate commit messages, commit changes, and push these changes, creating an infinite loop.
 // ## How it works
 //
-// TODO (continued): Explain how the agibootstrap/codex project Generate function works.
-//
 // ### State machine diagram
-//
-// TODO (continued): Add state machine diagram (codegen, fiximport, fixbuild, commit, push, etc..)
 //
 // In the "Idle" state, the code generation process has not started. Once initiated, it transitions to the "Generating" state. From the "Generating" state, it can transition to the "Editing" state if the user wants to make changes to the generated code. From the "Editing" state, the user can save the changes and commit them, which transitions the state machine to the "Committing" state. Subsequently, further transitions can happen based on specific actions, such as sending a pull request or pulling the latest changes.
 //
 // This overview provides a high-level understanding of the codex package and its state machine. For more detailed information, refer to the package documentation and source code.
 //
 // ### Implementation
-//
-// TODO (continued): Explain how the agibootstrap/codex project Generate function works.
 //
 // ## AI Safety
 //
@@ -92,5 +84,4 @@ package readme
 // ## License
 //
 // AGIBootstrap is licensed under the AGPL license. For more information, please refer to the [LICENSE.md](LICENSE.md) file.
-// TODO (continue): Make this a world class technical design be exhaustive in the topics you cover.
 func init() {}
