@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/dave/dst"
-	"github.com/hashicorp/go-multierror"
 	"github.com/zeroflucs-given/generics/collections/stack"
 	"golang.org/x/exp/slices"
 
@@ -192,7 +191,6 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 // Return Processed Code:
 // 10. Return the processed code as a dst.Node.
 func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *psi.Cursor) (result dst.Node, err error) {
-	// TODO: Split this function into smaller functions.
 	stepRoot := cursor.Element()
 
 	todoComment, err := p.prepareObjective(p, scope)
@@ -223,157 +221,94 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *psi.
 	req.Context = fullContext
 
 	codeBlocks, err := gpt.Invoke(ctx, req)
+
 	if err != nil {
 		return nil, err
 	}
 
 	for i, block := range codeBlocks {
-		if block.Language == "" {
-			block.Language = "go"
-		}
-
 		blockName := fmt.Sprintf("_mergeContents_%d.%s", i, block.Language)
 
-		if hasHtmlEscapeRegex.MatchString(block.Code) {
-			block.Code = html.UnescapeString(block.Code)
+		newRoot, err := p.parseCodeBlock(ctx, blockName, block)
+
+		if err != nil {
+			return nil, err
 		}
 
-		patchedCode := block.Code
-		pkgIndex := hasPackageRegex.FindStringIndex(patchedCode)
+		err = p.mergeCompletionResults(ctx, scope, cursor, newRoot)
 
-		if len(pkgIndex) > 0 {
-			patchedCode = fmt.Sprintf("%s%s%s", patchedCode[:pkgIndex[1]], "\n", patchedCode[pkgIndex[1]:])
-		} else {
-			patchedCode = fmt.Sprintf("package gptimport\n%s", patchedCode)
-		}
-
-		patchedCode = hasPackageRegex.ReplaceAllString(patchedCode, "package gptimport\n")
-
-		newRoot, e := p.SourceFile.Parse(blockName, patchedCode)
-		if e != nil {
-			if errList, ok := e.(scanner.ErrorList); ok {
-				if len(errList) == 1 && strings.HasPrefix(errList[0].Msg, "expected declaration, ") {
-					patchedCode = fmt.Sprintf("package gptimport_orphan\nfunc orphanSnippet%d() {\n%s\n}\n", i, block.Code)
-					newRoot2, e2 := p.SourceFile.Parse(blockName, patchedCode)
-
-					if e2 != nil {
-						err = multierror.Append(err, e)
-						continue
-					}
-
-					newRoot = newRoot2
-				}
-			} else if e != nil {
-				err = multierror.Append(err, e)
-				continue
-			}
-		}
-
-		MergeFiles(newRoot.Ast().(*dst.File), newRoot.Ast().(*dst.File))
-
-		for _, decl := range newRoot.Children() {
-			if funcType, ok := decl.Ast().(*dst.FuncDecl); ok && funcType.Name.Name == scope.Node.Ast().(*dst.FuncDecl).Name.Name {
-				p.ReplaceDeclarationAt(cursor, decl, funcType.Name.Name)
-			} else {
-				p.MergeDeclarations(cursor, decl)
-			}
+		if err != nil {
+			return nil, err
 		}
 	}
 
 	return
 }
 
-func orphanSnippet0() {
-	// TODO: Split this function into smaller functions.
-	stepRoot := cursor.Element()
+// mergeCompletionResults merges the completion results of a code block into the NodeProcessor.
+// It takes a context.Context, a *NodeScope representing the current scope, a *psi.Cursor representing the current cursor position, and a psi.Node representing the completion results.
+// This function merges the completion results into the AST being processed in the NodeProcessor by performing the following steps:
+// 1. Merge the completion results into the current AST by calling the MergeFiles function.
+// 2. Iterate over each declaration in the completion results.
+// 3. Check if the declaration is a function and if its name matches the name of the current scope's function.
+// 4. If the declaration matches, replace the current declaration at the cursor position with the new declaration by calling the ReplaceDeclarationAt function.
+// 5. If the declaration doesn't match, merge the new declaration with the existing declarations by calling the MergeDeclarations function.
+// 6. Return nil, indicating that there were no errors during the merging process.
+func (p *NodeProcessor) mergeCompletionResults(ctx context.Context, scope *NodeScope, cursor *psi.Cursor, newAst psi.Node) error {
+	MergeFiles(newAst.Ast().(*dst.File), newAst.Ast().(*dst.File))
 
-	todoComment, err := p.prepareObjective(p, scope)
-	if err != nil {
-		return nil, err
-	}
-
-	prunedRoot := psi.Apply(psi.Clone(p.Root), func(cursor *psi.Cursor) bool {
-		return true
-	}, nil)
-
-	stepStr, err := p.SourceFile.ToCode(stepRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	req := gpt.Request{
-		Document:  stepStr,
-		Objective: todoComment,
-		Context:   gpt.ContextBag{},
-	}
-
-	fullContext, err := p.prepareContext(p, scope, prunedRoot, req)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Context = fullContext
-
-	codeBlocks, err := gpt.Invoke(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	for i, block := range codeBlocks {
-		if block.Language == "" {
-			block.Language = "go"
-		}
-
-		blockName := fmt.Sprintf("_mergeContents_%d.%s", i, block.Language)
-
-		if hasHtmlEscapeRegex.MatchString(block.Code) {
-			block.Code = html.UnescapeString(block.Code)
-		}
-
-		patchedCode := block.Code
-		pkgIndex := hasPackageRegex.FindStringIndex(patchedCode)
-
-		if len(pkgIndex) > 0 {
-			patchedCode = fmt.Sprintf("%s%s%s", patchedCode[:pkgIndex[1]], "\n", patchedCode[pkgIndex[1]:])
+	for _, decl := range newAst.Children() {
+		if funcType, ok := decl.Ast().(*dst.FuncDecl); ok && funcType.Name.Name == scope.Node.Ast().(*dst.FuncDecl).Name.Name {
+			p.ReplaceDeclarationAt(cursor, decl, funcType.Name.Name)
 		} else {
-			patchedCode = fmt.Sprintf("package gptimport\n%s", patchedCode)
-		}
-
-		patchedCode = hasPackageRegex.ReplaceAllString(patchedCode, "package gptimport\n")
-
-		newRoot, e := p.SourceFile.Parse(blockName, patchedCode)
-		if e != nil {
-			if errList, ok := e.(scanner.ErrorList); ok {
-				if len(errList) == 1 && strings.HasPrefix(errList[0].Msg, "expected declaration, ") {
-					patchedCode = fmt.Sprintf("package gptimport_orphan\nfunc orphanSnippet%d() {\n%s\n}\n", i, block.Code)
-					newRoot2, e2 := p.SourceFile.Parse(blockName, patchedCode)
-
-					if e2 != nil {
-						err = multierror.Append(err, e)
-						continue
-					}
-
-					newRoot = newRoot2
-				}
-			} else if e != nil {
-				err = multierror.Append(err, e)
-				continue
-			}
-		}
-
-		MergeFiles(newRoot.Ast().(*dst.File), newRoot.Ast().(*dst.File))
-
-		for _, decl := range newRoot.Children() {
-			if funcType, ok := decl.Ast().(*dst.FuncDecl); ok && funcType.Name.Name == scope.Node.Ast().(*dst.FuncDecl).Name.Name {
-				p.ReplaceDeclarationAt(cursor, decl, funcType.Name.Name)
-			} else {
-				p.MergeDeclarations(cursor, decl)
-			}
+			p.MergeDeclarations(cursor, decl)
 		}
 	}
 
-	return
+	return nil
+}
 
+func (p *NodeProcessor) parseCodeBlock(ctx context.Context, blockName string, block gpt.CodeBlock) (_ psi.Node, err error) {
+	// TODO: Write documentation for this function
+	if block.Language == "" {
+		block.Language = "go"
+	}
+
+	if hasHtmlEscapeRegex.MatchString(block.Code) {
+		block.Code = html.UnescapeString(block.Code)
+	}
+
+	patchedCode := block.Code
+	pkgIndex := hasPackageRegex.FindStringIndex(patchedCode)
+
+	if len(pkgIndex) > 0 {
+		patchedCode = fmt.Sprintf("%s%s%s", patchedCode[:pkgIndex[1]], "\n", patchedCode[pkgIndex[1]:])
+	} else {
+		patchedCode = fmt.Sprintf("package gptimport\n%s", patchedCode)
+	}
+
+	patchedCode = hasPackageRegex.ReplaceAllString(patchedCode, "package gptimport\n")
+
+	newRoot, e := p.SourceFile.Parse(blockName, patchedCode)
+
+	if e != nil {
+		if errList, ok := e.(scanner.ErrorList); ok {
+			if len(errList) == 1 && strings.HasPrefix(errList[0].Msg, "expected declaration, ") {
+				patchedCode = fmt.Sprintf("package gptimport_orphan\nfunc orphanSnippet() {\n%s\n}\n", block.Code)
+				newRoot2, e2 := p.SourceFile.Parse(blockName, patchedCode)
+
+				if e2 != nil {
+					return nil, e
+				}
+
+				newRoot = newRoot2
+			}
+		} else if e != nil {
+			return nil, e
+		}
+	}
+
+	return newRoot, nil
 }
 
 // MergeDeclarations merges the declarations of a node into the NodeProcessor.
