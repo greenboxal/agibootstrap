@@ -16,11 +16,10 @@ type DirectoryNode struct {
 	psi.NodeBase
 }
 
-func orphanSnippet0() {
-	// TODO: Implement
-
-	return &DirectoryNode{}
-
+func NewDirectoryNode(path string) *DirectoryNode {
+	node := &DirectoryNode{}
+	node.SetPath(path)
+	return node
 }
 
 type FileNode struct {

@@ -54,8 +54,8 @@ func MarkdownTree(input any) string {
 		case map[string]any:
 			for k, v := range node {
 				heading := &ast.Heading{
-					Level:        depth,
-					IsTitleblock: true,
+					Level:     depth,
+					IsSpecial: true,
 				}
 
 				heading.Literal = []byte(k)
