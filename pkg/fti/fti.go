@@ -2,6 +2,8 @@ package fti
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/chunkers"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
+	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/pkg/errors"
@@ -366,6 +369,12 @@ type Repository struct {
 func NewRepository(repoPath string) (*Repository, error) {
 	r := &Repository{}
 
+	r.chunker = chunkers.TikToken{}
+	r.embedder = &openai.Embedder{
+		Client: openai.NewClient(),
+		Model:  openai.AdaEmbeddingV2,
+	}
+
 	r.repoPath = repoPath
 	r.ftiPath = filepath.Join(r.repoPath, ".fti")
 	r.configPath = r.ResolveDbPath("config.json")
@@ -446,41 +455,53 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 
 	defer fh.Close()
 
-	data, err := io.ReadAll(fh)
+	hasher := sha256.New()
+	reader := io.TeeReader(fh, hasher)
+	data, err := io.ReadAll(reader)
 
 	if err != nil {
 		return err
 	}
 
+	h := hasher.Sum(nil)
+
 	for _, chunkSpec := range r.config.ChunkSpecs {
-		chunks, err := r.chunker.SplitTextIntoChunks(ctx, string(data), chunkSpec.MaxTokens, chunkSpec.Overlap)
-
-		if err != nil {
+		if err := r.updateFileWithSpec(ctx, f, chunkSpec, h, data); err != nil {
 			return err
-		}
-
-		chunksStr := make([]string, len(chunks))
-
-		for i, chunk := range chunks {
-			chunksStr[i] = chunk.Content
-		}
-
-		embeddings, err := r.embedder.GetEmbeddings(ctx, chunksStr)
-
-		if err != nil {
-			return err
-		}
-
-		for i, chunk := range chunks {
-			embedding := embeddings[i]
-
-			// Pretty print the chunk and embeddings
-			fmt.Printf("Chunk: %s\n", chunk.Content)
-			fmt.Printf("Embedding: %v\n", embedding)
 		}
 	}
 
 	return nil
+}
+
+type ObjectSnapshotImage struct {
+	Chunks     []chunkers.Chunk
+	Embeddings []llm.Embedding
+}
+
+func (osi *ObjectSnapshotImage) ReadFrom(r io.Reader) (int, error) {
+	return 0, nil
+}
+
+func (osi *ObjectSnapshotImage) WriteTo(w io.Writer) (int, error) {
+	for i, chunk := range osi.Chunks {
+		embedding := osi.Embeddings[i]
+
+		// Pretty print the chunk and embeddings
+		fmt.Printf("Chunk: %s\n", chunk.Content)
+		fmt.Printf("Embedding: %v\n", embedding)
+	}
+
+	return 0, nil
+}
+
+func (r *Repository) buildImage(ctx context.Context, f FileCursor, chunks []chunkers.Chunk, embeddings []llm.Embedding) (*ObjectSnapshotImage, error) {
+	image := &ObjectSnapshotImage{
+		Chunks:     chunks,
+		Embeddings: embeddings,
+	}
+
+	return image, nil
 }
 
 func (r *Repository) Query() error {
@@ -579,6 +600,49 @@ func (r *Repository) loadIgnoreFile() error {
 	}
 
 	r.config.Ignore = patterns
+
+	return nil
+}
+
+func (r *Repository) updateFileWithSpec(ctx context.Context, f FileCursor, spec ChunkSpec, h []byte, data []byte) error {
+	chunks, err := r.chunker.SplitTextIntoChunks(ctx, string(data), spec.MaxTokens, spec.Overlap)
+
+	if err != nil {
+		return err
+	}
+
+	chunksStr := make([]string, len(chunks))
+
+	for i, chunk := range chunks {
+		chunksStr[i] = chunk.Content
+	}
+
+	embeddings, err := r.embedder.GetEmbeddings(ctx, chunksStr)
+
+	if err != nil {
+		return err
+	}
+
+	image, err := r.buildImage(ctx, f, chunks, embeddings)
+
+	if err != nil {
+		return err
+	}
+
+	fileHash := hex.EncodeToString(h)
+	imagePath := r.ResolveDbPath("objects", fileHash, fmt.Sprintf("%dm%d.fti", spec.MaxTokens, spec.Overlap))
+
+	fh, err := os.OpenFile(imagePath, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+
+	if err != nil {
+		return err
+	}
+
+	defer fh.Close()
+
+	if _, err := image.WriteTo(fh); err != nil {
+		return err
+	}
 
 	return nil
 }
