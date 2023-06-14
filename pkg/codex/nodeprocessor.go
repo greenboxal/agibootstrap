@@ -53,17 +53,19 @@ type declaration struct {
 // a pointer to the NodeProcessor as a parameter and modifies its properties in some way.
 type NodeProcessorOption func(p *NodeProcessor)
 
-// TODO: Write documentation explaining the process, the steps involved and its purpose.
+// NodeProcessor is responsible for processing AST nodes and generating code.
+// It is used to configure the behavior of the NodeProcessor. Each option is a function that takes
+// a pointer to the NodeProcessor as a parameter and modifies its properties in some way.
 type NodeProcessor struct {
-	Project      *Project
-	SourceFile   *psi.SourceFile
-	Root         psi.Node
-	FuncStack    *stack.Stack[*FunctionContext]
-	Declarations map[string]*declaration
+	Project      *Project                       // The project associated with the NodeProcessor.
+	SourceFile   *psi.SourceFile                // The source file being processed.
+	Root         psi.Node                       // The root node of the AST being processed.
+	FuncStack    *stack.Stack[*FunctionContext] // A stack of FunctionContexts.
+	Declarations map[string]*declaration        // A map of declaration names to declaration information.
 
-	prepareObjective   func(p *NodeProcessor, ctx *FunctionContext) (string, error)
-	prepareContext     func(p *NodeProcessor, ctx *FunctionContext, root psi.Node, baseRequest gpt.Request) (gpt.ContextBag, error)
-	checkShouldProcess func(fn *FunctionContext, cursor *psi.Cursor) bool
+	prepareObjective   func(p *NodeProcessor, ctx *FunctionContext) (string, error)                                                 // A function to prepare the objective for GPT-3.
+	prepareContext     func(p *NodeProcessor, ctx *FunctionContext, root psi.Node, baseRequest gpt.Request) (gpt.ContextBag, error) // A function to prepare the context for GPT-3.
+	checkShouldProcess func(fn *FunctionContext, cursor *psi.Cursor) bool                                                           // A function to check if a function should be processed.
 }
 
 // TODO: Write documentation explaining the process, the steps involved and its purpose.
