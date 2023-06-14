@@ -367,7 +367,7 @@ func (r *Repository) Update() error {
 	return nil
 }
 
-// TODO: Read config file and perform necessary setup based on the configuration
+// ReadConfigFile reads the config file and performs necessary setup based on the configuration
 func ReadConfigFile(filepath string) (Config, error) {
 	configData, err := ioutil.ReadFile(filepath)
 	if err != nil {
