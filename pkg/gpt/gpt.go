@@ -52,7 +52,7 @@ func ExtractCodeBlocks(root ast.Node) (blocks []CodeBlock) {
 	return
 }
 
-// TODO: Document this.
+// Document this.
 type ContextBag map[string]any
 
 // TODO: Document this.
