@@ -54,9 +54,9 @@ func orphanSnippet1() {
 	// TODO: Add more examples
 
 	// Example 1: Adding child nodes to a container node
-	container := psi.NewContainerNode("main.go")
-	function1 := psi.NewFunctionNode("func1")
-	function2 := psi.NewFunctionNode("func2")
+	container := NewContainerNode("main.go")
+	function1 := NewFunctionNode("func1")
+	function2 := NewFunctionNode("func2")
 
 	container.AddChildNode(function1)
 	container.AddChildNode(function2)
@@ -65,10 +65,10 @@ func orphanSnippet1() {
 	container.RemoveChildNode(function1)
 
 	// Example 3: Accessing comments of a leaf node
-	leaf := psi.NewLeafNode("variable")
+	leaf := NewLeafNode("variable")
 	leaf.AddComment("This is a variable")
 
-	comments := leaf.Comments()
+	comments := leaf.Comment()
 	for _, comment := range comments {
 		fmt.Println(comment)
 	}
