@@ -15,7 +15,32 @@ The Node interface is a fundamental part of the PSI. Every node in the PSI graph
 Usage:
 To use the PSI package, first import the "github.com/<username>/psi" module. Then, create a new PSI graph using the NewGraph() function. Add nodes representing files and their corresponding ASTs to the graph using the AddNode() method. Finally, use the provided methods of the Node interface to explore and analyze the file directory system.
 
-Please note that this is a basic overview and introduction to the PSI package. More detailed documentation can be found in the source code and accompanying documentation.
-*/
+Node Types:
+The PSI package provides several node types that can be used to represent different elements of code files:
 
+- The psi.Node interface represents a generic node in the PSI graph. It defines methods like Parent(), Children(), Ast(), etc. that can be used to access information about the node.
+- The *psi.BaseNode type is a base implementation of the psi.Node interface. It provides common functionality for all PSI nodes.
+- The *psi.Container type represents a container node in the PSI graph. It is used to represent code elements that can contain other code elements, like functions, classes, etc.
+- The *psi.Leaf type represents a leaf node in the PSI graph. It is used to represent code elements that cannot contain other code elements, like variables, constants, etc.
+
+Examples:
+Here are some examples of how to use the PSI package:
+
+// Create a new PSI graph
+graph := psi.NewGraph()
+
+// Create a file node
+fileNode := psi.NewFileNode("example.go")
+
+// Add the file node to the graph
+graph.AddNode(fileNode)
+
+// Create an AST node
+astNode := psi.NewASTNode(fileNode)
+
+// Add the AST node to the file node
+fileNode.AddChildNode(astNode)
+
+This is just a basic overview of the PSI package and its components. More detailed documentation can be found in the source code and accompanying documentation.
+*/
 func init() {}
