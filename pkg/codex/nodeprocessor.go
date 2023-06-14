@@ -47,7 +47,10 @@ type declaration struct {
 	name    string
 }
 
-// TODO: Write documentation explaining the process, the steps involved and its purpose.
+// NodeProcessorOption is a function type that defines an option for the NodeProcessor.
+//
+// It is used to configure the behavior of the NodeProcessor. Each option is a function that takes
+// a pointer to the NodeProcessor as a parameter and modifies its properties in some way.
 type NodeProcessorOption func(p *NodeProcessor)
 
 // TODO: Write documentation explaining the process, the steps involved and its purpose.
