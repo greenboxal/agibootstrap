@@ -293,30 +293,30 @@ func NewRepository() {
 
 // Metadata represents the metadata of an object snapshot
 type Metadata struct {
-	ObjectHash   string
-	ChunkSize    int
-	Overlap      int
-	CreationTime string
-	FileSize     int64
-	TotalChunks  int
+	ObjectHash   string `json:"objectHash"`
+	ChunkSize    int    `json:"chunkSize"`
+	Overlap      int    `json:"overlap"`
+	CreationTime string `json:"creationTime"`
+	FileSize     int64  `json:"fileSize"`
+	TotalChunks  int    `json:"totalChunks"`
 }
 
 // ObjectSnapshot represents a snapshot of file chunks
 type ObjectSnapshot struct {
-	Hash       string
-	ChunkSize  int
-	Overlap    int
-	Embeddings []Embedding
+	Hash       string      `json:"hash"`
+	ChunkSize  int         `json:"chunkSize"`
+	Overlap    int         `json:"overlap"`
+	Embeddings []Embedding `json:"embeddings"`
 }
 
 // Embedding represents an embedding vector
 type Embedding struct {
-	Vector []float32
+	Vector []float32 `json:"vector"`
 }
 
 // Chunk represents a chunk of data within a file
 type Chunk struct {
-	Data string
+	Data string `json:"data"`
 }
 
 // Init method initializes a new FTI repository
