@@ -1,10 +1,15 @@
 package codex
 
 import (
+	"context"
 	"fmt"
+	"go/scanner"
+	"html"
+	"regexp"
 	"strings"
 
 	"github.com/dave/dst"
+	"github.com/hashicorp/go-multierror"
 	"github.com/zeroflucs-given/generics/collections/stack"
 	"golang.org/x/exp/slices"
 
@@ -80,6 +85,9 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 	return true
 }
 
+var hasPackageRegex = regexp.MustCompile(`(?m)^.*package\s+([a-zA-Z0-9_]+)\n`)
+var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`)
+
 func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result dst.Node, err error) {
 	stepRoot := cursor.Element()
 
@@ -121,30 +129,69 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 	}
 
 	// Send the string and comment to gpt-3.5-turbo and get a response
-	gptResponse, err := gpt.SendToGPT(todoComment, contextStr, stepStr)
+	codeBlocks, err := gpt.Invoke(context.TODO(), gpt.Request{
+		Document:  stepStr,
+		Objective: todoComment,
+
+		Context: gpt.ContextBag{
+			"outer_context": contextStr,
+		},
+	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	// Parse the generated code into an AST
-	newRoot, err := p.SourceFile.Parse("_mergeContents.go", gptResponse)
-
-	if err != nil {
-		previousErr := err
-		sourceWithPreamble := fmt.Sprintf("package %s\n\n%s", "gptimport", gptResponse)
-		newRoot, err = p.SourceFile.Parse("_mergeContents.go", sourceWithPreamble)
-
-		if err != nil {
-			return nil, previousErr
+	for i, block := range codeBlocks {
+		if block.Language == "" {
+			block.Language = "go"
 		}
-	}
 
-	for _, decl := range newRoot.Children() {
-		if funcType, ok := decl.Node().(*dst.FuncDecl); ok && funcType.Name.Name == ctx.Func.Name.Name {
-			p.ReplaceDeclarationAt(cursor, decl, ctx.Func.Name.Name)
+		blockName := fmt.Sprintf("_mergeContents_%d.%s", i, block.Language)
+
+		if hasHtmlEscapeRegex.MatchString(block.Code) {
+			block.Code = html.UnescapeString(block.Code)
+		}
+
+		patchedCode := block.Code
+		pkgIndex := hasPackageRegex.FindStringIndex(patchedCode)
+
+		if len(pkgIndex) > 0 {
+			patchedCode = fmt.Sprintf("%s%s%s", patchedCode[:pkgIndex[1]], "\n", patchedCode[pkgIndex[1]:])
 		} else {
-			p.MergeDeclarations(cursor, decl)
+			patchedCode = fmt.Sprintf("package gptimport\n%s", patchedCode)
+		}
+
+		patchedCode = hasPackageRegex.ReplaceAllString(patchedCode, "package gptimport\n")
+
+		// Parse the generated code into an AST
+		newRoot, e := p.SourceFile.Parse(blockName, patchedCode)
+
+		if e != nil {
+			if errList, ok := e.(scanner.ErrorList); ok {
+				if len(errList) == 1 && strings.HasPrefix(errList[0].Msg, "expected declaration, ") {
+					patchedCode = fmt.Sprintf("package gptimport_orphan\nfunc orphanSnippet%d() {\n%s\n}\n", i, block.Code)
+					newRoot2, e2 := p.SourceFile.Parse(blockName, patchedCode)
+
+					if e2 != nil {
+						err = multierror.Append(err, e)
+						continue
+					}
+
+					newRoot = newRoot2
+				}
+			} else if e != nil {
+				err = multierror.Append(err, e)
+				continue
+			}
+		}
+
+		for _, decl := range newRoot.Children() {
+			if funcType, ok := decl.Node().(*dst.FuncDecl); ok && funcType.Name.Name == ctx.Func.Name.Name {
+				p.ReplaceDeclarationAt(cursor, decl, ctx.Func.Name.Name)
+			} else {
+				p.MergeDeclarations(cursor, decl)
+			}
 		}
 	}
 
