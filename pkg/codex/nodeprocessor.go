@@ -159,10 +159,8 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 	return true
 }
 
-// Step processes the code and generates a response
-//
-// The Step function is responsible for generating code by processing the given code and context. The function takes a NodeScope and a psi.Cursor as parameters and returns the generated code as a dst.Node. It follows a series of steps to generate the code and address the TODOs:
-//
+// Step processes the code and generates a response.
+// The Step function follows a series of steps to generate the code and address the TODOs:
 // 1. Obtain the root element of the cursor using cursor.Element().
 // 2. Prepare the todoComment using p.prepareObjective function with the NodeProcessor and NodeScope.
 // 3. Prune the root by applying the Clone method of the psi package on p.Root and iterating through each cursor element and returning true.
@@ -170,17 +168,13 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 // 5. Create a new gpt.Request with stepStr as the Document and todoComment as the Objective, and an empty ContextBag.
 // 6. Prepare the fullContext by calling p.prepareContext with the NodeProcessor, NodeScope, prunedRoot, and req parameters.
 // 7. Set the fullContext as the Context of req.
-// 8. Invoke the gpt.Invoke function with context.TODO() and req to get the codeBlocks response.
+// 8. Invoke the gpt.Invoke function with ctx and req to get the codeBlocks response.
 // 9. Iterate through each codeBlock in codeBlocks.
 //   - If the block's Language is empty, assign it as "go".
 //   - Generate a blockName using the fmt.Sprintf function by appending "mergeContents_#", i, and block.Language.
 //   - If the block.Code contains HTML escape sequences, unescape it using the html.UnescapeString function.
-//   - Create a patchedCode from block.Code and find the package name index using hasPackageRegex.
-//   - If the pkgIndex is greater than 0, add a newline character after the package import.
-//   - Otherwise, wrap the block.Code with "package gptimport" and update the patchedCode accordingly.
-//   - Replace the package declaration using hasPackageRegex.ReplaceAllString(patchedCode, "package gptimport\n").
+//   - Modify the package declaration by wrapping the block.Code with "package gptimport".
 //   - Parse the generated code into a new AST using p.SourceFile.Parse with blockName and patchedCode.
-//   - If parsing returns an error of type scanner.ErrorList and the error message starts with "expected declaration, ", it means we have an orphan snippet. So, create a new patchedCode with block.Code wrapped inside "func orphanSnippet" and parse it again.
 //   - Merge the newRoot.Ast().(*dst.File) with the existing newRoot.Ast().(*dst.File) using the MergeFiles function.
 //   - Iterate over each declaration (decl) in newRoot.Children() and check if it's a function and its name matches the name of the current function.
 //   - If the declaration is a function and its name matches, replace the declaration at the specified position in the cursor with the new declaration using the p.ReplaceDeclarationAt function.
@@ -188,60 +182,47 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 //
 // 10. Return the generated code as a dst.Node.
 func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *psi.Cursor) (result dst.Node, err error) {
-	// Obtain the root element of the cursor using cursor.Element().
 	stepRoot := cursor.Element()
 
-	// Prepare the todoComment using p.prepareObjective function with the NodeProcessor and NodeScope.
 	todoComment, err := p.prepareObjective(p, scope)
 	if err != nil {
 		return nil, err
 	}
 
-	// Prune the root by applying the Clone method of the psi package on p.Root and iterating through each cursor element and returning true.
 	prunedRoot := psi.Apply(psi.Clone(p.Root), func(cursor *psi.Cursor) bool {
 		return true
 	}, nil)
 
-	// Convert the stepRoot to a string using p.SourceFile.ToCode method.
 	stepStr, err := p.SourceFile.ToCode(stepRoot)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create a new gpt.Request with stepStr as the Document and todoComment as the Objective, and an empty ContextBag.
 	req := gpt.Request{
 		Document:  stepStr,
 		Objective: todoComment,
-
-		Context: gpt.ContextBag{},
+		Context:   gpt.ContextBag{},
 	}
 
-	// Prepare the fullContext by calling p.prepareContext with the NodeProcessor, NodeScope, prunedRoot, and req parameters.
 	fullContext, err := p.prepareContext(p, scope, prunedRoot, req)
 	if err != nil {
 		return nil, err
 	}
 
-	// Set the fullContext as the Context of req.
 	req.Context = fullContext
 
-	// Ask GPT to generate code with the given context.
 	codeBlocks, err := gpt.Invoke(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	// Iterate through each codeBlock in codeBlocks.
 	for i, block := range codeBlocks {
-		// If the block's Language is empty, assign it as "go".
 		if block.Language == "" {
 			block.Language = "go"
 		}
 
-		// Generate a blockName using the fmt.Sprintf function by appending "mergeContents_#", i, and block.Language.
 		blockName := fmt.Sprintf("_mergeContents_%d.%s", i, block.Language)
 
-		// If the block.Code contains HTML escape sequences, unescape it using the html.UnescapeString function.
 		if hasHtmlEscapeRegex.MatchString(block.Code) {
 			block.Code = html.UnescapeString(block.Code)
 		}
@@ -250,20 +231,15 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *psi.
 		pkgIndex := hasPackageRegex.FindStringIndex(patchedCode)
 
 		if len(pkgIndex) > 0 {
-			// Add a newline character after the package import.
 			patchedCode = fmt.Sprintf("%s%s%s", patchedCode[:pkgIndex[1]], "\n", patchedCode[pkgIndex[1]:])
 		} else {
-			// Wrap the block.Code with "package gptimport" and update the patchedCode accordingly.
 			patchedCode = fmt.Sprintf("package gptimport\n%s", patchedCode)
 		}
 
-		// Replace the package declaration using hasPackageRegex.ReplaceAllString(patchedCode, "package gptimport\n").
 		patchedCode = hasPackageRegex.ReplaceAllString(patchedCode, "package gptimport\n")
 
-		// Parse the generated code into a new AST using p.SourceFile.Parse with blockName and patchedCode.
 		newRoot, e := p.SourceFile.Parse(blockName, patchedCode)
 		if e != nil {
-			// If parsing returns an error of type scanner.ErrorList and the error message starts with "expected declaration, ", it means we have an orphan snippet. So, create a new patchedCode with block.Code wrapped inside "func orphanSnippet" and parse it again.
 			if errList, ok := e.(scanner.ErrorList); ok {
 				if len(errList) == 1 && strings.HasPrefix(errList[0].Msg, "expected declaration, ") {
 					patchedCode = fmt.Sprintf("package gptimport_orphan\nfunc orphanSnippet%d() {\n%s\n}\n", i, block.Code)
@@ -282,22 +258,17 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *psi.
 			}
 		}
 
-		// Merge the newRoot.Ast().(*dst.File) with the existing newRoot.Ast().(*dst.File) using the MergeFiles function.
 		MergeFiles(newRoot.Ast().(*dst.File), newRoot.Ast().(*dst.File))
 
-		// Iterate over each declaration (decl) in newRoot.Children() and check if it's a function and its name matches the name of the current function.
 		for _, decl := range newRoot.Children() {
 			if funcType, ok := decl.Ast().(*dst.FuncDecl); ok && funcType.Name.Name == scope.Node.Ast().(*dst.FuncDecl).Name.Name {
-				// If the declaration is a function and its name matches, replace the declaration at the specified position in the cursor with the new declaration using the p.ReplaceDeclarationAt function.
 				p.ReplaceDeclarationAt(cursor, decl, funcType.Name.Name)
 			} else {
-				// Otherwise, merge the declaration with the existing declarations using the p.MergeDeclarations function.
 				p.MergeDeclarations(cursor, decl)
 			}
 		}
 	}
 
-	// Return the generated code as a dst.Node.
 	return
 }
 
