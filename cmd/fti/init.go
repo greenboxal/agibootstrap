@@ -9,9 +9,8 @@ import (
 )
 
 var InitCmd = &cobra.Command{
-	Use:   "init [path]",
+	Use:   "init",
 	Short: "Initialize a new FTI repository",
-	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cwd, err := os.Getwd()
 

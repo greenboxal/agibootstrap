@@ -1,0 +1,17 @@
+{
+	"embedding": {
+		"provider": "OpenAI",
+		"model": "AdaEmbeddingV2"
+	},
+	"chunk_specs": [
+		{
+			"max_tokens": 512,
+			"overlap": 128
+		},
+		{
+			"max_tokens": 1024,
+			"overlap": 256
+		}
+	],
+	"Ignore": null
+}

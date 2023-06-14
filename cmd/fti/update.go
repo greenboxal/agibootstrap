@@ -9,9 +9,8 @@ import (
 )
 
 var UpdateCmd = &cobra.Command{
-	Use:   "update [path]",
+	Use:   "update",
 	Short: "Update the FTI repository",
-	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cwd, err := os.Getwd()
 

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
 	"github.com/pkg/errors"
@@ -418,25 +419,26 @@ func (r *Repository) Update(ctx context.Context) error {
 	return nil
 }
 
-func (r *Repository) UpdateFile(f fs.FileInfo) error {
+func (r *Repository) UpdateFile(f FileCursor) error {
 	return nil
 }
 
-func (r *Repository) IterateFiles(ctx context.Context) Iterator[fs.FileInfo] {
+func (r *Repository) IterateFiles(ctx context.Context) Iterator[FileCursor] {
 	files := IterateFiles(ctx, r.repoPath)
 
-	files = Filter(files, func(f fs.FileInfo) bool {
+	files = Filter(files, func(f FileCursor) bool {
 		if f.IsDir() {
 			return false
 		}
 
-		_, err := filepath.Rel(r.ftiPath, f.Name())
+		// TODO: Check if the file is in the .fti directory
+		p, err := filepath.Rel(r.ftiPath, f.Path)
 
-		if err == nil {
+		if err == nil &&  {
 			return false
 		}
 
-		if r.IsIgnored(f.Name()) {
+		if r.IsIgnored(f.Path) {
 			return false
 		}
 
@@ -499,27 +501,24 @@ func (r *Repository) loadConfig() error {
 }
 
 func (r *Repository) loadIgnoreFile() error {
-	ignoreFilePath := r.ResolveDbPath(".ftiignore")
+	ignoreFilePath := r.ResolvePath(".ftiignore")
 
-	// Read the ignore file
-	data, err := ioutil.ReadFile(ignoreFilePath)
+	data, err := os.ReadFile(ignoreFilePath)
+
 	if err != nil {
-		// If the ignore file doesn't exist, return nil error
-		if strings.Contains(err.Error(), "no such file or directory") {
+		if os.IsNotExist(err) {
 			return nil
 		}
+
 		return err
 	}
 
-	// Extract the ignored patterns from the file data
 	patterns := strings.Split(string(data), "\n")
 
-	// Trim leading and trailing whitespaces from each pattern
 	for i, pattern := range patterns {
 		patterns[i] = strings.TrimSpace(pattern)
 	}
 
-	// Update the ignore patterns in the repository config
 	r.config.Ignore = patterns
 
 	return nil
@@ -558,10 +557,10 @@ func (it *chIterator[T]) Next() bool {
 
 	case v, ok := <-it.ch:
 		if ok {
+			it.current = &v
+		} else {
 			it.ch = nil
 			it.current = nil
-		} else {
-			it.current = &v
 		}
 
 		return ok
@@ -581,10 +580,10 @@ func (it *chIterator[T]) Close() error {
 }
 
 type osFileIterator struct {
-	chIterator[fs.FileInfo]
+	chIterator[FileCursor]
 }
 
-func (it *osFileIterator) File() fs.FileInfo {
+func (it *osFileIterator) File() FileCursor {
 	return it.Item()
 }
 
@@ -613,8 +612,8 @@ func Filter[IT Iterator[T], T any](it IT, pred func(T) bool) Iterator[T] {
 	return &filteredIterator[T]{src: it, pred: pred}
 }
 
-func IterateFiles(ctx context.Context, dirPath string) Iterator[fs.FileInfo] {
-	ch := make(chan fs.FileInfo)
+func IterateFiles(ctx context.Context, dirPath string) Iterator[FileCursor] {
+	ch := make(chan FileCursor)
 	errCh := make(chan error)
 
 	go func() {
@@ -635,20 +634,15 @@ func IterateFiles(ctx context.Context, dirPath string) Iterator[fs.FileInfo] {
 				return err
 			}
 
-			// Send the file info to the channel
-			info, err := d.Info()
-
-			if err != nil {
-				return err
-			}
-
 			select {
 			case <-ctx.Done():
 				return ErrAbort
-			case ch <- info:
+			case ch <- FileCursor{
+				DirEntry: d,
+				Path:     path,
+				Err:      err,
+			}:
 				return nil
-			default:
-				return ErrAbort
 			}
 		})
 
@@ -658,10 +652,17 @@ func IterateFiles(ctx context.Context, dirPath string) Iterator[fs.FileInfo] {
 	}()
 
 	return &osFileIterator{
-		chIterator: chIterator[fs.FileInfo]{
+		chIterator: chIterator[FileCursor]{
 			ch: ch,
 		},
 	}
+}
+
+type FileCursor struct {
+	fs.DirEntry
+
+	Path string
+	Err  error
 }
 
 var ErrNoConfig = errors.New("no config file found")
