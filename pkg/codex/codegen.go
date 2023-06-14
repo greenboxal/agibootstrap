@@ -105,15 +105,15 @@ func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node, opts ...NodePro
 		return len(fn.Todos) > 0
 	}
 
-	ctx.prepareContext = func(processor *NodeProcessor, ctx *FunctionContext, root psi.Node, baseRequest string) (any, error) {
+	ctx.prepareContext = func(processor *NodeProcessor, ctx *FunctionContext, root psi.Node, req gpt.Request) (gpt.ContextBag, error) {
 		var err error
 
 		result := gpt.ContextBag{}
 
-		hits, err := p.repo.Query(context.Background(), baseRequest, 3)
+		hits, err := p.repo.Query(context.Background(), req.Document+" "+req.Objective, 10)
 
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		for i, hit := range hits {
@@ -125,7 +125,7 @@ func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node, opts ...NodePro
 		result["file"], err = processor.SourceFile.ToCode(root)
 
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		return result, nil

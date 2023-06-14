@@ -40,7 +40,7 @@ type NodeProcessor struct {
 	Declarations map[string]*declaration
 
 	prepareObjective   func(p *NodeProcessor, ctx *FunctionContext) (string, error)
-	prepareContext     func(p *NodeProcessor, ctx *FunctionContext, root psi.Node, baseRequest string) (any, error)
+	prepareContext     func(p *NodeProcessor, ctx *FunctionContext, root psi.Node, baseRequest gpt.Request) (gpt.ContextBag, error)
 	checkShouldProcess func(fn *FunctionContext, cursor *psi.Cursor) bool
 }
 
@@ -127,21 +127,18 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 		Context: gpt.ContextBag{},
 	}
 
-	nakedContext := gpt.PrepareContext(context.TODO(), req)
-	nakedPrompt, err := gpt.CodeGeneratorPrompt.Build(nakedContext)
-
 	if err != nil {
 		return nil, err
 	}
 
 	// Format Node N to string
-	fullContext, err := p.prepareContext(p, ctx, prunedRoot, nakedPrompt.String())
+	fullContext, err := p.prepareContext(p, ctx, prunedRoot, req)
 
 	if err != nil {
 		return nil, err
 	}
 
-	req.Context["fullContext"] = fullContext
+	req.Context = fullContext
 
 	// Send the string and comment to gpt-3.5-turbo and get a response
 	codeBlocks, err := gpt.Invoke(context.TODO(), req)

@@ -810,6 +810,12 @@ func (oi *OnlineIndex) Query(q llm.Embedding, k int64) ([]OnlineIndexQueryHit, e
 }
 
 func (oi *OnlineIndex) putEntry(idx int64, entry *OnlineIndexEntry) error {
+	indexPath := oi.Repository.ResolveDbPath("index")
+
+	if err := os.MkdirAll(indexPath, os.ModePerm); err != nil {
+		return err
+	}
+
 	p := oi.Repository.ResolveDbPath("index", strconv.FormatInt(idx, 10))
 
 	oi.mapping[idx] = entry
