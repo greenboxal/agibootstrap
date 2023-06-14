@@ -402,6 +402,15 @@ func MergeFiles(file1, file2 *dst.File) *dst.File {
 	return mergedFile
 }
 
+// setExistingDeclaration updates the information about an existing declaration.
+// It takes an index, a name string, and a psi.Node representing the declaration.
+// The process involves the following steps:
+// 1. Retrieve the existing declaration from the NodeProcessor using the name.
+// 2. If the declaration does not exist, create a new declaration and add it to the NodeProcessor.
+// 3. Update the declaration's element, node, and index with the provided values.
+//
+// This function is responsible for maintaining and updating the information about existing declarations,
+// ensuring their accuracy and consistency throughout the code generation process.
 func (p *NodeProcessor) setExistingDeclaration(index int, name string, node psi.Node) {
 	decl := p.Declarations[name]
 
