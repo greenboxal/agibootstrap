@@ -625,11 +625,17 @@ func (r *Repository) lookupInverseIndex(embedding llm.Embedding, path string) (s
 	// Perform a binary search to find the corresponding entry for the embedding
 	low := 0
 	high := len(entries) - 1
+	var embeddingBytes []byte
+	var ok bool
+	if embeddingBytes, ok = embedding.(bytes.Buffer); !ok {
+		return "", 0, 0, errors.New("embedding is not of type bytes.Buffer")
+	}
+
 	for low <= high {
 		mid := (low + high) / 2
-		if bytes.Compare(embedding.Embeddings, entries[mid].Identifier) == 0 {
+		if bytes.Compare(embeddingBytes, entries[mid].Identifier) == 0 {
 			return entries[mid].ObjectHash, entries[mid].ChunkIndex, entries[mid].ChunkOffset, nil
-		} else if bytes.Compare(embedding.Embeddings, entries[mid].Identifier) < 0 {
+		} else if bytes.Compare(embeddingBytes, entries[mid].Identifier) < 0 {
 			high = mid - 1
 		} else {
 			low = mid + 1
