@@ -68,10 +68,7 @@ type NodeProcessor struct {
 	checkShouldProcess func(fn *FunctionContext, cursor *psi.Cursor) bool                                                           // A function to check if a function should be processed.
 }
 
-// NodeProcessor is responsible for processing AST nodes
-// and generating code.
-//
-// The OnEnter method is called when entering a node during
+// OnEnter method is called when entering a node during
 // the AST traversal. It checks if the node is a container,
 // and if so, pushes a new FunctionContext onto the FuncStack.
 // It also scans the comments of the node for TODOs and stores
@@ -83,7 +80,8 @@ type NodeProcessor struct {
 // Returns:
 // - bool: true to continue traversing the AST, false to stop.
 //
-// Write documentation explaining the process, the steps involved, and its purpose.
+// OnEnter is responsible for pushing a new FunctionContext onto the FuncStack if the current node is a container.
+// Additionally, it scans the comments of the node for TODOs and stores them in the current FunctionContext.
 func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 	e := cursor.Element()
 
