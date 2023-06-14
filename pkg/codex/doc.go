@@ -19,8 +19,6 @@ package codex
 //
 // ## Intended Usage
 //
-// TODO: Add intended usage documentation here
-//
 // The intended usage of the codex package is to provide a set of tools and utilities for managing and
 // analyzing Go projects. The Project type serves as the entry point for accessing and manipulating
 // project files. It provides methods for tasks such as adding/removing files, retrieving file contents,
@@ -38,11 +36,7 @@ package codex
 // for managing Go projects. It leverages the power of the Go AST and token packages to analyze and manipulate
 // source code, enabling users to automate tasks and improve code quality.
 //
-// TODO: Intermediate step needed
-//
 // ## Build Steps
-//
-// TODO: Add build steps documentation here
 //
 // The build process in the codex package consists of a series of build steps. Each build step performs a specific
 // action on the project's source files. Some common build steps include code formatting, import fixing, and error checking.
@@ -61,11 +55,7 @@ package codex
 // own custom build steps by implementing the BuildStep interface. This allows for flexibility and customization, as users
 // can tailor the build process to their specific requirements.
 //
-// TODO: Expand the "Build Steps" section above
-//
 // ## Project
-//
-// TODO: Expand the "Project" section above
 //
 // The Project type represents a codex project and provides methods for managing project files and performing project-wide
 // operations. It serves as the entry point for working with the project and provides a unified interface for accessing and
@@ -87,6 +77,4 @@ package codex
 // hides the complexity of working with the file system and the Go AST package, allowing users to focus on the task at hand
 // without worrying about the implementation details.
 func init() {
-	// TODO: Expand the design document above
-
 }
