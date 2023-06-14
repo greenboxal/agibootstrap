@@ -1,7 +1,5 @@
 package psi
 
-import "fmt"
-
 /*
 Package psi provides a graph-based representation of a file directory system, with a focus on code files.
 
@@ -45,32 +43,6 @@ fileNode.AddComment("This is a sample file")
 // Print the parent node of the AST node
 parent := astNode.Parent()
 fmt.Println(parent)
-
-// TODO: Add more examples
 */
 
 func init() {}
-func orphanSnippet1() {
-	// TODO: Add more examples
-
-	// Example 1: Adding child nodes to a container node
-	container := NewContainerNode("main.go")
-	function1 := NewFunctionNode("func1")
-	function2 := NewFunctionNode("func2")
-
-	container.AddChildNode(function1)
-	container.AddChildNode(function2)
-
-	// Example 2: Removing a child node from a container node
-	container.RemoveChildNode(function1)
-
-	// Example 3: Accessing comments of a leaf node
-	leaf := NewLeafNode("variable")
-	leaf.AddComment("This is a variable")
-
-	comments := leaf.Comment()
-	for _, comment := range comments {
-		fmt.Println(comment)
-	}
-
-}
