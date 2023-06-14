@@ -291,8 +291,16 @@ func (p *NodeProcessor) InsertDeclarationAt(cursor *psi.Cursor, name string, dec
 	p.setExistingDeclaration(index, name, decl)
 }
 
-// ReplaceDeclarationAt
-// TODO: Write documentation explaining the process, the steps involved and its purpose.
+// ReplaceDeclarationAt method replaces a declaration at a specific cursor position with a new declaration.
+//
+// The ReplaceDeclarationAt method takes three parameters: a psi.Cursor, the declaration node to replace, and the name of the declaration.
+//
+// The steps involved in the ReplaceDeclarationAt method are as follows:
+// 1. The method replaces the declaration node at the cursor position with the new declaration node using the cursor.Replace method.
+// 2. It gets the index of the new declaration in the root file's declarations using the slices.Index method.
+// 3. It updates the existing declaration information in the NodeProcessor by calling the setExistingDeclaration method.
+//
+// The purpose of the ReplaceDeclarationAt method is to provide a mechanism for replacing a declaration at a specific position in the AST and updating the declaration information in the NodeProcessor for further processing and code generation.
 func (p *NodeProcessor) ReplaceDeclarationAt(cursor *psi.Cursor, decl psi.Node, name string) {
 	cursor.Replace(decl.Ast())
 	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
