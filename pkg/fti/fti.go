@@ -1,6 +1,7 @@
 package fti
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
+	"github.com/pkg/errors"
 )
 
 /*
@@ -607,8 +609,6 @@ func (r *Repository) Query(query string) error {
 }
 
 func (r *Repository) lookupInverseIndex(embedding []llm.Embedding, path string) (string, int64, int64, error) {
-	// Implement lookupInverseIndex based on the design
-
 	// Read the inverse index file
 	indexData, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -628,7 +628,7 @@ func (r *Repository) lookupInverseIndex(embedding []llm.Embedding, path string) 
 	for low <= high {
 		mid := (low + high) / 2
 		if bytes.Compare(embedding, entries[mid].Identifier) == 0 {
-			return entries[mid].ObjectHash, entries[mid].ChunkIndex, nil
+			return entries[mid].ObjectHash, entries[mid].ChunkIndex, entries[mid].ChunkIndex, nil
 		} else if bytes.Compare(embedding, entries[mid].Identifier) < 0 {
 			high = mid - 1
 		} else {
@@ -677,8 +677,8 @@ func (r *Repository) retrieveObjectSnapshot(hash interface{}, path string) (Obje
 
 	return ObjectSnapshot{
 		Hash:       hash.(string),
-		ChunkSize:  snapshots[0].ChunkSize, // Assuming all snapshots have the same chunk size
-		Overlap:    snapshots[0].Overlap,   // Assuming all snapshots have the same overlap
+		ChunkSize:  snapshotInfo.ChunkSize,
+		Overlap:    snapshotInfo.Overlap,
 		Embeddings: embeddings,
 	}, nil
 }
