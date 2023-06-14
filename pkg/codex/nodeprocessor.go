@@ -111,6 +111,37 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 	return true
 }
 
+func orphanSnippet0() {
+	e := cursor.Element()
+
+	if e.IsContainer() {
+		err := p.FuncStack.Push(&FunctionContext{
+			Processor: p,
+			Node:      cursor.Element(),
+			Todos:     make([]string, 0),
+		})
+
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	for _, txt := range cursor.Element().Comments() {
+		if strings.Contains(txt, "TODO") {
+			ok, currentFn := p.FuncStack.Peek()
+
+			if !ok {
+				break
+			}
+
+			currentFn.Todos = append(currentFn.Todos, txt)
+		}
+	}
+
+	return true
+
+}
+
 // TODO: Write documentation explaining the process, the steps involved and its purpose.
 func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 	e := cursor.Element()
