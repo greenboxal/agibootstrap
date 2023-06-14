@@ -403,6 +403,7 @@ func generateEmbeddings(chunks []string) ([]Embedding, error) {
 func chunkFile(filepath string, chunkSize int, overlap int) ([]string, error) {
 	// Add your code here to chunk the file according to the specified chunk size and overlap
 	fmt.Println("Chunking file:", filepath, "with chunk size:", chunkSize, "and overlap:", overlap)
+	// Replace the following line with your implementation
 	return nil, nil
 }
 
