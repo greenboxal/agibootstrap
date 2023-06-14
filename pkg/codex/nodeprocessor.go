@@ -33,6 +33,8 @@ type FunctionContext struct {
 
 // TODO: Implement methods for handling Processor, Node, and Todos in the FunctionContext struct.
 
+// TODO: Implement methods for handling Processor, Node, and Todos in the FunctionContext struct.
+
 // TODO: Write documentation explaining the process, the steps involved and its purpose.
 type declaration struct {
 	node    dst.Node
