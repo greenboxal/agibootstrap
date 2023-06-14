@@ -1,6 +1,7 @@
 package fti
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"io/fs"
@@ -332,6 +333,7 @@ type Config struct {
 	} `json:"embedding"`
 
 	ChunkSpecs []ChunkSpec `json:"chunk_specs"`
+	Ignore     []string
 }
 
 type Repository struct {
@@ -351,6 +353,12 @@ func NewRepository(repoPath string) (*Repository, error) {
 
 	if err := r.loadConfig(); err != nil {
 		if err != ErrNoConfig {
+			return nil, err
+		}
+	}
+
+	if err := r.loadIgnoreFile(); err != nil {
+		if !os.IsNotExist(err) {
 			return nil, err
 		}
 	}
@@ -398,8 +406,66 @@ func (r *Repository) Init() error {
 	return nil
 }
 
-func (r *Repository) Update() error {
+func (r *Repository) Update(ctx context.Context) error {
+	for it := r.IterateFiles(ctx); it.Next(); {
+		f := it.Item()
+
+		if err := r.UpdateFile(f); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+func (r *Repository) UpdateFile(f fs.FileInfo) error {
+	return nil
+}
+
+func (r *Repository) IterateFiles(ctx context.Context) Iterator[fs.FileInfo] {
+	files := IterateFiles(ctx, r.repoPath)
+
+	files = Filter(files, func(f fs.FileInfo) bool {
+		if f.IsDir() {
+			return false
+		}
+
+		_, err := filepath.Rel(r.ftiPath, f.Name())
+
+		if err == nil {
+			return false
+		}
+
+		if r.IsIgnored(f.Name()) {
+			return false
+		}
+
+		return true
+	})
+
+	return files
+}
+
+func (r *Repository) IsIgnored(name string) bool {
+	p := r.RelativeToRoot(name)
+
+	for _, pattern := range r.config.Ignore {
+		if matched, _ := filepath.Match(pattern, p); matched {
+			return true
+		}
+	}
+
+	return true
+}
+
+func (r *Repository) RelativeToRoot(name string) string {
+	p, err := filepath.Rel(r.repoPath, name)
+
+	if err != nil {
+		return name
+	}
+
+	return p
 }
 
 func (r *Repository) Query() error {
@@ -432,41 +498,60 @@ func (r *Repository) loadConfig() error {
 	return nil
 }
 
-type FileIterator interface {
-	Next() bool
-	File() fs.FileInfo
+func (r *Repository) loadIgnoreFile() error {
+	// TODO: Load ignore file
+
+	return nil
 }
 
-type filteredFileIterator struct {
+type Iterator[T any] interface {
+	Next() bool
+	Item() T
 }
 
 type chIterator[T any] struct {
-	ch      <-chan T
+	ch      chan T
+	err     <-chan error
 	current *T
 }
 
-func (i *chIterator[T]) HasNext() bool {
-	return i.ch != nil
+func (it *chIterator[T]) HasNext() bool {
+	return it.ch != nil
 }
 
-func (i *chIterator[T]) Next() bool {
-	v, ok := <-i.ch
-
-	if ok {
-		i.ch = nil
-		i.current = nil
-	} else {
-		i.current = &v
+func (it *chIterator[T]) Next() bool {
+	if it.ch == nil {
+		return false
 	}
 
-	return ok
+	select {
+	case err, _ := <-it.err:
+		it.ch = nil
+		it.current = nil
+
+		if err != nil {
+			panic(err)
+		}
+
+		return false
+
+	case v, ok := <-it.ch:
+		if ok {
+			it.ch = nil
+			it.current = nil
+		} else {
+			it.current = &v
+		}
+
+		return ok
+	}
 }
 
-func (i *chIterator[T]) Item() T {
-	return *i.current
+func (it *chIterator[T]) Item() T {
+	return *it.current
 }
 
-func (it *osFileIterator) Close() error {
+func (it *chIterator[T]) Close() error {
 	if it.ch != nil {
 		close(it.ch)
 		it.ch = nil
@@ -476,52 +561,82 @@ func (it *osFileIterator) Close() error {
 
 type osFileIterator struct {
 	chIterator[fs.FileInfo]
-
-	ch chan fs.FileInfo
 }
 
 func (it *osFileIterator) File() fs.FileInfo {
 	return it.Item()
 }
 
-func IterateFiles(dirPath string) FileIterator {
+type filteredIterator[T any] struct {
+	src     Iterator[T]
+	pred    func(T) bool
+	current T
+}
+
+func (f *filteredIterator[T]) Next() bool {
+	for f.src.Next() {
+		if f.pred(f.src.Item()) {
+			f.current = f.src.Item()
+			return true
+		}
+	}
+
+	return false
+}
+
+func (f *filteredIterator[T]) Item() T {
+	return f.current
+}
+
+func Filter[IT Iterator[T], T any](it IT, pred func(T) bool) Iterator[T] {
+	return &filteredIterator[T]{src: it, pred: pred}
+}
+
+func IterateFiles(ctx context.Context, dirPath string) Iterator[fs.FileInfo] {
 	ch := make(chan fs.FileInfo)
+	errCh := make(chan error)
 
 	go func() {
 		defer close(ch)
+		defer close(errCh)
 
 		// WalkDir recursively traverses the directory tree rooted at dirPath
 		// and sends each file info to the channel ch
 		err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
+			select {
+			case <-ctx.Done():
+				return ErrAbort
+			default:
+			}
+
 			// If there's an error, return it
 			if err != nil {
 				return err
 			}
 
-			// Skip directories
-			if d.IsDir() {
-				return nil
-			}
-
 			// Send the file info to the channel
 			info, err := d.Info()
+
 			if err != nil {
 				return err
 			}
-			ch <- info
 
-			return nil
+			select {
+			case <-ctx.Done():
+				return ErrAbort
+			case ch <- info:
+				return nil
+			default:
+				return ErrAbort
+			}
 		})
 
-		// If there was an error during the walk, send it to the channel
-		if err != nil {
-			ch <- &fileInfoWithError{err: err}
+		if err != nil && err != ErrAbort {
+			errCh <- err
 		}
 	}()
 
 	return &osFileIterator{
-		ch: ch,
-
 		chIterator: chIterator[fs.FileInfo]{
 			ch: ch,
 		},
@@ -529,33 +644,7 @@ func IterateFiles(dirPath string) FileIterator {
 }
 
 var ErrNoConfig = errors.New("no config file found")
-
-var defaultConfig = Config{
-	Embedding: struct {
-		Provider string `json:"provider"`
-		Model    string `json:"model"`
-	}{
-		Provider: "OpenAI",
-		Model:    "AdaEmbeddingV2",
-	},
-	ChunkSpecs: []ChunkSpec{
-		{MaxTokens: 512, Overlap: 128},
-		{MaxTokens: 1024, Overlap: 256},
-	},
-}
-
-func (f *fileInfoWithError) IsDir() bool       { return false }
-func (f *fileInfoWithError) ModTime() fs.Time  { return nil }
-func (f *fileInfoWithError) Mode() fs.FileMode { return 0 }
-func (f *fileInfoWithError) Size() int64       { return 0 }
-
-func (f *fileInfoWithError) Name() string { return "" }
-
-type fileInfoWithError struct {
-	err error
-}
-
-var ErrNoConfig = errors.New("no config file found")
+var ErrAbort = errors.New("abort")
 
 var defaultConfig = Config{
 	Embedding: struct {
