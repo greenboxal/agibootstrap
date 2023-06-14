@@ -47,8 +47,9 @@ type Indexer struct {
 	index   Index
 }
 
-func (p *Indexer) Index() error {
-	// Implement your code here
-	// TODO: Add implementation code
-	return nil
+// Additional function to fetch documents to index
+func getDocuments() []Document {
+	// TODO: Implement fetching of documents to index
+	// You can replace this with your actual implementation
+	return []Document{}
 }
