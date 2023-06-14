@@ -16,7 +16,6 @@ var CodeGeneratorPrompt chat.Prompt
 var CodeGeneratorChain chain.Chain
 
 func init() {
-	// TODO: Suggest improvements to the code below so the objective effectiveness is improved. Leave the suggestions as comments.
 	CodeGeneratorPrompt = chat.ComposeTemplate(
 		chat.EntryTemplate(
 			msn.RoleSystem,
