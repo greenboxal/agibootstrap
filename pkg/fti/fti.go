@@ -434,40 +434,125 @@ func (r *Repository) loadConfig() error {
 
 type FileIterator interface {
 	Next() bool
-	File() fs.File
+	File() fs.FileInfo
 }
 
 type filteredFileIterator struct {
 }
 
-type osFileIterator struct {
-	dirPath string
+type chIterator[T any] struct {
+	ch      <-chan T
+	current *T
 }
 
-func (i *osFileIterator) Next() bool {
-	// TODO: Walk the tree to return results
-	filePath := ""
-	err := filepath.Walk(i.dirPath, func(path string, info fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			filePath = path
-		}
-		return nil
-	})
-	if err != nil {
-		return false
+func (i *chIterator[T]) HasNext() bool {
+	return i.ch != nil
+}
+
+func (i *chIterator[T]) Next() bool {
+	v, ok := <-i.ch
+
+	if ok {
+		i.ch = nil
+		i.current = nil
+	} else {
+		i.current = &v
 	}
-	return filePath != ""
+
+	return ok
 }
 
-func (i *osFileIterator) File() fs.File {
+func (i *chIterator[T]) Item() T {
+	return *i.current
+}
+
+func (it *osFileIterator) Close() error {
+	if it.ch != nil {
+		close(it.ch)
+		it.ch = nil
+	}
 	return nil
 }
 
+type osFileIterator struct {
+	chIterator[fs.FileInfo]
+
+	ch chan fs.FileInfo
+}
+
+func (it *osFileIterator) File() fs.FileInfo {
+	return it.Item()
+}
+
 func IterateFiles(dirPath string) FileIterator {
-	return &osFileIterator{dirPath: dirPath}
+	ch := make(chan fs.FileInfo)
+
+	go func() {
+		defer close(ch)
+
+		// WalkDir recursively traverses the directory tree rooted at dirPath
+		// and sends each file info to the channel ch
+		err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
+			// If there's an error, return it
+			if err != nil {
+				return err
+			}
+
+			// Skip directories
+			if d.IsDir() {
+				return nil
+			}
+
+			// Send the file info to the channel
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			ch <- info
+
+			return nil
+		})
+
+		// If there was an error during the walk, send it to the channel
+		if err != nil {
+			ch <- &fileInfoWithError{err: err}
+		}
+	}()
+
+	return &osFileIterator{
+		ch: ch,
+
+		chIterator: chIterator[fs.FileInfo]{
+			ch: ch,
+		},
+	}
+}
+
+var ErrNoConfig = errors.New("no config file found")
+
+var defaultConfig = Config{
+	Embedding: struct {
+		Provider string `json:"provider"`
+		Model    string `json:"model"`
+	}{
+		Provider: "OpenAI",
+		Model:    "AdaEmbeddingV2",
+	},
+	ChunkSpecs: []ChunkSpec{
+		{MaxTokens: 512, Overlap: 128},
+		{MaxTokens: 1024, Overlap: 256},
+	},
+}
+
+func (f *fileInfoWithError) IsDir() bool       { return false }
+func (f *fileInfoWithError) ModTime() fs.Time  { return nil }
+func (f *fileInfoWithError) Mode() fs.FileMode { return 0 }
+func (f *fileInfoWithError) Size() int64       { return 0 }
+
+func (f *fileInfoWithError) Name() string { return "" }
+
+type fileInfoWithError struct {
+	err error
 }
 
 var ErrNoConfig = errors.New("no config file found")
