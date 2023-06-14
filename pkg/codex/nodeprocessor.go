@@ -281,8 +281,6 @@ func (p *NodeProcessor) parseCodeBlock(ctx context.Context, blockName string, bl
 	patchedCode := block.Code
 	pkgIndex := hasPackageRegex.FindStringIndex(patchedCode)
 
-	BadStmt
-
 	if len(pkgIndex) > 0 {
 		patchedCode = fmt.Sprintf("%s\n%s%s", patchedCode[:pkgIndex[1]], "\n", patchedCode[pkgIndex[1]:])
 	} else {
