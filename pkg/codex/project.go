@@ -31,7 +31,6 @@ type BuildStep interface {
 
 // Project represents a codex project.
 // It contains all the information about the project.
-// TODO: Write documentation
 type Project struct {
 	rootPath string
 	fs       repofs.FS
@@ -170,9 +169,13 @@ func (p *Project) Generate(isSingleStep bool) (changes int, err error) {
 
 var validExtensions = []string{".go"}
 
-// TODO: Write documentation
+// Sync synchronizes the project with the file system.
+// It scans all files in the project directory and imports
+// valid files into the project. Valid files are those that
+// have valid file extensions specified in the `validExtensions`
+// slice. The function returns an error if any occurs during
+// the sync process.
 func (p *Project) Sync() (err error) {
-
 	err = filepath.WalkDir(p.rootPath, func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() {
 			valid := false
