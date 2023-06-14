@@ -204,7 +204,8 @@ func (p *Project) Sync() (err error) {
 	return nil
 }
 
-// TODO: Write documentation
+// GetSourceFile retrieves the source file with the given filename from the project.
+// It returns a pointer to the psi.SourceFile and any error that occurred during the process.
 func (p *Project) GetSourceFile(filename string) (_ *psi.SourceFile, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -240,7 +241,7 @@ func (p *Project) GetSourceFile(filename string) (_ *psi.SourceFile, err error) 
 			return nil, err
 		}
 
-		p.sourceFiles[filename] = existing
+		p.sourceFiles[key] = existing
 	}
 
 	return existing, nil
