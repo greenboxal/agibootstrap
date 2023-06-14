@@ -111,37 +111,7 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 	return true
 }
 
-func orphanSnippet0() {
-	e := cursor.Element()
-
-	if e.IsContainer() {
-		err := p.FuncStack.Push(&FunctionContext{
-			Processor: p,
-			Node:      cursor.Element(),
-			Todos:     make([]string, 0),
-		})
-
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	for _, txt := range cursor.Element().Comments() {
-		if strings.Contains(txt, "TODO") {
-			ok, currentFn := p.FuncStack.Peek()
-
-			if !ok {
-				break
-			}
-
-			currentFn.Todos = append(currentFn.Todos, txt)
-		}
-	}
-
-	return true
-
-}
-
+// OnLeave
 // TODO: Write documentation explaining the process, the steps involved and its purpose.
 func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 	e := cursor.Element()
@@ -277,6 +247,66 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 	return
 }
 
+// TODO: Write documentation explaining the process, the steps involved and its purpose.
+func (p *NodeProcessor) MergeDeclarations(cursor *psi.Cursor, node psi.Node) bool {
+	names := getDeclarationNames(node)
+
+	for _, name := range names {
+		previous := p.Declarations[name]
+
+		if previous == nil {
+			p.InsertDeclarationAt(cursor, name, node)
+		} else {
+			if cursor.Node() == previous.node {
+				cursor.Replace(node.Ast())
+			}
+
+			p.setExistingDeclaration(previous.index, name, node)
+		}
+	}
+
+	return true
+}
+
+// InsertDeclarationAt
+// TODO: Write documentation explaining the process, the steps involved and its purpose.
+func (p *NodeProcessor) InsertDeclarationAt(cursor *psi.Cursor, name string, decl psi.Node) {
+	cursor.InsertAfter(decl.Ast())
+	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
+	p.setExistingDeclaration(index, name, decl)
+}
+
+// ReplaceDeclarationAt
+// TODO: Write documentation explaining the process, the steps involved and its purpose.
+func (p *NodeProcessor) ReplaceDeclarationAt(cursor *psi.Cursor, decl psi.Node, name string) {
+	cursor.Replace(decl.Ast())
+	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
+	p.setExistingDeclaration(index, name, decl)
+}
+
+func getDeclarationNames(node psi.Node) []string {
+	var names []string
+
+	switch d := node.Ast().(type) {
+	case *dst.GenDecl:
+		for _, spec := range d.Specs {
+
+			switch s := spec.(type) {
+			case *dst.ValueSpec: // for constants and variables
+				for _, name := range s.Names {
+					names = append(names, name.Name)
+				}
+			case *dst.TypeSpec: // for types
+				names = append(names, s.Name.Name)
+			}
+		}
+	case *dst.FuncDecl: // for functions
+		names = append(names, d.Name.Name)
+	}
+
+	return names
+}
+
 func MergeFiles(file1, file2 *dst.File) *dst.File {
 	mergedFile := file1
 	newDecls := make([]dst.Decl, 0)
@@ -352,62 +382,4 @@ func (p *NodeProcessor) setExistingDeclaration(index int, name string, node psi.
 	decl.element = node
 	decl.node = node.Ast()
 	decl.index = index
-}
-
-// TODO: Write documentation explaining the process, the steps involved and its purpose.
-func (p *NodeProcessor) MergeDeclarations(cursor *psi.Cursor, node psi.Node) bool {
-	names := getDeclarationNames(node)
-
-	for _, name := range names {
-		previous := p.Declarations[name]
-
-		if previous == nil {
-			p.InsertDeclarationAt(cursor, name, node)
-		} else {
-			if cursor.Node() == previous.node {
-				cursor.Replace(node.Ast())
-			}
-
-			p.setExistingDeclaration(previous.index, name, node)
-		}
-	}
-
-	return true
-}
-
-// TODO: Write documentation explaining the process, the steps involved and its purpose.
-func (p *NodeProcessor) InsertDeclarationAt(cursor *psi.Cursor, name string, decl psi.Node) {
-	cursor.InsertAfter(decl.Ast())
-	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
-	p.setExistingDeclaration(index, name, decl)
-}
-
-// TODO: Write documentation explaining the process, the steps involved and its purpose.
-func (p *NodeProcessor) ReplaceDeclarationAt(cursor *psi.Cursor, decl psi.Node, name string) {
-	cursor.Replace(decl.Ast())
-	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
-	p.setExistingDeclaration(index, name, decl)
-}
-
-func getDeclarationNames(node psi.Node) []string {
-	var names []string
-
-	switch d := node.Ast().(type) {
-	case *dst.GenDecl:
-		for _, spec := range d.Specs {
-
-			switch s := spec.(type) {
-			case *dst.ValueSpec: // for constants and variables
-				for _, name := range s.Names {
-					names = append(names, name.Name)
-				}
-			case *dst.TypeSpec: // for types
-				names = append(names, s.Name.Name)
-			}
-		}
-	case *dst.FuncDecl: // for functions
-		names = append(names, d.Name.Name)
-	}
-
-	return names
 }
