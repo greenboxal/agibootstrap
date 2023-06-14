@@ -39,28 +39,21 @@ type Document interface {
 }
 
 type Indexer struct {
-	index Index
-}
-
-func orphanSnippet0() {
-	// Implement the logic for indexing here
-
-	ctx := context.Background()
-	documents := make([]Document, 0) // Replace with the actual list of documents to be indexed
-
-	// Loop through each document and add it to the index
-	for _, document := range documents {
-		_, err := indexer.index.Add(ctx, document)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-
+	project *Project
+	index   Index
 }
 
 func (p *Project) Reindex() error {
-	indexer := &Indexer{}
+	indexer := &Indexer{
+		project: p,
+	}
+
+	return indexer.Index()
+}
+
+func (p *Project) Reindex() error {
+	indexer := &Indexer{
+		project: p,
+	}
 	return indexer.Index()
 }
