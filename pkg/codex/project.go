@@ -21,8 +21,11 @@ type BuildStepResult struct {
 	Changes int
 }
 
-// TODO: Write documentation
+// BuildStep is an interface that defines the contract for a build step.
+// It represents a step in the build process and provides a method for processing a project.
 type BuildStep interface {
+	// Process executes the build step logic on the given project.
+	// It returns the result of the build step and any error that occurred during the process.
 	Process(p *Project) (result BuildStepResult, err error)
 }
 
