@@ -41,6 +41,38 @@ package readme
 //
 // The original author and the AI collaboratively set up the system to automatically generate commit messages, commit changes, and push these changes, creating an infinite loop.
 //
+// ## How it works
+//
+// The codex package is responsible for managing code generation and editing operations. It utilizes a state machine to keep track of the current state and allow for smooth transitions between different stages of the code generation process.
+//
+// The state machine consists of several states, such as "idle," "editing," and "generating." Each state has its own set of rules and conditions for transitioning to other states. For example, when the code generation process is initiated, the state transitions from "idle" to "generating," and when the editing process is started, the state transitions to "editing." During the editing phase, users can make changes to the generated code, while in the generating phase, the AI agent generates new code based on predefined templates and user inputs.
+//
+// The codex package also provides functions for committing the generated code, managing version control, and handling other related tasks.
+//
+// This high-level overview should give you a better understanding of the codex package and its state machine.
+//
+// ### State machine diagram
+// TxODO: Fix this diagram based on the codex package Project buildsteps
+// Below is a simplified diagram illustrating the different states and transitions in the codex package's state machine:
+//
+//             +------+
+//             | Idle +------------>  Editing   |
+//             +------+            +------------+
+//                 |                      |
+//                \|/                    \|/
+//     +--------------------+  +----------------------------+
+//     |    Generating      |  |       Committing         |
+//     +--------------------+  +----------------------------+
+//                |                      |
+//                |                      |
+//     +--------------------+  +----------------------------+
+//     |    Sending PR      |  |  Pulling latest changes  |
+//     +--------------------+  +----------------------------+
+//
+// In the "Idle" state, the code generation process has not started. Once initiated, it transitions to the "Generating" state. From the "Generating" state, it can transition to the "Editing" state if the user wants to make changes to the generated code. From the "Editing" state, the user can save the changes and commit them, which transitions the state machine to the "Committing" state. Subsequently, further transitions can happen based on the specific actions, such as sending a pull request or pulling the latest changes.
+//
+// This overview provides a high-level understanding of the codex package and its state machine. For more detailed information, refer to the package documentation and source code.
+//
 // ## AI Safety
 //
 // > **Work in progress:** This section is largely derived from the stable-diffusion-2.1 model card, with minor adjustments.
@@ -80,37 +112,5 @@ package readme
 //
 // AGIBootstrap is licensed under the AGPL license. For more information, please refer to the [LICENSE.md](LICENSE.md) file.
 
-// **High-level overview of the codex package**
-//
-// The codex package is responsible for managing code generation and editing operations. It utilizes a state machine to keep track of the current state and allow for smooth transitions between different stages of the code generation process.
-//
-// The state machine consists of several states, such as "idle," "editing," and "generating." Each state has its own set of rules and conditions for transitioning to other states. For example, when the code generation process is initiated, the state transitions from "idle" to "generating," and when the editing process is started, the state transitions to "editing." During the editing phase, users can make changes to the generated code, while in the generating phase, the AI agent generates new code based on predefined templates and user inputs.
-//
-// The codex package also provides functions for committing the generated code, managing version control, and handling other related tasks.
-//
-// This high-level overview should give you a better understanding of the codex package and its state machine.
-//
-// **State machine diagram**
-//
-// Below is a simplified diagram illustrating the different states and transitions in the codex package's state machine:
-//
-//             +------+
-//             | Idle +------------>  Editing   |
-//             +------+            +------------+
-//                 |                      |
-//                \|/                    \|/
-//     +--------------------+  +----------------------------+
-//     |    Generating      |  |       Committing         |
-//     +--------------------+  +----------------------------+
-//                |                      |
-//                |                      |
-//     +--------------------+  +----------------------------+
-//     |    Sending PR      |  |  Pulling latest changes  |
-//     +--------------------+  +----------------------------+
-//
-// In the "Idle" state, the code generation process has not started. Once initiated, it transitions to the "Generating" state. From the "Generating" state, it can transition to the "Editing" state if the user wants to make changes to the generated code. From the "Editing" state, the user can save the changes and commit them, which transitions the state machine to the "Committing" state. Subsequently, further transitions can happen based on the specific actions, such as sending a pull request or pulling the latest changes.
-//
-// This overview provides a high-level understanding of the codex package and its state machine. For more detailed information, refer to the package documentation and source code.
-
-// TODO: Expand the README above by adding a section at the end explaining how the codex package works high level and its state machine. Fix any inconsistencies, mistakes, or typos in the README.
+// TxODO: Expand the README above by adding a section at the end explaining how the codex package works high level and its state machine. Fix any inconsistencies, mistakes, or typos in the README.
 func init() {}
