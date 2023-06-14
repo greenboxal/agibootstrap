@@ -247,7 +247,10 @@ func (p *Project) GetSourceFile(filename string) (_ *psi.SourceFile, err error) 
 	return existing, nil
 }
 
-// TODO: Write documentation
+// ImportFile imports a file into the project.
+// It takes the path of the file to import as a parameter.
+// It returns an error if the path is invalid or if there
+// is any error during the process.
 func (p *Project) ImportFile(path string) error {
 	absPath, err := filepath.Abs(path)
 
