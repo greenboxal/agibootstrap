@@ -1,6 +1,10 @@
 package indexing
 
-import "context"
+import (
+	"context"
+
+	"github.com/greenboxal/agibootstrap/pkg/codex"
+)
 
 type Index interface {
 	Add(ctx context.Context, document Document) ([]IndexEntry, error)
@@ -36,4 +40,14 @@ type Document interface {
 
 	// Content returns the content of the document.
 	Content() string
+}
+
+type Indexer struct {
+	project *codex.Project
+	index   Index
+}
+
+func (p *Indexer) Index() error {
+	// TODO: Implement
+	return nil
 }

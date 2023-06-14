@@ -37,14 +37,3 @@ type Document interface {
 	// Content returns the content of the document.
 	Content() string
 }
-
-type Indexer struct {
-	project *Project
-	index   Index
-}
-
-func (p *Indexer) Index() error {
-	// TODO: Implement
-	// Implement indexing logic here
-	return nil
-}
