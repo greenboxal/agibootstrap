@@ -328,8 +328,6 @@ func (r *Repository) Init() error {
 
 var config Config
 
-// TODO: Implement chunking as defined in the spec
-
 // Update method updates the FTI repository
 func (r *Repository) Update() error {
 	ftiPath := filepath.Join(r.RepoPath, ".fti")
@@ -410,6 +408,7 @@ func generateEmbeddings(chunks []string) ([]e.Embedding, error) {
 }
 
 // TODO: Implement chunking as defined in the spec
+// Implement the chunkFile function as defined in the spec
 // chunkFile divides a file into chunks of specified size and overlap
 func chunkFile(filepath string, chunkSize int, overlap int) ([]string, error) {
 	fileData, err := ioutil.ReadFile(filepath)
