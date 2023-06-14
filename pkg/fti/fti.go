@@ -392,75 +392,69 @@ func WriteConfigFile(filepath string, configData []byte) error {
 
 func (r *Repository) Update() error {
 	ftiPath := filepath.Join(r.RepoPath, ".fti")
+	objectsDir := filepath.Join(ftiPath, "objects")
 	indexDir := filepath.Join(ftiPath, "index")
 
-	// Retrieve the list of chunkSize and overlap binary snapshot files from the `index` directory
-	files, err := ioutil.ReadDir(indexDir)
-	if err != nil {
-		return err
-	}
-
-	for _, f := range files {
-		if f.IsDir() {
-			continue
-		}
-
-		// Calculate the file hash
-		filePath := filepath.Join(r.RepoPath, f.Name())
-		fileHash, err := calculateFileHash(filePath)
-		if err != nil {
-			return err
-		}
-
-		// Check if the file already exists in the objects directory
-		objectPath := filepath.Join(ftiPath, "objects", fileHash)
-		if _, err := os.Stat(objectPath); !os.IsNotExist(err) {
-			dirPath := filepath.Join(ftiPath, "objects", fileHash)
-			err = os.Mkdir(dirPath, os.ModePerm)
+	// Walk the repository directory to retrieve the list of files
+	err := filepath.WalkDir(r.RepoPath, func(filePath string, d os.DirEntry, err error) error {
+		if !d.IsDir() && d.Name() != "index.bin" {
+			// Calculate the file hash
+			fileHash, err := calculateFileHash(filePath)
 			if err != nil {
 				return err
 			}
-			continue
-		}
 
-		// Write updated metadata file for current snapshot file
-		info, err := os.Stat(filePath)
-		if err != nil {
-			return err
-		}
-		metadata := Metadata{
-			FileName:     f.Name(),
-			ObjectHash:   fileHash,
-			CreationTime: info.ModTime().String(),
-			FileSize:     info.Size(),
-		}
+			// Check if the file already exists in the objects directory
+			objectPath := filepath.Join(objectsDir, fileHash)
+			if _, err := os.Stat(objectPath); !os.IsNotExist(err) {
+				return nil
+			}
 
-		// Generate chunks and embeddings for each chunk specification
-		for _, chunkSize := range r.config.ChunkSizes {
-			for _, overlap := range r.config.Overlaps {
-				chunks, err := chunkFile(filePath, chunkSize, overlap)
-				if err != nil {
-					return err
+			// Write updated metadata file for current snapshot file
+			info, err := os.Stat(filePath)
+			if err != nil {
+				return err
+			}
+			metadata := Metadata{
+				FileName:     d.Name(),
+				ObjectHash:   fileHash,
+				CreationTime: info.ModTime().String(),
+				FileSize:     info.Size(),
+			}
+
+			// Generate chunks and embeddings for each chunk specification
+			for _, chunkSize := range r.config.ChunkSizes {
+				for _, overlap := range r.config.Overlaps {
+					chunks, err := chunkFile(filePath, chunkSize, overlap)
+					if err != nil {
+						return err
+					}
+
+					embeddings, err := generateEmbeddings(chunks)
+					if err != nil {
+						return err
+					}
+
+					// Update object file for current snapshot file
+					objPath := filepath.Join(objectPath, fmt.Sprintf("%dm%d.bin", chunkSize, overlap))
+					err = UpdateObjectFile(objPath, embeddings)
+					if err != nil {
+						return err
+					}
 				}
+			}
 
-				embeddings, err := generateEmbeddings(chunks)
-				if err != nil {
-					return err
-				}
-
-				// Update object file for current snapshot file
-				objectPath := filepath.Join(ftiPath, "objects", fileHash, fmt.Sprintf("%dm%d.bin", chunkSize, overlap))
-				err = UpdateObjectFile(objectPath, embeddings)
-				if err != nil {
-					return err
-				}
+			err = writeMetadataFile(filepath.Join(objectPath, "metadata.json"), metadata)
+			if err != nil {
+				return err
 			}
 		}
 
-		err = writeMetadataFile(filepath.Join(ftiPath, "objects", fileHash, "metadata.json"), metadata)
-		if err != nil {
-			return err
-		}
+		return nil
+	})
+
+	if err != nil {
+		return err
 	}
 
 	fmt.Println("Updating repository at:", r.RepoPath)
