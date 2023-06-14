@@ -365,7 +365,7 @@ func (r *Repository) Update() error {
 		snapshotFile.Close()
 
 		// Generate embeddings for current snapshot file
-		embeddings, err := GenerateEmbeddings(fmt.Sprintf("%s/%d_%d.bin", ftiPath, chunkSize, overlap))
+		embeddings, err := embedder.GetEmbeddings(ctx, chunks)
 		if err != nil {
 			return err
 		}
