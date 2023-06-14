@@ -17,7 +17,7 @@ import (
 )
 
 var ObjectiveKey chain.ContextKey[string] = "Objective"
-var ContextKey chain.ContextKey[string] = "Context"
+var ContextKey chain.ContextKey[any] = "Context"
 var DocumentKey chain.ContextKey[string] = "Document"
 
 // CodeGeneratorPrompt is the prompt used to generate code.
@@ -45,8 +45,8 @@ You're an AI agent specialized in generating Go code. Complete the request below
 You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
 Do not emit any code that is not valid Go code. You can use the context below to help you.
 DO NOT output Go code outside of a function. Always output complete functions.
-`, chain.WithRequiredInput(ContextKey)),
-		),
+`)),
+
 		chat.HistoryFromContext(memory.ContextualMemoryKey),
 		chat.EntryTemplate(
 			msn.RoleUser,
@@ -63,7 +63,7 @@ Address all TODOs in the document below by implementing the necessary changes in
 `+"```"+`go
 {{ .Document }}
 `+"```"+`
-`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey)),
+`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey), chain.WithRequiredInput(ContextKey)),
 		))
 
 	CodeGeneratorChain = chain.New(
