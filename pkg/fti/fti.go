@@ -407,6 +407,12 @@ func NewRepository(repoPath string) (r *Repository, err error) {
 		return nil, err
 	}
 
+	if err := r.loadIndex(); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+	}
+
 	return r, nil
 }
 
@@ -676,28 +682,20 @@ func (r *Repository) updateFileWithSpec(ctx context.Context, spec ChunkSpec, fil
 	return img, nil
 }
 
-func (r *Repository) Query(ctx context.Context, query string) error {
-	if err := r.loadIndex(); err != nil {
-		return err
-	}
-
+func (r *Repository) Query(ctx context.Context, query string, k int64) ([]OnlineIndexQueryHit, error) {
 	embs, err := r.embedder.GetEmbeddings(ctx, []string{query})
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	hits, err := r.index.Query(embs[0], 10)
+	hits, err := r.index.Query(embs[0], k)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	for _, hit := range hits {
-		fmt.Printf("Hit: %#+v\n", hit)
-	}
-
-	return nil
+	return hits, nil
 }
 
 func (r *Repository) loadIndex() error {
@@ -793,13 +791,34 @@ func (oi *OnlineIndex) Query(q llm.Embedding, k int64) ([]OnlineIndexQueryHit, e
 	hits := make([]OnlineIndexQueryHit, len(indices))
 
 	for i, idx := range indices {
+		entry, err := oi.lookupEntry(idx)
+
+		if err != nil {
+			return nil, err
+		}
+
 		hits[i] = OnlineIndexQueryHit{
-			Entry:    oi.mapping[idx],
+			Entry:    entry,
 			Distance: distances[i],
 		}
 	}
 
 	return hits, nil
+}
+
+func (oi *OnlineIndex) lookupEntry(idx int64) (*OnlineIndexEntry, error) {
+	oi.m.Lock()
+	defer oi.m.Unlock()
+
+	existing := oi.mapping[idx]
+
+	if existing == nil {
+		// TODO: Read file from oi.Repository.ResolveDbPath("index/%d", idx)
+
+		oi.mapping[idx] = existing
+	}
+
+	return existing, nil
 }
 
 type ObjectSnapshotMetadata struct {

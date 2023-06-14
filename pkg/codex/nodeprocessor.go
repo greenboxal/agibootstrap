@@ -33,13 +33,14 @@ type declaration struct {
 type NodeProcessorOption func(p *NodeProcessor)
 
 type NodeProcessor struct {
+	Project      *Project
 	SourceFile   *psi.SourceFile
 	Root         psi.Node
 	FuncStack    *stack.Stack[*FunctionContext]
 	Declarations map[string]*declaration
 
 	prepareObjective   func(p *NodeProcessor, ctx *FunctionContext) (string, error)
-	prepareContext     func(p *NodeProcessor, ctx *FunctionContext, root psi.Node) (string, error)
+	prepareContext     func(p *NodeProcessor, ctx *FunctionContext, root psi.Node, baseRequest string) (any, error)
 	checkShouldProcess func(fn *FunctionContext, cursor *psi.Cursor) bool
 }
 
@@ -113,28 +114,37 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 		return true
 	}, nil)
 
-	// Format Node N to string
-	contextStr, err := p.prepareContext(p, ctx, prunedRoot)
-
-	if err != nil {
-		return nil, err
-	}
-
 	stepStr, err := p.SourceFile.ToCode(stepRoot)
 
 	if err != nil {
 		return nil, err
 	}
 
-	// Send the string and comment to gpt-3.5-turbo and get a response
-	codeBlocks, err := gpt.Invoke(context.TODO(), gpt.Request{
+	req := gpt.Request{
 		Document:  stepStr,
 		Objective: todoComment,
 
-		Context: gpt.ContextBag{
-			"outer_context": contextStr,
-		},
-	})
+		Context: gpt.ContextBag{},
+	}
+
+	nakedContext := gpt.PrepareContext(context.TODO(), req)
+	nakedPrompt, err := gpt.CodeGeneratorPrompt.Build(nakedContext)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Format Node N to string
+	fullContext, err := p.prepareContext(p, ctx, prunedRoot, nakedPrompt.String())
+
+	if err != nil {
+		return nil, err
+	}
+
+	req.Context["fullContext"] = fullContext
+
+	// Send the string and comment to gpt-3.5-turbo and get a response
+	codeBlocks, err := gpt.Invoke(context.TODO(), req)
 
 	if err != nil {
 		return nil, err

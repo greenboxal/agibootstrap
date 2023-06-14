@@ -113,12 +113,18 @@ type Request struct {
 	Document  string
 }
 
-func Invoke(ctx context.Context, req Request) ([]CodeBlock, error) {
+func PrepareContext(ctx context.Context, req Request) chain.ChainContext {
 	cctx := chain.NewChainContext(ctx)
 
 	cctx.SetInput(ObjectiveKey, req.Objective)
 	cctx.SetInput(DocumentKey, req.Document)
 	cctx.SetInput(ContextKey, req.Context)
+
+	return cctx
+}
+
+func Invoke(ctx context.Context, req Request) ([]CodeBlock, error) {
+	cctx := PrepareContext(ctx, req)
 
 	if err := CodeGeneratorChain.Run(cctx); err != nil {
 		return nil, err

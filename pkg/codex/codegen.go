@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/zeroflucs-given/generics/collections/stack"
 	"golang.org/x/exp/slices"
 
+	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -92,6 +94,7 @@ func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node, opts ...NodePro
 	//pro, _ := lconf.Load()
 
 	ctx := &NodeProcessor{
+		Project:      p,
 		SourceFile:   sf,
 		Root:         root,
 		FuncStack:    stack.NewStack[*FunctionContext](16),
@@ -102,8 +105,24 @@ func (p *Project) ProcessNode(sf *psi.SourceFile, root psi.Node, opts ...NodePro
 		return len(fn.Todos) > 0
 	}
 
-	ctx.prepareContext = func(p *NodeProcessor, ctx *FunctionContext, root psi.Node) (string, error) {
-		return p.SourceFile.ToCode(root)
+	ctx.prepareContext = func(processor *NodeProcessor, ctx *FunctionContext, root psi.Node, baseRequest string) (any, error) {
+		var err error
+
+		result := gpt.ContextBag{}
+
+		result["hits"], err = p.repo.Query(context.Background(), baseRequest, 3)
+
+		if err != nil {
+			return "", err
+		}
+
+		result["file"], err = processor.SourceFile.ToCode(root)
+
+		if err != nil {
+			return "", err
+		}
+
+		return result, nil
 	}
 
 	ctx.prepareObjective = func(p *NodeProcessor, ctx *FunctionContext) (string, error) {

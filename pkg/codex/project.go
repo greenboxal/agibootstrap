@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"context"
 	"fmt"
 	"go/token"
 	"io/fs"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/greenboxal/agibootstrap/pkg/fti"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/vfs"
@@ -28,6 +30,7 @@ type BuildStep interface {
 type Project struct {
 	rootPath string
 	fs       repofs.FS
+	repo     *fti.Repository
 
 	files       map[string]*vfs.FileNode
 	sourceFiles map[string]*psi.SourceFile
@@ -42,15 +45,26 @@ func NewProject(rootPath string) (*Project, error) {
 		return nil, err
 	}
 
+	repo, err := fti.NewRepository(rootPath)
+
+	if err != nil {
+		return nil, err
+	}
+
 	p := &Project{
 		rootPath:    rootPath,
 		fs:          root,
+		repo:        repo,
 		files:       map[string]*vfs.FileNode{},
 		sourceFiles: map[string]*psi.SourceFile{},
 		fset:        token.NewFileSet(),
 	}
 
 	if err := p.Sync(); err != nil {
+		return nil, err
+	}
+
+	if err := p.repo.Update(context.TODO()); err != nil {
 		return nil, err
 	}
 

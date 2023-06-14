@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -25,7 +26,17 @@ var QueryCmd = &cobra.Command{
 			panic(err)
 		}
 
-		return r.Query(cmd.Context(), args[0])
+		hits, err := r.Query(cmd.Context(), args[0], 10)
+
+		if err != nil {
+			panic(err)
+		}
+
+		for _, hit := range hits {
+			fmt.Printf("Hit: %#+v\n", hit)
+		}
+
+		return nil
 	},
 }
 
