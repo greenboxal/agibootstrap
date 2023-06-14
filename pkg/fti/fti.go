@@ -651,38 +651,32 @@ func (r *Repository) Query(query string) error {
 	return nil
 }
 
-// TODO: Implement according with the design using FAISS (faiss.Index)
+// Implement the lookupInverseIndex method based on the design using FAISS (faiss.Index)
 func (r *Repository) lookupInverseIndex(embedding llm.Embedding, path string) (string, int64, int64, error) {
-	// Read the inverse index file
-	indexData, err := ioutil.ReadFile(path)
+	// Load the index from the file
+	index := faiss.NearestNeighbors{}
+	if err := index.Load(path); err != nil {
+		return "", 0, 0, err
+	}
+
+	// Convert the embedding vector to a float slice
+	embeddingVector := make([]float32, len(embedding.Embeddings))
+	for i, val := range embedding.Embeddings {
+		embeddingVector[i] = float32(val)
+	}
+
+	// Query the index with the embedding vector
+	distances, labels, err := index.Search(embeddingVector, 1)
 	if err != nil {
 		return "", 0, 0, err
 	}
 
-	// Convert the index entries into a slice of Entry structs
-	entries := make([]Entry, 0)
-	err = binary.Read(bytes.NewReader(indexData), binary.LittleEndian, &entries)
-	if err != nil {
-		return "", 0, 0, err
-	}
+	// Extract the object hash, chunk index, and chunk offset from the labels
+	objectHash := string(labels[0])
+	chunkIndex := int64(labels[0] >> 32)
+	chunkOffset := int64(labels[0] & (1<<32 - 1))
 
-	// Perform a binary search to find the corresponding entry for the embedding
-	low := 0
-	high := len(entries) - 1
-	embeddingBytes := embedding.Embeddings
-	for low <= high {
-		mid := (low + high) / 2
-		if bytes.Compare(embeddingBytes, entries[mid].Identifier) == 0 {
-			return entries[mid].ObjectHash, entries[mid].ChunkIndex, entries[mid].ChunkOffset, nil
-		} else if bytes.Compare(embeddingBytes, entries[mid].Identifier) < 0 {
-			high = mid - 1
-		} else {
-			low = mid + 1
-		}
-	}
-
-	// Return an error if the embedding is not found in the inverse index
-	return "", 0, 0, errors.New("embedding not found in the inverse index")
+	return objectHash, chunkIndex, chunkOffset, nil
 }
 
 // Entry represents an entry in the inverse index
