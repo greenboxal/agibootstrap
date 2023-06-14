@@ -407,6 +407,8 @@ func generateEmbeddings(chunks []string) ([]llm.Embedding, error) {
 	return nil, nil
 }
 
+// TODO: Implement chunking as defined in the spec
+// chunkFile divides a file into chunks of specified size and overlap
 func chunkFile(filepath string, chunkSize int, overlap int) ([]string, error) {
 	fileData, err := ioutil.ReadFile(filepath)
 	if err != nil {
