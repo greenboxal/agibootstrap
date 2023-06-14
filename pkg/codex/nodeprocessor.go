@@ -31,6 +31,8 @@ type FunctionContext struct {
 	Todos     []string
 }
 
+// TODO: Implement methods for handling Processor, Node, and Todos in the FunctionContext struct.
+
 // TODO: Write documentation explaining the process, the steps involved and its purpose.
 type declaration struct {
 	node    dst.Node
@@ -115,7 +117,6 @@ var hasPackageRegex = regexp.MustCompile(`(?m)^.*package\s+([a-zA-Z0-9_]+)\n`)
 var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`)
 
 // Step processes the code and generates a response
-// TODO: Write documentation explaining the process, the steps involved and its purpose.
 func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result dst.Node, err error) {
 	stepRoot := cursor.Element()
 
