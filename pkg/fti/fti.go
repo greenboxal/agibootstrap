@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/DataIntelligenceCrew/go-faiss"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
 )
