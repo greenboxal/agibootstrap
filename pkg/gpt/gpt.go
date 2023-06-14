@@ -96,7 +96,6 @@ func Invoke(ctx context.Context, req Request) ([]CodeBlock, error) {
 
 // SendToGPT sends objectives, prompt context, and target to GPT for code generation.
 // It returns a slice of CodeBlock objects and an error.
-// TODO: Document this function
 func SendToGPT(objectives, promptContext, target string) ([]CodeBlock, error) {
 	ctx := context.Background()
 	cctx := chain.NewChainContext(ctx)
