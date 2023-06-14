@@ -16,7 +16,17 @@ func main() {
 }
 
 func readConfigFromFile() Config {
-	// TODO: Implement a function to read the configuration from a file
+	// Implement a function to read the configuration from a file
+	// Read the config data from a file and return a Config struct
+	// Example:
+	//   file, err := os.Open("config.txt")
+	//   if err != nil {
+	//       fmt.Println("Error opening config file:", err)
+	//       return Config{} // or handle the error as appropriate
+	//   }
+	//   defer file.Close()
+	//   // Read the file content and parse it into a Config struct
+	//   ...
 	return Config{
 		Port:         ":8080",
 		ContentType:  "text/html",
