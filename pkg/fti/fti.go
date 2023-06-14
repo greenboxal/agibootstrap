@@ -353,16 +353,32 @@ func (r *Repository) Init() error {
 		return fmt.Errorf("failed to create index folder: %v", err)
 	}
 
-	// TODO: Write the default config
+	// Write the default config
+	defaultConfig := Config{
+		ChunkSizes:          []int{1024, 2048, 4096},
+		Overlaps:            []int{256, 512, 1024},
+		EmbeddingAPI:        "OpenAI",
+		EmbeddingDimensions: 768,
+	}
+
+	// Convert the default config to JSON
+	defaultConfigData, err := json.Marshal(defaultConfig)
+	if err != nil {
+		return fmt.Errorf("failed to marshal default config: %v", err)
+	}
+
+	// Write the default config to the config file
+	configFilePath := fmt.Sprintf("%s/.fti/config.json", r.RepoPath)
+	err = ioutil.WriteFile(configFilePath, defaultConfigData, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to write default config file: %v", err)
+	}
 
 	fmt.Println("Initializing repository at:", r.RepoPath)
 	return nil
 }
-
 func orphanSnippet0() {
 	// TODO: Write the default config
-
-	// Write the default config
 	defaultConfig := Config{
 		ChunkSizes:          []int{1024, 2048, 4096},
 		Overlaps:            []int{256, 512, 1024},
