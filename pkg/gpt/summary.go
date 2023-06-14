@@ -7,6 +7,8 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 	"github.com/greenboxal/aip/aip-langchain/pkg/memory"
+
+	_ "github.com/greenboxal/agibootstrap/pkg/mdpatch"
 )
 
 var commitMessagePrompt = chat.ComposeTemplate(
@@ -30,7 +32,7 @@ Include a title followed by a descriptive list of changes. Be sure to include th
 
 # Diff
 `+"```"+`go
-{{ .Document | markdownTree }}
+{{ .Document | markdownTree 2 }}
 `+"```"+`
 `, chain.WithRequiredInput(DocumentKey))),
 )
