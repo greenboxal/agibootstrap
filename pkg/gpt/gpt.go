@@ -79,7 +79,6 @@ func PrepareContext(ctx context.Context, req Request) chain.ChainContext {
 	return cctx
 }
 
-// TODO: Document this.
 // Invoke is a function that invokes the code generator.
 func Invoke(ctx context.Context, req Request) ([]CodeBlock, error) {
 	cctx := PrepareContext(ctx, req)
@@ -95,9 +94,9 @@ func Invoke(ctx context.Context, req Request) ([]CodeBlock, error) {
 	return ExtractCodeBlocks(parsedReply), nil
 }
 
-// TODO: Document this.
-
-// TODO: Document this.
+// SendToGPT sends objectives, prompt context, and target to GPT for code generation.
+// It returns a slice of CodeBlock objects and an error.
+// TODO: Document this function
 func SendToGPT(objectives, promptContext, target string) ([]CodeBlock, error) {
 	ctx := context.Background()
 	cctx := chain.NewChainContext(ctx)
