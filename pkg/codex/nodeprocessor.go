@@ -87,7 +87,8 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 
 	if e.IsContainer() {
 		err := p.FuncStack.Push(&FunctionContext{
-			Node: cursor.Element(),
+			Node:  cursor.Element(),
+			Todos: make([]string, 0),
 		})
 
 		if err != nil {
