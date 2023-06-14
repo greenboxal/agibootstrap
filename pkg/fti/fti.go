@@ -1,7 +1,6 @@
 package fti
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -15,7 +14,6 @@ import (
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
-	"github.com/pkg/errors"
 )
 
 /*
@@ -654,7 +652,7 @@ func (r *Repository) Query(query string) error {
 // Implement the lookupInverseIndex method based on the design using FAISS (faiss.Index)
 func (r *Repository) lookupInverseIndex(embedding llm.Embedding, path string) (string, int64, int64, error) {
 	// Load the index from the file
-	index := faiss.NearestNeighbors{}
+	index := &faiss.Index{}
 	if err := index.Load(path); err != nil {
 		return "", 0, 0, err
 	}
