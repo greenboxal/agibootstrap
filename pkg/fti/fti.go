@@ -499,7 +499,28 @@ func (r *Repository) loadConfig() error {
 }
 
 func (r *Repository) loadIgnoreFile() error {
-	// TODO: Load ignore file
+	ignoreFilePath := r.ResolveDbPath(".ftiignore")
+
+	// Read the ignore file
+	data, err := ioutil.ReadFile(ignoreFilePath)
+	if err != nil {
+		// If the ignore file doesn't exist, return nil error
+		if strings.Contains(err.Error(), "no such file or directory") {
+			return nil
+		}
+		return err
+	}
+
+	// Extract the ignored patterns from the file data
+	patterns := strings.Split(string(data), "\n")
+
+	// Trim leading and trailing whitespaces from each pattern
+	for i, pattern := range patterns {
+		patterns[i] = strings.TrimSpace(pattern)
+	}
+
+	// Update the ignore patterns in the repository config
+	r.config.Ignore = patterns
 
 	return nil
 }
