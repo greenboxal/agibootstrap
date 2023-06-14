@@ -268,12 +268,12 @@ func (p *NodeProcessor) mergeCompletionResults(ctx context.Context, scope *NodeS
 	return nil
 }
 
+// parseCodeBlock parses the code block and returns the resulting PSI node.
+// This function unescapes HTML escape sequences, modifies the package declaration,
+// and merges the resulting code with the existing AST.
+// It also handles orphan snippets by wrapping them in a pseudo function.
 func (p *NodeProcessor) parseCodeBlock(ctx context.Context, blockName string, block gpt.CodeBlock) (_ psi.Node, err error) {
-	// TODO: Write documentation for this function
-	if block.Language == "" {
-		block.Language = "go"
-	}
-
+	// Unescape HTML escape sequences in the code block
 	if hasHtmlEscapeRegex.MatchString(block.Code) {
 		block.Code = html.UnescapeString(block.Code)
 	}
@@ -281,8 +281,10 @@ func (p *NodeProcessor) parseCodeBlock(ctx context.Context, blockName string, bl
 	patchedCode := block.Code
 	pkgIndex := hasPackageRegex.FindStringIndex(patchedCode)
 
+	BadStmt
+
 	if len(pkgIndex) > 0 {
-		patchedCode = fmt.Sprintf("%s%s%s", patchedCode[:pkgIndex[1]], "\n", patchedCode[pkgIndex[1]:])
+		patchedCode = fmt.Sprintf("%s\n%s%s", patchedCode[:pkgIndex[1]], "\n", patchedCode[pkgIndex[1]:])
 	} else {
 		patchedCode = fmt.Sprintf("package gptimport\n%s", patchedCode)
 	}
@@ -294,6 +296,7 @@ func (p *NodeProcessor) parseCodeBlock(ctx context.Context, blockName string, bl
 	if e != nil {
 		if errList, ok := e.(scanner.ErrorList); ok {
 			if len(errList) == 1 && strings.HasPrefix(errList[0].Msg, "expected declaration, ") {
+				// Handle orphan snippets by wrapping them in a pseudo function
 				patchedCode = fmt.Sprintf("package gptimport_orphan\nfunc orphanSnippet() {\n%s\n}\n", block.Code)
 				newRoot2, e2 := p.SourceFile.Parse(blockName, patchedCode)
 
