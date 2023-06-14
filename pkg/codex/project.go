@@ -76,69 +76,89 @@ func (p *Project) RootPath() string { return p.rootPath }
 // It provides methods for managing the project's files and directories.
 func (p *Project) FS() repofs.FS { return p.fs }
 
-// TODO: Write documentation
+// Generate performs the code generation process for the project.
+// It executes all the build steps specified in the project and
+// stages and commits the changes to the file system.
+// The isSingleStep parameter determines whether the generation
+// process should be performed in a single step or multiple steps.
+// If isSingleStep is true, the process stops after the first step
+// that makes changes. The function returns the total number of changes
+// made during the generation process and an error if any.
 func (p *Project) Generate(isSingleStep bool) (changes int, err error) {
-
+	// Define the list of build steps to be executed
 	steps := []BuildStep{
 		&CodeGenBuildStep{},
 		&FixImportsBuildStep{},
 		//&FixBuildStep{},
 	}
 
+	// Execute the build steps until no further changes are made
 	for {
 		stepChanges := 0
 
+		// Sync the project to ensure it is up to date
 		if err := p.Sync(); err != nil {
 			return changes, err
 		}
 
+		// Execute each build step
 		for _, step := range steps {
+			// Wrap the build step execution in a recover function
 			processWrapped := func() (result BuildStepResult, err error) {
 				defer func() {
 					if r := recover(); r != nil {
 						if e, ok := r.(error); ok {
 							err = e
 						} else {
-							err = fmt.Errorf("%v", e)
+							err = fmt.Errorf("%v", r)
 						}
 					}
 				}()
 
+				// Execute the build step and return the result
 				return step.Process(p)
 			}
 
+			// Execute the build step and handle any errors
 			result, err := processWrapped()
-
 			if err != nil {
 				return changes, err
 			}
 
+			// Update the total number of changes
 			stepChanges += result.Changes
 		}
 
+		// If no changes were made, exit the loop
 		if stepChanges == 0 {
 			break
 		}
 
-		changes += stepChanges
-
+		// Stage all the changes in the file system
 		if err = p.fs.StageAll(); err != nil {
 			return
 		}
 
+		// Commit the changes to the file system
 		if err = p.Commit(); err != nil {
 			return
 		}
 
+		// If isSingleStep is true, exit the loop after the first step
 		if isSingleStep {
 			break
 		}
+
+		// Update the total number of changes
+		changes += stepChanges
 	}
 
+	// Push the changes to the remote repository
 	if err = p.fs.Push(); err != nil {
 		return
 	}
 
+	// Return the total number of changes and no error
 	return
 }
 
