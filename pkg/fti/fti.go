@@ -426,15 +426,15 @@ func (r *Repository) UpdateFile(f FileCursor) error {
 func (r *Repository) IterateFiles(ctx context.Context) Iterator[FileCursor] {
 	files := IterateFiles(ctx, r.repoPath)
 
+	// Check if the file is in the .fti directory
 	files = Filter(files, func(f FileCursor) bool {
 		if f.IsDir() {
 			return false
 		}
 
-		// TODO: Check if the file is in the .fti directory
-		p, err := filepath.Rel(r.ftiPath, f.Path)
+		relPath, err := filepath.Rel(r.ftiPath, f.Path)
 
-		if err == nil &&  {
+		if err == nil && !strings.HasPrefix(relPath, "..") {
 			return false
 		}
 
