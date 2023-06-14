@@ -41,18 +41,19 @@ func init() {
 		chat.EntryTemplate(
 			msn.RoleSystem,
 			chain.NewTemplatePrompt(`
+# Context
+{{ .Context | markdownTree 2 }}
+
 You're an AI agent specialized in generating Go code. Complete the request below.
 You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
 Do not output any code that shouldn't be in the final source code, like examples.
 Do not emit any code that is not valid Go code. You can use the context below to help you.
-`)),
+`, chain.WithRequiredInput(ContextKey))),
 
 		chat.HistoryFromContext(memory.ContextualMemoryKey),
 		chat.EntryTemplate(
 			msn.RoleUser,
 			chain.NewTemplatePrompt(`
-# Context
-{{ .Context | markdownTree 2 }}
 
 # Request
 Address all TODOs in the document below.
