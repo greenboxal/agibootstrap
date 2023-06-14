@@ -584,7 +584,7 @@ func (r *Repository) Query(query string) error {
 		return err
 	}
 	// Perform inverse index lookup
-	objectHash, chunkIndex, err := r.lookupInverseIndex(queryEmbedding, indexPath)
+	objectHash, chunkIndex, _, err := r.lookupInverseIndex(queryEmbedding[0].Embeddings, indexPath)
 	if err != nil {
 		return err
 	}
