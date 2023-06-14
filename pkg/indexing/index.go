@@ -48,6 +48,7 @@ type Indexer struct {
 }
 
 func (p *Indexer) Index() error {
-	// TODO: Implement
+	// Implement your code here
+	// TODO: Add implementation code
 	return nil
 }
