@@ -31,7 +31,9 @@ type CodeBlock struct {
 	Code     string
 }
 
-// TODO: Document this.
+// ExtractCodeBlocks traverses the given AST and extracts all code blocks.
+// It returns a slice of CodeBlock objects, each representing a code block
+// with its language and code content.
 func ExtractCodeBlocks(root ast.Node) (blocks []CodeBlock) {
 	ast.WalkFunc(root, func(node ast.Node, entering bool) ast.WalkStatus {
 		if entering {
