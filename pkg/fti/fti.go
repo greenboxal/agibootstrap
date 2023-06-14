@@ -398,11 +398,11 @@ func WriteConfigFile(filepath string, configData []byte) error {
 }
 
 func (r *Repository) Update() error {
-	ftiPath := filepath.Join(r.RepoPath, ".fti")
+	ftiPath := filepath.Join(r.repoPath, ".fti")
 	objectsDir := filepath.Join(ftiPath, "objects")
 
 	// Walk the repository directory to retrieve the list of files
-	err := filepath.WalkDir(r.RepoPath, func(filePath string, d os.DirEntry, err error) error {
+	err := filepath.WalkDir(r.repoPath, func(filePath string, d os.DirEntry, err error) error {
 		if !d.IsDir() && d.Name() != "index.bin" {
 			// Calculate the file hash
 			fileHash, err := calculateFileHash(filePath)
@@ -575,7 +575,7 @@ func chunkFile(filepath string, chunkSize int, overlap int) ([]string, error) {
 // Query method enables users to query the FTI repository
 func (r *Repository) Query(query string) error {
 	// Improve based on design
-	fmt.Println("Querying repository at:", r.FTIPath, "with query:", query)
+	fmt.Println("Querying repository at:", r.ftiPath, "with query:", query)
 	// Query logic goes here
 	return nil
 }
