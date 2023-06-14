@@ -17,6 +17,9 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
+var hasPackageRegex = regexp.MustCompile(`(?m)^.*package\s+([a-zA-Z0-9_]+)\n`)
+var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`)
+
 // FunctionContext represents the context of a function.
 //
 // The ProcessContext stores information about the processor, node, and todos associated avec with a function.
@@ -97,7 +100,9 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 	}
 
 	for _, txt := range cursor.Element().Comments() {
-		if strings.Contains(txt, "TODO") {
+		txt = strings.TrimSpace(txt)
+
+		if strings.HasPrefix(txt, "// TODO:") {
 			ok, currentFn := p.FuncStack.Peek()
 
 			if !ok {
@@ -111,8 +116,6 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 	return true
 }
 
-// OnLeave
-// TODO: Write documentation explaining the process, the steps involved and its purpose.
 func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 	e := cursor.Element()
 
@@ -138,9 +141,6 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 
 	return true
 }
-
-var hasPackageRegex = regexp.MustCompile(`(?m)^.*package\s+([a-zA-Z0-9_]+)\n`)
-var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`)
 
 // Step processes the code and generates a response
 func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result dst.Node, err error) {
@@ -247,7 +247,16 @@ func (p *NodeProcessor) Step(ctx *FunctionContext, cursor *psi.Cursor) (result d
 	return
 }
 
-// TODO: Write documentation explaining the process, the steps involved and its purpose.
+// MergeDeclarations merges the declarations of a node into the NodeProcessor.
+// It takes a psi.Cursor and a psi.Node representing the current node, and returns a boolean value indicating whether the merging was successful or not.
+//
+// The process of merging declarations involves the following steps:
+// 1. Retrieve all declaration names from the node using the getDeclarationNames function.
+// 2. For each declaration name, check if it already exists in the NodeProcessor. If not, insert the declaration at the cursor position using the InsertDeclarationAt function.
+// 3. If the declaration already exists, check if the current cursor node is the same as the previous node. If so, replace the previous node with the current node's AST representation using the cursor.Replace function.
+// 4. Update the existing declaration with the current node's index, name, and AST representation using the setExistingDeclaration function.
+//
+// The purpose of MergeDeclarations is to ensure that all declarations within a node are properly merged into the NodeProcessor, allowing further processing and code generation to be performed accurately.
 func (p *NodeProcessor) MergeDeclarations(cursor *psi.Cursor, node psi.Node) bool {
 	names := getDeclarationNames(node)
 
