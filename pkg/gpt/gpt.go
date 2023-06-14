@@ -18,6 +18,10 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 )
 
+func init() {
+	RegisterMarkdownHelpers()
+}
+
 var ObjectiveKey chain.ContextKey[string] = "Objective"
 var ContextKey chain.ContextKey[string] = "Context"
 var DocumentKey chain.ContextKey[string] = "Document"
@@ -160,10 +164,6 @@ func NewSession() *Session {
 var DefaultTemplateHelpers = map[string]any{
 	"json":         Json,
 	"markdownTree": MarkdownTree,
-}
-
-func init() {
-	RegisterMarkdownHelpers()
 }
 
 func RegisterMarkdownHelpers() {
