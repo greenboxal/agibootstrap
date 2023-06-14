@@ -274,7 +274,7 @@ func (r *Repository) Init() error {
 	}
 
 	// Use the config file to set up the repository
-	config, err := ReadConfigFile(fmt.Sprintf("%s/.fti/config.json", r.RepoPath))
+	r.config, err = ReadConfigFile(fmt.Sprintf("%s/.fti/config.json", r.RepoPath))
 	if err != nil {
 		return fmt.Errorf("failed to read config file: %v", err)
 	}
