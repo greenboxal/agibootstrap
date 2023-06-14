@@ -29,6 +29,8 @@ type BuildStep interface {
 	Process(p *Project) (result BuildStepResult, err error)
 }
 
+// Project represents a codex project.
+// It contains all the information about the project.
 // TODO: Write documentation
 type Project struct {
 	rootPath string
