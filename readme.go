@@ -80,8 +80,6 @@ package readme
 //
 // AGIBootstrap is licensed under the AGPL license. For more information, please refer to the [LICENSE.md](LICENSE.md) file.
 
-// TODO: Expand the README above by adding a section at the end explaining how the codex package works high level and its state machine.
-
 // **High-level overview of the codex package**
 //
 // The codex package is responsible for managing code generation and editing operations. It utilizes a state machine to keep track of the current state and allow for smooth transitions between different stages of the code generation process.
@@ -96,7 +94,7 @@ package readme
 //
 // Below is a simplified diagram illustrating the different states and transitions in the codex package's state machine:
 //
-//             +------+            +------------+
+//             +------+
 //             | Idle +------------>  Editing   |
 //             +------+            +------------+
 //                 |                      |
@@ -114,4 +112,5 @@ package readme
 //
 // This overview provides a high-level understanding of the codex package and its state machine. For more detailed information, refer to the package documentation and source code.
 
+// TODO: Expand the README above by adding a section at the end explaining how the codex package works high level and its state machine. Fix any inconsistencies, mistakes, or typos in the README.
 func init() {}
