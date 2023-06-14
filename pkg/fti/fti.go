@@ -574,12 +574,35 @@ func chunkFile(filepath string, chunkSize int, overlap int) ([]string, error) {
 
 // Query method enables users to query the FTI repository
 func (r *Repository) Query(query string) error {
-	// TODO: Implement query logic
-	results := []string{"result1", "result2", "result3"}
-	// Perform query logic here
-	for _, result := range results {
-		fmt.Println("Query result:", result)
+	// Implement query logic based on the design
+	objectsPath := filepath.Join(r.ftiPath, "objects")
+	indexPath := filepath.Join(r.ftiPath, "index", "inverseIndex.bin")
+	queryEmbedding, err := generateEmbedding(query, r.config.EmbeddingAPI)
+	if err != nil {
+		return err
 	}
+	// Perform inverse index lookup
+	objectHash, chunkIndex, err := lookupInverseIndex(queryEmbedding, indexPath)
+	if err != nil {
+		return err
+	}
+	// Retrieve object snapshot
+	objectSnapshot, err := retrieveObjectSnapshot(objectHash, objectsPath)
+	if err != nil {
+		return err
+	}
+	// Retrieve metadata for the object snapshot
+	metadata, err := loadMetadata(objectHash, objectsPath)
+	if err != nil {
+		return err
+	}
+	// Extract the relevant chunk from the object snapshot
+	chunk := objectSnapshot.Embeddings[chunkIndex]
+	// Return the retrieved information
+	fmt.Println("Query result:")
+	fmt.Println("Object Hash:", objectSnapshot.Hash)
+	fmt.Println("Metadata:", metadata)
+	fmt.Println("Chunk:", chunk)
 	return nil
 }
 
