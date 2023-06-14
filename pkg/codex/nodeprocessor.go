@@ -71,8 +71,7 @@ type NodeProcessor struct {
 // OnEnter method is called when entering a node during
 // the AST traversal. It checks if the node is a container,
 // and if so, pushes a new FunctionContext onto the FuncStack.
-// It also scans the comments of the node for TODOs and stores
-// them in the current FunctionContext.
+// Additionally, it scans the comments of the node for TODOs and stores them in the current FunctionContext.
 //
 // Parameters:
 // - cursor: The psi.Cursor representing the current node.
@@ -110,38 +109,6 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 	}
 
 	return true
-}
-
-func orphanSnippet0() {
-	e := cursor.Element()
-
-	// Check if the node is a container
-	if e.IsContainer() {
-		err := p.FuncStack.Push(&FunctionContext{
-			Node:  cursor.Element(),
-			Todos: make([]string, 0),
-		})
-
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	// Scan the comments of the node for TODOs and store them in the current FunctionContext
-	for _, txt := range cursor.Element().Comments() {
-		if strings.Contains(txt, "TODO") {
-			ok, currentFn := p.FuncStack.Peek()
-
-			if !ok {
-				break
-			}
-
-			currentFn.Todos = append(currentFn.Todos, txt)
-		}
-	}
-
-	return true
-
 }
 
 // TODO: Write documentation explaining the process, the steps involved and its purpose.
