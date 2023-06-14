@@ -321,27 +321,32 @@ func (p *NodeProcessor) ReplaceDeclarationAt(cursor *psi.Cursor, decl psi.Node, 
 	p.setExistingDeclaration(index, name, decl)
 }
 
-func getDeclarationNames(node psi.Node) []string {
-	var names []string
+// setExistingDeclaration updates the information about an existing declaration.
+// It takes an index, a name string, and a psi.Node representing the declaration.
+// The process involves the following steps:
+// 1. Retrieve the existing declaration from the NodeProcessor using the name.
+// 2. If the declaration does not exist, create a new declaration and add it to the NodeProcessor.
+// 3. Update the declaration's element, node, and index with the provided values.
+//
+// This function is responsible for maintaining and updating the information about existing declarations,
+// ensuring their accuracy and consistency throughout the code generation process.
+func (p *NodeProcessor) setExistingDeclaration(index int, name string, node psi.Node) {
+	decl := p.Declarations[name]
 
-	switch d := node.Ast().(type) {
-	case *dst.GenDecl:
-		for _, spec := range d.Specs {
-
-			switch s := spec.(type) {
-			case *dst.ValueSpec: // for constants and variables
-				for _, name := range s.Names {
-					names = append(names, name.Name)
-				}
-			case *dst.TypeSpec: // for types
-				names = append(names, s.Name.Name)
-			}
+	if decl == nil {
+		decl = &declaration{
+			name:    name,
+			node:    node.Ast(),
+			element: node,
+			index:   index,
 		}
-	case *dst.FuncDecl: // for functions
-		names = append(names, d.Name.Name)
+
+		p.Declarations[name] = decl
 	}
 
-	return names
+	decl.element = node
+	decl.node = node.Ast()
+	decl.index = index
 }
 
 func MergeFiles(file1, file2 *dst.File) *dst.File {
@@ -402,30 +407,28 @@ func MergeFiles(file1, file2 *dst.File) *dst.File {
 	return mergedFile
 }
 
-// setExistingDeclaration updates the information about an existing declaration.
-// It takes an index, a name string, and a psi.Node representing the declaration.
-// The process involves the following steps:
-// 1. Retrieve the existing declaration from the NodeProcessor using the name.
-// 2. If the declaration does not exist, create a new declaration and add it to the NodeProcessor.
-// 3. Update the declaration's element, node, and index with the provided values.
-//
-// This function is responsible for maintaining and updating the information about existing declarations,
-// ensuring their accuracy and consistency throughout the code generation process.
-func (p *NodeProcessor) setExistingDeclaration(index int, name string, node psi.Node) {
-	decl := p.Declarations[name]
+// getDeclarationNames returns a slice of strings representing the declaration names in the given PSI node.
+// The node parameter should be a psi.Node representing the AST node being processed.
+// The function iterates through the AST node and extracts the names of declarations such as constants, variables, types, and functions.
+// The extracted names are then appended to the names slice and returned.
+func getDeclarationNames(node psi.Node) []string {
+	var names []string
 
-	if decl == nil {
-		decl = &declaration{
-			name:    name,
-			node:    node.Ast(),
-			element: node,
-			index:   index,
+	switch d := node.Ast().(type) {
+	case *dst.GenDecl:
+		for _, spec := range d.Specs {
+			switch s := spec.(type) {
+			case *dst.ValueSpec: // for constants and variables
+				for _, name := range s.Names {
+					names = append(names, name.Name)
+				}
+			case *dst.TypeSpec: // for types
+				names = append(names, s.Name.Name)
+			}
 		}
-
-		p.Declarations[name] = decl
+	case *dst.FuncDecl: // for functions
+		names = append(names, d.Name.Name)
 	}
 
-	decl.element = node
-	decl.node = node.Ast()
-	decl.index = index
+	return names
 }
