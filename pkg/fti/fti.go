@@ -369,7 +369,7 @@ func (r *Repository) Init() error {
 
 	// Write the default config to the config file
 	configFilePath := fmt.Sprintf("%s/.fti/config.json", r.RepoPath)
-	err = ioutil.WriteFile(configFilePath, defaultConfigData, os.ModePerm)
+	err = WriteConfigFile(configFilePath, defaultConfigData)
 	if err != nil {
 		return fmt.Errorf("failed to write default config file: %v", err)
 	}
@@ -377,28 +377,14 @@ func (r *Repository) Init() error {
 	fmt.Println("Initializing repository at:", r.RepoPath)
 	return nil
 }
-func orphanSnippet0() {
-	// TODO: Write the default config
-	defaultConfig := Config{
-		ChunkSizes:          []int{1024, 2048, 4096},
-		Overlaps:            []int{256, 512, 1024},
-		EmbeddingAPI:        "OpenAI",
-		EmbeddingDimensions: 768,
-	}
 
-	// Convert the default config to JSON
-	defaultConfigData, err := json.Marshal(defaultConfig)
+// WriteConfigFile writes the given config data to the specified file
+func WriteConfigFile(filepath string, configData []byte) error {
+	err := os.WriteFile(filepath, configData, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("failed to marshal default config: %v", err)
+		return fmt.Errorf("failed to write config file: %v", err)
 	}
-
-	// Write the default config to the config file
-	configFilePath := fmt.Sprintf("%s/.fti/config.json", r.RepoPath)
-	err = ioutil.WriteFile(configFilePath, defaultConfigData, os.ModePerm)
-	if err != nil {
-		return fmt.Errorf("failed to write default config file: %v", err)
-	}
-
+	return nil
 }
 
 // Update method updates the FTI repository
