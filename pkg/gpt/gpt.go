@@ -57,9 +57,8 @@ type ContextBag map[string]any
 
 // TODO: Document this.
 type Request struct {
-	Chain   chain.Chain
-	Context ContextBag
-
+	Chain     chain.Chain
+	Context   ContextBag
 	Objective string
 	Document  string
 }
