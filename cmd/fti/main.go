@@ -5,8 +5,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-
-	main2 "github.com/greenboxal/agibootstrap/cmd/fti"
 )
 
 func main() {
@@ -15,7 +13,7 @@ func main() {
 		Short: "FTI is a tool for managing File Tree Index",
 	}
 
-	rootCmd.AddCommand(main2.InitCmd, main2.UpdateCmd, main2.QueryCmd)
+	rootCmd.AddCommand(InitCmd, UpdateCmd, QueryCmd)
 
 	err := rootCmd.Execute()
 

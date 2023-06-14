@@ -13,8 +13,8 @@ type Object struct {
 
 // Chunk is the struct representation of a chunk in FTI
 type Chunk struct {
-	Size     int
-	Overlap  int
+	Size      int
+	Overlap   int
 	Embedding []float64
 }
 
@@ -45,8 +45,7 @@ func RetrieveObject(path string, hash string) (Object, error) {
 	}
 
 	// TOxDO: Deserialize the content into an Object
-	obj = // Deserialization result
+	obj = content // Deserialization result
 
 	return obj, nil
 }
-
