@@ -19,7 +19,7 @@ import (
 
 // FunctionContext represents the context of a function.
 //
-// The ProcessContext stores information about the processor, node, and todos associated with a function.
+// The ProcessContext stores information about the processor, node, and todos associated avec with a function.
 //
 // Fields:
 // - Processor: A pointer to the NodeProcessor struct.
