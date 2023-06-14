@@ -656,6 +656,8 @@ func (r *Repository) retrieveObjectSnapshot(hash interface{}, path string) (Obje
 		return ObjectSnapshot{}, err
 	}
 
+	snapshotInfo := parseSnapshotFilename(snapshots[0].Name())
+
 	// Iterate over the snapshots to retrieve the embedding data
 	var embeddings []Embedding
 	for _, snapshot := range snapshots {
@@ -664,7 +666,6 @@ func (r *Repository) retrieveObjectSnapshot(hash interface{}, path string) (Obje
 		}
 
 		snapshotFilename := snapshot.Name()
-		snapshotInfo := parseSnapshotFilename(snapshotFilename)
 
 		// Read the embedding data from the snapshot file
 		snapshotFilePath := filepath.Join(objectPath, snapshotFilename)
