@@ -32,8 +32,8 @@ var QueryCmd = &cobra.Command{
 			panic(err)
 		}
 
-		for _, hit := range hits {
-			fmt.Printf("Hit: %#+v\n", hit)
+		for i, hit := range hits {
+			fmt.Printf("+ Hit %d (score = %f, ci = %d):\n%s\n", i, hit.Distance, hit.Entry.Chunk.Index, hit.Entry.Chunk.Content)
 		}
 
 		return nil

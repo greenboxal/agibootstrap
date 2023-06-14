@@ -16,6 +16,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -760,17 +761,19 @@ func (oi *OnlineIndex) Add(img *ObjectSnapshotImage) error {
 	baseIndex := oi.idx.Ntotal()
 
 	for i, emb := range img.Embeddings {
-		if err := oi.idx.Add(emb.Embeddings); err != nil {
-			return err
-		}
-
 		entry := &OnlineIndexEntry{
 			Index:     baseIndex + int64(i),
 			Chunk:     img.Chunks[i],
 			Embedding: emb,
 		}
 
-		oi.mapping[entry.Index] = entry
+		if err := oi.putEntry(entry.Index, entry); err != nil {
+			return err
+		}
+
+		if err := oi.idx.Add(emb.Embeddings); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -806,6 +809,20 @@ func (oi *OnlineIndex) Query(q llm.Embedding, k int64) ([]OnlineIndexQueryHit, e
 	return hits, nil
 }
 
+func (oi *OnlineIndex) putEntry(idx int64, entry *OnlineIndexEntry) error {
+	p := oi.Repository.ResolveDbPath("index", strconv.FormatInt(idx, 10))
+
+	oi.mapping[idx] = entry
+
+	data, err := json.Marshal(entry)
+
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(p, data, os.ModePerm)
+}
+
 func (oi *OnlineIndex) lookupEntry(idx int64) (*OnlineIndexEntry, error) {
 	oi.m.Lock()
 	defer oi.m.Unlock()
@@ -820,9 +837,14 @@ func (oi *OnlineIndex) lookupEntry(idx int64) (*OnlineIndexEntry, error) {
 			return nil, err
 		}
 
-		// TODO: Deserialize the data into an OnlineIndexEntry object
+		entry := &OnlineIndexEntry{}
+		err = json.Unmarshal(data, entry)
+		if err != nil {
+			return nil, err
+		}
 
-		oi.mapping[idx] = existing
+		oi.mapping[idx] = entry
+		existing = entry
 	}
 
 	return existing, nil

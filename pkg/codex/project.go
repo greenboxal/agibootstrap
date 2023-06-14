@@ -1,7 +1,6 @@
 package codex
 
 import (
-	"context"
 	"fmt"
 	"go/token"
 	"io/fs"
@@ -61,10 +60,6 @@ func NewProject(rootPath string) (*Project, error) {
 	}
 
 	if err := p.Sync(); err != nil {
-		return nil, err
-	}
-
-	if err := p.repo.Update(context.TODO()); err != nil {
 		return nil, err
 	}
 
