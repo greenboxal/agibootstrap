@@ -16,26 +16,22 @@ func main() {
 }
 
 func readConfigFromFile() Config {
-	// Implement a function to read the configuration from a file
-	// Read the config data from a file and return a Config struct
-	// Example:
-	//   file, err := os.Open("config.txt")
-	//   if err != nil {
-	//       fmt.Println("Error opening config file:", err)
-	//       return Config{} // or handle the error as appropriate
-	//   }
-	//   defer file.Close()
-	//   // Read the file content and parse it into a Config struct
-	//   ...
-	return Config{
-		Port:         ":8080",
-		ContentType:  "text/html",
-		DefaultRoute: "/",
+	file, err := os.Open("config.json")
+	if err != nil {
+		log.Fatal(err)
 	}
+	defer file.Close()
+
+	byteValue, _ := ioutil.ReadAll(file)
+
+	var config Config
+	json.Unmarshal(byteValue, &config)
+
+	return config
 }
 
 type Config struct {
-	Port         string
-	ContentType  string
-	DefaultRoute string
+	Port         string `json:"port"`
+	ContentType  string `json:"contentType"`
+	DefaultRoute string `json:"defaultRoute"`
 }
