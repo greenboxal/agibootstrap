@@ -328,6 +328,8 @@ func (r *Repository) Init() error {
 
 var config Config
 
+// TODO: Implement chunking as defined in the spec
+
 // Update method updates the FTI repository
 func (r *Repository) Update() error {
 	ftiPath := filepath.Join(r.RepoPath, ".fti")
@@ -401,7 +403,7 @@ func (r *Repository) Update() error {
 	return nil
 }
 
-func generateEmbeddings(chunks []string) ([]llm.Embedding, error) {
+func generateEmbeddings(chunks []string) ([]e.Embedding, error) {
 	// Add your code here to generate embeddings for the given chunks
 	fmt.Println("Generating embeddings for chunks:", chunks)
 	return nil, nil
