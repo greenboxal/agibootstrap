@@ -80,6 +80,7 @@ func PrepareContext(ctx context.Context, req Request) chain.ChainContext {
 }
 
 // TODO: Document this.
+// Invoke is a function that invokes the code generator.
 func Invoke(ctx context.Context, req Request) ([]CodeBlock, error) {
 	cctx := PrepareContext(ctx, req)
 
