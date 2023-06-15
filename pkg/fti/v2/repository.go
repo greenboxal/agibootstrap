@@ -8,10 +8,10 @@ import (
 type Repository struct {
 }
 
-func NewRepository(rootPath string) (*Repository, error) {
+func NewRepository(repoPath string) (*Repository, error) {
 	r := &Repository{
-		repoPath: rootPath,
-		ftiPath:  filepath.Join(rootPath, ".fti"),
+		repoPath: repoPath,
+		ftiPath:  filepath.Join(repoPath, ".fti"),
 	}
 
 	if err := r.loadConfig(); err != nil {
@@ -26,8 +26,8 @@ func NewRepository(rootPath string) (*Repository, error) {
 		}
 	}
 
+	var err error
 	r.index, err = NewOnlineIndex(r)
-
 	if err != nil {
 		return nil, err
 	}
