@@ -11,6 +11,7 @@ type Node interface {
 	UUID() string
 	Node() *NodeBase
 	Parent() Node
+	SetParent(parent Node)
 	Children() []Node
 
 	Ast() dst.Node
@@ -22,7 +23,6 @@ type Node interface {
 
 	attachToGraph(g *Graph)
 	detachFromGraph(g *Graph)
-	setParent(parent Node)
 	addChildNode(node Node)
 	removeChildNode(node Node)
 }
@@ -73,7 +73,7 @@ func (n *NodeBase) removeChildNode(child Node) {
 	n.children = slices.Delete(n.children, idx, idx+1)
 }
 
-func (n *NodeBase) setParent(parent Node) {
+func (n *NodeBase) SetParent(parent Node) {
 	if n.parent == parent {
 		return
 	}

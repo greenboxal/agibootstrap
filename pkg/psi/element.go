@@ -43,7 +43,7 @@ func convertNode(root dst.Node, sf *SourceFile) (result Node) {
 		_, parent := containerStack.Peek()
 
 		wrapped := wrapNode(node)
-		wrapped.setParent(parent)
+		wrapped.SetParent(parent)
 
 		if wrapped.IsContainer() {
 			if err := containerStack.Push(wrapped.(*Container)); err != nil {

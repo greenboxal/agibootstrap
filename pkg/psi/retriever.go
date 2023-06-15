@@ -20,7 +20,7 @@ package psi
 //
 //	attachToGraph(g *Graph)
 //	detachFromGraph(g *Graph)
-//	setParent(parent Node)
+//	SetParent(parent Node)
 //	addChildNode(node Node)
 //	removeChildNode(node Node)
 //}

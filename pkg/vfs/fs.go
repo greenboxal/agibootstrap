@@ -58,15 +58,20 @@ func (dn *DirectoryNode) Sync() error {
 
 	for _, file := range files {
 		name := file.Name()
-		if !file.IsDir() {
-			// Skip directories
+		if file.IsDir() {
+			// Add a new child directory node to the directory node
+			dirPath := filepath.Join(dn.path, name)
+			dirNode := NewDirectoryNode(dn.fs, dirPath)
+
+			dn.SetParent(dirNode)
 			continue
 		}
 
 		// Add a new child file node to the directory node
 		filePath := filepath.Join(dn.path, name)
 		fileNode := NewFileNode(dn.fs, filePath)
-		dn.addChildNode(fileNode)
+
+		dn.SetParent(fileNode)
 	}
 
 	return nil
