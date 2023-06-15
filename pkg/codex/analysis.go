@@ -88,15 +88,73 @@ func (actx *AnalysisContext) analyzePackage(ctx context.Context, info *loader.Pa
 		if !ok {
 			continue
 		}
-
 		typ := &vts.Type{
 			Name: vts.TypeName{
 				Pkg:  pkg.Name,
 				Name: named.Obj().Name(),
 			},
 		}
-
-		// TODO: Add fields and methods
+		// Add fields
+		for i := 0; i < named.NumFields(); i++ {
+			field := named.Field(i)
+			fieldName := field.Name()
+			fieldType := field.Type().String()
+			f := &vts.Field{
+				DeclarationType: vts.TypeName{
+					Pkg:  pkg.Name,
+					Name: named.Obj().Name(),
+				},
+				Name: fieldName,
+				Type: vts.TypeName{
+					Pkg:  pkg.Name,
+					Name: fieldType,
+				},
+			}
+			typ.Members = append(typ.Members, f)
+		}
+		// Add methods
+		for i := 0; i < named.NumMethods(); i++ {
+			method := named.Method(i)
+			methodName := method.Name()
+			methodType := method.Type().String()
+			m := &vts.Method{
+				DeclarationType: vts.TypeName{
+					Pkg:  pkg.Name,
+					Name: named.Obj().Name(),
+				},
+				Name:           methodName,
+				Parameters:     []vts.Parameter{},
+				Results:        []vts.Parameter{},
+				TypeParameters: []vts.Parameter{},
+			}
+			// Add parameters
+			for j := 0; j < method.Type().NumParams(); j++ {
+				param := method.Type().Param(j)
+				paramName := param.Name()
+				paramType := param.Type().String()
+				p := vts.Parameter{
+					Name: paramName,
+					Type: vts.TypeName{
+						Pkg:  pkg.Name,
+						Name: paramType,
+					},
+				}
+				m.Parameters = append(m.Parameters, p)
+			}
+			// Add results
+			for j := 0; j < method.Type().NumResults(); j++ {
+				param := method.Type().Result(j)
+				paramType := param.Type().String()
+				p := vts.Parameter{
+					Type: vts.TypeName{
+						Pkg:  pkg.Name,
+						Name: paramType,
+					},
+				}
+				m.Results = append(m.Results, p)
+			}
+			typ.Members = append(typ.Members, m)
+		}
 
 		pkg.Types = append(pkg.Types, typ)
 	}
