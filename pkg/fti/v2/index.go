@@ -36,18 +36,22 @@ type OnlineIndex struct {
 
 // NewOnlineIndex initializes a new OnlineIndex with the given repository.
 // It returns a pointer to the created OnlineIndex and an error if any.
+//
+// NewOnlineIndex takes a repo *Repository as input and creates a new OnlineIndex
+// instance. It initializes the OnlineIndex struct with the repo and an empty mapping.
+// The function then creates a new Faiss index using faiss.NewIndexFlatIP with a dimension
+// of 1536 and assigns it to the idx field of the OnlineIndex struct.
+// If an error occurs during the creation of the index, it returns nil and the error.
+// Otherwise, it returns a pointer to the created OnlineIndex and nil error.
 func NewOnlineIndex(repo *Repository) (*OnlineIndex, error) {
-	// TODO: Write documentation for this function and its type
 	var err error
 
 	oi := &OnlineIndex{
 		Repository: repo,
-
-		mapping: map[int64]*OnlineIndexEntry{},
+		mapping:    map[int64]*OnlineIndexEntry{},
 	}
 
 	oi.idx, err = faiss.NewIndexFlatIP(1536)
-
 	if err != nil {
 		return nil, err
 	}
