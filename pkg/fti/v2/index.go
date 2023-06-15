@@ -26,7 +26,6 @@ type OnlineIndexEntry struct {
 	Embedding llm.Embedding
 }
 
-// TODO: Write documentation for this file
 type OnlineIndex struct {
 	Repository *Repository
 
@@ -35,8 +34,10 @@ type OnlineIndex struct {
 	mapping map[int64]*OnlineIndexEntry
 }
 
-// TODO: Write documentation for this file
+// NewOnlineIndex initializes a new OnlineIndex with the given repository.
+// It returns a pointer to the created OnlineIndex and an error if any.
 func NewOnlineIndex(repo *Repository) (*OnlineIndex, error) {
+	// TODO: Write documentation for this function and its type
 	var err error
 
 	oi := &OnlineIndex{
@@ -54,8 +55,9 @@ func NewOnlineIndex(repo *Repository) (*OnlineIndex, error) {
 	return oi, nil
 }
 
-// TODO: Write documentation for this file
 func (oi *OnlineIndex) Add(img *ObjectSnapshotImage) error {
+	// TODO: Write documentation for this file
+
 	oi.m.Lock()
 	defer oi.m.Unlock()
 
@@ -80,7 +82,6 @@ func (oi *OnlineIndex) Add(img *ObjectSnapshotImage) error {
 	return nil
 }
 
-// TODO: Write documentation for this file
 func (oi *OnlineIndex) Query(q llm.Embedding, k int64) ([]OnlineIndexQueryHit, error) {
 	distances, indices, err := oi.idx.Search(q.Embeddings, k)
 
@@ -106,7 +107,6 @@ func (oi *OnlineIndex) Query(q llm.Embedding, k int64) ([]OnlineIndexQueryHit, e
 	return hits, nil
 }
 
-// TODO: Write documentation for this file
 func (oi *OnlineIndex) putEntry(idx int64, entry *OnlineIndexEntry) error {
 	indexPath := oi.Repository.ResolveDbPath("index")
 
@@ -127,7 +127,6 @@ func (oi *OnlineIndex) putEntry(idx int64, entry *OnlineIndexEntry) error {
 	return os.WriteFile(p, data, os.ModePerm)
 }
 
-// TODO: Write documentation for this file
 func (oi *OnlineIndex) lookupEntry(idx int64) (*OnlineIndexEntry, error) {
 	oi.m.Lock()
 	defer oi.m.Unlock()
