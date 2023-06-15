@@ -40,6 +40,9 @@ type Repository struct {
 	ignore *ignore.GitIgnore
 }
 
+// NewRepository creates a new Repository with the given repository path.
+// It initializes the repository by loading the configuration and ignore file,
+// creating a new online index, and loading the index if it exists.
 func NewRepository(repoPath string) (r *Repository, err error) {
 	r = &Repository{}
 

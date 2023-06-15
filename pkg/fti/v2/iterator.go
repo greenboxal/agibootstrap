@@ -4,8 +4,6 @@ import (
 	"context"
 	"io/fs"
 	"path/filepath"
-
-	"github.com/pkg/errors"
 )
 
 type Iterator[T any] interface {
@@ -121,7 +119,7 @@ func IterateFiles(ctx context.Context, dirPath string) Iterator[FileCursor] {
 		err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
 			select {
 			case <-ctx.Done():
-				return errors.New("aborted")
+				return ErrAbort
 			default:
 			}
 
@@ -132,7 +130,7 @@ func IterateFiles(ctx context.Context, dirPath string) Iterator[FileCursor] {
 
 			select {
 			case <-ctx.Done():
-				return errors.New("aborted")
+				return ErrAbort
 			case ch <- FileCursor{
 				DirEntry: d,
 				Path:     path,
@@ -142,7 +140,7 @@ func IterateFiles(ctx context.Context, dirPath string) Iterator[FileCursor] {
 			}
 		})
 
-		if err != nil && err != errors.New("aborted") {
+		if err != nil && err != ErrAbort {
 			errCh <- err
 		}
 	}()
