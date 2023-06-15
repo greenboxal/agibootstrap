@@ -211,6 +211,10 @@ func (r *Repository) Init() error {
 	return nil
 }
 
+// Update updates the repository by iterating over the files in the repository and updating each file.
+// It uses the provided context to handle cancellation.
+// For each file, it calls the UpdateFile function to perform the update operation.
+// After updating all files, it writes the index to the index.faiss file.
 func (r *Repository) Update(ctx context.Context) error {
 	for it := r.IterateFiles(ctx); it.Next(); {
 		f := it.Item()
