@@ -97,6 +97,8 @@ func (f *filteredIterator[T]) Item() T {
 	return f.current
 }
 
+// Filter creates an iterator that filters the items in the given iterator based on the provided predicate.
+// It returns a new iterator that only contains items for which the predicate returns true.
 func Filter[IT Iterator[T], T any](it IT, pred func(T) bool) Iterator[T] {
 	return &filteredIterator[T]{src: it, pred: pred}
 }
