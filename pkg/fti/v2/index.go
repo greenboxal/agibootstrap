@@ -59,9 +59,16 @@ func NewOnlineIndex(repo *Repository) (*OnlineIndex, error) {
 	return oi, nil
 }
 
+// Add adds an image to the online index.
+// It takes an ObjectSnapshotImage as input and adds its embeddings to the index.
+//
+// The function initializes a write lock, which ensures the thread-safety of the online index.
+// The function then calculates the base index as the total number of entries in the index.
+// For each embedding in the image, the function creates an OnlineIndexEntry, which holds the index, chunk, and embedding of the image.
+// It then calls the putEntry() function to store the entry in the repository.
+// Finally, it adds the embedding to the faiss index.
+// If any error occurs during the process, it returns the error. Otherwise, it returns nil.
 func (oi *OnlineIndex) Add(img *ObjectSnapshotImage) error {
-	// TODO: Write documentation for this file
-
 	oi.m.Lock()
 	defer oi.m.Unlock()
 
