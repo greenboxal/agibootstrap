@@ -164,6 +164,25 @@ func (r *Repository) loadIgnoreFile() error {
 }
 
 func (r *Repository) IterateFiles(ctx context.Context) Iterator[FileCursor] {
+	// Iterates over files within the repository and applies filtering
+	//
+	// Parameters:
+	// - ctx: The context to use for the iteration (typically the command context)
+	//
+	// Returns:
+	// - An Iterator of FileCursor, representing the files within the repository
+	//
+	// Example:
+	// ```
+	// files := repo.IterateFiles(ctx)
+	// for files.Next() {
+	//    f := files.Item()
+	//    // Process file f
+	// }
+	// if files.Err() != nil {
+	//    // Handle error
+	// }
+	// ```
 	files := IterateFiles(ctx, r.repoPath)
 
 	files = Filter(files, func(f FileCursor) bool {
