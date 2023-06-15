@@ -55,98 +55,75 @@ By incorporating these contextual elements, AI_PAIR is better equipped to provid
 */
 
 import (
-	"fmt"
-	"log"
-
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 )
 
-type Message struct {
-	AgentName string
-	Text      string
-}
-
-type Agent struct {
-	Name  string
-	State string
-}
-
-// CritiqueTask generates a critique of the AI_Agent's current state.
-func CritiqueTask(aiAgent Agent) Message {
-	template := chat.ComposeTemplate(
+// CritiquePromptTemplate generates a critique of the AI_Agent's current state.
+func CritiquePromptTemplate() chat.Prompt {
+	return chat.ComposeTemplate(
 		chat.EntryTemplate(
 			msn.RoleSystem,
 			chain.NewTemplatePrompt(`
-			Considering the current state and output of {{ .AI_Agent.Name }} from the most recent iteration, kindly provide a detailed critique. The critique should encompass areas for improvement, potential gaps, inconsistencies in logic, or any observed issues in the AI_Agent's responses. Please also provide constructive suggestions for adjustments and alternatives that could enhance the problem-solving efficacy of AI_Agent.
-			`,
-				chain.WithRequiredInput(AI_Agent)),
+			Welcome, AI_PAIR. Your task today is to assist AI_Agent in its problem-solving process.
+			This assistance will take the form of various tasks such as critiquing, nudging, preempting, or providing alternatives based on AI_Agent's output.
+			Remember, your role is not to take over the problem-solving process, but to guide and enhance the efficacy of AI_Agent's decisions.
+
+			Considering the current state and output of {{ .AI_Agent.Name }} from the most recent iteration, kindly provide a detailed critique.
+			The critique should encompass areas for improvement, potential gaps, inconsistencies in logic, or any observed issues in the AI_Agent's responses.
+			Please also provide constructive suggestions for adjustments and alternatives that could enhance the problem-solving efficacy of AI_Agent.
+            `),
 		),
 	)
-
-	text, err := template.Execute(map[string]interface{}{
-		AI_Agent: aiAgent,
-	})
-	if err != nil {
-		// handle the error
-	}
-	return Message{AgentName: "AI_PAIR", Text: text}
 }
 
-// NudgeTask generates a nudge to guide the AI_Agent's next steps.
-func NudgeTask(aiAgent Agent) Message {
-	template := chat.ComposeTemplate(
+func NewCritiqueChain() chain.Chain {
+	// TODO: Implement this function by creating a chain that can be used to generate a critique.
+	return chain.New(
+		chain.WithName("CritiqueGenerator"),
+
+		chain.Sequential(
+			chat.Predict(
+				model,
+				critiquePrompt,
+			),
+		),
+	)
+}
+
+// NudgeTaskPromptTemplate generates a nudge to guide the AI_Agent's next steps.
+func NudgeTaskPromptTemplate() chat.Prompt {
+	return chat.ComposeTemplate(
 		chat.EntryTemplate(
 			msn.RoleSystem,
 			chain.NewTemplatePrompt(`
-			Given the recent output and current state of {{ .AI_Agent.Name }}, please provide a nudge that could potentially steer the AI_Agent towards more productive or efficient pathways of thought. This nudge could be in the form of an enlightening question, a hint, or a different perspective on the problem at hand. It is crucial that this nudge does not overtly dictate the next step, but rather subtly influences AI_Agent's thought process in a beneficial direction.
-			`,
-				chain.WithRequiredInput(AI_Agent)),
+			Welcome, AI_PAIR. Your task today is to assist another AI agent in its problem-solving process.
+			This assistance will take the form of various tasks such as critiquing, nudging, preempting, or providing alternatives based on AI_Agent's output.
+			Remember, your role is not to take over the problem-solving process, but to guide and enhance the efficacy of AI_Agent's decisions.
+
+			Given the recent output and current state of an AI agent, please provide a nudge that could potentially steer the AI_Agent towards more productive or efficient pathways of thought.
+			This nudge could be in the form of an enlightening question, a hint, or a different perspective on the problem at hand.
+			It is crucial that this nudge does not overtly dictate the next step, but rather subtly influences AI_Agent's thought process in a beneficial direction.
+            `),
 		),
 	)
-	text, err := template.Execute(map[string]interface{}{
-		AI_Agent: aiAgent,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	return Message{AgentName: "AI_PAIR", Text: text}
 }
 
-// PreemptTask assesses whether the AI_Agent has completed its current objective.
-func PreemptTask(aiAgent Agent) Message {
-	template := chat.ComposeTemplate(
+// PreemptTaskPromptTemplate assesses whether the AI_Agent has completed its current objective.
+func PreemptTaskPromptTemplate() chat.Prompt {
+	return chat.ComposeTemplate(
 		chat.EntryTemplate(
 			msn.RoleSystem,
 			chain.NewTemplatePrompt(`
-            Based on the most recent output and the current state of {{ .AI_Agent.Name }}, please assess whether {{ .AI_Agent.Name }} has completed its current objective to a satisfactory degree. Provide a rating on a scale of 1-10, with 1 indicating unsatisfactory performance and 10 indicating exceptional performance. Additionally, kindly provide written feedback explaining your rating. This feedback should highlight areas of strength in {{ .AI_Agent.Name }}'s performance, as well as areas that could benefit from further improvement.
-            `,
-				chain.WithRequiredInput(AI_Agent)),
+			Welcome, AI_PAIR. Your task today is to assist another AI agent in its problem-solving process.
+			This assistance will take the form of various tasks such as critiquing, nudging, preempting, or providing alternatives based on AI_Agent's output.
+			Remember, your role is not to take over the problem-solving process, but to guide and enhance the efficacy of AI_Agent's decisions.
+
+            Based on the most recent output and the current state of the AI agent, please assess whether AI agent} has completed its current objective to a satisfactory degree.
+			Provide a rating on a scale of 1-10, with 1 indicating unsatisfactory performance and 10 indicating exceptional performance.
+			Additionally, kindly provide written feedback explaining your rating. This feedback should highlight areas of strength in the AI Agent's performance, as well as areas that could benefit from further improvement.
+            `),
 		),
 	)
-	text, err := template.Execute(map[string]interface{}{
-		AI_Agent: aiAgent,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	return Message{AgentName: "AI_PAIR", Text: text}
-}
-
-func main() {
-	aiAgent := Agent{Name: "AI_Agent", State: "idle"}
-
-	msgs := []Message{
-		{AgentName: "System", Text: "Welcome, AI_PAIR. Your task today is to assist AI_Agent in its problem-solving process..."},
-		CritiqueTask(aiAgent),
-		NudgeTask(aiAgent),
-		PreemptTask(aiAgent),
-	}
-
-	msgs = CallLLM(msgs)
-
-	for _, msg := range msgs {
-		fmt.Printf("%s: %s\n", msg.AgentName, msg.Text)
-	}
 }
