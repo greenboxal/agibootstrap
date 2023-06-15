@@ -96,7 +96,21 @@ func CritiqueTask(aiAgent Agent) Message {
 
 // NudgeTask generates a nudge to guide the AI_Agent's next steps.
 func NudgeTask(aiAgent Agent) Message {
-	text := fmt.Sprintf("Given the recent output and current state of AI_Agent, please provide a nudge that could potentially steer the AI_Agent towards more productive or efficient pathways of thought. This nudge could be in the form of an enlightening question, a hint, or a different perspective on the problem at hand. It is crucial that this nudge does not overtly dictate the next step, but rather subtly influences AI_Agent's thought process in a beneficial direction.", aiAgent.Name)
+	template := chat.ComposeTemplate(
+		chat.EntryTemplate(
+			msn.RoleSystem,
+			chain.NewTemplatePrompt(`
+			Given the recent output and current state of {{ .AI_Agent.Name }}, please provide a nudge that could potentially steer the AI_Agent towards more productive or efficient pathways of thought. This nudge could be in the form of an enlightening question, a hint, or a different perspective on the problem at hand. It is crucial that this nudge does not overtly dictate the next step, but rather subtly influences AI_Agent's thought process in a beneficial direction.
+			`,
+				chain.WithRequiredInput(AI_Agent)),
+		),
+	)
+	text, err := template.Execute(map[string]interface{}{
+		AI_Agent: aiAgent,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 	return Message{AgentName: "AI_PAIR", Text: text}
 }
 
