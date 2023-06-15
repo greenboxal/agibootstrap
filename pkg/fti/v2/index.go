@@ -93,6 +93,8 @@ func (oi *OnlineIndex) Add(img *ObjectSnapshotImage) error {
 	return nil
 }
 
+// Query performs a search in the online index using the given query embedding and returns a list of hits.
+// Each hit contains the corresponding entry from the index and the distance between the query and the entry embedding.
 func (oi *OnlineIndex) Query(q llm.Embedding, k int64) ([]OnlineIndexQueryHit, error) {
 	distances, indices, err := oi.idx.Search(q.Embeddings, k)
 
