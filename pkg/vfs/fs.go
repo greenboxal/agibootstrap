@@ -52,26 +52,38 @@ func (dn *DirectoryNode) Path() string       { return dn.path }
 
 func (dn *DirectoryNode) Sync() error {
 	files, err := fs.ReadDir(dn.fs, dn.path)
+
 	if err != nil {
 		return err
 	}
 
-	for _, file := range files {
-		name := file.Name()
-		if file.IsDir() {
-			// Add a new child directory node to the directory node
-			dirPath := filepath.Join(dn.path, name)
-			dirNode := NewDirectoryNode(dn.fs, dirPath)
+	dn.mu.Lock()
+	defer dn.mu.Unlock()
 
-			dn.SetParent(dirNode)
-			continue
+	for _, file := range files {
+		filePath := filepath.Join(dn.path, file.Name())
+
+		if node, ok := dn.cache[filePath]; ok {
+			if file.IsDir() {
+				if _, ok := node.(*DirectoryNode); ok {
+					continue
+				}
+			} else {
+				if _, ok := node.(*FileNode); ok {
+					continue
+				}
+			}
 		}
 
-		// Add a new child file node to the directory node
-		filePath := filepath.Join(dn.path, name)
-		fileNode := NewFileNode(dn.fs, filePath)
-
-		dn.SetParent(fileNode)
+		if file.IsDir() {
+			dirNode := NewDirectoryNode(dn.fs, filePath)
+			dirNode.SetParent(dn)
+			dn.cache[filePath] = dirNode
+		} else {
+			fileNode := NewFileNode(dn.fs, filePath)
+			fileNode.SetParent(dn)
+			dn.cache[filePath] = fileNode
+		}
 	}
 
 	return nil
