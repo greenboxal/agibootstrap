@@ -79,7 +79,6 @@ func CritiquePromptTemplate() chat.Prompt {
 }
 
 func NewCritiqueChain() chain.Chain {
-	// TODO: Implement this function by creating a chain that can be used to generate a critique.
 	return chain.New(
 		chain.WithName("CritiqueGenerator"),
 
