@@ -292,6 +292,14 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 	return nil
 }
 
+// updateFileWithSpec updates a file in the repository with the specified chunk specification.
+// It takes a context, which can be used for cancellation, the chunk specification, the directory to store the file, and the file data.
+// The function splits the file data into chunks based on the chunk specification.
+// It retrieves embeddings for each chunk using the embedder.
+// The function creates a new ObjectSnapshotImage with the chunks and embeddings.
+// For each chunk, it writes the content to a text file and the embeddings to a binary file.
+// Finally, it writes the ObjectSnapshotImage to an image file and adds it to the index.
+// Returns the ObjectSnapshotImage if the update is successful, or an error otherwise.
 func (r *Repository) updateFileWithSpec(ctx context.Context, spec ChunkSpec, fileDir string, data []byte) (*ObjectSnapshotImage, error) {
 	imagePath := filepath.Join(fileDir, fmt.Sprintf("%dm%d.png", spec.MaxTokens, spec.Overlap))
 
