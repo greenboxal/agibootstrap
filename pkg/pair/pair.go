@@ -75,7 +75,22 @@ type Agent struct {
 
 // CritiqueTask generates a critique of the AI_Agent's current state.
 func CritiqueTask(aiAgent Agent) Message {
-	text := fmt.Sprintf("Considering the current state and output of AI_Agent from the most recent iteration, kindly provide a detailed critique. The critique should encompass areas for improvement, potential gaps, inconsistencies in logic, or any observed issues in the AI_Agent's responses. Please also provide constructive suggestions for adjustments and alternatives that could enhance the problem-solving efficacy of AI_Agent.", aiAgent.Name)
+	template := chat.ComposeTemplate(
+		chat.EntryTemplate(
+			msn.RoleSystem,
+			chain.NewTemplatePrompt(`
+			Considering the current state and output of {{ .AI_Agent.Name }} from the most recent iteration, kindly provide a detailed critique. The critique should encompass areas for improvement, potential gaps, inconsistencies in logic, or any observed issues in the AI_Agent's responses. Please also provide constructive suggestions for adjustments and alternatives that could enhance the problem-solving efficacy of AI_Agent.
+			`,
+				chain.WithRequiredInput(AI_Agent)),
+		),
+	)
+
+	text, err := template.Execute(map[string]interface{}{
+		AI_Agent: aiAgent,
+	})
+	if err != nil {
+		// handle the error
+	}
 	return Message{AgentName: "AI_PAIR", Text: text}
 }
 
