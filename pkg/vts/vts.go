@@ -62,10 +62,16 @@ type Parameter struct {
 	Type TypeName
 }
 
+// Field represents a field in a type.
 type Field struct {
+	// DeclarationType represents the type of the field declaration.
 	DeclarationType TypeName
-	Name            string
-	Type            TypeName
+
+	// Name represents the name of the field.
+	Name string
+
+	// Type represents the type of the field.
+	Type TypeName
 }
 
 func (f *Field) GetName() string { return f.Name }

@@ -100,7 +100,7 @@ func (p *Project) FS() repofs.FS { return p.fs }
 func (p *Project) Generate(ctx context.Context, isSingleStep bool) (changes int, err error) {
 	// Define the list of build steps to be executed
 	steps := []BuildStep{
-		&AnalysisBuildStep{},
+		//&AnalysisBuildStep{},
 		&CodeGenBuildStep{},
 		&FixImportsBuildStep{},
 		//&FixBuildStep{},
