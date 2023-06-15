@@ -19,7 +19,8 @@ type CodeGenBuildStep struct{}
 
 func (g *CodeGenBuildStep) Process(ctx context.Context, p *Project) (result BuildStepResult, err error) {
 	for _, file := range p.files {
-		filePath := file.Path
+		filePath := file.Path()
+
 		if filepath.Ext(filePath) == ".go" {
 			count, e := p.processFile(ctx, filePath)
 

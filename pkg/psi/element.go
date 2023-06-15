@@ -94,7 +94,7 @@ func buildContainer(node dst.Node) *Container {
 		node: node,
 	}
 
-	c.Initialize(c)
+	c.Initialize(c, "")
 
 	_, _, dec := dstutil.Decorations(node)
 
@@ -110,7 +110,7 @@ func buildLeaf(node dst.Node) *Leaf {
 		node: node,
 	}
 
-	l.Initialize(l)
+	l.Initialize(l, "")
 
 	_, _, dec := dstutil.Decorations(node)
 

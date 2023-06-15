@@ -35,9 +35,13 @@ type NodeBase struct {
 	children []Node
 }
 
-func (n *NodeBase) Initialize(self Node) {
+func (n *NodeBase) Initialize(self Node, uid string) {
 	n.self = self
-	n.uuid = uuid.New().String()
+	n.uuid = uid
+
+	if n.uuid == "" {
+		n.uuid = uuid.New().String()
+	}
 }
 
 func (n *NodeBase) ID() int64        { return n.id }

@@ -21,7 +21,7 @@ func (s *FixImportsBuildStep) Process(ctx context.Context, p *Project) (result B
 			Fragment:   false,
 		}
 
-		sf, err := p.GetSourceFile(file.Path)
+		sf, err := p.GetSourceFile(file.Path())
 
 		if err != nil {
 			return result, err
@@ -33,7 +33,7 @@ func (s *FixImportsBuildStep) Process(ctx context.Context, p *Project) (result B
 			return result, err
 		}
 
-		newCode, err := imports.Process(file.Path, []byte(code), opt)
+		newCode, err := imports.Process(file.Path(), []byte(code), opt)
 
 		if err != nil {
 			return result, err

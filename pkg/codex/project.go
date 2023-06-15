@@ -259,12 +259,12 @@ func (p *Project) ImportFile(path string) error {
 		return err
 	}
 
-	file := vfs.NewFileNode(absPath)
+	file := vfs.NewFileNode(p.fs, absPath)
 
-	p.files[file.Key] = file
-	p.sourceFiles[file.Key] = nil
+	p.files[file.UUID()] = file
+	p.sourceFiles[file.UUID()] = nil
 
-	if _, err := p.GetSourceFile(file.Path); err != nil {
+	if _, err := p.GetSourceFile(file.Path()); err != nil {
 		return err
 	}
 
