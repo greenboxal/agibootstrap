@@ -54,6 +54,9 @@ func (dn *DirectoryNode) IsLeaf() bool       { return false }
 func (dn *DirectoryNode) Comments() []string { return nil }
 func (dn *DirectoryNode) Path() string       { return dn.path }
 
+// Sync synchronizes the DirectoryNode with the underlying filesystem.
+// It scans the directory and updates the children nodes to reflect the current state of the filesystem.
+// Any nodes that no longer exist in the filesystem are removed.
 func (dn *DirectoryNode) Sync() error {
 	files, err := fs.ReadDir(dn.fs, dn.path)
 
@@ -66,24 +69,15 @@ func (dn *DirectoryNode) Sync() error {
 
 	// Remove nodes that no longer exist in the filesystem
 	for _, file := range files {
-		node, ok := dn.children[file.Name()]
-		if ok {
-			if file.IsDir() && _, ok := node.(*DirectoryNode); !ok {
-				delete(dn.children, file.Name())
-			} else if !file.IsDir() && _, ok := node.(*FileNode); !ok {
-				delete(dn.children, file.Name())
-			}
+		filePath := filepath.Join(dn.path, file.Name())
+		if file.IsDir() {
+			dirNode := NewDirectoryNode(dn.fs, filePath)
+			dirNode.SetParent(dn)
+			dn.children[filePath] = dirNode
 		} else {
-			filePath := filepath.Join(dn.path, file.Name())
-			if file.IsDir() {
-				dirNode := NewDirectoryNode(dn.fs, filePath)
-				dirNode.SetParent(dn)
-				dn.children[filePath] = dirNode
-			} else {
-				fileNode := NewFileNode(dn.fs, filePath)
-				fileNode.SetParent(dn)
-				dn.children[filePath] = fileNode
-			}
+			fileNode := NewFileNode(dn.fs, filePath)
+			fileNode.SetParent(dn)
+			dn.children[filePath] = fileNode
 		}
 	}
 
