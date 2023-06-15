@@ -57,9 +57,8 @@ func (dn *DirectoryNode) Path() string       { return dn.path }
 // Sync synchronizes the DirectoryNode with the underlying filesystem.
 // It scans the directory and updates the children nodes to reflect the current state of the filesystem.
 // Any nodes that no longer exist in the filesystem are removed.
-func (dn *DirectoryNode) Sync() error {
+func (dn *DirectoryNode) Sync(recursive bool) error {
 	files, err := fs.ReadDir(dn.fs, dn.path)
-
 	if err != nil {
 		return err
 	}
@@ -74,6 +73,10 @@ func (dn *DirectoryNode) Sync() error {
 			dirNode := NewDirectoryNode(dn.fs, filePath)
 			dirNode.SetParent(dn)
 			dn.children[filePath] = dirNode
+
+			if recursive {
+				dirNode.Sync(recursive)
+			}
 		} else {
 			fileNode := NewFileNode(dn.fs, filePath)
 			fileNode.SetParent(dn)
