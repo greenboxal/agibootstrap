@@ -18,7 +18,8 @@ type OnlineIndexQueryHit struct {
 	Distance float32
 }
 
-// TODO: Write documentation for this file
+// OnlineIndexEntry represents a single entry in the online index.
+// It holds information about the index, chunk, and embedding of a file.
 type OnlineIndexEntry struct {
 	Index     int64
 	Chunk     chunkers.Chunk
