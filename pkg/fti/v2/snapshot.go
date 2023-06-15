@@ -25,10 +25,13 @@ func (osi *ObjectSnapshotImage) ReadFrom(r io.Reader) (int, error) {
 	return 0, nil
 }
 
+// WriteTo writes the ObjectSnapshotImage to the given io.Writer in PNG format.
+// It generates an image representation of the ObjectSnapshotImage by assigning colors
+// based on the embedding values.
 func (osi *ObjectSnapshotImage) WriteTo(w io.Writer) (int, error) {
 	img := image.NewRGBA(image.Rect(0, 0, len(osi.Chunks)*25, 25))
 
-	for i, _ := range osi.Chunks {
+	for i := range osi.Chunks {
 		embedding := osi.Embeddings[i]
 		n := 25
 
