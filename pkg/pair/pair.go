@@ -140,6 +140,16 @@ func PreemptTaskPromptTemplate() chat.Prompt {
 	)
 }
 
+// NewPreemptChain returns a new PreemptChain based on the provided language model.
 func NewPreemptChain(model chat.LanguageModel) chain.Chain {
-	// TODO: Implement this function like NewCritiqueChain
+	return chain.New(
+		chain.WithName("PreemptGenerator"),
+
+		chain.Sequential(
+			chat.Predict(
+				model,
+				PreemptTaskPromptTemplate(),
+			),
+		),
+	)
 }
