@@ -4,6 +4,8 @@ import (
 	"context"
 	"io/fs"
 	"path/filepath"
+
+	"github.com/pkg/errors"
 )
 
 type Iterator[T any] interface {
@@ -103,6 +105,9 @@ func Filter[IT Iterator[T], T any](it IT, pred func(T) bool) Iterator[T] {
 	return &filteredIterator[T]{src: it, pred: pred}
 }
 
+// IterateFiles traverses the directory tree rooted at dirPath and sends each file info to the channel.
+// It returns an iterator of FileCursor that represents each file found.
+// The context is used to control the cancellation of the traversal.
 func IterateFiles(ctx context.Context, dirPath string) Iterator[FileCursor] {
 	ch := make(chan FileCursor)
 	errCh := make(chan error)
@@ -116,7 +121,7 @@ func IterateFiles(ctx context.Context, dirPath string) Iterator[FileCursor] {
 		err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
 			select {
 			case <-ctx.Done():
-				return ErrAbort
+				return errors.New("aborted")
 			default:
 			}
 
@@ -127,7 +132,7 @@ func IterateFiles(ctx context.Context, dirPath string) Iterator[FileCursor] {
 
 			select {
 			case <-ctx.Done():
-				return ErrAbort
+				return errors.New("aborted")
 			case ch <- FileCursor{
 				DirEntry: d,
 				Path:     path,
@@ -137,7 +142,7 @@ func IterateFiles(ctx context.Context, dirPath string) Iterator[FileCursor] {
 			}
 		})
 
-		if err != nil && err != ErrAbort {
+		if err != nil && err != errors.New("aborted") {
 			errCh <- err
 		}
 	}()
