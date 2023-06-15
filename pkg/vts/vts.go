@@ -68,7 +68,8 @@ type Field struct {
 	Type            TypeName
 }
 
-func (f *Field) GetName() string              { return f.Name }
+func (f *Field) GetName() string { return f.Name }
+
 func (f *Field) GetDeclarationType() TypeName { return f.DeclarationType }
 
 type Scope struct {
@@ -84,6 +85,8 @@ func (s *Scope) AddPackage(pkg *Package) {
 	}
 }
 
+// NewScope returns a new instance of Scope.
+// It creates an empty scope with initialized maps for Packages and Types.
 func NewScope() *Scope {
 	return &Scope{
 		Packages: make(map[PackageName]*Package),
