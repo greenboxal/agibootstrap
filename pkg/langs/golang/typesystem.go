@@ -40,27 +40,24 @@ func (tsp *TypeSystemProvider) IntrospectPackage(t *types.Package) *vts.Package 
 }
 
 func (tsp *TypeSystemProvider) IntrospectType(t types.Type) *vts.Type {
-	// TODO: Implement this correctly by caching the result by name in a map.
 	tsp.mu.Lock()
 	defer tsp.mu.Unlock()
 
 	// Check if the type is already in the cache
-	if typ, ok := tsp.typs[vts.TypeName{
+	name := vts.TypeName{
 		Pkg:  vts.PackageName(t.(*types.Named).Obj().Pkg().Name()),
 		Name: t.(*types.Named).Obj().Name(),
-	}]; ok {
+	}
+	if typ, ok := tsp.typs[name]; ok {
 		return typ
 	}
 
 	// Create a new type and add it to the cache
 	typ := &vts.Type{
-		Name: vts.TypeName{
-			Pkg:  vts.PackageName(t.(*types.Named).Obj().Pkg().Name()),
-			Name: t.(*types.Named).Obj().Name(),
-		},
+		Name: name,
 	}
 
-	tsp.typs[typ.Name] = typ
+	tsp.typs[name] = typ
 
 	return typ
 }
