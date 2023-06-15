@@ -120,6 +120,16 @@ func (oi *OnlineIndex) Query(q llm.Embedding, k int64) ([]OnlineIndexQueryHit, e
 	return hits, nil
 }
 
+// putEntry stores the given entry in the index with the specified index ID.
+//
+// The function takes an index ID and an entry as input and stores the entry in the index.
+// It first resolves the path to the index directory using the provided repository.
+// Then it creates the index directory if it doesn't already exist.
+// Next, it resolves the path to store the entry file using the index ID.
+// The function then adds the entry to the mapping using the index ID as the key.
+// After that, it marshals the entry into JSON format.
+// Finally, it writes the JSON data to the specified entry file in the index directory.
+// The function returns an error if any error occurs during the process; otherwise, it returns nil.
 func (oi *OnlineIndex) putEntry(idx int64, entry *OnlineIndexEntry) error {
 	indexPath := oi.Repository.ResolveDbPath("index")
 
