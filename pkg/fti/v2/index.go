@@ -150,6 +150,9 @@ func (oi *OnlineIndex) putEntry(idx int64, entry *OnlineIndexEntry) error {
 	return os.WriteFile(p, data, os.ModePerm)
 }
 
+// lookupEntry looks up an entry in the online index by its index ID.
+// It retrieves the entry from the mapping if it exists, otherwise it reads
+// the entry from the index file and adds it to the mapping.
 func (oi *OnlineIndex) lookupEntry(idx int64) (*OnlineIndexEntry, error) {
 	oi.m.Lock()
 	defer oi.m.Unlock()
