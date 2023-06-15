@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/dave/dst"
 
@@ -28,6 +29,9 @@ type DirectoryNode struct {
 	fs   FS
 	key  string
 	path string
+
+	mu       sync.RWMutex
+	children map[string]FsNode
 }
 
 // NewDirectoryNode creates a new DirectoryNode with the specified path.
@@ -63,7 +67,7 @@ func (dn *DirectoryNode) Sync() error {
 	for _, file := range files {
 		filePath := filepath.Join(dn.path, file.Name())
 
-		if node, ok := dn.cache[filePath]; ok {
+		if node, ok := dn.children[filePath]; ok {
 			if file.IsDir() {
 				if _, ok := node.(*DirectoryNode); ok {
 					continue
@@ -73,16 +77,19 @@ func (dn *DirectoryNode) Sync() error {
 					continue
 				}
 			}
+		} else {
+			// Remove children nodes from the map if they are not present in the file system anymore
+			delete(dn.children, filePath)
 		}
 
 		if file.IsDir() {
 			dirNode := NewDirectoryNode(dn.fs, filePath)
 			dirNode.SetParent(dn)
-			dn.cache[filePath] = dirNode
+			dn.children[filePath] = dirNode
 		} else {
 			fileNode := NewFileNode(dn.fs, filePath)
 			fileNode.SetParent(dn)
-			dn.cache[filePath] = fileNode
+			dn.children[filePath] = fileNode
 		}
 	}
 
