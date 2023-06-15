@@ -233,21 +233,24 @@ func (r *Repository) Update(ctx context.Context) error {
 	return nil
 }
 
+// UpdateFile updates a file in the repository.
+// It takes a context, which can be used for cancellation, and a FileCursor representing the file to be updated.
+// The function reads the file, computes its hash, and creates a directory with the hash as the name in the objects directory.
+// It then calls the updateFileWithSpec function for each chunk specification in the repository's configuration.
+// It updates the metadata with the count of chunks for each specification and writes the metadata to a JSON file.
+// Returns an error if any occurred, or nil if the update was successful.
 func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 	fmt.Printf("Updating file %s\n", f.Path)
 
 	fh, err := r.OpenFile(f.Path)
-
 	if err != nil {
 		return err
 	}
-
 	defer fh.Close()
 
 	hasher := sha256.New()
 	reader := io.TeeReader(fh, hasher)
 	data, err := io.ReadAll(reader)
-
 	if err != nil {
 		return err
 	}
@@ -270,7 +273,6 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 
 	for i, chunkSpec := range r.config.ChunkSpecs {
 		img, err := r.updateFileWithSpec(ctx, chunkSpec, fileDir, data)
-
 		if err != nil {
 			return err
 		}
@@ -279,7 +281,6 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 	}
 
 	serialized, err := json.MarshalIndent(meta, "", "\t")
-
 	if err != nil {
 		return err
 	}
