@@ -1,18 +1,35 @@
 package vts
 
-import "reflect"
+import "sync"
 
 type PackageName string
 
 type Package struct {
+	mu sync.RWMutex
+
 	Name  PackageName
 	Types []*Type
 }
 
-type TypeName string
+func (p *Package) ResolveType(name string) *Type {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	for _, typ := range p.Types {
+		if typ.Name.Name == name {
+			return typ
+		}
+	}
+
+	return nil
+}
+
+type TypeName struct {
+	Pkg  PackageName
+	Name string
+}
 
 type Type struct {
-	Pkg  PackageName
 	Name TypeName
 
 	Members []TypeMember
@@ -49,13 +66,3 @@ type Field struct {
 
 func (f *Field) GetName() string              { return f.Name }
 func (f *Field) GetDeclarationType() TypeName { return f.DeclarationType }
-
-func ReflectGoType(typ reflect.Type) *Type {
-	// TODO: Implement this by method by converting a reflect.Type to a *Type
-
-	// Convert reflect.Type to *Type
-	typeName := TypeName(typ.String())
-	return &Type{
-		Name: typeName,
-	}
-}
