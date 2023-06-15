@@ -58,13 +58,14 @@ func (dn *DirectoryNode) Path() string       { return dn.path }
 // It scans the directory and updates the children nodes to reflect the current state of the filesystem.
 // Any nodes that no longer exist in the filesystem are removed.
 func (dn *DirectoryNode) Sync(recursive bool) error {
+	dn.mu.Lock()
+	defer dn.mu.Unlock()
+
 	files, err := fs.ReadDir(dn.fs, dn.path)
+
 	if err != nil {
 		return err
 	}
-
-	dn.mu.Lock()
-	defer dn.mu.Unlock()
 
 	// Remove nodes that no longer exist in the filesystem
 	for _, file := range files {
@@ -75,7 +76,11 @@ func (dn *DirectoryNode) Sync(recursive bool) error {
 			dn.children[filePath] = dirNode
 
 			if recursive {
-				dirNode.Sync(recursive)
+				err := dirNode.Sync(recursive)
+
+				if err != nil {
+					return err
+				}
 			}
 		} else {
 			fileNode := NewFileNode(dn.fs, filePath)
