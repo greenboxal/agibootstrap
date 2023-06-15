@@ -48,6 +48,7 @@ func (tsp *TypeSystemProvider) IntrospectType(t types.Type) *vts.Type {
 		Pkg:  vts.PackageName(t.(*types.Named).Obj().Pkg().Name()),
 		Name: t.(*types.Named).Obj().Name(),
 	}
+
 	if typ, ok := tsp.typs[name]; ok {
 		return typ
 	}

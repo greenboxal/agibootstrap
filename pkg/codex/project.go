@@ -14,6 +14,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/vfs"
+	"github.com/greenboxal/agibootstrap/pkg/vts"
 )
 
 var validExtensions = []string{".go"}
@@ -42,6 +43,8 @@ type Project struct {
 	files       map[string]*vfs.FileNode
 	sourceFiles map[string]*psi.SourceFile
 
+	vtsRoot *vts.Scope
+
 	fset *token.FileSet
 }
 
@@ -68,6 +71,8 @@ func NewProject(rootPath string) (*Project, error) {
 		files:       map[string]*vfs.FileNode{},
 		sourceFiles: map[string]*psi.SourceFile{},
 		fset:        token.NewFileSet(),
+
+		vtsRoot: vts.NewScope(),
 	}
 
 	if err := p.Sync(); err != nil {
@@ -95,6 +100,7 @@ func (p *Project) FS() repofs.FS { return p.fs }
 func (p *Project) Generate(ctx context.Context, isSingleStep bool) (changes int, err error) {
 	// Define the list of build steps to be executed
 	steps := []BuildStep{
+		&AnalysisBuildStep{},
 		&CodeGenBuildStep{},
 		&FixImportsBuildStep{},
 		//&FixBuildStep{},

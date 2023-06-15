@@ -11,6 +11,10 @@ type Package struct {
 	Types []*Type
 }
 
+// ResolveType resolves a type by name within the package.
+// It searches for a type with a matching name in the package's list of types.
+// If a matching type is found, it returns a pointer to the type.
+// Otherwise, it returns nil.
 func (p *Package) ResolveType(name string) *Type {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -66,3 +70,23 @@ type Field struct {
 
 func (f *Field) GetName() string              { return f.Name }
 func (f *Field) GetDeclarationType() TypeName { return f.DeclarationType }
+
+type Scope struct {
+	Packages map[PackageName]*Package
+	Types    map[TypeName]*Type
+}
+
+func (s *Scope) AddPackage(pkg *Package) {
+	s.Packages[pkg.Name] = pkg
+
+	for _, typ := range pkg.Types {
+		s.Types[typ.Name] = typ
+	}
+}
+
+func NewScope() *Scope {
+	return &Scope{
+		Packages: make(map[PackageName]*Package),
+		Types:    map[TypeName]*Type{},
+	}
+}
