@@ -366,6 +366,9 @@ func (r *Repository) updateFileWithSpec(ctx context.Context, spec ChunkSpec, fil
 	return img, nil
 }
 
+// Query searches for files in the repository that are similar to the provided query.
+// It takes a context, which can be used for cancellation, the query string, and the maximum number of results (k) to return.
+// The function returns a slice of OnlineIndexQueryHit, which contains information about the matching files, and an error, if any.
 func (r *Repository) Query(ctx context.Context, query string, k int64) ([]OnlineIndexQueryHit, error) {
 	embs, err := r.embedder.GetEmbeddings(ctx, []string{query})
 
