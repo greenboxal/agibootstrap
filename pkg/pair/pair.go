@@ -78,14 +78,14 @@ func CritiquePromptTemplate() chat.Prompt {
 	)
 }
 
-func NewCritiqueChain() chain.Chain {
+func NewCritiqueChain(model chat.LanguageModel) chain.Chain {
 	return chain.New(
 		chain.WithName("CritiqueGenerator"),
 
 		chain.Sequential(
 			chat.Predict(
 				model,
-				critiquePrompt,
+				CritiquePromptTemplate(),
 			),
 		),
 	)
@@ -109,6 +109,19 @@ func NudgeTaskPromptTemplate() chat.Prompt {
 	)
 }
 
+func NewNudgeChain(model chat.LanguageModel) chain.Chain {
+	return chain.New(
+		chain.WithName("NudgeGenerator"),
+
+		chain.Sequential(
+			chat.Predict(
+				model,
+				NudgeTaskPromptTemplate(),
+			),
+		),
+	)
+}
+
 // PreemptTaskPromptTemplate assesses whether the AI_Agent has completed its current objective.
 func PreemptTaskPromptTemplate() chat.Prompt {
 	return chat.ComposeTemplate(
@@ -125,4 +138,8 @@ func PreemptTaskPromptTemplate() chat.Prompt {
             `),
 		),
 	)
+}
+
+func NewPreemptChain(model chat.LanguageModel) chain.Chain {
+	// TODO: Implement this function like NewCritiqueChain
 }
