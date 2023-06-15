@@ -64,32 +64,26 @@ func (dn *DirectoryNode) Sync() error {
 	dn.mu.Lock()
 	defer dn.mu.Unlock()
 
+	// Remove nodes that no longer exist in the filesystem
 	for _, file := range files {
-		filePath := filepath.Join(dn.path, file.Name())
-
-		if node, ok := dn.children[filePath]; ok {
-			if file.IsDir() {
-				if _, ok := node.(*DirectoryNode); ok {
-					continue
-				}
-			} else {
-				if _, ok := node.(*FileNode); ok {
-					continue
-				}
+		node, ok := dn.children[file.Name()]
+		if ok {
+			if file.IsDir() && _, ok := node.(*DirectoryNode); !ok {
+				delete(dn.children, file.Name())
+			} else if !file.IsDir() && _, ok := node.(*FileNode); !ok {
+				delete(dn.children, file.Name())
 			}
 		} else {
-			// Remove children nodes from the map if they are not present in the file system anymore
-			delete(dn.children, filePath)
-		}
-
-		if file.IsDir() {
-			dirNode := NewDirectoryNode(dn.fs, filePath)
-			dirNode.SetParent(dn)
-			dn.children[filePath] = dirNode
-		} else {
-			fileNode := NewFileNode(dn.fs, filePath)
-			fileNode.SetParent(dn)
-			dn.children[filePath] = fileNode
+			filePath := filepath.Join(dn.path, file.Name())
+			if file.IsDir() {
+				dirNode := NewDirectoryNode(dn.fs, filePath)
+				dirNode.SetParent(dn)
+				dn.children[filePath] = dirNode
+			} else {
+				fileNode := NewFileNode(dn.fs, filePath)
+				fileNode.SetParent(dn)
+				dn.children[filePath] = fileNode
+			}
 		}
 	}
 
