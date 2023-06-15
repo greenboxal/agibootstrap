@@ -87,13 +87,12 @@ func NudgeTask(aiAgent Agent) Message {
 
 // PreemptTask assesses whether the AI_Agent has completed its current objective.
 func PreemptTask(aiAgent Agent) Message {
-	// TODO: FIXME: Use chat.ComposeTemplate and chain.NewTemplatePrompt to generate this message.
 	template := chat.ComposeTemplate(
 		chat.EntryTemplate(
 			msn.RoleSystem,
 			chain.NewTemplatePrompt(`
-			Based on the most recent output and the current state of {{ .AI_Agent.Name }}, please assess whether {{ .AI_Agent.Name }} has completed its current objective to a satisfactory degree. Provide a rating on a scale of 1-10, with 1 indicating unsatisfactory performance and 10 indicating exceptional performance. Additionally, kindly provide written feedback explaining your rating. This feedback should highlight areas of strength in {{ .AI_Agent.Name }}'s performance, as well as areas that could benefit from further improvement.
-			`,
+            Based on the most recent output and the current state of {{ .AI_Agent.Name }}, please assess whether {{ .AI_Agent.Name }} has completed its current objective to a satisfactory degree. Provide a rating on a scale of 1-10, with 1 indicating unsatisfactory performance and 10 indicating exceptional performance. Additionally, kindly provide written feedback explaining your rating. This feedback should highlight areas of strength in {{ .AI_Agent.Name }}'s performance, as well as areas that could benefit from further improvement.
+            `,
 				chain.WithRequiredInput(AI_Agent)),
 		),
 	)
