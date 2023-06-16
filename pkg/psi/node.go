@@ -305,9 +305,10 @@ func (n *NodeBase) replaceChildNode(old, new Node) {
 	idx := slices.Index(n.children, old)
 
 	if idx != -1 {
-		old.SetParent(nil)
 		n.children[idx] = new
+		old.SetParent(nil)
 		new.SetParent(n.self)
+
 		changed = true
 	}
 

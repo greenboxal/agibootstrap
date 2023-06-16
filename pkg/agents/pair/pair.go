@@ -168,3 +168,7 @@ func NewAgent(model chat.LanguageModel) *Agent {
 		preemptChain:  NewPreemptChain(model),
 	}
 }
+
+func (a *Agent) Run() {
+	// TODO: Implement this method
+}
