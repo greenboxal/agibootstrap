@@ -31,6 +31,31 @@ func (nb *NodeBase[T]) Initialize(self Node) {
 	nb.NodeBase.Init(self, "")
 }
 
+func (nb *NodeBase[T]) Update() {
+	if nb.IsValid() {
+		return
+	}
+
+	updated := dstutil.Apply(nb.node, func(cursor *dstutil.Cursor) bool {
+		k := getEdgeName(cursor.Parent(), cursor.Name(), cursor.Index())
+		edge := nb.GetEdge(k)
+
+		if edge != nil {
+			to := edge.To().(Node)
+
+			cursor.Replace(to.Ast())
+		}
+
+		return false
+	}, func(cursor *dstutil.Cursor) bool {
+		return false
+	})
+
+	nb.node = updated.(T)
+
+	nb.NodeBase.Update()
+}
+
 type Container struct {
 	NodeBase[dst.Node]
 }
