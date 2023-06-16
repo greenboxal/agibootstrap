@@ -133,6 +133,16 @@ func (n *NodeBase) SetParent(parent Node) {
 	}
 }
 
+// setEdge sets the given edge on the current node.
+// It checks if the edge is valid by verifying that it originates from the current node.
+// If an edge with the same key already exists, it replaces the edge's destination node with the current node.
+// If the edge is not found, it adds the edge to the node's edge map.
+//
+// Parameters:
+// - edge: The edge to be set on the node.
+//
+// Panics:
+// - "invalid edge": If the given edge does not originate from the current node.
 func (n *NodeBase) setEdge(edge Edge) {
 	k := edge.Key()
 
@@ -154,6 +164,13 @@ func (n *NodeBase) setEdge(edge Edge) {
 func (n *NodeBase) unsetEdge(key EdgeKey)    { delete(n.edges, key) }
 func (n *NodeBase) getEdge(key EdgeKey) Edge { return n.edges[key] }
 
+// addChildNode adds a child node to the current node.
+// If the child node is already a child of the current node, no action is taken.
+// The child node is appended to the list of children nodes of the current node.
+// Then, the child node is attached to the same graph as the parent node.
+//
+// Parameters:
+// - child: The child node to be added.
 func (n *NodeBase) addChildNode(child Node) {
 	idx := slices.Index(n.children, child)
 
@@ -166,6 +183,11 @@ func (n *NodeBase) addChildNode(child Node) {
 	child.attachToGraph(n.g)
 }
 
+// removeChildNode removes the child node from the current node.
+// If the child node is not a child of the current node, no action is taken.
+//
+// Parameters:
+// - child: The child node to be removed.
 func (n *NodeBase) removeChildNode(child Node) {
 	idx := slices.Index(n.children, child)
 
@@ -176,6 +198,16 @@ func (n *NodeBase) removeChildNode(child Node) {
 	n.children = slices.Delete(n.children, idx, idx+1)
 }
 
+// replaceChildNode replaces an old child node with a new child node in the current node.
+// If the old child node is not a child of the current node, no action is taken.
+// The old child node is first removed from its parent node and detached from the graph.
+// Then, the new child node is set as the replacement at the same index in the list of children nodes of the current node.
+// The new child node is attached to the same graph as the parent node.
+// Finally, any edges in the current node that reference the old child node as the destination node are updated to reference the new child node.
+//
+// Parameters:
+// - old: The old child node to be replaced.
+// - new: The new child node to replace the old child node.
 func (n *NodeBase) replaceChildNode(old, new Node) {
 	idx := slices.Index(n.children, old)
 
@@ -196,6 +228,12 @@ func (n *NodeBase) replaceChildNode(old, new Node) {
 	}
 }
 
+// attachToGraph attaches the node to the given graph.
+// If the node is already attached to the given graph, no action is taken.
+// If the graph is nil, the node is detached from its current graph.
+// If the node is already attached to a different graph, it raises a panic.
+// The node is assigned a new ID from the graph's NewNode method.
+// After attaching the node, each child of the node is also attached to the graph recursively.
 func (n *NodeBase) attachToGraph(g *Graph) {
 	if n.g == g {
 		return
@@ -219,6 +257,31 @@ func (n *NodeBase) attachToGraph(g *Graph) {
 }
 
 func (n *NodeBase) detachFromGraph(g *Graph) {
+	// TODO: Write Godoc for this method.
+	if n.g == nil {
+		return
+	}
+
+	if n.g != g {
+		return
+	}
+
+	for _, e := range n.children {
+		e.detachFromGraph(n.g)
+	}
+
+	n.g = nil
+}
+
+// DetachFromGraph detaches the node from the given graph.
+// If the node is not attached to any graph or if it is attached to a different graph,
+// no action is taken.
+// If the node is attached to the given graph, it is detached from the graph and all its
+// children are recursively detached as well.
+//
+// Parameters:
+// - g: The graph from which the node is to be detached.
+func (n *NodeBase) DetachFromGraph(g *Graph) {
 	if n.g == nil {
 		return
 	}
