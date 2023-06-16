@@ -108,8 +108,13 @@ func (n *NodeBase) Parent() Node    { return n.parent }
 func (n *NodeBase) Children() []Node { return n.children }
 func (n *NodeBase) Edges() []Edge    { return nil }
 
+// SetParent sets the parent node of the current node.
+// If the parent node is already set to the given parent, no action is taken.
+// If the current node has a parent, it is first removed from its parent node.
+// Then, the parent node is set to the given parent.
+// If the parent node is not nil, the current node is added as a child to the parent node.
+// If the parent node is nil, the current node is detached from the graph.
 func (n *NodeBase) SetParent(parent Node) {
-	// TODO: Write Godoc for this method
 	if n.parent == parent {
 		return
 	}
