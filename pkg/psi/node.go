@@ -2,56 +2,9 @@ package psi
 
 import (
 	"github.com/google/uuid"
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
-
-type EdgeID int64
-
-type EdgeKind string
-
-type EdgeKey struct {
-	Kind EdgeKind
-	Name string
-}
-
-type Edge interface {
-	ID() EdgeID
-	Key() EdgeKey
-	Kind() EdgeKind
-	From() Node
-	To() Node
-
-	ReplaceTo(node Node) Edge
-	ReplaceFrom(node Node) Edge
-}
-
-type EdgeBase struct {
-	id   EdgeID
-	key  EdgeKey
-	from Node
-	to   Node
-}
-
-func (e *EdgeBase) ID() EdgeID     { return e.id }
-func (e *EdgeBase) Key() EdgeKey   { return e.key }
-func (e *EdgeBase) Kind() EdgeKind { return e.key.Kind }
-func (e *EdgeBase) From() Node     { return e.from }
-func (e *EdgeBase) To() Node       { return e.to }
-
-func (e *EdgeBase) ReplaceTo(node Node) Edge {
-	return &EdgeBase{
-		key:  e.key,
-		from: e.from,
-		to:   node,
-	}
-}
-func (e *EdgeBase) ReplaceFrom(node Node) Edge {
-	return &EdgeBase{
-		key:  e.key,
-		from: node,
-		to:   e.to,
-	}
-}
 
 // Node represents a PSI element in the graph.
 type Node interface {
@@ -70,7 +23,7 @@ type Node interface {
 	SetParent(parent Node)
 
 	Children() []Node
-	Edges() []Edge
+	Edges() EdgeIterator
 	Comments() []string
 
 	IsContainer() bool
@@ -86,15 +39,23 @@ type Node interface {
 	setEdge(edge Edge)
 	unsetEdge(key EdgeKey)
 	getEdge(key EdgeKey) Edge
+
+	setAttribute(key string, value any)
+	getAttribute(key string) (any, bool)
+	removeAttribute(key string) (any, bool)
 }
 type NodeBase struct {
-	g        *Graph
-	id       int64
-	uuid     string
-	self     Node
-	parent   Node
-	children []Node
-	edges    map[EdgeKey]Edge
+	g *Graph
+
+	id   int64
+	uuid string
+
+	self   Node
+	parent Node
+
+	children   []Node
+	edges      map[EdgeKey]Edge
+	attributes map[string]any
 }
 
 // Init initializes the NodeBase struct with the given self node and uid string.
@@ -107,7 +68,6 @@ type NodeBase struct {
 func (n *NodeBase) Init(self Node, uid string) {
 	n.self = self
 	n.uuid = uid
-	n.edges = map[EdgeKey]Edge{}
 
 	if n.uuid == "" {
 		n.uuid = uuid.New().String()
@@ -119,7 +79,13 @@ func (n *NodeBase) UUID() string     { return n.uuid }
 func (n *NodeBase) Node() *NodeBase  { return n }
 func (n *NodeBase) Parent() Node     { return n.parent }
 func (n *NodeBase) Children() []Node { return n.children }
-func (n *NodeBase) Edges() []Edge    { return nil }
+
+func (n *NodeBase) Edges() EdgeIterator {
+	return &edgeIterator{
+		n:    n,
+		keys: maps.Keys(n.edges),
+	}
+}
 
 func (n *NodeBase) SetParent(parent Node) {
 	if n.parent == parent {
@@ -140,6 +106,36 @@ func (n *NodeBase) SetParent(parent Node) {
 	}
 }
 
+func (n *NodeBase) setAttribute(key string, value any) {
+	if n.attributes == nil {
+		n.attributes = make(map[string]any)
+	}
+
+	n.attributes[key] = value
+}
+
+func (n *NodeBase) getAttribute(key string) (value any, ok bool) {
+	if n.attributes == nil {
+		return nil, false
+	}
+
+	value, ok = n.attributes[key]
+
+	return
+}
+
+func (n *NodeBase) removeAttribute(key string) (value any, ok bool) {
+	if n.attributes == nil {
+		return nil, false
+	}
+
+	value, ok = n.attributes[key]
+
+	delete(n.attributes, key)
+
+	return
+}
+
 // setEdge sets the given edge on the current node.
 // It checks if the edge is valid by verifying that it originates from the current node.
 // If an edge with the same key already exists, it replaces the edge's destination node with the current node.
@@ -151,6 +147,10 @@ func (n *NodeBase) SetParent(parent Node) {
 // Panics:
 // - "invalid edge": If the given edge does not originate from the current node.
 func (n *NodeBase) setEdge(edge Edge) {
+	if n.edges == nil {
+		n.edges = make(map[EdgeKey]Edge)
+	}
+
 	k := edge.Key()
 
 	if edge.From() != n.self {
@@ -168,8 +168,20 @@ func (n *NodeBase) setEdge(edge Edge) {
 	}
 }
 
-func (n *NodeBase) unsetEdge(key EdgeKey)    { delete(n.edges, key) }
-func (n *NodeBase) getEdge(key EdgeKey) Edge { return n.edges[key] }
+func (n *NodeBase) unsetEdge(key EdgeKey) {
+	if n.edges == nil {
+		return
+	}
+
+	delete(n.edges, key)
+}
+func (n *NodeBase) getEdge(key EdgeKey) Edge {
+	if n.edges == nil {
+		return nil
+	}
+
+	return n.edges[key]
+}
 
 // addChildNode adds a child node to the current node.
 // If the child node is already a child of the current node, no action is taken.

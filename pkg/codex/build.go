@@ -75,7 +75,7 @@ func (s *FixBuildStep) ProcessFix(ctx context.Context, p *Project, sf *golang.So
 	})
 
 	// Convert the AST back to code
-	newCode, err := sf.ToCode(updated)
+	newCode, err := sf.ToCode(updated.(golang.Node))
 	if err != nil {
 		return err
 	}

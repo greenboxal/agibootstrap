@@ -55,7 +55,7 @@ func (p *Project) processFile(ctx context.Context, fsPath string, opts ...NodePr
 	updated := p.ProcessNodes(ctx, sf, opts...)
 
 	// Convert the AST back to code
-	newCode, err := sf.ToCode(updated)
+	newCode, err := sf.ToCode(updated.(golang.Node))
 	if err != nil {
 		return 0, err
 	}
@@ -114,7 +114,7 @@ func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root p
 
 		result := gpt.ContextBag{}
 
-		result["file"], err = processor.SourceFile.ToCode(root)
+		result["file"], err = processor.SourceFile.ToCode(root.(golang.Node))
 
 		if err != nil {
 			return nil, err
@@ -155,10 +155,10 @@ func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root p
 		panic("SourceFile.Root().Ast() is nil")
 	}
 
-	rootFile := processor.SourceFile.Root().Ast().(*dst.File)
+	rootFile := processor.SourceFile.Root().(golang.Node).Ast().(*dst.File)
 
 	for _, child := range processor.Root.Children() {
-		decl, ok := child.Ast().(dst.Decl)
+		decl, ok := child.(golang.Node).Ast().(dst.Decl)
 
 		if !ok {
 			continue
@@ -177,5 +177,5 @@ func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root p
 		}
 	}
 
-	return golang.Apply(processor.Root, processor.OnEnter, processor.OnLeave)
+	return golang.Apply(processor.Root.(golang.Node), processor.OnEnter, processor.OnLeave)
 }

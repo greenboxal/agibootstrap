@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"golang.org/x/tools/imports"
+
+	"github.com/greenboxal/agibootstrap/pkg/langs/golang"
 )
 
 type FixImportsBuildStep struct{}
@@ -27,7 +29,7 @@ func (s *FixImportsBuildStep) Process(ctx context.Context, p *Project) (result B
 			return result, err
 		}
 
-		code, err := sf.ToCode(sf.Root())
+		code, err := sf.ToCode(sf.Root().(golang.Node))
 
 		if err != nil {
 			return result, err
