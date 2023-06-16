@@ -812,7 +812,7 @@ func (oi *OnlineIndex) Query(q llm.Embedding, k int64) ([]OnlineIndexQueryHit, e
 func (oi *OnlineIndex) putEntry(idx int64, entry *OnlineIndexEntry) error {
 	indexPath := oi.Repository.ResolveDbPath("index")
 
-	if err := os.MkdirAll(indexPath, 0644); err != nil {
+	if err := os.MkdirAll(indexPath, 0755); err != nil {
 		return err
 	}
 

@@ -2,7 +2,9 @@ package codex
 
 import (
 	"context"
+	"fmt"
 	"go/build"
+	"go/parser"
 	"go/types"
 	"path"
 
@@ -26,6 +28,8 @@ type AnalysisContext struct {
 }
 
 func (a *AnalysisBuildStep) Process(ctx context.Context, p *Project) (result BuildStepResult, err error) {
+	fmt.Println("Analyzing project...")
+
 	actx := &AnalysisContext{}
 
 	actx.project = p
@@ -49,7 +53,9 @@ func (a *AnalysisBuildStep) Process(ctx context.Context, p *Project) (result Bui
 	actx.loaderConfig = &loader.Config{
 		Build:       &actx.buildContext,
 		Cwd:         p.rootPath,
+		Fset:        p.fset,
 		AllowErrors: true,
+		ParserMode:  parser.ParseComments,
 	}
 
 	for _, pkg := range pkgs {
