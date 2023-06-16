@@ -1,7 +1,5 @@
 package psi
 
-import "fmt"
-
 // Cursor is a stateful tree traversal interface.
 type Cursor interface {
 	// Current returns the current node.
@@ -109,12 +107,6 @@ func (c *cursor) Replace(newNode Node) {
 }
 
 func (c *cursor) Walk(n Node, walkFn WalkFunc) (err error) {
-	defer func() {
-		if e := recover(); e != nil {
-			err = fmt.Errorf("%w", err)
-		}
-	}()
-
 	c.push(cursorState{current: n, walkChildren: true, walkEdges: false})
 
 	defer func() {

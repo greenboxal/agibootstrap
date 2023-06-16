@@ -81,20 +81,6 @@ func (p *Project) ProcessNodes(ctx context.Context, sf *golang.SourceFile, opts 
 
 // ProcessNode processes the given node and returns the updated node.
 func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root psi.Node, opts ...NodeProcessorOption) (psi.Node, error) {
-	//buildContext := build.Default
-	//buildContext.Dir = p.rootPath
-	//buildContext.BuildTags = []string{"selfwip", "psionly"}
-
-	//lconf := loader.Config{
-	//	Build:       &buildContext,
-	//	Cwd:         p.rootPath,
-	//	AllowErrors: true,
-	//}
-
-	//lconf.Import(filepath.Dir(sf.Path()))
-
-	//pro, _ := lconf.Load()
-
 	processor := &NodeProcessor{
 		Project:      p,
 		SourceFile:   sf,

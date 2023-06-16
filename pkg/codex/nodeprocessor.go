@@ -254,7 +254,7 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 // 5. If the declaration doesn't match, merge the new declaration with the existing declarations by calling the MergeDeclarations function.
 // 6. Return nil, indicating that there were no errors during the merging process.
 func (p *NodeProcessor) mergeCompletionResults(ctx context.Context, scope *NodeScope, cursor psi.Cursor, newAst psi.Node) error {
-	MergeFiles(newAst.(golang.Node).Ast().(*dst.File), newAst.(golang.Node).Ast().(*dst.File))
+	MergeFiles(p.Root.(golang.Node).Ast().(*dst.File), newAst.(golang.Node).Ast().(*dst.File))
 
 	for _, decl := range newAst.Children() {
 		if funcType, ok := decl.(golang.Node).Ast().(*dst.FuncDecl); ok && funcType.Name.Name == scope.Node.(golang.Node).Ast().(*dst.FuncDecl).Name.Name {
