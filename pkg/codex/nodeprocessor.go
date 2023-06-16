@@ -199,11 +199,9 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *gola
 		return nil, err
 	}
 
-	prunedRoot := golang.Apply(psi.Clone(p.Root), func(cursor *golang.Cursor) bool {
-		return true
-	}, nil)
+	prunedRoot := p.Root
 
-	stepStr, err := p.SourceFile.ToCode(stepRoot)
+	stepStr, err := p.SourceFile.ToCode(stepRoot.(golang.Node))
 	if err != nil {
 		return nil, err
 	}
@@ -256,10 +254,10 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *gola
 // 5. If the declaration doesn't match, merge the new declaration with the existing declarations by calling the MergeDeclarations function.
 // 6. Return nil, indicating that there were no errors during the merging process.
 func (p *NodeProcessor) mergeCompletionResults(ctx context.Context, scope *NodeScope, cursor *golang.Cursor, newAst psi.Node) error {
-	MergeFiles(newAst.Ast().(*dst.File), newAst.Ast().(*dst.File))
+	MergeFiles(newAst.(golang.Node).Ast().(*dst.File), newAst.(golang.Node).Ast().(*dst.File))
 
 	for _, decl := range newAst.Children() {
-		if funcType, ok := decl.Ast().(*dst.FuncDecl); ok && funcType.Name.Name == scope.Node.Ast().(*dst.FuncDecl).Name.Name {
+		if funcType, ok := decl.(golang.Node).Ast().(*dst.FuncDecl); ok && funcType.Name.Name == scope.Node.(golang.Node).Ast().(*dst.FuncDecl).Name.Name {
 			p.ReplaceDeclarationAt(cursor, decl, funcType.Name.Name)
 		} else {
 			p.MergeDeclarations(cursor, decl)
@@ -333,7 +331,7 @@ func (p *NodeProcessor) MergeDeclarations(cursor *golang.Cursor, node psi.Node) 
 			p.InsertDeclarationAt(cursor, name, node)
 		} else {
 			if cursor.Node() == previous.node {
-				cursor.Replace(node.Ast())
+				cursor.Replace(node.(golang.Node).Ast())
 			}
 
 			p.setExistingDeclaration(previous.index, name, node)
@@ -352,8 +350,8 @@ func (p *NodeProcessor) MergeDeclarations(cursor *golang.Cursor, node psi.Node) 
 //
 // The purpose of InsertDeclarationAt is to insert a declaration at a specific position in the AST and update the declaration information in the NodeProcessor for further processing and code generation.
 func (p *NodeProcessor) InsertDeclarationAt(cursor *golang.Cursor, name string, decl psi.Node) {
-	cursor.InsertAfter(decl.Ast())
-	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
+	cursor.InsertAfter(decl.(golang.Node).Ast())
+	index := slices.Index(p.Root.(golang.Node).Ast().(*dst.File).Decls, decl.(golang.Node).Ast().(dst.Decl))
 	p.setExistingDeclaration(index, name, decl)
 }
 
@@ -368,8 +366,8 @@ func (p *NodeProcessor) InsertDeclarationAt(cursor *golang.Cursor, name string, 
 //
 // The purpose of the ReplaceDeclarationAt method is to provide a mechanism for replacing a declaration at a specific position in the AST and updating the declaration information in the NodeProcessor for further processing and code generation.
 func (p *NodeProcessor) ReplaceDeclarationAt(cursor *golang.Cursor, decl psi.Node, name string) {
-	cursor.Replace(decl.Ast())
-	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
+	cursor.Replace(decl.(golang.Node).Ast())
+	index := slices.Index(p.Root.(golang.Node).Ast().(*dst.File).Decls, decl.(golang.Node).Ast().(dst.Decl))
 	p.setExistingDeclaration(index, name, decl)
 }
 
@@ -388,7 +386,7 @@ func (p *NodeProcessor) setExistingDeclaration(index int, name string, node psi.
 	if decl == nil {
 		decl = &declaration{
 			name:    name,
-			node:    node.Ast(),
+			node:    node.(golang.Node).Ast(),
 			element: node,
 			index:   index,
 		}
@@ -397,7 +395,7 @@ func (p *NodeProcessor) setExistingDeclaration(index int, name string, node psi.
 	}
 
 	decl.element = node
-	decl.node = node.Ast()
+	decl.node = node.(golang.Node).Ast()
 	decl.index = index
 }
 
@@ -466,7 +464,7 @@ func MergeFiles(file1, file2 *dst.File) *dst.File {
 func getDeclarationNames(node psi.Node) []string {
 	var names []string
 
-	switch d := node.Ast().(type) {
+	switch d := node.(golang.Node).Ast().(type) {
 	case *dst.GenDecl:
 		for _, spec := range d.Specs {
 			switch s := spec.(type) {
