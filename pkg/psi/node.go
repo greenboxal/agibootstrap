@@ -1,6 +1,8 @@
 package psi
 
 import (
+	"fmt"
+
 	"github.com/google/uuid"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
@@ -29,6 +31,28 @@ type Node interface {
 	IsContainer() bool
 	IsLeaf() bool
 
+	// SetEdge sets the given edge on the current node.
+	// It checks if the edge is valid by verifying that it originates from the current node.
+	// If an edge with the same key already exists, it replaces the edge's destination node with the current node.
+	// If the edge is not found, it adds the edge to the node's edge map.
+	//
+	// Parameters:
+	// - edge: The edge to be set on the node.
+	//
+	// Panics:
+	// - "invalid edge": If the given edge does not originate from the current node.
+	SetEdge(key EdgeKey, to Node)
+	UnsetEdge(key EdgeKey)
+	GetEdge(key EdgeKey) Edge
+
+	SetAttribute(key string, value any)
+	GetAttribute(key string) (any, bool)
+	RemoveAttribute(key string) (any, bool)
+
+	IsValid() bool
+	Invalidate()
+	Update()
+
 	attachToGraph(g *Graph)
 	detachFromGraph(g *Graph)
 
@@ -36,19 +60,14 @@ type Node interface {
 	removeChildNode(node Node)
 	replaceChildNode(old Node, node Node)
 
-	setEdge(edge Edge)
-	unsetEdge(key EdgeKey)
-	getEdge(key EdgeKey) Edge
-
-	setAttribute(key string, value any)
-	getAttribute(key string) (any, bool)
-	removeAttribute(key string) (any, bool)
+	String() string
 }
 type NodeBase struct {
 	g *Graph
 
-	id   int64
-	uuid string
+	id      int64
+	uuid    string
+	version int64
 
 	self   Node
 	parent Node
@@ -56,6 +75,8 @@ type NodeBase struct {
 	children   []Node
 	edges      map[EdgeKey]Edge
 	attributes map[string]any
+
+	valid bool
 }
 
 // Init initializes the NodeBase struct with the given self node and uid string.
@@ -79,6 +100,26 @@ func (n *NodeBase) UUID() string     { return n.uuid }
 func (n *NodeBase) Node() *NodeBase  { return n }
 func (n *NodeBase) Parent() Node     { return n.parent }
 func (n *NodeBase) Children() []Node { return n.children }
+
+func (n *NodeBase) String() string {
+	return fmt.Sprintf("Node(%T, %d, %s)", n.self, n.id, n.uuid)
+}
+
+func (n *NodeBase) IsValid() bool { return n.valid }
+
+func (n *NodeBase) Invalidate() {
+	if !n.valid {
+		n.valid = false
+
+		if n.parent != nil {
+			n.parent.Invalidate()
+		}
+	}
+}
+
+func (n *NodeBase) Update() {
+	n.valid = true
+}
 
 func (n *NodeBase) Edges() EdgeIterator {
 	return &edgeIterator{
@@ -104,17 +145,21 @@ func (n *NodeBase) SetParent(parent Node) {
 	} else {
 		n.detachFromGraph(nil)
 	}
+
+	n.Invalidate()
 }
 
-func (n *NodeBase) setAttribute(key string, value any) {
+func (n *NodeBase) SetAttribute(key string, value any) {
 	if n.attributes == nil {
 		n.attributes = make(map[string]any)
 	}
 
 	n.attributes[key] = value
+
+	n.Invalidate()
 }
 
-func (n *NodeBase) getAttribute(key string) (value any, ok bool) {
+func (n *NodeBase) GetAttribute(key string) (value any, ok bool) {
 	if n.attributes == nil {
 		return nil, false
 	}
@@ -124,7 +169,7 @@ func (n *NodeBase) getAttribute(key string) (value any, ok bool) {
 	return
 }
 
-func (n *NodeBase) removeAttribute(key string) (value any, ok bool) {
+func (n *NodeBase) RemoveAttribute(key string) (value any, ok bool) {
 	if n.attributes == nil {
 		return nil, false
 	}
@@ -133,49 +178,43 @@ func (n *NodeBase) removeAttribute(key string) (value any, ok bool) {
 
 	delete(n.attributes, key)
 
+	if ok {
+		n.Invalidate()
+	}
+
 	return
 }
 
-// setEdge sets the given edge on the current node.
-// It checks if the edge is valid by verifying that it originates from the current node.
-// If an edge with the same key already exists, it replaces the edge's destination node with the current node.
-// If the edge is not found, it adds the edge to the node's edge map.
-//
-// Parameters:
-// - edge: The edge to be set on the node.
-//
-// Panics:
-// - "invalid edge": If the given edge does not originate from the current node.
-func (n *NodeBase) setEdge(edge Edge) {
+func (n *NodeBase) SetEdge(key EdgeKey, to Node) {
 	if n.edges == nil {
 		n.edges = make(map[EdgeKey]Edge)
 	}
 
-	k := edge.Key()
-
-	if edge.From() != n.self {
-		panic("invalid edge")
+	e := &EdgeBase{
+		from: n.self,
+		to:   to,
+		key:  key,
 	}
 
-	if e, ok := n.edges[k]; ok {
-		if e.To() == edge.To() {
-			return
-		}
+	n.edges[e.key] = e
 
-		n.edges[k] = edge.ReplaceTo(n.self)
-	} else {
-		n.edges[k] = edge
-	}
+	n.Invalidate()
 }
 
-func (n *NodeBase) unsetEdge(key EdgeKey) {
+func (n *NodeBase) UnsetEdge(key EdgeKey) {
 	if n.edges == nil {
 		return
 	}
 
+	_, ok := n.edges[key]
+
 	delete(n.edges, key)
+
+	if ok {
+		n.Invalidate()
+	}
 }
-func (n *NodeBase) getEdge(key EdgeKey) Edge {
+func (n *NodeBase) GetEdge(key EdgeKey) Edge {
 	if n.edges == nil {
 		return nil
 	}
@@ -200,6 +239,8 @@ func (n *NodeBase) addChildNode(child Node) {
 	n.children = append(n.children, child)
 
 	child.attachToGraph(n.g)
+
+	n.Invalidate()
 }
 
 // removeChildNode removes the child node from the current node.
@@ -215,6 +256,8 @@ func (n *NodeBase) removeChildNode(child Node) {
 	}
 
 	n.children = slices.Delete(n.children, idx, idx+1)
+
+	n.Invalidate()
 }
 
 // replaceChildNode replaces an old child node with a new child node in the current node.
@@ -228,12 +271,14 @@ func (n *NodeBase) removeChildNode(child Node) {
 // - old: The old child node to be replaced.
 // - new: The new child node to replace the old child node.
 func (n *NodeBase) replaceChildNode(old, new Node) {
+	changed := false
 	idx := slices.Index(n.children, old)
 
 	if idx != -1 {
 		old.SetParent(nil)
 		n.children[idx] = new
 		new.SetParent(n.self)
+		changed = true
 	}
 
 	for i, e := range n.edges {
@@ -244,6 +289,12 @@ func (n *NodeBase) replaceChildNode(old, new Node) {
 		}
 
 		n.edges[i] = e
+
+		changed = true
+	}
+
+	if changed {
+		n.Invalidate()
 	}
 }
 
@@ -273,6 +324,8 @@ func (n *NodeBase) attachToGraph(g *Graph) {
 	for _, e := range n.children {
 		e.attachToGraph(g)
 	}
+
+	n.Invalidate()
 }
 
 // DetachFromGraph detaches the node from the given graph.
@@ -297,4 +350,6 @@ func (n *NodeBase) detachFromGraph(g *Graph) {
 	}
 
 	n.g = nil
+
+	n.Invalidate()
 }

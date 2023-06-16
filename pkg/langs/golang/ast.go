@@ -1,6 +1,8 @@
 package golang
 
 import (
+	"strconv"
+
 	"github.com/dave/dst"
 	"github.com/dave/dst/dstutil"
 	"github.com/zeroflucs-given/generics/collections/stack"
@@ -21,9 +23,6 @@ type NodeBase[T dst.Node] struct {
 	node     T
 	comments []string
 }
-
-func (nb *NodeBase[T]) IsContainer() bool { return true }
-func (nb *NodeBase[T]) IsLeaf() bool      { return false }
 
 func (nb *NodeBase[T]) Comments() []string { return nb.comments }
 func (nb *NodeBase[T]) Ast() dst.Node      { return nb.node }
@@ -46,6 +45,19 @@ type Leaf struct {
 func (f *Leaf) IsContainer() bool { return false }
 func (f *Leaf) IsLeaf() bool      { return true }
 
+func getEdgeName(parent dst.Node, kind string, index int) psi.EdgeKey {
+	name := ""
+
+	if index != -1 {
+		name = strconv.FormatInt(int64(index), 10)
+	}
+
+	return psi.EdgeKey{
+		Kind: psi.EdgeKind(kind),
+		Name: name,
+	}
+}
+
 func AstToPsi(root dst.Node) (result Node) {
 	containerStack := stack.NewStack[Node](16)
 
@@ -59,7 +71,14 @@ func AstToPsi(root dst.Node) (result Node) {
 		_, parent := containerStack.Peek()
 
 		wrapped := NewNodeFor(node)
-		wrapped.SetParent(parent)
+
+		if parent != nil {
+			wrapped.SetParent(parent)
+
+			key := getEdgeName(node, cursor.Name(), cursor.Index())
+
+			parent.SetEdge(key, wrapped)
+		}
 
 		if wrapped.IsContainer() {
 			if err := containerStack.Push(wrapped.(*Container)); err != nil {

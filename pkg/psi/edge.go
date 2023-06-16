@@ -1,5 +1,7 @@
 package psi
 
+import "fmt"
+
 type EdgeID int64
 
 type EdgeKind string
@@ -7,6 +9,10 @@ type EdgeKind string
 type EdgeKey struct {
 	Kind EdgeKind
 	Name string
+}
+
+func (k EdgeKey) String() string {
+	return string(k.Kind) + "=" + k.Name
 }
 
 type Edge interface {
@@ -25,6 +31,10 @@ type EdgeBase struct {
 	key  EdgeKey
 	from Node
 	to   Node
+}
+
+func (e *EdgeBase) String() string {
+	return fmt.Sprintf("Edge(%s): %s -> %s", e.key, e.from, e.to)
 }
 
 func (e *EdgeBase) ID() EdgeID     { return e.id }
