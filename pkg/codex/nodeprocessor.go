@@ -68,7 +68,7 @@ type NodeProcessor struct {
 
 	prepareObjective   func(p *NodeProcessor, ctx *NodeScope) (string, error)                                                 // A function to prepare the objective for GPT-3.
 	prepareContext     func(p *NodeProcessor, ctx *NodeScope, root psi.Node, baseRequest gpt.Request) (gpt.ContextBag, error) // A function to prepare the context for GPT-3.
-	checkShouldProcess func(fn *NodeScope, cursor *psi.Cursor) bool                                                           // A function to check if a function should be processed.
+	checkShouldProcess func(fn *NodeScope, cursor *golang.Cursor) bool                                                        // A function to check if a function should be processed.
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -87,7 +87,7 @@ type NodeProcessor struct {
 //
 // OnEnter is responsible for pushing a new NodeScope onto the FuncStack if the current node is a container.
 // Additionally, it scans the comments of the node for TODOs and stores them in the current NodeScope.
-func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
+func (p *NodeProcessor) OnEnter(cursor *golang.Cursor) bool {
 	e := cursor.Element()
 
 	if e.IsContainer() {
@@ -133,7 +133,7 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 //
 // OnLeave is responsible for popping the top NodeScope from the FuncStack if the current node is a container.
 // Additionally, it checks if the current function should be processed and calls the Step method to process the function if necessary.
-func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
+func (p *NodeProcessor) OnLeave(cursor *golang.Cursor) bool {
 	e := cursor.Element()
 
 	if e.IsContainer() {
@@ -191,7 +191,7 @@ func (p *NodeProcessor) OnLeave(cursor *psi.Cursor) bool {
 //
 // Return Processed Code:
 // 10. Return the processed code as a dst.Node.
-func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *psi.Cursor) (result dst.Node, err error) {
+func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *golang.Cursor) (result dst.Node, err error) {
 	stepRoot := cursor.Element()
 
 	todoComment, err := p.prepareObjective(p, scope)
@@ -199,7 +199,7 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *psi.
 		return nil, err
 	}
 
-	prunedRoot := psi.Apply(psi.Clone(p.Root), func(cursor *psi.Cursor) bool {
+	prunedRoot := golang.Apply(psi.Clone(p.Root), func(cursor *golang.Cursor) bool {
 		return true
 	}, nil)
 
@@ -255,7 +255,7 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor *psi.
 // 4. If the declaration matches, replace the current declaration at the cursor position with the new declaration by calling the ReplaceDeclarationAt function.
 // 5. If the declaration doesn't match, merge the new declaration with the existing declarations by calling the MergeDeclarations function.
 // 6. Return nil, indicating that there were no errors during the merging process.
-func (p *NodeProcessor) mergeCompletionResults(ctx context.Context, scope *NodeScope, cursor *psi.Cursor, newAst psi.Node) error {
+func (p *NodeProcessor) mergeCompletionResults(ctx context.Context, scope *NodeScope, cursor *golang.Cursor, newAst psi.Node) error {
 	MergeFiles(newAst.Ast().(*dst.File), newAst.Ast().(*dst.File))
 
 	for _, decl := range newAst.Children() {
@@ -323,7 +323,7 @@ func (p *NodeProcessor) parseCodeBlock(ctx context.Context, blockName string, bl
 // 4. Update the existing declaration with the current node's index, name, and AST representation using the setExistingDeclaration function.
 //
 // The purpose of MergeDeclarations is to ensure that all declarations within a node are properly merged into the NodeProcessor, allowing further processing and code generation to be performed accurately.
-func (p *NodeProcessor) MergeDeclarations(cursor *psi.Cursor, node psi.Node) bool {
+func (p *NodeProcessor) MergeDeclarations(cursor *golang.Cursor, node psi.Node) bool {
 	names := getDeclarationNames(node)
 
 	for _, name := range names {
@@ -351,7 +351,7 @@ func (p *NodeProcessor) MergeDeclarations(cursor *psi.Cursor, node psi.Node) boo
 // 3. Calling the setExistingDeclaration method of the NodeProcessor to update the existing declaration information.
 //
 // The purpose of InsertDeclarationAt is to insert a declaration at a specific position in the AST and update the declaration information in the NodeProcessor for further processing and code generation.
-func (p *NodeProcessor) InsertDeclarationAt(cursor *psi.Cursor, name string, decl psi.Node) {
+func (p *NodeProcessor) InsertDeclarationAt(cursor *golang.Cursor, name string, decl psi.Node) {
 	cursor.InsertAfter(decl.Ast())
 	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
 	p.setExistingDeclaration(index, name, decl)
@@ -367,7 +367,7 @@ func (p *NodeProcessor) InsertDeclarationAt(cursor *psi.Cursor, name string, dec
 // 3. It updates the existing declaration information in the NodeProcessor by calling the setExistingDeclaration method.
 //
 // The purpose of the ReplaceDeclarationAt method is to provide a mechanism for replacing a declaration at a specific position in the AST and updating the declaration information in the NodeProcessor for further processing and code generation.
-func (p *NodeProcessor) ReplaceDeclarationAt(cursor *psi.Cursor, decl psi.Node, name string) {
+func (p *NodeProcessor) ReplaceDeclarationAt(cursor *golang.Cursor, decl psi.Node, name string) {
 	cursor.Replace(decl.Ast())
 	index := slices.Index(p.Root.Ast().(*dst.File).Decls, decl.Ast().(dst.Decl))
 	p.setExistingDeclaration(index, name, decl)

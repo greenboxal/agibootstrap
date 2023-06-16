@@ -53,21 +53,28 @@ func (e *EdgeBase) ReplaceFrom(node Node) Edge {
 	}
 }
 
+// Node represents a PSI element in the graph.
 type Node interface {
 	ID() int64
 	UUID() string
 	Node() *NodeBase
 
 	Parent() Node
-	SetParent(parent Node)
-	Children() []Node
 
+	// SetParent sets the parent node of the current node.
+	// If the parent node is already set to the given parent, no action is taken.
+	// If the current node has a parent, it is first removed from its parent node.
+	// Then, the parent node is set to the given parent.
+	// If the parent node is not nil, the current node is added as a child to the parent node.
+	// If the parent node is nil, the current node is detached from the graph.
+	SetParent(parent Node)
+
+	Children() []Node
 	Edges() []Edge
+	Comments() []string
 
 	IsContainer() bool
 	IsLeaf() bool
-
-	Comments() []string
 
 	attachToGraph(g *Graph)
 	detachFromGraph(g *Graph)
@@ -107,48 +114,13 @@ func (n *NodeBase) Init(self Node, uid string) {
 	}
 }
 
-func (n *NodeBase) ID() int64    { return n.id }
-func (n *NodeBase) UUID() string { return n.uuid }
-
-type Node interface {
-	ID() int64
-	UUID() string
-	Node() *NodeBase
-
-	Parent() Node
-	SetParent(parent Node)
-	Children() []Node
-
-	Edges() []Edge
-
-	IsContainer() bool
-	IsLeaf() bool
-
-	Comments() []string
-
-	attachToGraph(g *Graph)
-	detachFromGraph(g *Graph)
-
-	addChildNode(node Node)
-	removeChildNode(node Node)
-	replaceChildNode(old Node, node Node)
-
-	setEdge(edge Edge)
-	unsetEdge(key EdgeKey)
-	getEdge(key EdgeKey) Edge
-}
-
-func (n *NodeBase) Parent() Node { return n.parent }
-
+func (n *NodeBase) ID() int64        { return n.id }
+func (n *NodeBase) UUID() string     { return n.uuid }
+func (n *NodeBase) Node() *NodeBase  { return n }
+func (n *NodeBase) Parent() Node     { return n.parent }
 func (n *NodeBase) Children() []Node { return n.children }
 func (n *NodeBase) Edges() []Edge    { return nil }
 
-// SetParent sets the parent node of the current node.
-// If the parent node is already set to the given parent, no action is taken.
-// If the current node has a parent, it is first removed from its parent node.
-// Then, the parent node is set to the given parent.
-// If the parent node is not nil, the current node is added as a child to the parent node.
-// If the parent node is nil, the current node is detached from the graph.
 func (n *NodeBase) SetParent(parent Node) {
 	if n.parent == parent {
 		return

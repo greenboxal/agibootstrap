@@ -105,7 +105,7 @@ func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root p
 
 	processor.ctx, processor.cancel = context.WithCancel(ctx)
 
-	processor.checkShouldProcess = func(fn *NodeScope, cursor *psi.Cursor) bool {
+	processor.checkShouldProcess = func(fn *NodeScope, cursor *golang.Cursor) bool {
 		return len(fn.Todos) > 0
 	}
 
@@ -177,5 +177,5 @@ func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root p
 		}
 	}
 
-	return psi.Apply(processor.Root, processor.OnEnter, processor.OnLeave)
+	return golang.Apply(processor.Root, processor.OnEnter, processor.OnLeave)
 }
