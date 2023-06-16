@@ -50,7 +50,7 @@ func (p *NodeProcessor) OnEnter(cursor *psi.Cursor) bool {
 	}
 
 	for _, txt := range cursor.Element().Comments() {
-		if strings.Contains(txt, "TODO") {
+		if strings.HasPrefix(txt, "// TODO:") {
 			ok, currentFn := p.FuncStack.Peek()
 
 			if !ok {
