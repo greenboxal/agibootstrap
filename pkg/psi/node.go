@@ -90,6 +90,13 @@ type NodeBase struct {
 	edges    map[EdgeKey]Edge
 }
 
+// Init initializes the NodeBase struct with the given self node and uid string.
+// It sets the self node, uuid, and initializes the edges map.
+// If the uuid is an empty string, it generates a new UUID using the github.com/google/uuid package.
+//
+// Parameters:
+// - self: The self node to be set.
+// - uid: The UUID string to be set.
 func (n *NodeBase) Init(self Node, uid string) {
 	n.self = self
 	n.uuid = uid
@@ -100,10 +107,38 @@ func (n *NodeBase) Init(self Node, uid string) {
 	}
 }
 
-func (n *NodeBase) ID() int64       { return n.id }
-func (n *NodeBase) UUID() string    { return n.uuid }
-func (n *NodeBase) Node() *NodeBase { return n }
-func (n *NodeBase) Parent() Node    { return n.parent }
+func (n *NodeBase) ID() int64    { return n.id }
+func (n *NodeBase) UUID() string { return n.uuid }
+
+type Node interface {
+	ID() int64
+	UUID() string
+	Node() *NodeBase
+
+	Parent() Node
+	SetParent(parent Node)
+	Children() []Node
+
+	Edges() []Edge
+
+	IsContainer() bool
+	IsLeaf() bool
+
+	Comments() []string
+
+	attachToGraph(g *Graph)
+	detachFromGraph(g *Graph)
+
+	addChildNode(node Node)
+	removeChildNode(node Node)
+	replaceChildNode(old Node, node Node)
+
+	setEdge(edge Edge)
+	unsetEdge(key EdgeKey)
+	getEdge(key EdgeKey) Edge
+}
+
+func (n *NodeBase) Parent() Node { return n.parent }
 
 func (n *NodeBase) Children() []Node { return n.children }
 func (n *NodeBase) Edges() []Edge    { return nil }
@@ -256,23 +291,6 @@ func (n *NodeBase) attachToGraph(g *Graph) {
 	}
 }
 
-func (n *NodeBase) detachFromGraph(g *Graph) {
-	// TODO: Write Godoc for this method.
-	if n.g == nil {
-		return
-	}
-
-	if n.g != g {
-		return
-	}
-
-	for _, e := range n.children {
-		e.detachFromGraph(n.g)
-	}
-
-	n.g = nil
-}
-
 // DetachFromGraph detaches the node from the given graph.
 // If the node is not attached to any graph or if it is attached to a different graph,
 // no action is taken.
@@ -281,7 +299,7 @@ func (n *NodeBase) detachFromGraph(g *Graph) {
 //
 // Parameters:
 // - g: The graph from which the node is to be detached.
-func (n *NodeBase) DetachFromGraph(g *Graph) {
+func (n *NodeBase) detachFromGraph(g *Graph) {
 	if n.g == nil {
 		return
 	}
