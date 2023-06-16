@@ -36,14 +36,27 @@ func (nb *NodeBase[T]) Update() {
 		return
 	}
 
+	nb.NodeBase.Update()
+
 	updated := dstutil.Apply(nb.node, func(cursor *dstutil.Cursor) bool {
+		n := cursor.Node()
+
+		if n == nil {
+			return false
+		} else if n == nb.Ast() {
+			return true
+		}
+
 		k := getEdgeName(cursor.Parent(), cursor.Name(), cursor.Index())
 		edge := nb.GetEdge(k)
 
 		if edge != nil {
 			to := edge.To().(Node)
+			targetNode := to.Ast()
 
-			cursor.Replace(to.Ast())
+			if targetNode == cursor.Node() {
+				cursor.Replace(to.Ast())
+			}
 		}
 
 		return false
@@ -53,7 +66,6 @@ func (nb *NodeBase[T]) Update() {
 
 	nb.node = updated.(T)
 
-	nb.NodeBase.Update()
 }
 
 type Container struct {

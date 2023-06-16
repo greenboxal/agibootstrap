@@ -120,6 +120,14 @@ func (n *NodeBase) Invalidate() {
 }
 
 func (n *NodeBase) Update() {
+	if n.valid {
+		return
+	}
+
+	for _, child := range n.children {
+		child.Update()
+	}
+
 	n.valid = true
 }
 

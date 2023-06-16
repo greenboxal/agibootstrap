@@ -177,11 +177,19 @@ func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root p
 		}
 	}
 
-	return psi.Rewrite(processor.Root, func(cursor psi.Cursor, entering bool) error {
+	result, err := psi.Rewrite(processor.Root, func(cursor psi.Cursor, entering bool) error {
 		if entering {
 			return processor.OnEnter(cursor)
 		} else {
 			return processor.OnLeave(cursor)
 		}
 	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	result.Update()
+
+	return result, nil
 }
