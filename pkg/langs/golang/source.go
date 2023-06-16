@@ -131,17 +131,18 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 	return node, err
 }
 
-func (sf *SourceFile) ToCode(node Node) (string, error) {
+func (sf *SourceFile) ToCode(node psi.Node) (string, error) {
 	var buf bytes.Buffer
 
-	f, ok := node.Ast().(*dst.File)
+	n := node.(Node).Ast()
+	f, ok := n.(*dst.File)
 
 	if !ok {
 		var decls []dst.Decl
 
 		obj := &dst.Object{}
 
-		switch n := node.Ast().(type) {
+		switch n := n.(type) {
 		case *dst.FuncDecl:
 			obj.Kind = dst.Fun
 
