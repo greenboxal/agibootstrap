@@ -59,6 +59,8 @@ type Node interface {
 	addChildNode(node Node)
 	removeChildNode(node Node)
 	replaceChildNode(old Node, node Node)
+	insertChildNodeBefore(anchor Node, node Node)
+	insertChildNodeAfter(anchor Node, node Node)
 
 	String() string
 }
@@ -258,6 +260,34 @@ func (n *NodeBase) removeChildNode(child Node) {
 	n.children = slices.Delete(n.children, idx, idx+1)
 
 	n.Invalidate()
+}
+
+func (n *NodeBase) insertChildrenAt(idx int, child Node) {
+	n.children = slices.Insert(n.children, idx, child)
+
+	child.attachToGraph(n.g)
+
+	n.Invalidate()
+}
+
+func (n *NodeBase) insertChildNodeBefore(anchor, node Node) {
+	idx := slices.Index(n.children, anchor)
+
+	if idx == -1 {
+		return
+	}
+
+	n.insertChildrenAt(idx, node)
+}
+
+func (n *NodeBase) insertChildNodeAfter(anchor, node Node) {
+	idx := slices.Index(n.children, anchor)
+
+	if idx == -1 {
+		return
+	}
+
+	n.insertChildrenAt(idx+1, node)
 }
 
 // replaceChildNode replaces an old child node with a new child node in the current node.

@@ -52,7 +52,11 @@ func (p *Project) processFile(ctx context.Context, fsPath string, opts ...NodePr
 	p.sourceFiles[fsPath] = sf
 
 	// Process the AST nodes
-	updated := p.ProcessNodes(ctx, sf, opts...)
+	updated, err := p.ProcessNodes(ctx, sf, opts...)
+
+	if err != nil {
+		return 0, err
+	}
 
 	// Convert the AST back to code
 	newCode, err := sf.ToCode(updated.(golang.Node))
@@ -71,16 +75,12 @@ func (p *Project) processFile(ctx context.Context, fsPath string, opts ...NodePr
 	return 0, nil
 }
 
-func (p *Project) ProcessNodes(ctx context.Context, sf *golang.SourceFile, opts ...NodeProcessorOption) psi.Node {
-	// Process the AST nodes
-	updated := p.ProcessNode(ctx, sf, sf.Root(), opts...)
-
-	// Convert the AST back to code
-	return updated
+func (p *Project) ProcessNodes(ctx context.Context, sf *golang.SourceFile, opts ...NodeProcessorOption) (psi.Node, error) {
+	return p.ProcessNode(ctx, sf, sf.Root(), opts...)
 }
 
 // ProcessNode processes the given node and returns the updated node.
-func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root psi.Node, opts ...NodeProcessorOption) psi.Node {
+func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root psi.Node, opts ...NodeProcessorOption) (psi.Node, error) {
 	//buildContext := build.Default
 	//buildContext.Dir = p.rootPath
 	//buildContext.BuildTags = []string{"selfwip", "psionly"}
@@ -105,7 +105,7 @@ func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root p
 
 	processor.ctx, processor.cancel = context.WithCancel(ctx)
 
-	processor.checkShouldProcess = func(fn *NodeScope, cursor *golang.Cursor) bool {
+	processor.checkShouldProcess = func(fn *NodeScope, cursor psi.Cursor) bool {
 		return len(fn.Todos) > 0
 	}
 
@@ -177,5 +177,11 @@ func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root p
 		}
 	}
 
-	return golang.Apply(processor.Root.(golang.Node), processor.OnEnter, processor.OnLeave)
+	return psi.Rewrite(processor.Root, func(cursor psi.Cursor, entering bool) error {
+		if entering {
+			return processor.OnEnter(cursor)
+		} else {
+			return processor.OnLeave(cursor)
+		}
+	})
 }

@@ -2,7 +2,6 @@ package mdlang
 
 import (
 	"github.com/gomarkdown/markdown/ast"
-	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -29,19 +28,36 @@ func (nb *NodeBase[T]) Initialize(self Node) {
 	nb.NodeBase.Init(self, "")
 }
 
-type CodeBlock struct{ NodeBase[*ast.CodeBlock] }
+func AstToPsi(node ast.Node) (result psi.Node, err error) {
+	containerStack := make([]psi.Node, 16)
 
-func AstToPsi(node ast.Node) (psi.Node, error) {
-	var result Node
+	ast.WalkFunc(node, func(node ast.Node, entering bool) ast.WalkStatus {
+		if entering {
+			wrapped := &NodeBase[ast.Node]{
+				node: node,
+			}
 
-	switch node := node.(type) {
-	case *ast.CodeBlock:
-		result = &CodeBlock{}
-	default:
-		return nil, errors.Errorf("unsupported node type: %T", node)
-	}
+			if len(containerStack) > 0 {
+				wrapped.SetParent(containerStack[len(containerStack)-1])
+			}
 
-	result.Initialize(result)
+			if wrapped.IsContainer() {
+				containerStack = append(containerStack, wrapped)
+			}
+		} else {
+			if len(containerStack) > 0 {
+				current := containerStack[len(containerStack)-1]
 
-	return result, nil
+				containerStack = containerStack[:len(containerStack)-1]
+
+				if len(containerStack) == 0 {
+					result = current
+				}
+			}
+		}
+
+		return ast.GoToNext
+	})
+
+	return
 }

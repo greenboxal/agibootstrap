@@ -13,6 +13,7 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/greenboxal/agibootstrap/pkg/langs/golang"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type BuildError struct {
@@ -64,15 +65,19 @@ func (s *FixBuildStep) Process(ctx context.Context, p *Project) (result BuildSte
 func (s *FixBuildStep) ProcessFix(ctx context.Context, p *Project, sf *golang.SourceFile, buildError *BuildError) error {
 	fmt.Printf("Fixing build error: %s\n", buildError.String())
 
-	updated := p.ProcessNodes(ctx, sf, func(p *NodeProcessor) {
+	updated, err := p.ProcessNodes(ctx, sf, func(p *NodeProcessor) {
 		p.prepareObjective = func(p *NodeProcessor, ctx *NodeScope) (string, error) {
 			return "Fix the following build error:\n\n# Error Log\n```log\n" + buildError.String() + "```", nil
 		}
 
-		p.checkShouldProcess = func(fn *NodeScope, cursor *golang.Cursor) bool {
+		p.checkShouldProcess = func(fn *NodeScope, cursor psi.Cursor) bool {
 			return true
 		}
 	})
+
+	if err != nil {
+		return err
+	}
 
 	// Convert the AST back to code
 	newCode, err := sf.ToCode(updated.(golang.Node))
