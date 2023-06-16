@@ -13,6 +13,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
+	"github.com/greenboxal/agibootstrap/pkg/langs/golang"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -60,7 +61,7 @@ type NodeProcessorOption func(p *NodeProcessor)
 // a pointer to the NodeProcessor as a parameter and modifies its properties in some way.
 type NodeProcessor struct {
 	Project      *Project                 // The project associated with the NodeProcessor.
-	SourceFile   *psi.SourceFile          // The source file being processed.
+	SourceFile   *golang.SourceFile       // The source file being processed.
 	Root         psi.Node                 // The root node of the AST being processed.
 	FuncStack    *stack.Stack[*NodeScope] // A stack of FunctionContexts.
 	Declarations map[string]*declaration  // A map of declaration names to declaration information.

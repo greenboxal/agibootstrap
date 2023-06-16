@@ -94,113 +94,33 @@ func (actx *AnalysisContext) analyzePackage(ctx context.Context, info *loader.Pa
 				Name: named.Obj().Name(),
 			},
 		}
-		// Add fields
-		for i := 0; i < named.NumFields(); i++ {
-			field := named.Field(i)
-			fieldName := field.Name()
-			fieldType := field.Type().String()
-			f := &vts.Field{
-				DeclarationType: vts.TypeName{
-					Pkg:  pkg.Name,
-					Name: named.Obj().Name(),
-				},
-				Name: fieldName,
-				Type: vts.TypeName{
-					Pkg:  pkg.Name,
-					Name: fieldType,
-				},
-			}
-			typ.Members = append(typ.Members, f)
-		}
-		// Add methods
-		for i := 0; i < named.NumMethods(); i++ {
-			method := named.Method(i)
-			methodName := method.Name()
-			methodType := method.Type().String()
-			m := &vts.Method{
-				DeclarationType: vts.TypeName{
-					Pkg:  pkg.Name,
-					Name: named.Obj().Name(),
-				},
-				Name:           methodName,
-				Parameters:     []vts.Parameter{},
-				Results:        []vts.Parameter{},
-				TypeParameters: []vts.Parameter{},
-			}
-			// Add parameters
-			for j := 0; j < method.Type().NumParams(); j++ {
-				param := method.Type().Param(j)
-				paramName := param.Name()
-				paramType := param.Type().String()
-				p := vts.Parameter{
-					Name: paramName,
+
+		if st, ok := named.Underlying().(*types.Struct); ok {
+			// Add fields
+			for i := 0; i < st.NumFields(); i++ {
+				field := st.Field(i)
+				fieldName := field.Name()
+				fieldType := field.Type().String()
+				f := &vts.Field{
+					DeclarationType: vts.TypeName{
+						Pkg:  pkg.Name,
+						Name: named.Obj().Name(),
+					},
+					Name: fieldName,
 					Type: vts.TypeName{
 						Pkg:  pkg.Name,
-						Name: paramType,
+						Name: fieldType,
 					},
 				}
-				m.Parameters = append(m.Parameters, p)
+				typ.Members = append(typ.Members, f)
 			}
-			// Add results
-			for j := 0; j < method.Type().NumResults(); j++ {
-				param := method.Type().Result(j)
-				paramType := param.Type().String()
-				p := vts.Parameter{
-					Type: vts.TypeName{
-						Pkg:  pkg.Name,
-						Name: paramType,
-					},
-				}
-				m.Results = append(m.Results, p)
-			}
-			typ.Members = append(typ.Members, m)
-		}
-
-		pkg.Types = append(pkg.Types, typ)
-	}
-
-	actx.project.vtsRoot.AddPackage(pkg)
-
-	return nil
-}
-func orphanSnippet() {
-	pkg := &vts.Package{
-		Name: vts.PackageName(info.Pkg.Name()),
-	}
-
-	for _, typ := range info.Types {
-		named, ok := typ.Type.(*types.Named)
-
-		if !ok {
-			continue
-		}
-
-		// Add fields
-		for i := 0; i < named.NumFields(); i++ {
-			field := named.Field(i)
-			fieldName := field.Name()
-			fieldType := field.Type().String()
-
-			f := &vts.Field{
-				DeclarationType: vts.TypeName{
-					Pkg:  pkg.Name,
-					Name: named.Obj().Name(),
-				},
-				Name: fieldName,
-				Type: vts.TypeName{
-					Pkg:  pkg.Name,
-					Name: fieldType,
-				},
-			}
-
-			typ.Members = append(typ.Members, f)
 		}
 
 		// Add methods
 		for i := 0; i < named.NumMethods(); i++ {
 			method := named.Method(i)
 			methodName := method.Name()
-			methodType := method.Type().String()
+			methodType := method.Type().Underlying().(*types.Signature)
 
 			m := &vts.Method{
 				DeclarationType: vts.TypeName{
@@ -214,11 +134,10 @@ func orphanSnippet() {
 			}
 
 			// Add parameters
-			for j := 0; j < method.Type().NumParams(); j++ {
-				param := method.Type().Param(j)
+			for j := 0; j < methodType.Params().Len(); j++ {
+				param := methodType.Params().At(j)
 				paramName := param.Name()
 				paramType := param.Type().String()
-
 				p := vts.Parameter{
 					Name: paramName,
 					Type: vts.TypeName{
@@ -226,22 +145,19 @@ func orphanSnippet() {
 						Name: paramType,
 					},
 				}
-
 				m.Parameters = append(m.Parameters, p)
 			}
 
 			// Add results
-			for j := 0; j < method.Type().NumResults(); j++ {
-				param := method.Type().Result(j)
+			for j := 0; j < methodType.Results().Len(); j++ {
+				param := methodType.Results().At(j)
 				paramType := param.Type().String()
-
 				p := vts.Parameter{
 					Type: vts.TypeName{
 						Pkg:  pkg.Name,
 						Name: paramType,
 					},
 				}
-
 				m.Results = append(m.Results, p)
 			}
 
@@ -254,5 +170,4 @@ func orphanSnippet() {
 	actx.project.vtsRoot.AddPackage(pkg)
 
 	return nil
-
 }

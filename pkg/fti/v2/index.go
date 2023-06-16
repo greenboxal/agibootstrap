@@ -133,7 +133,7 @@ func (oi *OnlineIndex) Query(q llm.Embedding, k int64) ([]OnlineIndexQueryHit, e
 func (oi *OnlineIndex) putEntry(idx int64, entry *OnlineIndexEntry) error {
 	indexPath := oi.Repository.ResolveDbPath("index")
 
-	if err := os.MkdirAll(indexPath, os.ModePerm); err != nil {
+	if err := os.MkdirAll(indexPath, 0755); err != nil {
 		return err
 	}
 
@@ -147,7 +147,7 @@ func (oi *OnlineIndex) putEntry(idx int64, entry *OnlineIndexEntry) error {
 		return err
 	}
 
-	return os.WriteFile(p, data, os.ModePerm)
+	return os.WriteFile(p, data, 0644)
 }
 
 // lookupEntry looks up an entry in the online index by its index ID.

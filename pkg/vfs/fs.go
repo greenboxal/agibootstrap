@@ -115,7 +115,7 @@ func NewFileNode(fs FS, path string) *FileNode {
 		path: path,
 	}
 
-	fn.Initialize(fn, key)
+	fn.Init(fn, key)
 
 	return fn
 }

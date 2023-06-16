@@ -1,6 +1,9 @@
 package vts
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 type PackageName string
 
@@ -28,9 +31,17 @@ func (p *Package) ResolveType(name string) *Type {
 	return nil
 }
 
+func (p *Package) String() string {
+	return string(p.Name)
+}
+
 type TypeName struct {
 	Pkg  PackageName
 	Name string
+}
+
+func (tn *TypeName) String() string {
+	return fmt.Sprintf("%s/%s", tn.Pkg, tn.Name)
 }
 
 type Type struct {
@@ -52,6 +63,10 @@ type Method struct {
 	Results    []Parameter
 
 	TypeParameters []Parameter
+}
+
+func (m *Method) String() string {
+	return fmt.Sprintf("%s.%s", m.DeclarationType, m.Name)
 }
 
 func (m *Method) GetName() string              { return m.Name }

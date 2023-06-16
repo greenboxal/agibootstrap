@@ -434,7 +434,7 @@ func (r *Repository) FileExists(filePath string) bool {
 }
 
 func (r *Repository) OpenFile(filePath string) (fs.File, error) {
-	return os.OpenFile(filePath, os.O_RDONLY, os.ModePerm)
+	return os.OpenFile(filePath, os.O_RDONLY, 0644)
 }
 
 func (r *Repository) IsIgnored(name string) bool {
@@ -523,7 +523,7 @@ func (r *Repository) IterateFiles(ctx context.Context) Iterator[FileCursor] {
 
 func (r *Repository) Init() error {
 	// Create the .fti directory
-	err := os.Mkdir(r.ftiPath, os.ModePerm)
+	err := os.Mkdir(r.ftiPath, 0755)
 	if err != nil {
 		return err
 	}
@@ -533,7 +533,7 @@ func (r *Repository) Init() error {
 		return err
 	}
 
-	err = ioutil.WriteFile(r.configPath, configData, os.ModePerm)
+	err = ioutil.WriteFile(r.configPath, configData, 0644)
 	if err != nil {
 		return err
 	}
@@ -584,7 +584,7 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 	fileDir := r.ResolveDbPath("objects", fileHash)
 	metaPath := filepath.Join(fileDir, "meta.json")
 
-	if err := os.MkdirAll(fileDir, os.ModePerm); err != nil {
+	if err := os.MkdirAll(fileDir, 0755); err != nil {
 		return err
 	}
 
@@ -610,7 +610,7 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 		return err
 	}
 
-	if err := os.WriteFile(metaPath, serialized, os.ModePerm); err != nil {
+	if err := os.WriteFile(metaPath, serialized, 0755); err != nil {
 		return err
 	}
 
@@ -649,7 +649,7 @@ func (r *Repository) updateFileWithSpec(ctx context.Context, spec ChunkSpec, fil
 		chunkPath := filepath.Join(fileDir, fmt.Sprintf("%dm%d.%d.txt", spec.MaxTokens, spec.Overlap, chunk.Index))
 		embPath := filepath.Join(fileDir, fmt.Sprintf("%dm%d.%d.f32", spec.MaxTokens, spec.Overlap, chunk.Index))
 
-		if err := os.WriteFile(chunkPath, []byte(chunk.Content), os.ModePerm); err != nil {
+		if err := os.WriteFile(chunkPath, []byte(chunk.Content), 0644); err != nil {
 			return nil, err
 		}
 
@@ -659,12 +659,12 @@ func (r *Repository) updateFileWithSpec(ctx context.Context, spec ChunkSpec, fil
 			binary.LittleEndian.PutUint32(buffer[j*4:], math.Float32bits(f))
 		}
 
-		if err := os.WriteFile(embPath, buffer, os.ModePerm); err != nil {
+		if err := os.WriteFile(embPath, buffer, 0644); err != nil {
 			return nil, err
 		}
 	}
 
-	fh, err := os.OpenFile(imagePath, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	fh, err := os.OpenFile(imagePath, os.O_CREATE|os.O_WRONLY, 0644)
 
 	if err != nil {
 		return nil, err
@@ -812,7 +812,7 @@ func (oi *OnlineIndex) Query(q llm.Embedding, k int64) ([]OnlineIndexQueryHit, e
 func (oi *OnlineIndex) putEntry(idx int64, entry *OnlineIndexEntry) error {
 	indexPath := oi.Repository.ResolveDbPath("index")
 
-	if err := os.MkdirAll(indexPath, os.ModePerm); err != nil {
+	if err := os.MkdirAll(indexPath, 0644); err != nil {
 		return err
 	}
 
@@ -826,7 +826,7 @@ func (oi *OnlineIndex) putEntry(idx int64, entry *OnlineIndexEntry) error {
 		return err
 	}
 
-	return os.WriteFile(p, data, os.ModePerm)
+	return os.WriteFile(p, data, 0644)
 }
 
 func (oi *OnlineIndex) lookupEntry(idx int64) (*OnlineIndexEntry, error) {

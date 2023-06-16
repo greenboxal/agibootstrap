@@ -1,7 +1,8 @@
-package psi
+package golang
 
 import (
 	"bytes"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"github.com/dave/dst/decorator"
 	"github.com/pkg/errors"
 
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
 
@@ -20,7 +22,7 @@ type SourceFile struct {
 	dec  *decorator.Decorator
 	fset *token.FileSet
 
-	root   Node
+	root   psi.Node
 	parsed *dst.File
 	err    error
 
@@ -43,7 +45,7 @@ func (sf *SourceFile) Decorator() *decorator.Decorator { return sf.dec }
 func (sf *SourceFile) Path() string                    { return sf.name }
 func (sf *SourceFile) FileSet() *token.FileSet         { return sf.fset }
 func (sf *SourceFile) OriginalText() string            { return sf.original }
-func (sf *SourceFile) Root() Node                      { return sf.root }
+func (sf *SourceFile) Root() psi.Node                  { return sf.root }
 func (sf *SourceFile) Error() error                    { return sf.err }
 
 func (sf *SourceFile) Load() error {
@@ -84,7 +86,20 @@ func (sf *SourceFile) Replace(code string) error {
 	return sf.Load()
 }
 
-func (sf *SourceFile) Parse(filename string, sourceCode string) (result Node, err error) {
+func (sf *SourceFile) SetRoot(node *ast.File) error {
+	parsed, err := decorator.Decorate(sf.fset, node)
+
+	if err != nil {
+		return err
+	}
+
+	sf.parsed = parsed.(*dst.File)
+	sf.root = AstToPsi(sf.parsed)
+
+	return nil
+}
+
+func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if e, ok := r.(error); ok {
@@ -106,7 +121,7 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result Node, er
 		return nil, err
 	}
 
-	node := convertNode(parsed, sf)
+	node := AstToPsi(parsed)
 
 	if sf.root == nil {
 		sf.original = sourceCode

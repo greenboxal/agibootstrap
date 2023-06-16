@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/fti"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/langs/golang"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/vts"
@@ -41,7 +41,7 @@ type Project struct {
 	repo     *fti.Repository
 
 	files       map[string]*vfs.FileNode
-	sourceFiles map[string]*psi.SourceFile
+	sourceFiles map[string]*golang.SourceFile
 
 	vtsRoot *vts.Scope
 
@@ -69,7 +69,7 @@ func NewProject(rootPath string) (*Project, error) {
 		fs:          root,
 		repo:        repo,
 		files:       map[string]*vfs.FileNode{},
-		sourceFiles: map[string]*psi.SourceFile{},
+		sourceFiles: map[string]*golang.SourceFile{},
 		fset:        token.NewFileSet(),
 
 		vtsRoot: vts.NewScope(),
@@ -100,7 +100,7 @@ func (p *Project) FS() repofs.FS { return p.fs }
 func (p *Project) Generate(ctx context.Context, isSingleStep bool) (changes int, err error) {
 	// Define the list of build steps to be executed
 	steps := []BuildStep{
-		//&AnalysisBuildStep{},
+		&AnalysisBuildStep{},
 		&CodeGenBuildStep{},
 		&FixImportsBuildStep{},
 		//&FixBuildStep{},
@@ -213,7 +213,7 @@ func (p *Project) Sync() (err error) {
 
 // GetSourceFile retrieves the source file with the given filename from the project.
 // It returns a pointer to the psi.SourceFile and any error that occurred during the process.
-func (p *Project) GetSourceFile(filename string) (_ *psi.SourceFile, err error) {
+func (p *Project) GetSourceFile(filename string) (_ *golang.SourceFile, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if e, ok := r.(error); ok {
@@ -237,7 +237,7 @@ func (p *Project) GetSourceFile(filename string) (_ *psi.SourceFile, err error) 
 	existing := p.sourceFiles[key]
 
 	if existing == nil {
-		existing = psi.NewSourceFile(p.fset, filename, repofs.FsFileHandle{
+		existing = golang.NewSourceFile(p.fset, filename, repofs.FsFileHandle{
 			FS:   p.fs,
 			Path: strings.TrimPrefix(filename, p.rootPath+"/"),
 		})

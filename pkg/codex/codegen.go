@@ -12,6 +12,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
+	"github.com/greenboxal/agibootstrap/pkg/langs/golang"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -70,7 +71,7 @@ func (p *Project) processFile(ctx context.Context, fsPath string, opts ...NodePr
 	return 0, nil
 }
 
-func (p *Project) ProcessNodes(ctx context.Context, sf *psi.SourceFile, opts ...NodeProcessorOption) psi.Node {
+func (p *Project) ProcessNodes(ctx context.Context, sf *golang.SourceFile, opts ...NodeProcessorOption) psi.Node {
 	// Process the AST nodes
 	updated := p.ProcessNode(ctx, sf, sf.Root(), opts...)
 
@@ -79,7 +80,7 @@ func (p *Project) ProcessNodes(ctx context.Context, sf *psi.SourceFile, opts ...
 }
 
 // ProcessNode processes the given node and returns the updated node.
-func (p *Project) ProcessNode(ctx context.Context, sf *psi.SourceFile, root psi.Node, opts ...NodeProcessorOption) psi.Node {
+func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root psi.Node, opts ...NodeProcessorOption) psi.Node {
 	//buildContext := build.Default
 	//buildContext.Dir = p.rootPath
 	//buildContext.BuildTags = []string{"selfwip", "psionly"}

@@ -5,21 +5,39 @@ import (
 )
 
 type Graph struct {
-	*multi.DirectedGraph
+	g *multi.DirectedGraph
 }
 
 func NewGraph() *Graph {
 	return &Graph{
-		DirectedGraph: multi.NewDirectedGraph(),
+		g: multi.NewDirectedGraph(),
 	}
 }
 
-func (g *Graph) AddNode(n Node) {
+func (g *Graph) Add(n Node) {
 	n.attachToGraph(g)
-	g.AddNode(n)
+	g.g.AddNode(n)
 }
 
-func (g *Graph) RemoveNode(n Node) {
-	g.RemoveNode(n)
+func (g *Graph) Remove(n Node) {
+	g.g.RemoveNode(n.ID())
 	n.detachFromGraph(nil)
+}
+
+func (g *Graph) Replace(old, new Node) {
+	if old == new {
+		return
+	}
+
+	gn := old.Node().g
+
+	if gn != nil && gn != g {
+		panic("nodes belong to different graphs")
+	}
+
+	parent := old.Parent()
+
+	if parent != nil {
+		parent.replaceChildNode(old, new)
+	}
 }

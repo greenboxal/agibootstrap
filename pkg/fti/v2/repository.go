@@ -100,7 +100,7 @@ func (r *Repository) FileExists(filePath string) bool {
 }
 
 func (r *Repository) OpenFile(filePath string) (fs.File, error) {
-	return os.OpenFile(filePath, os.O_RDONLY, os.ModePerm)
+	return os.OpenFile(filePath, os.O_RDONLY, 0644)
 }
 
 func (r *Repository) IsIgnored(name string) bool {
@@ -193,7 +193,7 @@ func (r *Repository) IterateFiles(ctx context.Context) Iterator[FileCursor] {
 // Init initializes the repository by creating the necessary directories and configuration file.
 // It creates the .fti directory and writes the default configuration to the config.json file.
 func (r *Repository) Init() error {
-	err := os.Mkdir(r.ftiPath, os.ModePerm)
+	err := os.Mkdir(r.ftiPath, 0755)
 	if err != nil {
 		return err
 	}
@@ -203,7 +203,7 @@ func (r *Repository) Init() error {
 		return err
 	}
 
-	err = ioutil.WriteFile(r.configPath, configData, os.ModePerm)
+	err = ioutil.WriteFile(r.configPath, configData, 0644)
 	if err != nil {
 		return err
 	}
@@ -261,7 +261,7 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 	fileDir := r.ResolveDbPath("objects", fileHash)
 	metaPath := filepath.Join(fileDir, "meta.json")
 
-	if err := os.MkdirAll(fileDir, os.ModePerm); err != nil {
+	if err := os.MkdirAll(fileDir, 0755); err != nil {
 		return err
 	}
 
@@ -285,7 +285,7 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 		return err
 	}
 
-	if err := os.WriteFile(metaPath, serialized, os.ModePerm); err != nil {
+	if err := os.WriteFile(metaPath, serialized, 0644); err != nil {
 		return err
 	}
 
@@ -332,7 +332,7 @@ func (r *Repository) updateFileWithSpec(ctx context.Context, spec ChunkSpec, fil
 		chunkPath := filepath.Join(fileDir, fmt.Sprintf("%dm%d.%d.txt", spec.MaxTokens, spec.Overlap, chunk.Index))
 		embPath := filepath.Join(fileDir, fmt.Sprintf("%dm%d.%d.f32", spec.MaxTokens, spec.Overlap, chunk.Index))
 
-		if err := os.WriteFile(chunkPath, []byte(chunk.Content), os.ModePerm); err != nil {
+		if err := os.WriteFile(chunkPath, []byte(chunk.Content), 0644); err != nil {
 			return nil, err
 		}
 
@@ -342,12 +342,12 @@ func (r *Repository) updateFileWithSpec(ctx context.Context, spec ChunkSpec, fil
 			binary.LittleEndian.PutUint32(buffer[j*4:], math.Float32bits(f))
 		}
 
-		if err := os.WriteFile(embPath, buffer, os.ModePerm); err != nil {
+		if err := os.WriteFile(embPath, buffer, 0644); err != nil {
 			return nil, err
 		}
 	}
 
-	fh, err := os.OpenFile(imagePath, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	fh, err := os.OpenFile(imagePath, os.O_CREATE|os.O_WRONLY, 0644)
 
 	if err != nil {
 		return nil, err
