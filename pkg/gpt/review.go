@@ -9,7 +9,7 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/memory"
 )
 
-var CommitMessagePrompt = chat.ComposeTemplate(
+var ReviewPrompt = chat.ComposeTemplate(
 	chat.EntryTemplate(
 		msn.RoleSystem,
 		chain.NewTemplatePrompt(`
@@ -37,29 +37,29 @@ Commit message description goes in here. It can be multiple lines long.
 
 # Diff
 `+"```"+`diff
-{{ .Document | markdownTree 2 }}
+{{ .Document }}
 `+"```"+`
 `, chain.WithRequiredInput(DocumentKey))),
 )
 
-var CommitMessageChain = chain.New(
-	chain.WithName("CommitMessageGenerator"),
+var ReviewChain = chain.New(
+	chain.WithName("ReviewGenerator"),
 
 	chain.Sequential(
 		chat.Predict(
 			model,
-			CommitMessagePrompt,
+			ReviewPrompt,
 		),
 	),
 )
 
-func PrepareCommitMessage(diff string) (string, error) {
+func PrepareReview(diff string) (string, error) {
 	ctx := context.Background()
 	cctx := chain.NewChainContext(ctx)
 
 	cctx.SetInput(DocumentKey, diff)
 
-	if err := CommitMessageChain.Run(cctx); err != nil {
+	if err := ReviewChain.Run(cctx); err != nil {
 		return "", err
 	}
 
