@@ -11,10 +11,10 @@ The FTI system uses a standard structure stored within a `.fti` folder located a
               - <chunkSize>m<overlap>.bin
     - index/
 
+
 ```
 ### Objects
-Objects are snapshots of given content stored in a content-addressable fashion. Each object is preserved under `.fti/objects` as a directory, named after the hash of the data. For every chunking specification, there exists an object snapshot file termed `<chunkSize>m<overlap>.bin`.
-These snapshot objects are visualized as 2D square images with the embeddings of each chunk distributed as RGB squares inside each chunk.
+Objects are snapshots of given content stored in a content-addressable fashion. Each object is preserved under `.fti/objects` as a directory, named after the hash of the data. For every chunking specification, there exists an object snapshot file termed `<chunkSize>m<overlap>.bin`. These snapshot objects are visualized as 2D square images with the embeddings of each chunk distributed as RGB squares inside each chunk.
 ### Inverse Index
 The Inverse Index resides under the `.fti/index/` directory and represents a crucial component of the FTI system. It stores a linear binary tree that maps int64 values to a pair of object hash and chunk index. This binary file is optimized for in-memory retrieval, providing swift and accurate data lookup.
 ## Command-Line Interface (CLI): FTI
@@ -33,5 +33,4 @@ Next, we will write utility functions that we will use across the application. T
 ### Step 3: Implement Command Logic
 After our utility functions are ready, we will implement the logic for the `init`, `update`, and `query` commands in their respective files.
 ### Step 4: Test and Debug
-Finally, we will write unit tests for our utility functions and commands to ensure they work as expected. We will also manually test our CLI tool and fix any bugs that we encounter.
-Upon completion, we will have a fully functional File Tree Indexing system ready for use. The FTI will streamline the process of managing large directories and retrieving data efficiently.
+Finally, we will write unit tests for our utility functions and commands to ensure they work as expected. We will also manually test our CLI tool and fix any bugs that we encounter. Upon completion, we will have a fully functional File Tree Indexing system ready for use. The FTI will streamline the process of managing large directories and retrieving data efficiently.
