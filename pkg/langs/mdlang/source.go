@@ -134,7 +134,6 @@ func (sf *SourceFile) ToCode(node psi.Node) (string, error) {
 	return txt, nil
 }
 func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope any, cursor psi.Cursor, newAst psi.Node) error {
-	// Write code that merges the completion results into the existing AST by merging the markdown headings
 
 	return nil
 }

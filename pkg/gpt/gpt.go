@@ -24,7 +24,7 @@ var embedder = &openai.Embedder{
 var model = &openai.ChatLanguageModel{
 	Client:      oai,
 	Model:       "gpt-3.5-turbo-16k",
-	Temperature: 0,
+	Temperature: 0.7,
 }
 
 // ExtractCodeBlocks traverses the given AST and extracts all code blocks.
