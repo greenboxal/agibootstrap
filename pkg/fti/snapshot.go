@@ -10,6 +10,10 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 )
 
+type DocumentReference struct {
+	Path string
+}
+
 type ObjectSnapshotMetadata struct {
 	Path       string `json:"path"`
 	Hash       string `json:"hash"`
@@ -19,6 +23,7 @@ type ObjectSnapshotMetadata struct {
 type ObjectSnapshotImage struct {
 	Chunks     []chunkers.Chunk
 	Embeddings []llm.Embedding
+	Document   DocumentReference
 }
 
 func (osi *ObjectSnapshotImage) ReadFrom(r io.Reader) (int, error) {

@@ -258,10 +258,10 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 	h := hasher.Sum(nil)
 	fileHash := hex.EncodeToString(h)
 
-	fileDir := r.ResolveDbPath("objects", fileHash)
-	metaPath := filepath.Join(fileDir, "meta.json")
+	objectDir := r.ResolveDbPath("objects", fileHash)
+	metaPath := filepath.Join(objectDir, "meta.json")
 
-	if err := os.MkdirAll(fileDir, 0755); err != nil {
+	if err := os.MkdirAll(objectDir, 0755); err != nil {
 		return err
 	}
 
@@ -272,7 +272,7 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 	}
 
 	for i, chunkSpec := range r.config.ChunkSpecs {
-		img, err := r.updateFileWithSpec(ctx, chunkSpec, fileDir, data)
+		img, err := r.updateFileWithSpec(ctx, chunkSpec, objectDir, f.Path, data)
 		if err != nil {
 			return err
 		}
@@ -300,8 +300,8 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 // For each chunk, it writes the content to a text file and the embeddings to a binary file.
 // Finally, it writes the ObjectSnapshotImage to an image file and adds it to the index.
 // Returns the ObjectSnapshotImage if the update is successful, or an error otherwise.
-func (r *Repository) updateFileWithSpec(ctx context.Context, spec ChunkSpec, fileDir string, data []byte) (*ObjectSnapshotImage, error) {
-	imagePath := filepath.Join(fileDir, fmt.Sprintf("%dm%d.png", spec.MaxTokens, spec.Overlap))
+func (r *Repository) updateFileWithSpec(ctx context.Context, spec ChunkSpec, objectDir string, path string, data []byte) (*ObjectSnapshotImage, error) {
+	imagePath := filepath.Join(objectDir, fmt.Sprintf("%dm%d.png", spec.MaxTokens, spec.Overlap))
 
 	chunks, err := r.chunker.SplitTextIntoChunks(ctx, string(data), spec.MaxTokens, spec.Overlap)
 
@@ -324,13 +324,14 @@ func (r *Repository) updateFileWithSpec(ctx context.Context, spec ChunkSpec, fil
 	img := &ObjectSnapshotImage{
 		Chunks:     chunks,
 		Embeddings: embeddings,
+		Document:   DocumentReference{Path: path},
 	}
 
 	for i, chunk := range chunks {
 		emb := embeddings[i]
 
-		chunkPath := filepath.Join(fileDir, fmt.Sprintf("%dm%d.%d.txt", spec.MaxTokens, spec.Overlap, chunk.Index))
-		embPath := filepath.Join(fileDir, fmt.Sprintf("%dm%d.%d.f32", spec.MaxTokens, spec.Overlap, chunk.Index))
+		chunkPath := filepath.Join(objectDir, fmt.Sprintf("%dm%d.%d.txt", spec.MaxTokens, spec.Overlap, chunk.Index))
+		embPath := filepath.Join(objectDir, fmt.Sprintf("%dm%d.%d.f32", spec.MaxTokens, spec.Overlap, chunk.Index))
 
 		if err := os.WriteFile(chunkPath, []byte(chunk.Content), 0644); err != nil {
 			return nil, err

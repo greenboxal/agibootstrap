@@ -10,7 +10,15 @@ import (
 	"github.com/DataIntelligenceCrew/go-faiss"
 	"github.com/greenboxal/aip/aip-langchain/pkg/chunkers"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
+
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
+
+type IndexedDocument struct {
+	psi.NodeBase
+
+	Spec ChunkSpec
+}
 
 // OnlineIndexQueryHit represents a single search hit in the online index.
 type OnlineIndexQueryHit struct {
@@ -24,6 +32,7 @@ type OnlineIndexEntry struct {
 	Index     int64
 	Chunk     chunkers.Chunk
 	Embedding llm.Embedding
+	Document  DocumentReference
 }
 
 type OnlineIndex struct {
@@ -79,6 +88,7 @@ func (oi *OnlineIndex) Add(img *ObjectSnapshotImage) error {
 			Index:     baseIndex + int64(i),
 			Chunk:     img.Chunks[i],
 			Embedding: emb,
+			Document:  img.Document,
 		}
 
 		if err := oi.putEntry(entry.Index, entry); err != nil {

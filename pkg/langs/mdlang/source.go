@@ -133,15 +133,7 @@ func (sf *SourceFile) ToCode(node psi.Node) (string, error) {
 }
 
 func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope psi.Scope, cursor psi.Cursor, newAst psi.Node) error {
-	// TODO: Describe a possible way to merge completion results by using the cursor
 	cursor.Replace(newAst)
 
 	return nil
-}
-func orphanSnippet() {
-	// TODO: Describe a possible way to merge completion results by using the cursor
-	cursor.Replace(newAst)
-
-	return nil
-
 }
