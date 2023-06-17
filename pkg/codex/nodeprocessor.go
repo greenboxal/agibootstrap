@@ -3,6 +3,7 @@ package codex
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/dave/dst"
@@ -66,6 +67,8 @@ type NodeProcessor struct {
 	cancel context.CancelFunc
 }
 
+var todoRegex = regexp.MustCompile(`(?m)^\s*//\s*TODO:`)
+
 // OnEnter method is called when entering a node during
 // the AST traversal. It checks if the node is a container,
 // and if so, pushes a new NodeScope onto the FuncStack.
@@ -97,7 +100,7 @@ func (p *NodeProcessor) OnEnter(cursor psi.Cursor) error {
 	for _, txt := range cursor.Current().Comments() {
 		txt = strings.TrimSpace(txt)
 
-		if strings.HasPrefix(txt, "// TODO:") {
+		if todoRegex.MatchString(txt) {
 			ok, currentFn := p.FuncStack.Peek()
 
 			if !ok {
@@ -218,9 +221,7 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 	}
 
 	for i, block := range codeBlocks {
-		if block.Language == "" {
-			block.Language = "go"
-		}
+		block.Language = string(p.SourceFile.Language().Name())
 
 		lang := p.Project.langRegistry.Resolve(psi.LanguageID(block.Language))
 

@@ -17,8 +17,6 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/vts"
 )
 
-var validExtensions = []string{".go"}
-
 // BuildStepResult represents the result of a build step.
 // It contains the number of changes made during the build step.
 type BuildStepResult struct {

@@ -3,7 +3,6 @@ package codex
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -18,16 +17,19 @@ type CodeGenBuildStep struct{}
 func (g *CodeGenBuildStep) Process(ctx context.Context, p *Project) (result BuildStepResult, err error) {
 	for _, file := range p.files {
 		filePath := file.Path()
+		lang := p.langRegistry.ResolveExtension(filePath)
 
-		if filepath.Ext(filePath) == ".go" {
-			count, e := p.processFile(ctx, filePath)
-
-			if e != nil {
-				err = multierror.Append(err, e)
-			}
-
-			result.Changes += count
+		if lang == nil {
+			continue
 		}
+
+		count, e := p.processFile(ctx, filePath)
+
+		if e != nil {
+			err = multierror.Append(err, e)
+		}
+
+		result.Changes += count
 	}
 
 	return result, err
