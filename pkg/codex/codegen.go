@@ -136,7 +136,7 @@ func (p *Project) ProcessNode(ctx context.Context, sf psi.SourceFile, root psi.N
 		}
 	})
 
-	if err != nil {
+	if err != nil && err != ErrAbort {
 		return nil, err
 	}
 
