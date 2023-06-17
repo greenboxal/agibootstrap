@@ -3,19 +3,6 @@
 A File Tree Index (FTI) serves as an efficient and effective vector index for a given directory, herein referred to as a repository. The FTI system allows us to encapsulate the essence of files within the repository using embedding vectors. Each file in the repository is chunked according to a specific configuration, comprising a chunk size and overlap. The system uses external APIs such as OpenAI's Embeddings API to generate an embedding vector for each chunk.
 ## Physical Layout
 The FTI system uses a standard structure stored within a `.fti` folder located at the root of the FTI repository. The structure of the `.fti` folder includes two main components:
-
-```
-/path/to/my/repo/.fti/
-    - objects/
-          - <object hash>/
-              - <chunkSize>m<overlap>.bin
-    - index/
-
-
-
-
-
-```
 ### Objects
 Objects are snapshots of given content stored in a content-addressable fashion. Each object is preserved under `.fti/objects` as a directory, named after the hash of the data. For every chunking specification, there exists an object snapshot file termed `<chunkSize>m<overlap>.bin`. These snapshot objects are visualized as 2D square images with the embeddings of each chunk distributed as RGB squares inside each chunk.
 ### Inverse Index
