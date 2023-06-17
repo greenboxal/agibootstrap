@@ -201,7 +201,7 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 
 	prunedRoot := p.Root
 
-	stepStr, err := psi.AsCodeBlock(p.SourceFile, stepRoot)
+	stepStr, err := p.SourceFile.ToCode(stepRoot)
 	if err != nil {
 		return nil, err
 	}

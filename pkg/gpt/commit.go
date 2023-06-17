@@ -7,16 +7,15 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 	"github.com/greenboxal/aip/aip-langchain/pkg/memory"
+
+	"github.com/greenboxal/agibootstrap/pkg/mdutils"
 )
 
 var CommitMessagePrompt = chat.ComposeTemplate(
 	chat.EntryTemplate(
 		msn.RoleSystem,
 		chain.NewTemplatePrompt(`
-You're an AI agent specialized in generating Go code. Complete the request below.
-You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
-Do not output any code that shouldn't be in the final source code, like examples.
-Do not emit any code that is not valid Go code. You can use the context below to help you.
+You're an AI agent specialized in generation good summaries for git diffs and commits, and synthesizing commit messages. Complete the request below.
 `)),
 
 	chat.HistoryFromContext(memory.ContextualMemoryKey),
@@ -24,22 +23,29 @@ Do not emit any code that is not valid Go code. You can use the context below to
 	chat.EntryTemplate(
 		msn.RoleUser,
 		chain.NewTemplatePrompt(`
-# Request
 Write a commit message for the changes you made based on the Git diff below.
 Include a title followed by a descriptive list of changes. Be sure to include the reasoning and objective behind the changes.
 
-## Example
-`+"```"+`
-Commit Message Title
+## Examples
+`+"```markdown"+`
+Implement feature X, Y, Z
 
-Commit message description goes in here. It can be multiple lines long.
+- Add feature X
+- Add feature Y
+- Add feature Z
 `+"```"+`
 
-# Diff
-`+"```"+`diff
-{{ .Document | markdownTree 2 }}
+`+"```markdown"+`
+Refactor feature 
+
 `+"```"+`
-`, chain.WithRequiredInput(DocumentKey))),
+`)),
+
+	FunctionCallRequest("Human", "getCommitMessage", RequestKey),
+
+	chat.EntryTemplate(
+		msn.RoleAI,
+		chain.NewTemplatePrompt("\t```markdown")),
 )
 
 var CommitMessageChain = chain.New(
@@ -49,6 +55,7 @@ var CommitMessageChain = chain.New(
 		chat.Predict(
 			model,
 			CommitMessagePrompt,
+			chat.WithMaxTokens(1024),
 		),
 	),
 )
@@ -57,7 +64,14 @@ func PrepareCommitMessage(diff string) (string, error) {
 	ctx := context.Background()
 	cctx := chain.NewChainContext(ctx)
 
-	cctx.SetInput(DocumentKey, diff)
+	req := ContextBag{}
+	req["git diff --cached"] = mdutils.CodeBlock{
+		Filename: "",
+		Language: "diff",
+		Code:     diff,
+	}
+
+	cctx.SetInput(RequestKey, req)
 
 	if err := CommitMessageChain.Run(cctx); err != nil {
 		return "", err

@@ -37,13 +37,13 @@ func (s *FixImportsBuildStep) Process(ctx context.Context, p *Project) (result B
 			return result, err
 		}
 
-		newCode, err := imports.Process(file.Path(), []byte(code), opt)
+		newCode, err := imports.Process(file.Path(), []byte(code.Code), opt)
 
 		if err != nil {
 			return result, err
 		}
 
-		if string(newCode) != code {
+		if string(newCode) != code.Code {
 			err = sf.Replace(string(newCode))
 
 			if err != nil {

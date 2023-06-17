@@ -2,6 +2,7 @@ package mdutils
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/gomarkdown/markdown/ast"
 )
@@ -24,7 +25,7 @@ func (ctx *RenderContext) SpawnHeading(title string) *ast.Heading {
 	return h
 }
 
-func RenderWithContext(ctx *RenderContext, r any) string {
+func RenderToNode(ctx *RenderContext, r any) ast.Node {
 	var node ast.Node
 
 	switch r := r.(type) {
@@ -35,13 +36,33 @@ func RenderWithContext(ctx *RenderContext, r any) string {
 		node = r
 
 	default:
+		v := reflect.ValueOf(r)
+
+		for v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+
 		h := &ast.Heading{}
 		h.Literal = []byte(fmt.Sprintf("%T", r))
 		h.Level = ctx.HeadingLevel
 
 		txt := &ast.Text{}
-		txt.Literal = []byte(MarkdownTree(ctx.HeadingLevel+1, r))
+
+		switch v.Kind() {
+		case reflect.Map:
+			fallthrough
+		case reflect.Slice:
+			txt.Literal = []byte(MarkdownTree(ctx.HeadingLevel+1, r))
+		default:
+			txt.Literal = []byte(fmt.Sprintf("%s", r))
+		}
 	}
+
+	return node
+}
+
+func RenderWithContext(ctx *RenderContext, r any) string {
+	node := RenderToNode(ctx, r)
 
 	return string(FormatMarkdown(node))
 }

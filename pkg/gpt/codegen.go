@@ -1,13 +1,15 @@
 package gpt
 
 import (
+	"encoding/json"
+
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 	"github.com/greenboxal/aip/aip-langchain/pkg/memory"
 )
 
-var RequestKey chain.ContextKey[string] = "Request"
+var RequestKey chain.ContextKey[any] = "Request"
 var ObjectiveKey chain.ContextKey[string] = "Objective"
 var ContextKey chain.ContextKey[any] = "Context"
 var DocumentKey chain.ContextKey[string] = "Document"
@@ -18,9 +20,10 @@ var CodeGeneratorPrompt chat.Prompt
 var CodeGeneratorChain chain.Chain
 
 type CodeGeneratorPromptFn struct {
+	Role         msn.Role
 	UserName     string
 	FunctionName string
-	ArgsKey      chain.ContextKey[string]
+	ArgsKey      chain.ContextKey[any]
 	Args         *string
 }
 
@@ -31,29 +34,57 @@ func (c *CodeGeneratorPromptFn) AsPrompt() chain.Prompt {
 func (c *CodeGeneratorPromptFn) Build(ctx chain.ChainContext) (chat.Message, error) {
 	call := chat.MessageEntry{
 		Name: c.UserName,
-		Role: msn.RoleAI,
+		Role: c.Role,
 		Fn:   c.FunctionName,
 	}
 
 	if c.Args != nil {
 		call.FnArgs = *c.Args
 	} else {
-		call.FnArgs = chain.Input(ctx, c.ArgsKey)
+		args := chain.Input(ctx, c.ArgsKey)
+
+		data, err := json.Marshal(args)
+
+		if err != nil {
+			return chat.Message{}, nil
+		}
+
+		call.FnArgs = string(data)
 	}
 
 	return chat.Compose(call), nil
 }
 
-func FunctionCallTemplate(user, fn string, args chain.ContextKey[string]) chat.Prompt {
+func FunctionCallRequest(user, fn string, args chain.ContextKey[any]) chat.Prompt {
 	return &CodeGeneratorPromptFn{
+		Role:         msn.RoleAI,
 		UserName:     user,
 		FunctionName: fn,
 		ArgsKey:      args,
 	}
 }
 
-func FunctionCall(user, fn string, args string) chat.Prompt {
+func FunctionCallResponse(user, fn string, args chain.ContextKey[any]) chat.Prompt {
 	return &CodeGeneratorPromptFn{
+		Role:         msn.RoleFunction,
+		UserName:     user,
+		FunctionName: fn,
+		ArgsKey:      args,
+	}
+}
+
+func StaticFunctionCallRequest(user, fn string, args string) chat.Prompt {
+	return &CodeGeneratorPromptFn{
+		Role:         msn.RoleAI,
+		UserName:     user,
+		FunctionName: fn,
+		Args:         &args,
+	}
+}
+
+func StaticFunctionCallResponse(user, fn string, args string) chat.Prompt {
+	return &CodeGeneratorPromptFn{
+		Role:         msn.RoleFunction,
 		UserName:     user,
 		FunctionName: fn,
 		Args:         &args,
@@ -83,7 +114,7 @@ Address all TODOs in the document below.
 {{ .Objective }}
 		`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey), chain.WithRequiredInput(ContextKey), chain.WithRequiredInput(LanguageKey))),
 
-		FunctionCallTemplate("Human", "generateCode", RequestKey),
+		FunctionCallRequest("Human", "generateCode", RequestKey),
 
 		chat.EntryTemplate(
 			msn.RoleAI,

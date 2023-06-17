@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 
+	"github.com/greenboxal/agibootstrap/pkg/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
@@ -140,7 +141,7 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 	return node, err
 }
 
-func (sf *SourceFile) ToCode(node psi.Node) (string, error) {
+func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
 	var buf bytes.Buffer
 
 	n := node.(Node).Ast()
@@ -178,7 +179,7 @@ func (sf *SourceFile) ToCode(node psi.Node) (string, error) {
 			})
 
 		default:
-			return "", errors.New("node is not a file or decl")
+			return mdutils.CodeBlock{}, errors.New("node is not a file or decl")
 		}
 
 		f = &dst.File{
@@ -194,11 +195,16 @@ func (sf *SourceFile) ToCode(node psi.Node) (string, error) {
 	}
 
 	err := decorator.Fprint(&buf, f)
+
 	if err != nil {
-		return "", err
+		return mdutils.CodeBlock{}, err
 	}
 
-	return buf.String(), nil
+	return mdutils.CodeBlock{
+		Language: string(LanguageID),
+		Code:     buf.String(),
+		Filename: sf.Name(),
+	}, nil
 }
 
 // MergeCompletionResults merges the completion results of a code block into the NodeProcessor.

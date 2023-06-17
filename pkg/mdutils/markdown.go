@@ -71,18 +71,7 @@ func MarkdownTree(initialDepth int, input any) string {
 			}
 
 		default:
-			leaf := &ast.CodeBlock{
-				IsFenced: false,
-			}
-
-			str := fmt.Sprintf("%s", node)
-			lines := strings.Split(str, "\n")
-			for i, l := range lines {
-				lines[i] = "\t" + l
-			}
-			str = strings.Join(lines, "\n")
-
-			leaf.Literal = []byte(str)
+			leaf := RenderToNode(&RenderContext{HeadingLevel: depth}, node)
 
 			ast.AppendChild(parent, leaf)
 		}

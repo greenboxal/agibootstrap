@@ -84,7 +84,7 @@ func (s *FixBuildStep) ProcessFix(ctx context.Context, p *Project, sf psi.Source
 		return err
 	}
 
-	return sf.Replace(newCode)
+	return sf.Replace(newCode.Code)
 }
 
 // buildProject is responsible for analyzing the project and checking its types.

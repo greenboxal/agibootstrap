@@ -148,11 +148,6 @@ func (p *Project) Generate(ctx context.Context, isSingleStep bool) (changes int,
 			stepChanges += result.Changes
 		}
 
-		// If no changes were made, exit the loop
-		if stepChanges == 0 {
-			break
-		}
-
 		// Stage all the changes in the file system
 		if err = p.fs.StageAll(); err != nil {
 			return
@@ -161,6 +156,11 @@ func (p *Project) Generate(ctx context.Context, isSingleStep bool) (changes int,
 		// Commit the changes to the file system
 		if err = p.Commit(); err != nil {
 			return
+		}
+
+		// If no changes were made, exit the loop
+		if stepChanges == 0 {
+			break
 		}
 
 		// If isSingleStep is true, exit the loop after the first step

@@ -64,8 +64,8 @@ func (p *Project) processFile(ctx context.Context, fsPath string, opts ...NodePr
 		return 0, err
 	}
 
-	if newCode != sf.OriginalText() {
-		if err := sf.Replace(newCode); err != nil {
+	if newCode.Code != sf.OriginalText() {
+		if err := sf.Replace(newCode.Code); err != nil {
 			return 0, nil
 		}
 
@@ -105,7 +105,7 @@ func (p *Project) ProcessNode(ctx context.Context, sf psi.SourceFile, root psi.N
 			return nil, err
 		}
 
-		hits, err := p.repo.Query(context.Background(), wholeFile, 10)
+		hits, err := p.repo.Query(context.Background(), wholeFile.Code, 10)
 
 		if err != nil {
 			return nil, err

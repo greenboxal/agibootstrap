@@ -125,11 +125,16 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 	return AstToPsi(parsed), nil
 }
 
-func (sf *SourceFile) ToCode(node psi.Node) (string, error) {
+func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
 	txt := string(mdutils.FormatMarkdown(node.(Node).Ast()))
 	txt = strings.TrimSpace(txt)
 	txt = strings.TrimRight(txt, "\n")
-	return txt, nil
+
+	return mdutils.CodeBlock{
+		Language: string(LanguageID),
+		Code:     txt,
+		Filename: sf.Name(),
+	}, nil
 }
 
 func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope psi.Scope, cursor psi.Cursor, newAst psi.Node) error {
