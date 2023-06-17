@@ -55,6 +55,7 @@ type Request struct {
 	Context   ContextBag
 	Objective string
 	Document  string
+	Language  string
 }
 
 // PrepareContext prepares the context for the given request.
@@ -71,6 +72,7 @@ func PrepareContext(ctx context.Context, req Request) chain.ChainContext {
 	cctx.SetInput(ObjectiveKey, req.Objective)
 	cctx.SetInput(DocumentKey, req.Document)
 	cctx.SetInput(ContextKey, req.Context)
+	cctx.SetInput(LanguageKey, req.Language)
 
 	return cctx
 }

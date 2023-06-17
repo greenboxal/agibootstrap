@@ -204,6 +204,7 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 	req := gpt.Request{
 		Document:  stepStr,
 		Objective: todoComment,
+		Language:  string(p.SourceFile.Language().Name()),
 		Context:   gpt.ContextBag{},
 	}
 
