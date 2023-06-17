@@ -23,8 +23,7 @@ You're an AI agent specialized in generation good summaries for git diffs and co
 	chat.EntryTemplate(
 		msn.RoleUser,
 		chain.NewTemplatePrompt(`
-Write a commit message for the changes you made based on the Git diff below.
-Include a title followed by a descriptive list of changes. Be sure to include the reasoning and objective behind the changes.
+Write a really good commit message for the changes you made based on the Git diff below.
 
 ## Examples
 `+"```markdown"+`
