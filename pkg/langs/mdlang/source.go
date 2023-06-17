@@ -128,6 +128,7 @@ func (sf *SourceFile) ToCode(node psi.Node) (string, error) {
 	return string(utils.FormatMarkdown(node.(Node).Ast())), nil
 }
 func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope any, cursor psi.Cursor, newAst psi.Node) error {
+	cursor.Replace(newAst)
 
 	return nil
 }

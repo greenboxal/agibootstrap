@@ -233,7 +233,7 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 			return nil, err
 		}
 
-		err = p.SourceFile.MergeCompletionResults(ctx, scope, cursor, newRoot)
+		err = p.SourceFile.MergeCompletionResults(ctx, scope, cursor, newRoot.Root())
 
 		if err != nil {
 			return nil, err

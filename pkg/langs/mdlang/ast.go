@@ -40,7 +40,9 @@ func (nb *NodeBase[T]) Update() {
 
 	if c := nb.node.AsContainer(); c != nil {
 		c.SetChildren(lo.Map(nb.Children(), func(n psi.Node, _ int) ast.Node {
-			return n.(Node).Ast()
+			mdn := n.(Node).Ast()
+			mdn.SetParent(nb.node)
+			return mdn
 		}))
 	}
 }
