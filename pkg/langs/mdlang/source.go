@@ -126,7 +126,11 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 }
 
 func (sf *SourceFile) ToCode(node psi.Node) (string, error) {
-	return strings.TrimSpace(string(utils.FormatMarkdown(node.(Node).Ast()))), nil
+	txt := string(utils.FormatMarkdown(node.(Node).Ast()))
+	txt = strings.TrimSpace(txt)
+	txt = strings.TrimRight(txt, "\n")
+
+	return txt, nil
 }
 func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope any, cursor psi.Cursor, newAst psi.Node) error {
 	cursor.Replace(newAst)
