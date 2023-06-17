@@ -12,6 +12,9 @@ The FTI system uses a standard structure stored within a `.fti` folder located a
     - index/
 
 
+
+
+
 ```
 ### Objects
 Objects are snapshots of given content stored in a content-addressable fashion. Each object is preserved under `.fti/objects` as a directory, named after the hash of the data. For every chunking specification, there exists an object snapshot file termed `<chunkSize>m<overlap>.bin`. These snapshot objects are visualized as 2D square images with the embeddings of each chunk distributed as RGB squares inside each chunk.
