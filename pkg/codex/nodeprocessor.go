@@ -88,12 +88,12 @@ var todoRegex = regexp.MustCompile(`(?m)^\s*//\s*TODO:`)
 // OnEnter is responsible for pushing a new NodeScope onto the FuncStack if the current node is a container.
 // Additionally, it scans the comments of the node for TODOs and stores them in the current NodeScope.
 func (p *NodeProcessor) OnEnter(cursor psi.Cursor) error {
-	e := cursor.Current()
+	e := cursor.Node()
 
 	if e.IsContainer() {
 		err := p.FuncStack.Push(&NodeScope{
 			Processor: p,
-			Node:      cursor.Current(),
+			Node:      cursor.Node(),
 			Todos:     make([]string, 0),
 		})
 
@@ -102,7 +102,7 @@ func (p *NodeProcessor) OnEnter(cursor psi.Cursor) error {
 		}
 	}
 
-	for _, txt := range cursor.Current().Comments() {
+	for _, txt := range cursor.Node().Comments() {
 		txt = strings.TrimSpace(txt)
 
 		if todoRegex.MatchString(txt) {
@@ -134,7 +134,7 @@ func (p *NodeProcessor) OnEnter(cursor psi.Cursor) error {
 // OnLeave is responsible for popping the top NodeScope from the FuncStack if the current node is a container.
 // Additionally, it checks if the current function should be processed and calls the Step method to process the function if necessary.
 func (p *NodeProcessor) OnLeave(cursor psi.Cursor) error {
-	e := cursor.Current()
+	e := cursor.Node()
 
 	if e.IsContainer() {
 		ok, currentFn := p.FuncStack.Pop()
@@ -192,7 +192,7 @@ func (p *NodeProcessor) OnLeave(cursor psi.Cursor) error {
 // Return Processed Code:
 // 10. Return the processed code as a dst.Node.
 func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.Cursor) (result dst.Node, err error) {
-	stepRoot := cursor.Current()
+	stepRoot := cursor.Node()
 
 	todoComment, err := p.prepareObjective(p, scope)
 	if err != nil {
@@ -242,6 +242,22 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 		if err != nil {
 			return nil, err
 		}
+
+		// Printer go brrrrrrrrr
+		level := 0
+		_ = psi.Walk(newRoot, func(cursor psi.Cursor, entering bool) error {
+			if entering {
+				level++
+			} else {
+				level--
+			}
+
+			n := cursor.Node()
+
+			fmt.Printf("%s%s\n", strings.Repeat(" ", level*2), n.CanonicalPath())
+
+			return nil
+		})
 
 		err = p.SourceFile.MergeCompletionResults(ctx, scope, cursor, newRoot.Root())
 

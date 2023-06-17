@@ -15,6 +15,7 @@ type Node interface {
 	Node() *NodeBase
 
 	Parent() Node
+	CanonicalPath() Path
 
 	// SetParent sets the parent node of the current node.
 	// If the parent node is already set to the given parent, no action is taken.
@@ -71,8 +72,9 @@ type NodeBase struct {
 	uuid    string
 	version int64
 
-	self   Node
 	parent Node
+	self   Node
+	path   Path
 
 	children   []Node
 	edges      map[EdgeKey]Edge
@@ -103,8 +105,17 @@ func (n *NodeBase) Node() *NodeBase    { return n }
 func (n *NodeBase) Parent() Node       { return n.parent }
 func (n *NodeBase) Children() []Node   { return n.children }
 func (n *NodeBase) Comments() []string { return nil }
-func (n *NodeBase) IsContainer() bool  { return true }
-func (n *NodeBase) IsLeaf() bool       { return false }
+func (n *NodeBase) CanonicalPath() (res Path) {
+	if n.parent != nil {
+		res = append(res, n.parent.CanonicalPath()...)
+	}
+
+	res = append(res, n.path...)
+
+	return
+}
+func (n *NodeBase) IsContainer() bool { return true }
+func (n *NodeBase) IsLeaf() bool      { return false }
 
 func (n *NodeBase) String() string {
 	return fmt.Sprintf("Node(%T, %d, %s)", n.self, n.id, n.uuid)
@@ -162,79 +173,6 @@ func (n *NodeBase) SetParent(parent Node) {
 	n.Invalidate()
 }
 
-func (n *NodeBase) SetAttribute(key string, value any) {
-	if n.attributes == nil {
-		n.attributes = make(map[string]any)
-	}
-
-	n.attributes[key] = value
-
-	n.Invalidate()
-}
-
-func (n *NodeBase) GetAttribute(key string) (value any, ok bool) {
-	if n.attributes == nil {
-		return nil, false
-	}
-
-	value, ok = n.attributes[key]
-
-	return
-}
-
-func (n *NodeBase) RemoveAttribute(key string) (value any, ok bool) {
-	if n.attributes == nil {
-		return nil, false
-	}
-
-	value, ok = n.attributes[key]
-
-	delete(n.attributes, key)
-
-	if ok {
-		n.Invalidate()
-	}
-
-	return
-}
-
-func (n *NodeBase) SetEdge(key EdgeKey, to Node) {
-	if n.edges == nil {
-		n.edges = make(map[EdgeKey]Edge)
-	}
-
-	e := &EdgeBase{
-		from: n.self,
-		to:   to,
-		key:  key,
-	}
-
-	n.edges[e.key] = e
-
-	n.Invalidate()
-}
-
-func (n *NodeBase) UnsetEdge(key EdgeKey) {
-	if n.edges == nil {
-		return
-	}
-
-	_, ok := n.edges[key]
-
-	delete(n.edges, key)
-
-	if ok {
-		n.Invalidate()
-	}
-}
-func (n *NodeBase) GetEdge(key EdgeKey) Edge {
-	if n.edges == nil {
-		return nil
-	}
-
-	return n.edges[key]
-}
-
 // addChildNode adds a child node to the current node.
 // If the child node is already a child of the current node, no action is taken.
 // The child node is appended to the list of children nodes of the current node.
@@ -243,17 +181,7 @@ func (n *NodeBase) GetEdge(key EdgeKey) Edge {
 // Parameters:
 // - child: The child node to be added.
 func (n *NodeBase) addChildNode(child Node) {
-	idx := slices.Index(n.children, child)
-
-	if idx != -1 {
-		return
-	}
-
-	n.children = append(n.children, child)
-
-	child.attachToGraph(n.g)
-
-	n.Invalidate()
+	n.insertChildrenAt(len(n.children), child)
 }
 
 // removeChildNode removes the child node from the current node.
@@ -274,7 +202,29 @@ func (n *NodeBase) removeChildNode(child Node) {
 }
 
 func (n *NodeBase) insertChildrenAt(idx int, child Node) {
+	cn := child.Node()
+
+	existingIdx := slices.Index(n.children, child)
+
+	if existingIdx != -1 && idx == existingIdx {
+		return
+	}
+
+	cn.parent = n
 	n.children = slices.Insert(n.children, idx, child)
+
+	if existingIdx != -1 {
+		if existingIdx >= idx {
+			existingIdx++
+		}
+
+		n.children = slices.Delete(n.children, existingIdx, existingIdx+1)
+	}
+
+	cn.path = nil
+	cn.path = append(cn.path, PathElement{
+		Index: idx,
+	})
 
 	child.attachToGraph(n.g)
 
@@ -394,4 +344,77 @@ func (n *NodeBase) detachFromGraph(g *Graph) {
 	n.g = nil
 
 	n.Invalidate()
+}
+
+func (n *NodeBase) SetAttribute(key string, value any) {
+	if n.attributes == nil {
+		n.attributes = make(map[string]any)
+	}
+
+	n.attributes[key] = value
+
+	n.Invalidate()
+}
+
+func (n *NodeBase) GetAttribute(key string) (value any, ok bool) {
+	if n.attributes == nil {
+		return nil, false
+	}
+
+	value, ok = n.attributes[key]
+
+	return
+}
+
+func (n *NodeBase) RemoveAttribute(key string) (value any, ok bool) {
+	if n.attributes == nil {
+		return nil, false
+	}
+
+	value, ok = n.attributes[key]
+
+	delete(n.attributes, key)
+
+	if ok {
+		n.Invalidate()
+	}
+
+	return
+}
+
+func (n *NodeBase) SetEdge(key EdgeKey, to Node) {
+	if n.edges == nil {
+		n.edges = make(map[EdgeKey]Edge)
+	}
+
+	e := &EdgeBase{
+		from: n.self,
+		to:   to,
+		key:  key,
+	}
+
+	n.edges[e.key] = e
+
+	n.Invalidate()
+}
+
+func (n *NodeBase) UnsetEdge(key EdgeKey) {
+	if n.edges == nil {
+		return
+	}
+
+	_, ok := n.edges[key]
+
+	delete(n.edges, key)
+
+	if ok {
+		n.Invalidate()
+	}
+}
+func (n *NodeBase) GetEdge(key EdgeKey) Edge {
+	if n.edges == nil {
+		return nil
+	}
+
+	return n.edges[key]
 }

@@ -68,7 +68,7 @@ type InvokeOptions struct {
 	ForceCodeOutput bool
 }
 
-var blockCodeHeaderRegex = regexp.MustCompile("(?m)^```(\\w+)")
+var blockCodeHeaderRegex = regexp.MustCompile("(?m)^\\w*\\x60\\x60\\x60([a-zA-Z0-9_-]+)?\\w*$")
 
 // Invoke is a function that invokes the code generator.
 func Invoke(ctx context.Context, req Request, opts InvokeOptions) (ast.Node, error) {
@@ -92,20 +92,12 @@ func Invoke(ctx context.Context, req Request, opts InvokeOptions) (ast.Node, err
 		if count > 0 && mismatch {
 			if strings.HasPrefix(reply, pos[0]) {
 				reply = strings.TrimPrefix(reply, pos[0])
+				reply = fmt.Sprintf("```%s\n%s\n```", req.Language, reply)
 			} else if strings.HasSuffix(reply, pos[len(pos)-1]) {
 				reply = strings.TrimSuffix(reply, pos[len(pos)-1])
+				reply = fmt.Sprintf("```%s\n%s\n```", req.Language, reply)
 			}
 		}
-
-		reply = fmt.Sprintf("```%s\n%s\n```", req.Language, reply)
-
-		lines := strings.Split(reply, "\n")
-		for i, line := range lines {
-			lines[i] = "\t" + line
-		}
-
-		reply = strings.Join(lines, "\n")
-
 	}
 
 	parsedReply := mdutils.ParseMarkdown([]byte(reply))

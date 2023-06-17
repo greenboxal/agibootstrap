@@ -65,34 +65,29 @@ func init() {
 		chat.EntryTemplate(
 			msn.RoleSystem,
 			chain.NewTemplatePrompt(`
-			You're an AI agent specialized in generating code in {{ .Language }}. Complete the request below.
-			You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
-			Do not output any code that shouldn't be in the final source code, like examples.
-			Do not emit any code that is not valid Go code. You can use the context below to help you.
+You're an AI agent specialized in generating code in {{ .Language }}. Complete the request below.
+You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
+Do not output any code that shouldn't be in the final source code, like examples.
+Do not emit any code that is not valid Go code. You can use the context below to help you.
 			`, chain.WithRequiredInput(ContextKey), chain.WithRequiredInput(LanguageKey))),
 
 		chat.HistoryFromContext(memory.ContextualMemoryKey),
+
+		chat.EntryTemplate(
+			msn.RoleUser,
+			chain.NewTemplatePrompt(`
+# Request
+Address all TODOs in the document below.
+
+# TODOs:
+{{ .Objective }}
+		`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey), chain.WithRequiredInput(ContextKey), chain.WithRequiredInput(LanguageKey))),
 
 		FunctionCallTemplate("Human", "generateCode", RequestKey),
 
 		chat.EntryTemplate(
 			msn.RoleAI,
-			chain.NewTemplatePrompt("```{{ .Language }}", chain.WithRequiredInput(LanguageKey))),
-
-		/*chat.EntryTemplate(
-		msn.RoleUser,
-		chain.NewTemplatePrompt(`
-
-		# Request
-		Address all TODOs in the document below.
-
-		# TODOs:
-		{{ .Objective }}
-
-		# Document
-		{{ .Document | renderMarkdown 1 }}
-		`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey), chain.WithRequiredInput(ContextKey), chain.WithRequiredInput(LanguageKey))),
-		*/
+			chain.NewTemplatePrompt("\t```{{ .Language }}", chain.WithRequiredInput(LanguageKey))),
 	)
 
 	CodeGeneratorChain = chain.New(

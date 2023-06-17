@@ -9,6 +9,7 @@ import (
 	"github.com/zeroflucs-given/generics/collections/stack"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
+	"github.com/greenboxal/agibootstrap/pkg/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -98,23 +99,26 @@ func (p *Project) ProcessNode(ctx context.Context, sf psi.SourceFile, root psi.N
 		var err error
 
 		result := gpt.ContextBag{}
-
-		result["file"], err = processor.SourceFile.ToCode(root)
-
-		if err != nil {
-			return nil, err
-		}
-
-		hits, err := p.repo.Query(context.Background(), result["file"].(string), 10)
+		wholeFile, err := processor.SourceFile.ToCode(root)
 
 		if err != nil {
 			return nil, err
 		}
 
-		for i, hit := range hits {
-			key := fmt.Sprintf("hit%d", i)
+		hits, err := p.repo.Query(context.Background(), wholeFile, 10)
 
-			result[key] = hit.Entry.Chunk.Content
+		if err != nil {
+			return nil, err
+		}
+
+		for _, hit := range hits {
+			key := fmt.Sprintf("excerpt: %s @ %d", hit.Entry.Document.Path, hit.Entry.Chunk.Index)
+
+			result[key] = mdutils.CodeBlock{
+				Language: "",
+				Filename: hit.Entry.Document.Path,
+				Code:     hit.Entry.Chunk.Content,
+			}
 		}
 
 		return result, nil

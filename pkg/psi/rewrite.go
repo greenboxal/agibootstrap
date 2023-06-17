@@ -7,7 +7,7 @@ var ErrAbort = errors.New("abort")
 // Cursor is a stateful tree traversal interface.
 type Cursor interface {
 	// Current returns the current node.
-	Current() Node
+	Node() Node
 	// SetCurrent sets the current node.
 	SetCurrent(node Node)
 
@@ -21,10 +21,18 @@ type Cursor interface {
 	// SkipEdges skips the edges of the current node.
 	SkipEdges()
 
-	// Replace replaces the current node with the given node.
+	// Replace replaces the current node with the given node, modifying the AST.
+	// If this operation happens during the enter phase, the children of the new node will be visited.
+	// If this operation happens during the leave phase, the children of the new node will NOT be visited.
 	Replace(node Node)
-	// InsertAfter inserts the given node before the current node.
-	InsertAfter(decl Node)
+
+	// InsertBefore inserts the given node before the current node, modifying the AST.
+	// This node will NOT be visited in the current walk.
+	InsertBefore(node Node)
+
+	// InsertAfter inserts the given node before the current node, modifying the AST.
+	// This node might be visited in the current walk.
+	InsertAfter(node Node)
 }
 
 type cursorState struct {
@@ -53,7 +61,7 @@ func (c *cursor) state() *cursorState {
 	return &c.stack[len(c.stack)-1]
 }
 
-func (c *cursor) Current() Node {
+func (c *cursor) Node() Node {
 	return c.state().current
 }
 
@@ -78,7 +86,7 @@ func (c *cursor) SetCurrent(node Node) {
 }
 
 func (c *cursor) InsertBefore(newNode Node) {
-	n := c.Current()
+	n := c.Node()
 	p := n.Parent()
 
 	if p == nil {
@@ -89,7 +97,7 @@ func (c *cursor) InsertBefore(newNode Node) {
 }
 
 func (c *cursor) InsertAfter(newNode Node) {
-	n := c.Current()
+	n := c.Node()
 	p := n.Parent()
 
 	if p == nil {
@@ -100,7 +108,7 @@ func (c *cursor) InsertAfter(newNode Node) {
 }
 
 func (c *cursor) Replace(newNode Node) {
-	n := c.Current()
+	n := c.Node()
 	p := n.Parent()
 
 	if p != nil {

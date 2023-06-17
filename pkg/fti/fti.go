@@ -581,10 +581,10 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 	h := hasher.Sum(nil)
 	fileHash := hex.EncodeToString(h)
 
-	fileDir := r.ResolveDbPath("objects", fileHash)
-	metaPath := filepath.Join(fileDir, "meta.json")
+	objectDir := r.ResolveDbPath("objects", fileHash)
+	metaPath := filepath.Join(objectDir, "meta.json")
 
-	if err := os.MkdirAll(fileDir, 0755); err != nil {
+	if err := os.MkdirAll(objectDir, 0755); err != nil {
 		return err
 	}
 
@@ -595,7 +595,7 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 	}
 
 	for i, chunkSpec := range r.config.ChunkSpecs {
-		img, err := r.updateFileWithSpec(ctx, chunkSpec, fileDir, data)
+		img, err := r.updateFileWithSpec(ctx, chunkSpec, objectDir, f.Path, data)
 
 		if err != nil {
 			return err
@@ -617,7 +617,7 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 	return nil
 }
 
-func (r *Repository) updateFileWithSpec(ctx context.Context, spec ChunkSpec, fileDir string, data []byte) (*ObjectSnapshotImage, error) {
+func (r *Repository) updateFileWithSpec(ctx context.Context, spec ChunkSpec, fileDir string, path string, data []byte) (*ObjectSnapshotImage, error) {
 	imagePath := filepath.Join(fileDir, fmt.Sprintf("%dm%d.png", spec.MaxTokens, spec.Overlap))
 
 	chunks, err := r.chunker.SplitTextIntoChunks(ctx, string(data), spec.MaxTokens, spec.Overlap)
@@ -639,6 +639,10 @@ func (r *Repository) updateFileWithSpec(ctx context.Context, spec ChunkSpec, fil
 	}
 
 	img := &ObjectSnapshotImage{
+		Document: DocumentReference{
+			Path: path,
+		},
+
 		Chunks:     chunks,
 		Embeddings: embeddings,
 	}
@@ -733,7 +737,12 @@ type OnlineIndex struct {
 type OnlineIndexEntry struct {
 	Index     int64
 	Chunk     chunkers.Chunk
+	Document  DocumentReference
 	Embedding llm.Embedding
+}
+
+type DocumentReference struct {
+	Path string
 }
 
 func NewOnlineIndex(repo *Repository) (*OnlineIndex, error) {
@@ -764,6 +773,7 @@ func (oi *OnlineIndex) Add(img *ObjectSnapshotImage) error {
 		entry := &OnlineIndexEntry{
 			Index:     baseIndex + int64(i),
 			Chunk:     img.Chunks[i],
+			Document:  img.Document,
 			Embedding: emb,
 		}
 
@@ -865,6 +875,7 @@ type ObjectSnapshotMetadata struct {
 type ObjectSnapshotImage struct {
 	Chunks     []chunkers.Chunk
 	Embeddings []llm.Embedding
+	Document   DocumentReference
 }
 
 func (osi *ObjectSnapshotImage) ReadFrom(r io.Reader) (int, error) {
