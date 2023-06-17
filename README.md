@@ -25,4 +25,4 @@ The misuse of AGIBootstrap includes, but is not limited to:
 - Representing extreme violence or gore.
 - Violating the terms of use of copyrighted or licensed material by sharing or modifying it.
 ## License
-AGIBootstrap is licensed under the AGPL license. For more information, please refer to the [LICENSE.md](LICENSE.md) file.
+AGIBootstrap is licensed under the AGPL license. For more information, please refer to the [LICENSE.md](LICENSE) file.
