@@ -10,6 +10,7 @@ import (
 	"github.com/zeroflucs-given/generics/collections/stack"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
+	"github.com/greenboxal/agibootstrap/pkg/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -219,11 +220,15 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 
 	req.Context = fullContext
 
-	codeBlocks, err := gpt.Invoke(ctx, req)
+	reply, err := gpt.Invoke(ctx, req, gpt.InvokeOptions{
+		ForceCodeOutput: true,
+	})
 
 	if err != nil {
 		return nil, err
 	}
+
+	codeBlocks := mdutils.ExtractCodeBlocks(reply)
 
 	for i, block := range codeBlocks {
 		block.Language = string(p.SourceFile.Language().Name())

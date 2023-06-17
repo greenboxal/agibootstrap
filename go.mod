@@ -77,7 +77,7 @@ require (
 	github.com/riandyrn/otelchi v0.5.1 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v2 v2.2.0 // indirect
-	github.com/sashabaranov/go-openai v1.11.2 // indirect
+	github.com/sashabaranov/go-openai v1.11.3-0.20230617135729-e49d771fff3b // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect

@@ -15,6 +15,7 @@ func (c CodeBlock) Render(ctx *RenderContext) ast.Node {
 	code := &ast.CodeBlock{}
 	code.Literal = []byte(c.Code)
 	code.Info = []byte(c.Language)
+	code.IsFenced = true
 
 	ast.AppendChild(h, code)
 

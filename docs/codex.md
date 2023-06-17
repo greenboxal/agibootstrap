@@ -1,9 +1,23 @@
-# test.go
-// TODO: Generate code package main
-func main() {
+# Codex
 
 ```
-// Write your code here
+# Codex Design Document
+
+The Codex package provides functionality for managing projects in Go. It includes features for version control, code analysis, and code generation. The main components of the Codex package are the `Project`, `SourceFile`, and `BuildStep` types. 
+
+The `Project` type represents a Codex project and provides methods for managing project files and performing project-wide operations. The `SourceFile` type represents a source code file and provides methods for retrieving and modifying its content. The `BuildStep` type represents a step in the build process and provides methods for processing project files. It can be used to perform actions such as code formatting, import fixing, and error checking. 
+
+The Codex package also includes utility functions for working with the Go AST and token packages. Overall, the Codex package aims to simplify the development process and improve code quality in Go projects.
+
+## Intended Usage
+
+The intended usage of the Codex package is to provide a set of tools and utilities for managing and analyzing Go projects. The `Project` type serves as the entry point for accessing and manipulating project files. It provides interfaces for adding, modifying, and deleting files, as well as performing project-wide operations such as building and testing.
+
+The `SourceFile` type represents a source code file and provides methods for retrieving and modifying its content. It allows developers to read, update, and manipulate the contents of a file with ease. Additionally, it provides functions for parsing and analyzing the source code.
+
+The `BuildStep` type represents a step in the build process and provides methods for processing project files. It can be used to perform actions such as code formatting, import fixing, and error checking. By leveraging the `BuildStep` type, developers can automate common development tasks and enforce code quality standards.
+
+In summary, the Codex package provides a comprehensive set of tools and utilities for managing and analyzing Go projects. It aims to simplify the development process, improve code quality, and enhance productivity.
+
 
 ```
-\}
