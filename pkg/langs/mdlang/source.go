@@ -133,15 +133,6 @@ func (sf *SourceFile) ToCode(node psi.Node) (string, error) {
 }
 
 func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope psi.Scope, cursor psi.Cursor, newAst psi.Node) error {
-	if newHeadings, ok := newAst.(*ast.Headings); ok {
-		if currentHeadings, ok := cursor.Node().(*ast.Headings); ok {
-			// Merge headings by name
-			currentHeadings.Name += newHeadings.Name
-			cursor.SetNode(currentHeadings)
-			return nil
-		}
-	}
-
 	cursor.Replace(newAst)
 
 	return nil
