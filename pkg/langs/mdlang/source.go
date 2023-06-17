@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"strings"
 
 	"github.com/dave/dst/decorator"
 	"github.com/gomarkdown/markdown/ast"
@@ -125,7 +126,7 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 }
 
 func (sf *SourceFile) ToCode(node psi.Node) (string, error) {
-	return string(utils.FormatMarkdown(node.(Node).Ast())), nil
+	return strings.TrimSpace(string(utils.FormatMarkdown(node.(Node).Ast()))), nil
 }
 func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope any, cursor psi.Cursor, newAst psi.Node) error {
 	cursor.Replace(newAst)
