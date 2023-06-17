@@ -1,5 +1,9 @@
 package psi
 
+import "github.com/pkg/errors"
+
+var ErrAbort = errors.New("abort")
+
 // Cursor is a stateful tree traversal interface.
 type Cursor interface {
 	// Current returns the current node.
@@ -152,7 +156,7 @@ func Walk(node Node, walkFn WalkFunc) error {
 func Rewrite(node Node, walkFunc WalkFunc) (Node, error) {
 	c := &cursor{}
 
-	if err := c.Walk(node, walkFunc); err != nil {
+	if err := c.Walk(node, walkFunc); err != nil && err != ErrAbort {
 		return nil, err
 	}
 

@@ -1,1 +1,1 @@
-// TODO: Write a design document "agibootstrap" project, which is a fully autonomous general purpose coder AI agent that can replace any human coder.
+// TODO: Write a design document "agibootstrap" project, which is a fully autonomous general purpose coder AI agent that can replace any human coder. // tags: psi, codex, CodeGeneratorChain, pair

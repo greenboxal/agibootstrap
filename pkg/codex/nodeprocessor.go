@@ -7,14 +7,11 @@ import (
 	"strings"
 
 	"github.com/dave/dst"
-	"github.com/pkg/errors"
 	"github.com/zeroflucs-given/generics/collections/stack"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
-
-var ErrAbort = errors.New("abort")
 
 // NodeScope represents the context of a function.
 //
@@ -151,7 +148,7 @@ func (p *NodeProcessor) OnLeave(cursor psi.Cursor) error {
 			return err
 		}
 
-		return ErrAbort
+		return psi.ErrAbort
 	}
 
 	return nil
