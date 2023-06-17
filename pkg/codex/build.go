@@ -12,7 +12,6 @@ import (
 	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/packages"
 
-	"github.com/greenboxal/agibootstrap/pkg/langs/golang"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -62,7 +61,7 @@ func (s *FixBuildStep) Process(ctx context.Context, p *Project) (result BuildSte
 // The 'prepareObjective' function is responsible for generating a string that describes what needs to be done to fix a build error.
 // The expected input parameters are the psi.SourceFile 'sf' and pointer to the BuildError 'buildError' that needs to be fixed.
 // The expected output parameter is an error, which is nil if the process finishes successfully.
-func (s *FixBuildStep) ProcessFix(ctx context.Context, p *Project, sf *golang.SourceFile, buildError *BuildError) error {
+func (s *FixBuildStep) ProcessFix(ctx context.Context, p *Project, sf psi.SourceFile, buildError *BuildError) error {
 	fmt.Printf("Fixing build error: %s\n", buildError.String())
 
 	updated, err := p.ProcessNodes(ctx, sf, func(p *NodeProcessor) {
@@ -80,7 +79,7 @@ func (s *FixBuildStep) ProcessFix(ctx context.Context, p *Project, sf *golang.So
 	}
 
 	// Convert the AST back to code
-	newCode, err := sf.ToCode(updated.(golang.Node))
+	newCode, err := sf.ToCode(updated)
 	if err != nil {
 		return err
 	}

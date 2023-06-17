@@ -6,13 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dave/dst"
 	"github.com/hashicorp/go-multierror"
 	"github.com/zeroflucs-given/generics/collections/stack"
-	"golang.org/x/exp/slices"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
-	"github.com/greenboxal/agibootstrap/pkg/langs/golang"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -59,7 +56,7 @@ func (p *Project) processFile(ctx context.Context, fsPath string, opts ...NodePr
 	}
 
 	// Convert the AST back to code
-	newCode, err := sf.ToCode(updated.(golang.Node))
+	newCode, err := sf.ToCode(updated)
 	if err != nil {
 		return 0, err
 	}
@@ -75,12 +72,12 @@ func (p *Project) processFile(ctx context.Context, fsPath string, opts ...NodePr
 	return 0, nil
 }
 
-func (p *Project) ProcessNodes(ctx context.Context, sf *golang.SourceFile, opts ...NodeProcessorOption) (psi.Node, error) {
+func (p *Project) ProcessNodes(ctx context.Context, sf psi.SourceFile, opts ...NodeProcessorOption) (psi.Node, error) {
 	return p.ProcessNode(ctx, sf, sf.Root(), opts...)
 }
 
 // ProcessNode processes the given node and returns the updated node.
-func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root psi.Node, opts ...NodeProcessorOption) (psi.Node, error) {
+func (p *Project) ProcessNode(ctx context.Context, sf psi.SourceFile, root psi.Node, opts ...NodeProcessorOption) (psi.Node, error) {
 	processor := &NodeProcessor{
 		Project:      p,
 		SourceFile:   sf,
@@ -100,7 +97,7 @@ func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root p
 
 		result := gpt.ContextBag{}
 
-		result["file"], err = processor.SourceFile.ToCode(root.(golang.Node))
+		result["file"], err = processor.SourceFile.ToCode(root)
 
 		if err != nil {
 			return nil, err
@@ -127,40 +124,6 @@ func (p *Project) ProcessNode(ctx context.Context, sf *golang.SourceFile, root p
 
 	for _, opt := range opts {
 		opt(processor)
-	}
-
-	if processor.SourceFile == nil {
-		panic("SourceFile is nil")
-	}
-
-	if processor.SourceFile.Root() == nil {
-		panic("SourceFile.Root() is nil")
-	}
-
-	if processor.SourceFile.Root().Node() == nil {
-		panic("SourceFile.Root().Ast() is nil")
-	}
-
-	rootFile := processor.SourceFile.Root().(golang.Node).Ast().(*dst.File)
-
-	for _, child := range processor.Root.Children() {
-		decl, ok := child.(golang.Node).Ast().(dst.Decl)
-
-		if !ok {
-			continue
-		}
-
-		index := slices.Index(rootFile.Decls, decl)
-
-		if index == -1 {
-			continue
-		}
-
-		names := getDeclarationNames(child)
-
-		for _, name := range names {
-			processor.setExistingDeclaration(index, name, child)
-		}
 	}
 
 	result, err := psi.Rewrite(processor.Root, func(cursor psi.Cursor, entering bool) error {

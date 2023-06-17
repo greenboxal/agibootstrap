@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/fti"
-	"github.com/greenboxal/agibootstrap/pkg/langs/golang"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/vts"
@@ -36,14 +36,17 @@ type BuildStep interface {
 // Project represents a codex project.
 // It contains all the information about the project.
 type Project struct {
+	psi.NodeBase
+
 	rootPath string
 	fs       repofs.FS
 	repo     *fti.Repository
 
 	files       map[string]*vfs.FileNode
-	sourceFiles map[string]*golang.SourceFile
+	sourceFiles map[string]psi.SourceFile
 
-	vtsRoot *vts.Scope
+	vtsRoot      *vts.Scope
+	langRegistry *Registry
 
 	fset *token.FileSet
 }
@@ -69,11 +72,15 @@ func NewProject(rootPath string) (*Project, error) {
 		fs:          root,
 		repo:        repo,
 		files:       map[string]*vfs.FileNode{},
-		sourceFiles: map[string]*golang.SourceFile{},
+		sourceFiles: map[string]psi.SourceFile{},
 		fset:        token.NewFileSet(),
 
 		vtsRoot: vts.NewScope(),
 	}
+
+	p.langRegistry = NewRegistry(p)
+
+	p.Init(p, "")
 
 	if err := p.Sync(); err != nil {
 		return nil, err
@@ -100,7 +107,7 @@ func (p *Project) FS() repofs.FS { return p.fs }
 func (p *Project) Generate(ctx context.Context, isSingleStep bool) (changes int, err error) {
 	// Define the list of build steps to be executed
 	steps := []BuildStep{
-		&AnalysisBuildStep{},
+		//&AnalysisBuildStep{},
 		&CodeGenBuildStep{},
 		&FixImportsBuildStep{},
 		//&FixBuildStep{},
@@ -213,7 +220,7 @@ func (p *Project) Sync() (err error) {
 
 // GetSourceFile retrieves the source file with the given filename from the project.
 // It returns a pointer to the psi.SourceFile and any error that occurred during the process.
-func (p *Project) GetSourceFile(filename string) (_ *golang.SourceFile, err error) {
+func (p *Project) GetSourceFile(filename string) (_ psi.SourceFile, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if e, ok := r.(error); ok {
@@ -237,7 +244,13 @@ func (p *Project) GetSourceFile(filename string) (_ *golang.SourceFile, err erro
 	existing := p.sourceFiles[key]
 
 	if existing == nil {
-		existing = golang.NewSourceFile(p.fset, filename, repofs.FsFileHandle{
+		lang := p.langRegistry.ResolveExtension(filepath.Base(filename))
+
+		if lang == nil {
+			return nil, fmt.Errorf("failed to resolve language for file %s", filename)
+		}
+
+		existing = lang.CreateSourceFile(filename, &repofs.FsFileHandle{
 			FS:   p.fs,
 			Path: strings.TrimPrefix(filename, p.rootPath+"/"),
 		})
@@ -282,4 +295,8 @@ func (p *Project) ImportFile(path string) error {
 // The function returns an error if any error occurs during the reindexing process.
 func (p *Project) Reindex() error {
 	return nil
+}
+
+func (p *Project) FileSet() *token.FileSet {
+	return p.fset
 }

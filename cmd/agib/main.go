@@ -7,6 +7,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/greenboxal/agibootstrap/pkg/codex"
+
+	// Register languages
+	_ "github.com/greenboxal/agibootstrap/pkg/langs/golang"
+	_ "github.com/greenboxal/agibootstrap/pkg/langs/mdlang"
 )
 
 func main() {

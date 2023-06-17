@@ -4,14 +4,12 @@ import (
 	"context"
 
 	"golang.org/x/tools/imports"
-
-	"github.com/greenboxal/agibootstrap/pkg/langs/golang"
 )
-
-type FixImportsBuildStep struct{}
 
 // FixImportsBuildStep is responsible for fixing all import errors in the project.
 // It processes each file in the project and formats the imports using the goimports tool.
+type FixImportsBuildStep struct{}
+
 func (s *FixImportsBuildStep) Process(ctx context.Context, p *Project) (result BuildStepResult, err error) {
 	for _, file := range p.files {
 		opt := &imports.Options{
@@ -29,7 +27,7 @@ func (s *FixImportsBuildStep) Process(ctx context.Context, p *Project) (result B
 			return result, err
 		}
 
-		code, err := sf.ToCode(sf.Root().(golang.Node))
+		code, err := sf.ToCode(sf.Root())
 
 		if err != nil {
 			return result, err

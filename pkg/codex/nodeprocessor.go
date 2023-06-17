@@ -3,22 +3,14 @@ package codex
 import (
 	"context"
 	"fmt"
-	"go/scanner"
-	"html"
-	"regexp"
 	"strings"
 
 	"github.com/dave/dst"
 	"github.com/zeroflucs-given/generics/collections/stack"
-	"golang.org/x/exp/slices"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
-	"github.com/greenboxal/agibootstrap/pkg/langs/golang"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
-
-var hasPackageRegex = regexp.MustCompile(`(?m)^.*package\s+([a-zA-Z0-9_]+)\n`)
-var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`)
 
 // NodeScope represents the context of a function.
 //
@@ -61,7 +53,7 @@ type NodeProcessorOption func(p *NodeProcessor)
 // a pointer to the NodeProcessor as a parameter and modifies its properties in some way.
 type NodeProcessor struct {
 	Project      *Project                 // The project associated with the NodeProcessor.
-	SourceFile   *golang.SourceFile       // The source file being processed.
+	SourceFile   psi.SourceFile           // The source file being processed.
 	Root         psi.Node                 // The root node of the AST being processed.
 	FuncStack    *stack.Stack[*NodeScope] // A stack of FunctionContexts.
 	Declarations map[string]*declaration  // A map of declaration names to declaration information.
@@ -201,7 +193,7 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 
 	prunedRoot := p.Root
 
-	stepStr, err := p.SourceFile.ToCode(stepRoot.(golang.Node))
+	stepStr, err := p.SourceFile.ToCode(stepRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -226,15 +218,21 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 	}
 
 	for i, block := range codeBlocks {
+		if block.Language == "" {
+			block.Language = "go"
+		}
+
+		lang := p.Project.langRegistry.Resolve(psi.LanguageID(block.Language))
+
 		blockName := fmt.Sprintf("_mergeContents_%d.%s", i, block.Language)
 
-		newRoot, err := p.parseCodeBlock(ctx, blockName, block)
+		newRoot, err := lang.ParseCodeBlock(blockName, block)
 
 		if err != nil {
 			return nil, err
 		}
 
-		err = p.mergeCompletionResults(ctx, scope, cursor, newRoot)
+		err = p.SourceFile.MergeCompletionResults(ctx, scope, cursor, newRoot)
 
 		if err != nil {
 			return nil, err
@@ -242,243 +240,4 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 	}
 
 	return
-}
-
-// mergeCompletionResults merges the completion results of a code block into the NodeProcessor.
-// It takes a context.Context, a *NodeScope representing the current scope, a *psi.Cursor representing the current cursor position, and a psi.Node representing the completion results.
-// This function merges the completion results into the AST being processed in the NodeProcessor by performing the following steps:
-// 1. Merge the completion results into the current AST by calling the MergeFiles function.
-// 2. Iterate over each declaration in the completion results.
-// 3. Check if the declaration is a function and if its name matches the name of the current scope's function.
-// 4. If the declaration matches, replace the current declaration at the cursor position with the new declaration by calling the ReplaceDeclarationAt function.
-// 5. If the declaration doesn't match, merge the new declaration with the existing declarations by calling the MergeDeclarations function.
-// 6. Return nil, indicating that there were no errors during the merging process.
-func (p *NodeProcessor) mergeCompletionResults(ctx context.Context, scope *NodeScope, cursor psi.Cursor, newAst psi.Node) error {
-	MergeFiles(p.Root.(golang.Node).Ast().(*dst.File), newAst.(golang.Node).Ast().(*dst.File))
-
-	for _, decl := range newAst.Children() {
-		if funcType, ok := decl.(golang.Node).Ast().(*dst.FuncDecl); ok && funcType.Name.Name == scope.Node.(golang.Node).Ast().(*dst.FuncDecl).Name.Name {
-			p.ReplaceDeclarationAt(cursor, decl, funcType.Name.Name)
-		} else {
-			p.MergeDeclarations(cursor, decl)
-		}
-	}
-
-	return nil
-}
-
-// parseCodeBlock parses the code block and returns the resulting PSI node.
-// This function unescapes HTML escape sequences, modifies the package declaration,
-// and merges the resulting code with the existing AST.
-// It also handles orphan snippets by wrapping them in a pseudo function.
-func (p *NodeProcessor) parseCodeBlock(ctx context.Context, blockName string, block gpt.CodeBlock) (_ psi.Node, err error) {
-	// Unescape HTML escape sequences in the code block
-	if hasHtmlEscapeRegex.MatchString(block.Code) {
-		block.Code = html.UnescapeString(block.Code)
-	}
-
-	patchedCode := block.Code
-	pkgIndex := hasPackageRegex.FindStringIndex(patchedCode)
-
-	if len(pkgIndex) > 0 {
-		patchedCode = fmt.Sprintf("%s\n%s%s", patchedCode[:pkgIndex[1]], "\n", patchedCode[pkgIndex[1]:])
-	} else {
-		patchedCode = fmt.Sprintf("package gptimport\n%s", patchedCode)
-	}
-
-	patchedCode = hasPackageRegex.ReplaceAllString(patchedCode, "package gptimport\n")
-
-	newRoot, e := p.SourceFile.Parse(blockName, patchedCode)
-
-	if e != nil {
-		if errList, ok := e.(scanner.ErrorList); ok {
-			if len(errList) == 1 && strings.HasPrefix(errList[0].Msg, "expected declaration, ") {
-				// Handle orphan snippets by wrapping them in a pseudo function
-				patchedCode = fmt.Sprintf("package gptimport_orphan\nfunc orphanSnippet() {\n%s\n}\n", block.Code)
-				newRoot2, e2 := p.SourceFile.Parse(blockName, patchedCode)
-
-				if e2 != nil {
-					return nil, e
-				}
-
-				newRoot = newRoot2
-			}
-		} else if e != nil {
-			return nil, e
-		}
-	}
-
-	return newRoot, nil
-}
-
-// MergeDeclarations merges the declarations of a node into the NodeProcessor.
-// It takes a psi.Cursor and a psi.Node representing the current node, and returns a boolean value indicating whether the merging was successful or not.
-//
-// The process of merging declarations involves the following steps:
-// 1. Retrieve all declaration names from the node using the getDeclarationNames function.
-// 2. For each declaration name, check if it already exists in the NodeProcessor. If not, insert the declaration at the cursor position using the InsertDeclarationAt function.
-// 3. If the declaration already exists, check if the current cursor node is the same as the previous node. If so, replace the previous node with the current node's AST representation using the cursor.Replace function.
-// 4. Update the existing declaration with the current node's index, name, and AST representation using the setExistingDeclaration function.
-//
-// The purpose of MergeDeclarations is to ensure that all declarations within a node are properly merged into the NodeProcessor, allowing further processing and code generation to be performed accurately.
-func (p *NodeProcessor) MergeDeclarations(cursor psi.Cursor, node psi.Node) bool {
-	names := getDeclarationNames(node)
-
-	for _, name := range names {
-		previous := p.Declarations[name]
-
-		if previous == nil {
-			p.InsertDeclarationAt(cursor, name, node)
-		} else {
-			if cursor.Current().(golang.Node).Ast() == previous.node {
-				cursor.Replace(node)
-			}
-
-			p.setExistingDeclaration(previous.index, name, node)
-		}
-	}
-
-	return true
-}
-
-// InsertDeclarationAt inserts a declaration after the given cursor.
-// It takes a psi.Cursor, a name string, and a decl psi.Node.
-// The process involves the following steps:
-// 1. Calling the InsertAfter method of the cursor and passing decl.Ast() to insert the declaration after the cursor.
-// 2. Getting the current index of decl in the root file's declarations using the slices.Index method.
-// 3. Calling the setExistingDeclaration method of the NodeProcessor to update the existing declaration information.
-//
-// The purpose of InsertDeclarationAt is to insert a declaration at a specific position in the AST and update the declaration information in the NodeProcessor for further processing and code generation.
-func (p *NodeProcessor) InsertDeclarationAt(cursor psi.Cursor, name string, decl psi.Node) {
-	cursor.InsertAfter(decl)
-	index := slices.Index(p.Root.(golang.Node).Ast().(*dst.File).Decls, decl.(golang.Node).Ast().(dst.Decl))
-	p.setExistingDeclaration(index, name, decl)
-}
-
-// ReplaceDeclarationAt method replaces a declaration at a specific cursor position with a new declaration.
-//
-// The ReplaceDeclarationAt method takes three parameters: a psi.Cursor, the declaration node to replace, and the name of the declaration.
-//
-// The steps involved in the ReplaceDeclarationAt method are as follows:
-// 1. The method replaces the declaration node at the cursor position with the new declaration node using the cursor.Replace method.
-// 2. It gets the index of the new declaration in the root file's declarations using the slices.Index method.
-// 3. It updates the existing declaration information in the NodeProcessor by calling the setExistingDeclaration method.
-//
-// The purpose of the ReplaceDeclarationAt method is to provide a mechanism for replacing a declaration at a specific position in the AST and updating the declaration information in the NodeProcessor for further processing and code generation.
-func (p *NodeProcessor) ReplaceDeclarationAt(cursor psi.Cursor, decl psi.Node, name string) {
-	cursor.Replace(decl.(golang.Node))
-	index := slices.Index(p.Root.(golang.Node).Ast().(*dst.File).Decls, decl.(golang.Node).Ast().(dst.Decl))
-	p.setExistingDeclaration(index, name, decl)
-}
-
-// setExistingDeclaration updates the information about an existing declaration.
-// It takes an index, a name string, and a psi.Node representing the declaration.
-// The process involves the following steps:
-// 1. Retrieve the existing declaration from the NodeProcessor using the name.
-// 2. If the declaration does not exist, create a new declaration and add it to the NodeProcessor.
-// 3. Update the declaration's element, node, and index with the provided values.
-//
-// This function is responsible for maintaining and updating the information about existing declarations,
-// ensuring their accuracy and consistency throughout the code generation process.
-func (p *NodeProcessor) setExistingDeclaration(index int, name string, node psi.Node) {
-	decl := p.Declarations[name]
-
-	if decl == nil {
-		decl = &declaration{
-			name:    name,
-			node:    node.(golang.Node).Ast(),
-			element: node,
-			index:   index,
-		}
-
-		p.Declarations[name] = decl
-	}
-
-	decl.element = node
-	decl.node = node.(golang.Node).Ast()
-	decl.index = index
-}
-
-func MergeFiles(file1, file2 *dst.File) *dst.File {
-	mergedFile := file1
-	newDecls := make([]dst.Decl, 0)
-
-	for _, decl2 := range file2.Decls {
-		found := false
-		switch decl2 := decl2.(type) {
-		case *dst.FuncDecl:
-			for i, decl1 := range mergedFile.Decls {
-				if decl1, ok := decl1.(*dst.FuncDecl); ok && decl1.Name.Name == decl2.Name.Name {
-					mergedFile.Decls[i] = decl2
-					found = true
-					break
-				}
-			}
-		case *dst.GenDecl:
-			for _, spec2 := range decl2.Specs {
-				switch spec2 := spec2.(type) {
-				case *dst.TypeSpec:
-					for i, decl1 := range mergedFile.Decls {
-						if decl1, ok := decl1.(*dst.GenDecl); ok {
-							for j, spec1 := range decl1.Specs {
-								if spec1, ok := spec1.(*dst.TypeSpec); ok && spec1.Name.Name == spec2.Name.Name {
-									decl1.Specs[j] = spec2
-									found = true
-									break
-								}
-							}
-						}
-						mergedFile.Decls[i] = decl1
-					}
-				case *dst.ValueSpec:
-					for i, decl1 := range mergedFile.Decls {
-						if decl1, ok := decl1.(*dst.GenDecl); ok {
-							for j, spec1 := range decl1.Specs {
-								if spec1, ok := spec1.(*dst.ValueSpec); ok && spec1.Names[0].Name == spec2.Names[0].Name {
-									decl1.Specs[j] = spec2
-									found = true
-									break
-								}
-							}
-						}
-						mergedFile.Decls[i] = decl1
-					}
-				}
-			}
-		}
-
-		if !found {
-			newDecls = append(newDecls, decl2)
-		}
-	}
-
-	mergedFile.Decls = append(mergedFile.Decls, newDecls...)
-
-	return mergedFile
-}
-
-// getDeclarationNames returns a slice of strings representing the declaration names in the given PSI node.
-// The node parameter should be a psi.Node representing the AST node being processed.
-// The function iterates through the AST node and extracts the names of declarations such as constants, variables, types, and functions.
-// The extracted names are then appended to the names slice and returned.
-func getDeclarationNames(node psi.Node) []string {
-	var names []string
-
-	switch d := node.(golang.Node).Ast().(type) {
-	case *dst.GenDecl:
-		for _, spec := range d.Specs {
-			switch s := spec.(type) {
-			case *dst.ValueSpec: // for constants and variables
-				for _, name := range s.Names {
-					names = append(names, name.Name)
-				}
-			case *dst.TypeSpec: // for types
-				names = append(names, s.Name.Name)
-			}
-		}
-	case *dst.FuncDecl: // for functions
-		names = append(names, d.Name.Name)
-	}
-
-	return names
 }

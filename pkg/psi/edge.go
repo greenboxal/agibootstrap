@@ -7,12 +7,13 @@ type EdgeID int64
 type EdgeKind string
 
 type EdgeKey struct {
-	Kind EdgeKind
-	Name string
+	Kind  EdgeKind
+	Name  string
+	Index int
 }
 
 func (k EdgeKey) String() string {
-	return string(k.Kind) + "=" + k.Name
+	return fmt.Sprintf("%s=%d:%s", k.Kind, k.Index, k.Name)
 }
 
 type Edge interface {

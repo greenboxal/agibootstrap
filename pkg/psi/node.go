@@ -97,11 +97,14 @@ func (n *NodeBase) Init(self Node, uid string) {
 	}
 }
 
-func (n *NodeBase) ID() int64        { return n.id }
-func (n *NodeBase) UUID() string     { return n.uuid }
-func (n *NodeBase) Node() *NodeBase  { return n }
-func (n *NodeBase) Parent() Node     { return n.parent }
-func (n *NodeBase) Children() []Node { return n.children }
+func (n *NodeBase) ID() int64          { return n.id }
+func (n *NodeBase) UUID() string       { return n.uuid }
+func (n *NodeBase) Node() *NodeBase    { return n }
+func (n *NodeBase) Parent() Node       { return n.parent }
+func (n *NodeBase) Children() []Node   { return n.children }
+func (n *NodeBase) Comments() []string { return nil }
+func (n *NodeBase) IsContainer() bool  { return true }
+func (n *NodeBase) IsLeaf() bool       { return false }
 
 func (n *NodeBase) String() string {
 	return fmt.Sprintf("Node(%T, %d, %s)", n.self, n.id, n.uuid)

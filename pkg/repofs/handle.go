@@ -7,7 +7,7 @@ import (
 )
 
 type FileHandle interface {
-	Get() (fs.File, error)
+	Get() (io.ReadCloser, error)
 	Put(src io.Reader) error
 	Close() error
 }
@@ -17,7 +17,7 @@ type FsFileHandle struct {
 	Path string
 }
 
-func (o FsFileHandle) Get() (fs.File, error) {
+func (o FsFileHandle) Get() (io.ReadCloser, error) {
 	return o.FS.Open(o.Path)
 }
 

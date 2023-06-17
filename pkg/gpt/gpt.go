@@ -9,7 +9,9 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/utils"
+
 	// Register the providers.
 	_ "github.com/greenboxal/agibootstrap/pkg/utils"
 )
@@ -25,21 +27,15 @@ var model = &openai.ChatLanguageModel{
 	Temperature: 1,
 }
 
-// CodeBlock represents a block of code with its language and code content.
-type CodeBlock struct {
-	Language string
-	Code     string
-}
-
 // ExtractCodeBlocks traverses the given AST and extracts all code blocks.
 // It returns a slice of CodeBlock objects, each representing a code block
 // with its language and code content.
-func ExtractCodeBlocks(root ast.Node) (blocks []CodeBlock) {
+func ExtractCodeBlocks(root ast.Node) (blocks []psi.CodeBlock) {
 	ast.WalkFunc(root, func(node ast.Node, entering bool) ast.WalkStatus {
 		if entering {
 			switch node := node.(type) {
 			case *ast.CodeBlock:
-				blocks = append(blocks, CodeBlock{
+				blocks = append(blocks, psi.CodeBlock{
 					Language: string(node.Info),
 					Code:     string(node.Literal),
 				})
@@ -80,7 +76,7 @@ func PrepareContext(ctx context.Context, req Request) chain.ChainContext {
 }
 
 // Invoke is a function that invokes the code generator.
-func Invoke(ctx context.Context, req Request) ([]CodeBlock, error) {
+func Invoke(ctx context.Context, req Request) ([]psi.CodeBlock, error) {
 	cctx := PrepareContext(ctx, req)
 
 	if err := CodeGeneratorChain.Run(cctx); err != nil {
@@ -96,7 +92,7 @@ func Invoke(ctx context.Context, req Request) ([]CodeBlock, error) {
 
 // SendToGPT sends objectives, prompt context, and target to GPT for code generation.
 // It returns a slice of CodeBlock objects and an error.
-func SendToGPT(objectives, promptContext, target string) ([]CodeBlock, error) {
+func SendToGPT(objectives, promptContext, target string) ([]psi.CodeBlock, error) {
 	ctx := context.Background()
 	cctx := chain.NewChainContext(ctx)
 
