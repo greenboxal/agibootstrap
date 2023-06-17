@@ -129,6 +129,7 @@ func (sf *SourceFile) ToCode(node psi.Node) (string, error) {
 	txt := string(utils.FormatMarkdown(node.(Node).Ast()))
 	txt = strings.TrimSpace(txt)
 	txt = strings.TrimRight(txt, "\n")
+	txt += "\n"
 
 	return txt, nil
 }
