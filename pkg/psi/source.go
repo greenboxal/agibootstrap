@@ -3,6 +3,7 @@ package psi
 import (
 	"context"
 
+	"github.com/greenboxal/agibootstrap/pkg/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
 
@@ -15,7 +16,7 @@ type Language interface {
 	CreateSourceFile(fileName string, fileHandle repofs.FileHandle) SourceFile
 
 	Parse(fileName string, code string) (SourceFile, error)
-	ParseCodeBlock(name string, block CodeBlock) (SourceFile, error)
+	ParseCodeBlock(name string, block mdutils.CodeBlock) (SourceFile, error)
 }
 
 type SourceFile interface {
@@ -33,11 +34,23 @@ type SourceFile interface {
 	OriginalText() string
 	ToCode(node Node) (string, error)
 
-	MergeCompletionResults(ctx context.Context, scope any, cursor Cursor, newAst Node) error
+	MergeCompletionResults(ctx context.Context, scope Scope, cursor Cursor, newAst Node) error
 }
 
-// CodeBlock represents a block of code with its language and code content.
-type CodeBlock struct {
-	Language string
-	Code     string
+type Scope interface {
+	Root() Node
+}
+
+func AsCodeBlock(sf SourceFile, node Node) (mdutils.CodeBlock, error) {
+	code, err := sf.ToCode(node)
+
+	if err != nil {
+		return mdutils.CodeBlock{}, err
+	}
+
+	return mdutils.CodeBlock{
+		Filename: sf.Name(),
+		Language: string(sf.Language().Name()),
+		Code:     code,
+	}, nil
 }

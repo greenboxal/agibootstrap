@@ -10,9 +10,9 @@ import (
 	"github.com/gomarkdown/markdown/ast"
 	"github.com/pkg/errors"
 
+	"github.com/greenboxal/agibootstrap/pkg/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
-	"github.com/greenboxal/agibootstrap/pkg/utils"
 )
 
 type SourceFile struct {
@@ -112,7 +112,7 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 		}
 	}()
 
-	parsed := utils.ParseMarkdown([]byte(sourceCode))
+	parsed := mdutils.ParseMarkdown([]byte(sourceCode))
 
 	if sf.root == nil {
 		if err := sf.SetRoot(parsed); err != nil {
@@ -126,12 +126,22 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 }
 
 func (sf *SourceFile) ToCode(node psi.Node) (string, error) {
-	txt := string(utils.FormatMarkdown(node.(Node).Ast()))
+	txt := string(mdutils.FormatMarkdown(node.(Node).Ast()))
 	txt = strings.TrimSpace(txt)
 	txt = strings.TrimRight(txt, "\n")
 	return txt, nil
 }
-func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope any, cursor psi.Cursor, newAst psi.Node) error {
+
+func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope psi.Scope, cursor psi.Cursor, newAst psi.Node) error {
+	if newHeadings, ok := newAst.(*ast.Headings); ok {
+		if currentHeadings, ok := cursor.Node().(*ast.Headings); ok {
+			// Merge headings by name
+			currentHeadings.Name += newHeadings.Name
+			cursor.SetNode(currentHeadings)
+			return nil
+		}
+	}
+
 	cursor.Replace(newAst)
 
 	return nil

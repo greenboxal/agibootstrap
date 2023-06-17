@@ -41,9 +41,7 @@ func init() {
 			{{ .Objective }}
 			
 			# Document
-			`+"```"+`{{ .Language }}
-			{{ .Document }}
-			`+"```"+`
+			{{ .Document | renderMarkdown 1 }}
 			`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey), chain.WithRequiredInput(ContextKey), chain.WithRequiredInput(LanguageKey))),
 	)
 

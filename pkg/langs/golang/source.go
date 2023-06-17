@@ -210,11 +210,11 @@ func (sf *SourceFile) ToCode(node psi.Node) (string, error) {
 // 4. If the declaration matches, replace the current declaration at the cursor position with the new declaration by calling the ReplaceDeclarationAt function.
 // 5. If the declaration doesn't match, merge the new declaration with the existing declarations by calling the MergeDeclarations function.
 // 6. Return nil, indicating that there were no errors during the merging process.
-func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope any, cursor psi.Cursor, newAst psi.Node) error {
+func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope psi.Scope, cursor psi.Cursor, newAst psi.Node) error {
 	MergeFiles(sf.root.(Node).Ast().(*dst.File), newAst.(Node).Ast().(*dst.File))
 
 	for _, decl := range newAst.Children() {
-		if funcType, ok := decl.(Node).Ast().(*dst.FuncDecl); ok && funcType.Name.Name == scope.(Node).Ast().(*dst.FuncDecl).Name.Name {
+		if funcType, ok := decl.(Node).Ast().(*dst.FuncDecl); ok && funcType.Name.Name == scope.Root().(Node).Ast().(*dst.FuncDecl).Name.Name {
 			sf.ReplaceDeclarationAt(cursor, decl, funcType.Name.Name)
 		} else {
 			sf.MergeDeclarations(cursor, decl)

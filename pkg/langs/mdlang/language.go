@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/codex"
+	"github.com/greenboxal/agibootstrap/pkg/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
@@ -49,7 +50,7 @@ func (l *Language) Parse(fileName string, code string) (psi.SourceFile, error) {
 	return f, nil
 }
 
-func (l *Language) ParseCodeBlock(blockName string, block psi.CodeBlock) (psi.SourceFile, error) {
+func (l *Language) ParseCodeBlock(blockName string, block mdutils.CodeBlock) (psi.SourceFile, error) {
 	return l.Parse(blockName, block.Code)
 }
 

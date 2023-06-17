@@ -1,4 +1,4 @@
-package utils
+package mdutils
 
 import (
 	"encoding/json"
@@ -15,6 +15,10 @@ import (
 var DefaultTemplateHelpers = map[string]any{
 	"json":         Json,
 	"markdownTree": MarkdownTree,
+
+	"renderMarkdown": func(level int, input any) string {
+		return RenderWithContext(&RenderContext{HeadingLevel: level}, input)
+	},
 }
 
 func init() {

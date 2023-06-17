@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/codex"
+	"github.com/greenboxal/agibootstrap/pkg/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
@@ -61,7 +62,7 @@ func (l *Language) Parse(fileName string, code string) (psi.SourceFile, error) {
 // This function unescapes HTML escape sequences, modifies the package declaration,
 // and merges the resulting code with the existing AST.
 // It also handles orphan snippets by wrapping them in a pseudo function.
-func (l *Language) ParseCodeBlock(blockName string, block psi.CodeBlock) (psi.SourceFile, error) {
+func (l *Language) ParseCodeBlock(blockName string, block mdutils.CodeBlock) (psi.SourceFile, error) {
 	// Unescape HTML escape sequences in the code block
 	if hasHtmlEscapeRegex.MatchString(block.Code) {
 		block.Code = html.UnescapeString(block.Code)

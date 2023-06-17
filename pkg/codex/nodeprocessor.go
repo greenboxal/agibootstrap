@@ -27,6 +27,10 @@ type NodeScope struct {
 	Todos     []string
 }
 
+func (n *NodeScope) Root() psi.Node {
+	return n.Node
+}
+
 // declaration represents a declaration in the code.
 //
 // It contains information about the declaration such as the AST node, the PSI node, the index, and the name.
@@ -196,7 +200,7 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 
 	prunedRoot := p.Root
 
-	stepStr, err := p.SourceFile.ToCode(stepRoot)
+	stepStr, err := psi.AsCodeBlock(p.SourceFile, stepRoot)
 	if err != nil {
 		return nil, err
 	}
