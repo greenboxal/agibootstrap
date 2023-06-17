@@ -19,6 +19,12 @@ import (
 var hasPackageRegex = regexp.MustCompile(`(?m)^.*package\s+([a-zA-Z0-9_]+)\n`)
 var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`)
 
+const LanguageID psi.LanguageID = "go"
+
+func init() {
+	codex.RegisterLanguage(LanguageID, NewLanguage)
+}
+
 type Language struct {
 	project *codex.Project
 }
@@ -30,7 +36,7 @@ func NewLanguage(p *codex.Project) psi.Language {
 }
 
 func (l *Language) Name() psi.LanguageID {
-	return "go"
+	return LanguageID
 }
 
 func (l *Language) Extensions() []string {

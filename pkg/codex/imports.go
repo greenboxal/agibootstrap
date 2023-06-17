@@ -2,6 +2,7 @@ package codex
 
 import (
 	"context"
+	"strings"
 
 	"golang.org/x/tools/imports"
 )
@@ -12,6 +13,9 @@ type FixImportsBuildStep struct{}
 
 func (s *FixImportsBuildStep) Process(ctx context.Context, p *Project) (result BuildStepResult, err error) {
 	for _, file := range p.files {
+		if !strings.HasSuffix(file.Path(), ".go") {
+			continue
+		}
 		opt := &imports.Options{
 			FormatOnly: false,
 			AllErrors:  true,

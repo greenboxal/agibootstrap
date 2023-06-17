@@ -10,6 +10,8 @@ type Node interface {
 	psi.Node
 
 	Initialize(self Node)
+
+	Ast() ast.Node
 }
 
 type NodeBase[T ast.Node] struct {
@@ -28,8 +30,8 @@ func (nb *NodeBase[T]) Initialize(self Node) {
 	nb.NodeBase.Init(self, "")
 }
 
-func AstToPsi(node ast.Node) (result psi.Node, err error) {
-	containerStack := make([]psi.Node, 16)
+func AstToPsi(node ast.Node) (result psi.Node) {
+	containerStack := make([]psi.Node, 0, 16)
 
 	ast.WalkFunc(node, func(node ast.Node, entering bool) ast.WalkStatus {
 		if entering {
@@ -37,22 +39,22 @@ func AstToPsi(node ast.Node) (result psi.Node, err error) {
 				node: node,
 			}
 
+			wrapped.Init(wrapped, "")
+
 			if len(containerStack) > 0 {
 				wrapped.SetParent(containerStack[len(containerStack)-1])
 			}
 
-			if wrapped.IsContainer() {
+			if node.AsContainer() != nil {
 				containerStack = append(containerStack, wrapped)
 			}
-		} else {
-			if len(containerStack) > 0 {
-				current := containerStack[len(containerStack)-1]
+		} else if node.AsContainer() != nil {
+			current := containerStack[len(containerStack)-1]
 
-				containerStack = containerStack[:len(containerStack)-1]
+			containerStack = containerStack[:len(containerStack)-1]
 
-				if len(containerStack) == 0 {
-					result = current
-				}
+			if len(containerStack) == 0 {
+				result = current
 			}
 		}
 

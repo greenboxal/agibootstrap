@@ -192,16 +192,9 @@ func (p *Project) Generate(ctx context.Context, isSingleStep bool) (changes int,
 func (p *Project) Sync() (err error) {
 	err = filepath.WalkDir(p.rootPath, func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() {
-			valid := false
+			lang := p.langRegistry.ResolveExtension(path)
 
-			for _, ext := range validExtensions {
-				if strings.HasSuffix(path, ext) {
-					valid = true
-					break
-				}
-			}
-
-			if !valid {
+			if lang == nil {
 				return nil
 			}
 
