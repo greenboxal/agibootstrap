@@ -98,3 +98,19 @@ func (r *Index) RerankResults(srcs []*Index) error {
 
 	return nil
 }
+func (r *Repository) ReRankResults(srcs []*Repository) error {
+	for _, src := range srcs {
+		hits, err := src.Query(r.tempQuery, DefaultK)
+		if err != nil {
+			return err
+		}
+
+		for _, hit := range hits {
+			if err := r.temp.Add(hit); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
