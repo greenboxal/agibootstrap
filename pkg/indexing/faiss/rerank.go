@@ -1,6 +1,8 @@
 package fti
 
 import (
+	"sort"
+
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 
 	"github.com/greenboxal/agibootstrap/pkg/indexing"
@@ -41,18 +43,37 @@ func orphanSnippet() {
 	temp = append(temp, hits...)
 
 }
-func rerankResults(srcs []OnlineIndex, q llm.Embedding, k int64) ([]OnlineIndexQueryHit, error) {
-	temp := []OnlineIndexQueryHit{}
 
-	for _, index := range srcs {
-		hits, err := index.Query(q, k)
-		if err != nil {
-			return nil, err
-		}
-		temp = append(temp, hits...)
+// TODO: Implement this by querying each index in srcs and then reranking the results into temp.
+func rerankResults(srcs []Index, temp []Result) {
+	for _, src := range srcs {
+		results, _ := src.QueryResults()
+		temp = append(temp, results...)
 	}
 
-	// TODO: rerank the hits in temp based on your reranking criteria
+	sort.Slice(temp, func(i, j int) bool {
+		return temp[i].Rank < temp[j].Rank
+	})
+}
 
-	return temp, nil
+func main() {
+	// ...
+	var srcs []Index
+	var temp []Result
+
+	// populate srcs
+	// ...
+
+	rerankResults(srcs, temp)
+
+	// ...
+}
+
+type Index interface {
+	QueryResults() ([]Result, error)
+}
+
+type Result struct {
+	Rank   int
+	Source string
 }
