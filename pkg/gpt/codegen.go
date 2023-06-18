@@ -6,9 +6,11 @@ import (
 	"strings"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
+	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
 	"github.com/hashicorp/go-multierror"
+	openai2 "github.com/sashabaranov/go-openai"
 
 	"github.com/greenboxal/agibootstrap/pkg/mdutils"
 )
@@ -25,12 +27,66 @@ type CodeGenerator struct {
 }
 
 func NewCodeGenerator() *CodeGenerator {
-	// TODO: Write Godoc for this function
-	return &CodeGenerator{
+	cg := &CodeGenerator{
 		client: oai,
 		model:  model,
-		chain:  CodeGeneratorChain,
 	}
+
+	cg.chain = chain.New(
+		chain.WithName("CodeGenerator"),
+
+		chain.Sequential(
+			chat.Predict(
+				model,
+				CodeGeneratorPrompt,
+				chat.WithMaxTokens(4000),
+
+				chat.WithFunction(llm.FunctionDeclaration{
+					Name:        "getCodeContext",
+					Description: "Returns the code context for the given request, including type definitions for type/method references.",
+					Parameters: &llm.FunctionParams{
+						Type:     openai2.JSONSchemaTypeObject,
+						Required: []string{"code"},
+						Properties: map[string]*openai2.JSONSchemaDefine{
+							"code": {
+								Type: openai2.JSONSchemaTypeString,
+							},
+						},
+					},
+				}),
+
+				chat.WithFunction(llm.FunctionDeclaration{
+					Name:        "explainCode",
+					Description: "Explains the meaning of the given code.",
+					Parameters: &llm.FunctionParams{
+						Type:     openai2.JSONSchemaTypeObject,
+						Required: []string{"code"},
+						Properties: map[string]*openai2.JSONSchemaDefine{
+							"code": {
+								Type: openai2.JSONSchemaTypeString,
+							},
+						},
+					},
+				}),
+
+				chat.WithFunction(llm.FunctionDeclaration{
+					Name:        "recurseCodeGenerator",
+					Description: "Recurse the code generator state machine, calling GPT again with a sub-context.",
+					Parameters: &llm.FunctionParams{
+						Type:     openai2.JSONSchemaTypeObject,
+						Required: []string{"code"},
+						Properties: map[string]*openai2.JSONSchemaDefine{
+							"code": {
+								Type: openai2.JSONSchemaTypeString,
+							},
+						},
+					},
+				}),
+			),
+		),
+	)
+
+	return cg
 }
 
 func (g *CodeGenerator) Generate(ctx context.Context, req CodeGeneratorRequest) (result CodeGeneratorResponse, err error) {
@@ -177,9 +233,4 @@ func (s *CodeGeneratorContext) sanitizeCodeBlockReply(reply string) string {
 	}
 
 	return reply
-}
-
-// TODO: Write Godoc for this function
-func myFunction() {
-	// TODO: Implement this function
 }

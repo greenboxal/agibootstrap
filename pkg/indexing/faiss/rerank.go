@@ -1,8 +1,9 @@
 package fti
 
 import (
-	"context"
 	"sync"
+
+	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 
 	"github.com/greenboxal/agibootstrap/pkg/indexing"
 )
@@ -12,6 +13,7 @@ type RerankIndex[K comparable] struct {
 }
 
 func NewRerankIndex[K comparable](sources ...indexing.Index[K]) *RerankIndex[K] {
+	// TODO: Write GoDoc for this function
 	return &RerankIndex[K]{
 		srcs: sources,
 	}
@@ -20,22 +22,7 @@ func NewRerankIndex[K comparable](sources ...indexing.Index[K]) *RerankIndex[K] 
 // Query searches for files in the repository that are similar to the provided query.
 // It takes a context, which can be used for cancellation, the query string, and the maximum number of results (k) to return.
 // The function returns a slice of OnlineIndexQueryHit, which contains information about the matching files, and an error, if any.
-func (r *Repository) Query(ctx context.Context, query string, k int64) ([]OnlineIndexQueryHit, error) {
-	embs, err := r.embedder.GetEmbeddings(ctx, []string{query})
-
-	if err != nil {
-		return nil, err
-	}
-
-	hits, err := r.index.Query(embs[0], k)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return hits, nil
-}
-func orphanSnippet() {
+func (r *RerankIndex[K]) Query(q llm.Embedding, k int64) ([]indexing.SearchHit[K], error) {
 	var wg sync.WaitGroup
 
 	temp, err := NewFlatKVIndex[K]()
@@ -66,5 +53,4 @@ func orphanSnippet() {
 
 	// Return the query results
 	return temp.Query(q, k)
-
 }

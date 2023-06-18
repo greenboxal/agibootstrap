@@ -1,6 +1,7 @@
 package golang
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/dave/dst"
@@ -26,6 +27,10 @@ type NodeBase[T dst.Node] struct {
 
 func (nb *NodeBase[T]) Comments() []string { return nb.comments }
 func (nb *NodeBase[T]) Ast() dst.Node      { return nb.node }
+
+func (nb *NodeBase[T]) String() string {
+	return fmt.Sprintf("%T(%d, %s)", nb.node, nb.ID(), nb.UUID())
+}
 
 func (nb *NodeBase[T]) Initialize(self Node) {
 	nb.NodeBase.Init(self, "")

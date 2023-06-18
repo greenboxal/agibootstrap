@@ -23,14 +23,16 @@ var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`
 const LanguageID psi.LanguageID = "go"
 
 func init() {
-	codex.RegisterLanguage(LanguageID, NewLanguage)
+	codex.RegisterLanguage(LanguageID, func(p *codex.Project) psi.Language {
+		return NewLanguage(p)
+	})
 }
 
 type Language struct {
 	project *codex.Project
 }
 
-func NewLanguage(p *codex.Project) psi.Language {
+func NewLanguage(p *codex.Project) *Language {
 	return &Language{
 		project: p,
 	}
