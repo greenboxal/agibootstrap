@@ -1,6 +1,8 @@
 package fti
 
 import (
+	"sort"
+
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 
 	"github.com/greenboxal/agibootstrap/pkg/indexing"
@@ -48,4 +50,31 @@ func rerankResults(srcs []index, query string, k int) {
 	// ...
 
 	// Return the reranked results
+}
+func orphanSnippet() {
+	// Query each index in srcs
+	for _, index := range r.srcs {
+		hits, err := index.Query(query, k)
+		if err != nil {
+			return nil, err
+		}
+
+		// Rerank the results into r.temp
+		for _, hit := range hits {
+			r.temp = append(r.temp, hit)
+		}
+	}
+
+	// Sort the results in r.temp by score (distance)
+	sort.Slice(r.temp, func(i, j int) bool {
+		return r.temp[i].Distance < r.temp[j].Distance
+	})
+
+	// Trim the results to the desired maximum number of results (k)
+	if int64(len(r.temp)) > k {
+		r.temp = r.temp[:k]
+	}
+
+	return r.temp, nil
+
 }
