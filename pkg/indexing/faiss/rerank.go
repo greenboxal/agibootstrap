@@ -57,3 +57,8 @@ func (r *RerankIndex[K]) Query(q llm.Embedding, k int64) ([]indexing.SearchHit[K
 	// Return the query results
 	return temp.Query(q, k)
 }
+func orphanSnippet() {
+	// TODO: Implement query logic
+	return nil, nil
+
+}
