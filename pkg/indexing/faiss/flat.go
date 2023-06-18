@@ -72,11 +72,11 @@ func (oi *FlatKVIndex[K]) Add(key K, value ...llm.Embedding) error {
 			DocumentID: key,
 			ChunkIndex: i,
 			IndexID:    oi.idx.Ntotal(),
-			Embedding:  emb.Embeddings,
+			Embedding:  emb,
 			Valid:      true,
 		}
 
-		if err := oi.idx.Add(entry.Embedding); err != nil {
+		if err := oi.idx.Add(emb.Embeddings); err != nil {
 			return err
 		}
 

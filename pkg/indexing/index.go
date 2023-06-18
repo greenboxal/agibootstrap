@@ -26,7 +26,7 @@ type IndexEntry[K comparable] struct {
 	// ChunkCount is the total number of chunks in the document.
 	ChunkCount int
 	// Embedding is the embedding for the chunk.
-	Embedding []float32
+	Embedding llm.Embedding
 	// Valid indicates whether the entry is valid or not.
 	Valid bool
 }

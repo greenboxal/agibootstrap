@@ -1,10 +1,8 @@
 package fti
 
 import (
-	"context"
-	"sort"
+	"sync"
 
-	"github.com/DataIntelligenceCrew/go-faiss"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 
 	"github.com/greenboxal/agibootstrap/pkg/indexing"
@@ -20,7 +18,15 @@ func NewRerankIndex[K comparable](sources ...indexing.Index[K]) *RerankIndex[K] 
 	}
 }
 
+// Query performs a search in the RerankIndex using the provided query embedding and returns a list of hits.
+// Each hit contains the corresponding entry from the index and the distance between the query and the entry embedding.
+// The function takes the query embedding q and the number of desired hits k as input arguments.
+// It returns a slice of SearchHit objects and an error, if any.
+
 func (r *RerankIndex[K]) Query(q llm.Embedding, k int64) ([]indexing.SearchHit[K], error) {
+	var wg sync.WaitGroup
+
+	// Create a temporary FlatKVIndex to store the intermediate search results
 	temp, err := NewFlatKVIndex[K]()
 
 	if err != nil {
@@ -28,111 +34,31 @@ func (r *RerankIndex[K]) Query(q llm.Embedding, k int64) ([]indexing.SearchHit[K
 	}
 
 	defer temp.Close()
-	// TODO: Implement this by querying each index in srcs and then reranking the results into FAISS index r.temp .
-	// Query each index in srcs
+
+	// Perform a parallel query on each source index
 	for _, src := range r.srcs {
-		hits, err := src.Query(q, k)
-		if err != nil {
-			return nil, err
-		}
-		// Implement the reranking logic here
-	}
+		wg.Add(1)
 
-	return r.temp.Query(q, k)
-}
-func orphanSnippet() {
-	// TODO: Implement this by querying each index in srcs and then reranking the results into FAISS index r.temp.
+		go func(src indexing.Index[K]) {
+			defer wg.Done()
 
-	// Query each index in srcs
-	for _, src := range srcs {
-		hits, err := src.QueryClosestHitsWithEmbedding(ctx, query, k)
-		if err != nil {
-			return nil, err
-		}
+			// Perform the query on the source index
+			hits, err := src.Query(q, k)
 
-		// Append the hits from each index to a common list of results
-		results = append(results, hits...)
-	}
-
-	// Rerank the results using FAISS index r.temp
-	rerankedResults, err := r.temp.RerankResults(results, k)
-	if err != nil {
-		return nil, err
-	}
-
-	return rerankedResults, nil
-}
-
-// TODO: Implement this by querying each index in srcs and then reranking the results into FAISS index r.temp .
-func (r *Index) RerankResults(srcs []*Index) error {
-	// Query each index in srcs and get the results
-	results := make([][]indexing.SearchHit, len(srcs))
-	for i, src := range srcs {
-		hits, err := src.QueryClosestHits()
-		if err != nil {
-			return err
-		}
-		results[i] = hits
-	}
-
-	// Rerank the results into the FAISS index r.temp
-	r.temp = make([]indexing.SearchHit, 0)
-	for _, hits := range results {
-		r.temp = append(r.temp, hits...)
-	}
-
-	// Sort the reranked results by distance
-	sort.Slice(r.temp, func(i, j int) bool {
-		return r.temp[i].Distance < r.temp[j].Distance
-	})
-
-	return nil
-}
-func (r *Repository) ReRankResults(srcs []*Repository) error {
-	for _, src := range srcs {
-		hits, err := src.Query(r.tempQuery, DefaultK)
-		if err != nil {
-			return err
-		}
-
-		for _, hit := range hits {
-			if err := r.temp.Add(hit); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-// TODO: Implement this by querying each index in srcs and then reranking the results into FAISS index r.temp .
-func (r *Index) RerankIndexes(ctx context.Context, srcs []*Index) error {
-	// Create a temporary FAISS index
-	tempIndex, err := faiss.NewFlatL2(r.dim)
-	if err != nil {
-		return err
-	}
-
-	// Loop through each source index
-	for _, src := range srcs {
-		// Query the source index
-		hits, err := src.Query(ctx, r.query, r.k)
-		if err != nil {
-			return err
-		}
-		// Rerank the results and add them to the temporary index
-		for _, hit := range hits {
-			// TODO: Implement reranking logic here
-			// Add the reranked result to the temporary index
-			err = tempIndex.Add(hit.Embedding)
 			if err != nil {
-				return err
+				return
 			}
-		}
+
+			// Add each hit to the temporary index
+			for _, hit := range hits {
+				_ = temp.Add(hit.DocumentID, hit.Embedding)
+			}
+		}(src)
 	}
 
-	// Replace the current index with the temporary index
-	r.index = tempIndex
+	// Wait for all queries to complete
+	wg.Wait()
 
-	return nil
+	// Perform the final query on the temporary index
+	return temp.Query(q, k)
 }

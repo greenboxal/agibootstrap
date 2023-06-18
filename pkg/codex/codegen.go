@@ -112,7 +112,7 @@ func (p *Project) ProcessNode(ctx context.Context, sf psi.SourceFile, root psi.N
 		}
 
 		for _, hit := range hits {
-			key := fmt.Sprintf("excerpt: %s @ %d", hit.Entry.Document.Path, hit.Entry.Chunk.Index)
+			key := fmt.Sprintf("for reference only, do not copy: %s @ %d", hit.Entry.Document.Path, hit.Entry.Chunk.Index)
 
 			result[key] = mdutils.CodeBlock{
 				Language: "",
