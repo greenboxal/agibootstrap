@@ -1,9 +1,8 @@
 package fti
 
 import (
+	"context"
 	"sync"
-
-	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 
 	"github.com/greenboxal/agibootstrap/pkg/indexing"
 )
@@ -18,38 +17,23 @@ func NewRerankIndex[K comparable](sources ...indexing.Index[K]) *RerankIndex[K] 
 	}
 }
 
-func (r *RerankIndex[K]) Query(q llm.Embedding, k int64) ([]indexing.SearchHit[K], error) {
-	// TODO: Write Godoc documentation for this method
-	var wg sync.WaitGroup
-
-	temp, err := NewFlatKVIndex[K]()
+// Query searches for files in the repository that are similar to the provided query.
+// It takes a context, which can be used for cancellation, the query string, and the maximum number of results (k) to return.
+// The function returns a slice of OnlineIndexQueryHit, which contains information about the matching files, and an error, if any.
+func (r *Repository) Query(ctx context.Context, query string, k int64) ([]OnlineIndexQueryHit, error) {
+	embs, err := r.embedder.GetEmbeddings(ctx, []string{query})
 
 	if err != nil {
 		return nil, err
 	}
 
-	defer temp.Close()
+	hits, err := r.index.Query(embs[0], k)
 
-	for _, src := range r.srcs {
-		wg.Add(1)
-
-		go func(src indexing.Index[K]) {
-			defer wg.Done()
-
-			hits, err := src.Query(q, k)
-
-			if err != nil {
-				return
-			}
-
-			for _, hit := range hits {
-				_ = temp.Add(hit.DocumentID, hit.Embedding)
-			}
-		}(src)
+	if err != nil {
+		return nil, err
 	}
 
-	// Return the query results
-	return temp.Query(q, k)
+	return hits, nil
 }
 func orphanSnippet() {
 	// TODO: Write Godoc documentation
