@@ -1,6 +1,7 @@
 package fti
 
 import (
+	"context"
 	"sort"
 
 	"github.com/DataIntelligenceCrew/go-faiss"
@@ -111,6 +112,38 @@ func (r *Repository) ReRankResults(srcs []*Repository) error {
 			}
 		}
 	}
+
+	return nil
+}
+
+// TODO: Implement this by querying each index in srcs and then reranking the results into FAISS index r.temp .
+func (r *Index) RerankIndexes(ctx context.Context, srcs []*Index) error {
+	// Create a temporary FAISS index
+	tempIndex, err := faiss.NewFlatL2(r.dim)
+	if err != nil {
+		return err
+	}
+
+	// Loop through each source index
+	for _, src := range srcs {
+		// Query the source index
+		hits, err := src.Query(ctx, r.query, r.k)
+		if err != nil {
+			return err
+		}
+		// Rerank the results and add them to the temporary index
+		for _, hit := range hits {
+			// TODO: Implement reranking logic here
+			// Add the reranked result to the temporary index
+			err = tempIndex.Add(hit.Embedding)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Replace the current index with the temporary index
+	r.index = tempIndex
 
 	return nil
 }
