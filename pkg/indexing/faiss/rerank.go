@@ -41,33 +41,34 @@ func (r *RerankIndex[K]) Query(q llm.Embedding, k int64) ([]indexing.SearchHit[K
 	return r.temp.Query(q, k)
 }
 func orphanSnippet() {
-	// Query each source index and collect the results.
-	var results []*faiss.Index
-
-	for _, src := range srcs {
-		hits, err := src.Query(ctx, r.temp, -1)
-
+	for _, idx := range srcs {
+		// Query the index and get the hits
+		hits, err := idx.QueryClosestHits(r.context, r.query, r.k)
 		if err != nil {
 			return err
 		}
 
-		results = append(results, hits...)
-	}
+		// Rerank the hits into the temporary FAISS index
+		for i, hit := range hits {
+			// Convert the hit to a FAISS embedding
+			embeddings := hit.Entry.Embeddings.Float32()
+			emb := llm.Embedding{Embeddings: embeddings}
 
-	// Rerank the results based on some criteria.
+			// Add the embedding to the temporary index
+			if err := r.temp.Add(emb); err != nil {
+				return err
+			}
 
-	// Sort the results based on distance.
-
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Distance < results[j].Distance
-	})
-
-	// Add the reranked results to the target index.
-
-	for _, hit := range results {
-		if err := r.Add(hit.Embedding); err != nil {
-			return err
+			// Update the hit with the new index and distance
+			hits[i].Entry.Index = i
+			hits[i].Distance = r.temp.CalculateDistance(emb)
 		}
+
+		// Sort the hits by distance
+		faiss.SortByDistance(hits)
+
+		// Replace the original index with the reranked hits
+		idx.ReplaceEntries(hits)
 	}
 
 	return nil
