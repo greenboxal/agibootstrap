@@ -72,3 +72,32 @@ func orphanSnippet() {
 	return nil
 
 }
+func (r *Repository) RerankResults(srcs []*Index, k int64) error {
+	// Create a temporary FAISS index
+	temp, err := faiss.NewIndex(r.dims, r.faissIVF)
+	if err != nil {
+		return err
+	}
+
+	// Query each index in srcs and merge the results into temp
+	for _, src := range srcs {
+		// Query the index for the top k hits
+		hits, err := src.QueryClosestHits(r.ctx, r.query, k)
+		if err != nil {
+			return err
+		}
+
+		// Add the hits to the temporary index
+		for _, hit := range hits {
+			err := temp.Add(hit.Embedding)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Overwrite the current index with the temporary index
+	r.faissIndex = temp
+
+	return nil
+}
