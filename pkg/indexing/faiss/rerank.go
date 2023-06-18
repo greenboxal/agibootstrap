@@ -36,7 +36,6 @@ func (r *Repository) Query(ctx context.Context, query string, k int64) ([]Online
 	return hits, nil
 }
 func orphanSnippet() {
-	// TODO: Write Godoc documentation
 	var wg sync.WaitGroup
 
 	temp, err := NewFlatKVIndex[K]()

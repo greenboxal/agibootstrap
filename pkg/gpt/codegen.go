@@ -25,6 +25,7 @@ type CodeGenerator struct {
 }
 
 func NewCodeGenerator() *CodeGenerator {
+	// TODO: Write Godoc for this function
 	return &CodeGenerator{
 		client: oai,
 		model:  model,
