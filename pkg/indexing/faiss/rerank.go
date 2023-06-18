@@ -77,3 +77,23 @@ type Result struct {
 	Rank   int
 	Source string
 }
+
+func RerankResults(srcs []Index, temp []Result) []Result {
+	for _, index := range srcs {
+		// Query each index in `srcs`
+		hits, err := index.Query(query)
+		if err != nil {
+			// Handle error
+			continue
+		}
+
+		// Rerank the results into `temp`
+		for _, hit := range hits {
+			temp = append(temp, hit)
+		}
+	}
+
+	// TODO: Implement reranking logic here, if needed
+
+	return temp
+}
