@@ -72,32 +72,29 @@ func orphanSnippet() {
 	return nil
 
 }
-func (r *Repository) RerankResults(srcs []*Index, k int64) error {
-	// Create a temporary FAISS index
-	temp, err := faiss.NewIndex(r.dims, r.faissIVF)
-	if err != nil {
-		return err
-	}
 
-	// Query each index in srcs and merge the results into temp
-	for _, src := range srcs {
-		// Query the index for the top k hits
-		hits, err := src.QueryClosestHits(r.ctx, r.query, k)
+// TODO: Implement this by querying each index in srcs and then reranking the results into FAISS index r.temp .
+func (r *Index) RerankResults(srcs []*Index) error {
+	// Query each index in srcs and get the results
+	results := make([][]indexing.SearchHit, len(srcs))
+	for i, src := range srcs {
+		hits, err := src.QueryClosestHits()
 		if err != nil {
 			return err
 		}
-
-		// Add the hits to the temporary index
-		for _, hit := range hits {
-			err := temp.Add(hit.Embedding)
-			if err != nil {
-				return err
-			}
-		}
+		results[i] = hits
 	}
 
-	// Overwrite the current index with the temporary index
-	r.faissIndex = temp
+	// Rerank the results into the FAISS index r.temp
+	r.temp = make([]indexing.SearchHit, 0)
+	for _, hits := range results {
+		r.temp = append(r.temp, hits...)
+	}
+
+	// Sort the reranked results by distance
+	sort.Slice(r.temp, func(i, j int) bool {
+		return r.temp[i].Distance < r.temp[j].Distance
+	})
 
 	return nil
 }
