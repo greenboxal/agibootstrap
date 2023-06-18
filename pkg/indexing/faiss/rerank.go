@@ -41,3 +41,18 @@ func orphanSnippet() {
 	temp = append(temp, hits...)
 
 }
+func rerankResults(srcs []OnlineIndex, q llm.Embedding, k int64) ([]OnlineIndexQueryHit, error) {
+	temp := []OnlineIndexQueryHit{}
+
+	for _, index := range srcs {
+		hits, err := index.Query(q, k)
+		if err != nil {
+			return nil, err
+		}
+		temp = append(temp, hits...)
+	}
+
+	// TODO: rerank the hits in temp based on your reranking criteria
+
+	return temp, nil
+}
