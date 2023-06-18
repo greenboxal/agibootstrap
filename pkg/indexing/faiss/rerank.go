@@ -33,3 +33,11 @@ func (r *RerankIndex[K]) Query(q llm.Embedding, k int64) ([]indexing.SearchHit[K
 	}
 	return nil, nil
 }
+func orphanSnippet() {
+	hits, err := index.Query(query, k)
+	if err != nil {
+		return nil, err
+	}
+	temp = append(temp, hits...)
+
+}

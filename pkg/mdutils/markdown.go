@@ -3,6 +3,7 @@ package mdutils
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/gomarkdown/markdown"
@@ -39,24 +40,21 @@ func Json(input any) string {
 	return string(data)
 }
 func MarkdownTree(initialDepth int, input any) string {
-	var payload any
-
-	data, err := json.Marshal(input)
-
-	if err != nil {
-		panic(err)
-	}
-
-	if err := json.Unmarshal(data, &payload); err != nil {
-		panic(err)
-	}
-
 	var walk func(any, int, string, ast.Node)
 
 	walk = func(node any, depth int, key string, parent ast.Node) {
-		switch node := node.(type) {
-		case map[string]any:
-			for k, v := range node {
+		val := reflect.ValueOf(node)
+
+		for val.Kind() == reflect.Ptr {
+			val = val.Elem()
+		}
+
+		switch val.Kind() {
+		case reflect.Map:
+			for it := val.MapRange(); it.Next(); {
+				k := it.Key().String()
+				v := it.Value().Interface()
+
 				h := strings.Repeat("#", depth)
 				heading := ParseMarkdown([]byte(fmt.Sprintf("%s %s", h, k)))
 
@@ -65,9 +63,11 @@ func MarkdownTree(initialDepth int, input any) string {
 				ast.AppendChild(parent, heading)
 			}
 
-		case []any:
-			for _, v := range node {
-				walk(v, depth+1, "", parent)
+		case reflect.Array:
+			fallthrough
+		case reflect.Slice:
+			for i := 0; i < val.Len(); i++ {
+				walk(val.Index(i), depth+1, "", parent)
 			}
 
 		default:
@@ -79,7 +79,7 @@ func MarkdownTree(initialDepth int, input any) string {
 
 	root := &ast.Document{}
 
-	walk(payload, initialDepth, "", root)
+	walk(input, initialDepth, "", root)
 
 	str := string(FormatMarkdown(root))
 
