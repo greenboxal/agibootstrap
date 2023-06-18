@@ -1,6 +1,8 @@
 package fti
 
 import (
+	"sync"
+
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 
 	"github.com/greenboxal/agibootstrap/pkg/indexing"
@@ -10,19 +12,42 @@ type RerankIndex[K comparable] struct {
 	srcs []indexing.Index[K]
 }
 
-// TODO: Add package-level comment
-
-// NewRerankIndex creates a new RerankIndex with the provided sources.
 func NewRerankIndex[K comparable](sources ...indexing.Index[K]) *RerankIndex[K] {
 	return &RerankIndex[K]{
 		srcs: sources,
 	}
 }
 
-// Query queries the RerankIndex with the provided embedding vector.
-// TODO: Add detailed function description, parameters, and return values.
 func (r *RerankIndex[K]) Query(q llm.Embedding, k int64) ([]indexing.SearchHit[K], error) {
-	// TODO: Add implementation details and explanation of the algorithm used.
-	// TODO: Add example usage if applicable.
-	return nil, nil
+	// TODO: Write Godoc documentation
+	var wg sync.WaitGroup
+
+	temp, err := NewFlatKVIndex[K]()
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer temp.Close()
+
+	for _, src := range r.srcs {
+		wg.Add(1)
+
+		go func(src indexing.Index[K]) {
+			defer wg.Done()
+
+			hits, err := src.Query(q, k)
+
+			if err != nil {
+				return
+			}
+
+			for _, hit := range hits {
+				_ = temp.Add(hit.DocumentID, hit.Embedding)
+			}
+		}(src)
+	}
+
+	// Return the query results
+	return temp.Query(q, k)
 }
