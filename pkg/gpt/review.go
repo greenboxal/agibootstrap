@@ -24,7 +24,7 @@ Do not emit any code that is not valid Go code. You can use the context below to
 	chat.EntryTemplate(
 		msn.RoleUser,
 		chain.NewTemplatePrompt(`
-# Request
+# CodeGeneratorRequest
 Write a commit message for the changes you made based on the Git diff below.
 Include a title followed by a descriptive list of changes. Be sure to include the reasoning and objective behind the changes.
 

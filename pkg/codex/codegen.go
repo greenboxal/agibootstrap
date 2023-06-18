@@ -95,7 +95,7 @@ func (p *Project) ProcessNode(ctx context.Context, sf psi.SourceFile, root psi.N
 		return len(fn.Todos) > 0
 	}
 
-	processor.prepareContext = func(processor *NodeProcessor, ctx *NodeScope, root psi.Node, req gpt.Request) (gpt.ContextBag, error) {
+	processor.prepareContext = func(processor *NodeProcessor, ctx *NodeScope, root psi.Node, req gpt.CodeGeneratorRequest) (gpt.ContextBag, error) {
 		var err error
 
 		result := gpt.ContextBag{}

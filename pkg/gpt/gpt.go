@@ -30,7 +30,7 @@ var model = &openai.ChatLanguageModel{
 
 type ContextBag map[string]any
 
-type Request struct {
+type CodeGeneratorRequest struct {
 	Chain     chain.Chain
 	Context   ContextBag
 	Objective string
@@ -42,11 +42,11 @@ type Request struct {
 //
 // Parameters:
 // - ctx: The context.Context for the operation.
-// - req: The Request containing the input data.
+// - req: The CodeGeneratorRequest containing the input data.
 //
 // Returns:
 // - chain.ChainContext: The prepared chain context.
-func PrepareContext(ctx context.Context, req Request) chain.ChainContext {
+func PrepareContext(ctx context.Context, req CodeGeneratorRequest) chain.ChainContext {
 	cctx := chain.NewChainContext(ctx)
 
 	data, err := json.Marshal(req)
@@ -71,7 +71,7 @@ type InvokeOptions struct {
 var blockCodeHeaderRegex = regexp.MustCompile("(?m)^\\w*\\x60\\x60\\x60([a-zA-Z0-9_-]+)?\\w*$")
 
 // Invoke is a function that invokes the code generator.
-func Invoke(ctx context.Context, req Request, opts InvokeOptions) (ast.Node, error) {
+func Invoke(ctx context.Context, req CodeGeneratorRequest, opts InvokeOptions) (ast.Node, error) {
 	cctx := PrepareContext(ctx, req)
 
 	if err := CodeGeneratorChain.Run(cctx); err != nil {

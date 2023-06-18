@@ -10,7 +10,6 @@ import (
 	"github.com/zeroflucs-given/generics/collections/stack"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
-	"github.com/greenboxal/agibootstrap/pkg/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -64,9 +63,9 @@ type NodeProcessor struct {
 	FuncStack    *stack.Stack[*NodeScope] // A stack of FunctionContexts.
 	Declarations map[string]*declaration  // A map of declaration names to declaration information.
 
-	prepareObjective   func(p *NodeProcessor, ctx *NodeScope) (string, error)                                                 // A function to prepare the objective for GPT-3.
-	prepareContext     func(p *NodeProcessor, ctx *NodeScope, root psi.Node, baseRequest gpt.Request) (gpt.ContextBag, error) // A function to prepare the context for GPT-3.
-	checkShouldProcess func(fn *NodeScope, cursor psi.Cursor) bool                                                            // A function to check if a function should be processed.
+	prepareObjective   func(p *NodeProcessor, ctx *NodeScope) (string, error)                                                              // A function to prepare the objective for GPT-3.
+	prepareContext     func(p *NodeProcessor, ctx *NodeScope, root psi.Node, baseRequest gpt.CodeGeneratorRequest) (gpt.ContextBag, error) // A function to prepare the context for GPT-3.
+	checkShouldProcess func(fn *NodeScope, cursor psi.Cursor) bool                                                                         // A function to check if a function should be processed.
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -168,9 +167,9 @@ func (p *NodeProcessor) OnLeave(cursor psi.Cursor) error {
 // Cloning and Pruning:
 // 3. Make a clone of the root with the psi.Clone method from the psi package, applied to p.Root. Prune this cloned root by iterating through each cursor element and returning true.
 //
-// String Conversion and Request Preparation:
+// String Conversion and CodeGeneratorRequest Preparation:
 // 4. Convert the stepRoot into a string format using the p.SourceFile.ToCode method.
-// 5. Construct a new gpt.Request object, where the Document is stepStr, the Objective is todoComment, and the Context is an empty ContextBag.
+// 5. Construct a new gpt.CodeGeneratorRequest object, where the Document is stepStr, the Objective is todoComment, and the Context is an empty ContextBag.
 //
 // Context Setup and Invocation:
 // 6. Craft the fullContext using the p.prepareContext function with the NodeProcessor, NodeScope, prunedRoot, and req as parameters.
@@ -206,7 +205,7 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 		return nil, err
 	}
 
-	req := gpt.Request{
+	req := gpt.CodeGeneratorRequest{
 		Document:  stepStr,
 		Objective: todoComment,
 		Language:  string(p.SourceFile.Language().Name()),
@@ -220,17 +219,14 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 
 	req.Context = fullContext
 
-	reply, err := gpt.Invoke(ctx, req, gpt.InvokeOptions{
-		ForceCodeOutput: true,
-	})
+	cg := gpt.NewCodeGenerator()
+	res, err := cg.Generate(ctx, req)
 
 	if err != nil {
 		return nil, err
 	}
 
-	codeBlocks := mdutils.ExtractCodeBlocks(reply)
-
-	for i, block := range codeBlocks {
+	for i, block := range res.CodeBlocks {
 		block.Language = string(p.SourceFile.Language().Name())
 
 		lang := p.Project.langRegistry.Resolve(psi.LanguageID(block.Language))

@@ -1,134 +1,177 @@
 package gpt
 
 import (
-	"encoding/json"
+	"context"
+	"fmt"
+	"strings"
 
-	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
-	"github.com/greenboxal/aip/aip-langchain/pkg/memory"
+	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
+	"github.com/hashicorp/go-multierror"
+
+	"github.com/greenboxal/agibootstrap/pkg/mdutils"
 )
 
-var RequestKey chain.ContextKey[any] = "Request"
-var ObjectiveKey chain.ContextKey[string] = "Objective"
-var ContextKey chain.ContextKey[any] = "Context"
-var DocumentKey chain.ContextKey[string] = "Document"
-var LanguageKey chain.ContextKey[string] = "Language"
-
-// CodeGeneratorPrompt is the prompt used to generate code.
-var CodeGeneratorPrompt chat.Prompt
-var CodeGeneratorChain chain.Chain
-
-type CodeGeneratorPromptFn struct {
-	Role         msn.Role
-	UserName     string
-	FunctionName string
-	ArgsKey      chain.ContextKey[any]
-	Args         *string
+type CodeGeneratorResponse struct {
+	MessageLog chat.Message
+	CodeBlocks []mdutils.CodeBlock
 }
 
-func (c *CodeGeneratorPromptFn) AsPrompt() chain.Prompt {
-	panic("not supported")
+type CodeGenerator struct {
+	client *openai.Client
+	model  *openai.ChatLanguageModel
+	chain  chain.Chain
 }
 
-func (c *CodeGeneratorPromptFn) Build(ctx chain.ChainContext) (chat.Message, error) {
-	call := chat.MessageEntry{
-		Name: c.UserName,
-		Role: c.Role,
-		Fn:   c.FunctionName,
+func NewCodeGenerator() *CodeGenerator {
+	return &CodeGenerator{
+		client: oai,
+		model:  model,
+		chain:  CodeGeneratorChain,
+	}
+}
+
+func (g *CodeGenerator) Generate(ctx context.Context, req CodeGeneratorRequest) (result CodeGeneratorResponse, err error) {
+	state := &CodeGeneratorContext{
+		gen: g,
+		req: req,
 	}
 
-	if c.Args != nil {
-		call.FnArgs = *c.Args
-	} else {
-		args := chain.Input(ctx, c.ArgsKey)
+	if err = state.Run(ctx); err != nil {
+		return
+	}
 
-		data, err := json.Marshal(args)
+	result.MessageLog = chat.Merge(state.chatHistory...)
+	result.CodeBlocks = state.codeBlocks
 
-		if err != nil {
-			return chat.Message{}, nil
+	return
+}
+
+type CodeGeneratorState int
+
+const (
+	CodeGenStateInitial CodeGeneratorState = iota
+	CodeGenStateGenerate
+	CodeGenStateVerify
+	CodeGenStateDone
+)
+
+type CodeGeneratorContext struct {
+	gen *CodeGenerator
+	req CodeGeneratorRequest
+
+	state CodeGeneratorState
+
+	chatHistory []chat.Message
+	codeBlocks  []mdutils.CodeBlock
+
+	errors []error
+}
+
+func (s *CodeGeneratorContext) Load(ctx chain.ChainContext) (chat.Message, error) {
+	return chat.Merge(s.chatHistory...), nil
+}
+
+func (s *CodeGeneratorContext) Append(ctx chain.ChainContext, msg chat.Message) error {
+	s.chatHistory = append(s.chatHistory, msg)
+
+	return nil
+}
+
+func (s *CodeGeneratorContext) Run(ctx context.Context) (err error) {
+	defer func() {
+		var err error
+
+		for _, e := range s.errors {
+			err = multierror.Append(err, e)
+		}
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
 		}
 
-		call.FnArgs = string(data)
-	}
-
-	return chat.Compose(call), nil
-}
-
-func FunctionCallRequest(user, fn string, args chain.ContextKey[any]) chat.Prompt {
-	return &CodeGeneratorPromptFn{
-		Role:         msn.RoleAI,
-		UserName:     user,
-		FunctionName: fn,
-		ArgsKey:      args,
+		switch s.state {
+		case CodeGenStateInitial:
+			s.setState(CodeGenStateGenerate)
+		case CodeGenStateGenerate:
+			s.stepGenerate(ctx)
+		case CodeGenStateVerify:
+			s.stepVerify(ctx)
+		case CodeGenStateDone:
+			return
+		}
 	}
 }
 
-func FunctionCallResponse(user, fn string, args chain.ContextKey[any]) chat.Prompt {
-	return &CodeGeneratorPromptFn{
-		Role:         msn.RoleFunction,
-		UserName:     user,
-		FunctionName: fn,
-		ArgsKey:      args,
+func (s *CodeGeneratorContext) stepGenerate(ctx context.Context) {
+	cctx := PrepareContext(ctx, s.req)
+
+	cctx.SetInput(chat.MemoryContextKey, s)
+
+	if err := s.gen.chain.Run(cctx); err != nil {
+		s.abort(err)
+		return
+	}
+
+	result := chain.Output(cctx, chat.ChatReplyContextKey)
+
+	s.processResult(result)
+}
+
+func (s *CodeGeneratorContext) stepVerify(ctx context.Context) {
+	if len(s.codeBlocks) > 0 {
+		s.setState(CodeGenStateDone)
+		return
 	}
 }
 
-func StaticFunctionCallRequest(user, fn string, args string) chat.Prompt {
-	return &CodeGeneratorPromptFn{
-		Role:         msn.RoleAI,
-		UserName:     user,
-		FunctionName: fn,
-		Args:         &args,
-	}
+func (s *CodeGeneratorContext) processResult(result chat.Message) {
+	reply := result.Entries[0].Text
+	reply = s.sanitizeCodeBlockReply(reply)
+	replyRoot := mdutils.ParseMarkdown([]byte(reply))
+
+	blocks := mdutils.ExtractCodeBlocks(replyRoot)
+
+	s.codeBlocks = append(s.codeBlocks, blocks...)
+
+	s.setState(CodeGenStateVerify)
 }
 
-func StaticFunctionCallResponse(user, fn string, args string) chat.Prompt {
-	return &CodeGeneratorPromptFn{
-		Role:         msn.RoleFunction,
-		UserName:     user,
-		FunctionName: fn,
-		Args:         &args,
-	}
+func (s *CodeGeneratorContext) abort(err error) {
+	s.reportError(err)
+	s.setState(CodeGenStateDone)
 }
 
-func init() {
-	CodeGeneratorPrompt = chat.ComposeTemplate(
-		chat.EntryTemplate(
-			msn.RoleSystem,
-			chain.NewTemplatePrompt(`
-{{ .Context | markdownTree 2 }}
-You're an AI agent specialized in generating code in {{ .Language }}. Complete the request below.
-You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
-Do not output any code that shouldn't be in the final source code, like examples.
-Do not emit any code that is not valid Go code. You can use the context below to help you.
-			`, chain.WithRequiredInput(ContextKey), chain.WithRequiredInput(LanguageKey))),
+func (s *CodeGeneratorContext) reportError(err error) {
+	s.errors = append(s.errors, err)
+}
 
-		chat.HistoryFromContext(memory.ContextualMemoryKey),
+func (s *CodeGeneratorContext) setState(state CodeGeneratorState) {
+	s.state = state
+}
 
-		chat.EntryTemplate(
-			msn.RoleUser,
-			chain.NewTemplatePrompt(`
-# Request
-Address all TODOs in the document below.
+func (s *CodeGeneratorContext) sanitizeCodeBlockReply(reply string) string {
+	reply = strings.TrimSpace(reply)
+	reply = strings.TrimSuffix(reply, "\n")
 
-# TODOs:
-{{ .Objective }}
-		`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey), chain.WithRequiredInput(ContextKey), chain.WithRequiredInput(LanguageKey))),
+	pos := blockCodeHeaderRegex.FindAllString(reply, -1)
+	count := len(pos)
+	mismatch := count%2 != 0
 
-		chat.EntryTemplate(
-			msn.RoleAI,
-			chain.NewTemplatePrompt("\t```{{ .Language }}", chain.WithRequiredInput(LanguageKey))),
-	)
+	if count > 0 && mismatch {
+		if strings.HasPrefix(reply, pos[0]) {
+			reply = strings.TrimPrefix(reply, pos[0])
+			reply = fmt.Sprintf("```%s\n%s\n```", s.req.Language, reply)
+		} else if strings.HasSuffix(reply, pos[len(pos)-1]) {
+			reply = strings.TrimSuffix(reply, pos[len(pos)-1])
+			reply = fmt.Sprintf("```%s\n%s\n```", s.req.Language, reply)
+		}
+	}
 
-	CodeGeneratorChain = chain.New(
-		chain.WithName("GoCodeGenerator"),
-
-		chain.Sequential(
-			chat.Predict(
-				model,
-				CodeGeneratorPrompt,
-				chat.WithMaxTokens(4000),
-			),
-		),
-	)
+	return reply
 }
