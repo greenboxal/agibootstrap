@@ -124,10 +124,12 @@ func (s *CodeGeneratorContext) stepGenerate(ctx context.Context) {
 }
 
 func (s *CodeGeneratorContext) stepVerify(ctx context.Context) {
-	if len(s.codeBlocks) > 0 {
-		s.setState(CodeGenStateDone)
+	if len(s.codeBlocks) == 0 {
+		s.setState(CodeGenStateGenerate)
 		return
 	}
+
+	s.setState(CodeGenStateDone)
 }
 
 func (s *CodeGeneratorContext) processResult(result chat.Message) {
