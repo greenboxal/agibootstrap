@@ -140,3 +140,15 @@ func (oi *FlatKVIndex[K]) lookupEntry(idx int64) (*indexing.IndexEntry[K], error
 
 	return oi.entryMap[idx], nil
 }
+
+func (oi *FlatKVIndex[K]) Close() {
+	oi.m.Lock()
+	defer oi.m.Unlock()
+
+	if oi.idx == nil {
+		return
+	}
+
+	oi.idx.Delete()
+	oi.idx = nil
+}
