@@ -178,3 +178,8 @@ func (s *CodeGeneratorContext) sanitizeCodeBlockReply(reply string) string {
 
 	return reply
 }
+
+// TODO: Write Godoc for this function
+func myFunction() {
+	// TODO: Implement this function
+}
