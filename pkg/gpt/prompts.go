@@ -24,11 +24,23 @@ func init() {
 		chat.EntryTemplate(
 			msn.RoleSystem,
 			chain.NewTemplatePrompt(`
-{{ .Context | markdownTree 2 }}
 You're an AI agent specialized in generating code in {{ .Language }}. Complete the request below.
 You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
 Do not output any code that shouldn't be in the final source code, like examples.
 Do not emit any code that is not valid Go code. You can use the context below to help you.
+
+# Context
+{{ .Context | markdownTree 2 }}
+
+# Attention!
+You are going to be given a request to produce a detailed plan to generate code. Complete it as the example below:
+
+    Proton-Neutron Nucleosynthesis Power Generator
+
+    * Step 1: Build Dyson sphere around the sun.
+	* Step 2: Build a proton-neutron nucleosynthesis power converter.
+	* Step 3: Build transmission hyperline to Earth.
+
 			`, chain.WithRequiredInput(ContextKey), chain.WithRequiredInput(LanguageKey))),
 
 		chat.HistoryFromContext(memory.ContextualMemoryKey),
@@ -48,11 +60,15 @@ Write a plan to address the TODOs below in the document at the end.
 		chat.EntryTemplate(
 			msn.RoleSystem,
 			chain.NewTemplatePrompt(`
-{{ .Context | markdownTree 2 }}
 You're an AI agent specialized in generating code in {{ .Language }}. Complete the request below.
 You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
 Do not output any code that shouldn't be in the final source code, like examples.
 Do not emit any code that is not valid Go code. You can use the context below to help you.
+
+# Context
+{{ .Context | markdownTree 2 }}
+
+You are going to be given a request to generate code. You will be given a document to write the code in, and a context to help you.
 			`, chain.WithRequiredInput(ContextKey), chain.WithRequiredInput(LanguageKey))),
 
 		chat.HistoryFromContext(memory.ContextualMemoryKey),

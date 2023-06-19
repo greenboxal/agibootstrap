@@ -39,6 +39,8 @@ project := codex.NewProject("my-project")
 
 
 
+
+
 ```
 1. Adding a new file to the project:
 
@@ -53,11 +55,15 @@ file := project.AddFile("main.go")
 
 
 
+
+
 ```
 1. Modifying the content of a file:
 
 ```go
 file.ReplaceContent("package main\n\nfunc main() {\n\t// Your code here\n}")
+
+
 
 
 
@@ -84,12 +90,16 @@ for _, result := range results {
 
 
 
+
+
 ```
 1. Generating code using GPT:
 
 ```go
 generatedCode, _ := project.GenerateCode("main.go")
 fmt.Println(generatedCode)
+
+
 
 
 
