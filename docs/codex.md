@@ -23,21 +23,14 @@ The Codex package integrates seamlessly with other related packages to enhance i
 ## Usage Examples
 Let's take a look at some examples of how the Codex package can be used in practice:
 ### Fetching Context from the Code
-The project utilizes the `codex` package to manage the project and analyze the codebase.
-The `Project` type serves as the entry point for accessing and manipulating project files. It provides methods for tasks such as adding/removing files, retrieving file contents, and performing project-wide operations such as code formatting and error checking.
-The `SourceFile` type represents a single source code file in the project. It allows developers to retrieve and modify the content of the file. This enables programmatic changes to the source code, such as refactoring or code generation.
-The `BuildStep` type represents a step in the build process. It provides methods for processing project files and performing actions such as code formatting, import fixing, and error checking. Users can define their custom build steps to perform project-specific actions or implement additional functionality.
-With the help of the Go AST and token packages, the `Project` type can analyze the code structure and extract contextual information from the codebase. This information can then be used to generate code based on the provided context.
+The project utilizes the `codex` package to manage the project and analyze the codebase. The `Project` type serves as the entry point for accessing and manipulating project files. It provides methods for tasks such as adding/removing files, retrieving file contents, and performing project-wide operations such as code formatting and error checking. The `SourceFile` type represents a single source code file in the project. It allows developers to retrieve and modify the content of the file. This enables programmatic changes to the source code, such as refactoring or code generation. The `BuildStep` type represents a step in the build process. It provides methods for processing project files and performing actions such as code formatting, import fixing, and error checking. Users can define their custom build steps to perform project-specific actions or implement additional functionality. With the help of the Go AST and token packages, the `Project` type can analyze the code structure and extract contextual information from the codebase. This information can then be used to generate code based on the provided context.
 ### Using Context to Generate Code
-The project utilizes the `CodeGenBuildStep` type to generate code based on the extracted context.
-The `Process` method of `CodeGenBuildStep` is responsible for processing each file in the project and generating code based on the context. It iterates through each file, loads it using the `ProcessFile` method of the `Project` type, and processes the AST nodes using the `ProcessNodes` and `ProcessNode` methods.
-The `Project` type's `ToCode` method is used to convert the manipulated AST back into code. It compares the modified code with the original code, and if there are differences, it replaces the code in the `SourceFile`.
-Developers have the flexibility to define custom build steps, which allows them to implement logic for generating code based on the extracted context. These custom build steps can be executed in a specific order to ensure proper code generation.
-By leveraging the project's ability to fetch context from the code and using it to generate code, developers can automate tasks, enforce code quality standards, and improve productivity.
+The project utilizes the `CodeGenBuildStep` type to generate code based on the extracted context. The `Process` method of `CodeGenBuildStep` is responsible for processing each file in the project and generating code based on the context. It iterates through each file, loads it using the `ProcessFile` method of the `Project` type, and processes the AST nodes using the `ProcessNodes` and `ProcessNode` methods. The `Project` type's `ToCode` method is used to convert the manipulated AST back into code. It compares the modified code with the original code, and if there are differences, it replaces the code in the `SourceFile`. Developers have the flexibility to define custom build steps, which allows them to implement logic for generating code based on the extracted context. These custom build steps can be executed in a specific order to ensure proper code generation. By leveraging the project's ability to fetch context from the code and using it to generate code, developers can automate tasks, enforce code quality standards, and improve productivity.
 1. Creating a new project:
 
 ```go
 project := codex.NewProject("my-project")
+
 
 
 
@@ -49,11 +42,13 @@ file := project.AddFile("main.go")
 
 
 
+
 ```
 1. Modifying the content of a file:
 
 ```go
 file.ReplaceContent("package main\n\nfunc main() {\n\t// Your code here\n}")
+
 
 
 
@@ -68,12 +63,14 @@ for _, result := range results {
 
 
 
+
 ```
 1. Generating code using GPT:
 
 ```go
 generatedCode, _ := project.GenerateCode("main.go")
 fmt.Println(generatedCode)
+
 
 
 
