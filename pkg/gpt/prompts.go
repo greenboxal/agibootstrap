@@ -63,8 +63,7 @@ Write a plan to address the items above.
 		chat.EntryTemplate(
 			msn.RoleSystem,
 			chain.NewTemplatePrompt(`
-# Context
-{{ .Context | renderMarkdown 2 }}
+Context: {{ .Context | json }}
 
 You're an AI agent specialized in generating code in {{ .Language }}. Complete the request below.
 You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
@@ -79,16 +78,18 @@ You are going to be given a detailed plan to generate the code. You will be give
 		chat.EntryTemplate(
 			msn.RoleUser,
 			chain.NewTemplatePrompt(`
-# Plan
-{{ .Plan }}
-
-Read the plan above and write the code in the document below:
-
 # Document
 {{ .Document | renderMarkdown 2 }}
 
-Read the plan above and write the code in the document.
-		`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey), chain.WithRequiredInput(PlanKey), chain.WithRequiredInput(LanguageKey))),
+# Plan
+{{ .Plan }}
+
+Read the plan above and modify the document as necessary. Focus on the items below:
+
+{{ .Focus | renderMarkdown 2 }}
+
+Read the plan above and modify the document as necessary. Focus on the items above.
+		`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey), chain.WithRequiredInput(PlanKey), chain.WithRequiredInput(FocusKey))),
 
 		chat.EntryTemplate(
 			msn.RoleAI,
