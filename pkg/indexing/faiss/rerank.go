@@ -13,7 +13,6 @@ type RerankIndex[K comparable] struct {
 }
 
 func NewRerankIndex[K comparable](sources ...indexing.Index[K]) *RerankIndex[K] {
-	// TODO: Write GoDoc for this function
 	return &RerankIndex[K]{
 		srcs: sources,
 	}
