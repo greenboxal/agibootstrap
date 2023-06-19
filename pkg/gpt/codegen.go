@@ -23,7 +23,10 @@ type CodeGeneratorResponse struct {
 type CodeGenerator struct {
 	client *openai.Client
 	model  *openai.ChatLanguageModel
-	chain  chain.Chain
+
+	planChain     chain.Chain
+	generateChain chain.Chain
+	verifyChain   chain.Chain
 }
 
 func NewCodeGenerator() *CodeGenerator {
@@ -32,7 +35,18 @@ func NewCodeGenerator() *CodeGenerator {
 		model:  model,
 	}
 
-	cg.chain = chain.New(
+	cg.planChain = chain.New(
+		chain.WithName("CodeGeneratorPLanner"),
+
+		chain.Sequential(
+			chat.Predict(
+				model,
+				CodeGeneratorPlannerPrompt,
+			),
+		),
+	)
+
+	cg.generateChain = chain.New(
 		chain.WithName("CodeGenerator"),
 
 		chain.Sequential(
@@ -86,6 +100,17 @@ func NewCodeGenerator() *CodeGenerator {
 		),
 	)
 
+	cg.verifyChain = chain.New(
+		chain.WithName("CodeGeneratorVerifier"),
+
+		chain.Sequential(
+			chat.Predict(
+				model,
+				CodeGeneratorPrompt,
+			),
+		),
+	)
+
 	return cg
 }
 
@@ -109,6 +134,7 @@ type CodeGeneratorState int
 
 const (
 	CodeGenStateInitial CodeGeneratorState = iota
+	CodeGenStatePlan
 	CodeGenStateGenerate
 	CodeGenStateVerify
 	CodeGenStateDone
@@ -120,6 +146,7 @@ type CodeGeneratorContext struct {
 
 	state CodeGeneratorState
 
+	plan        string
 	chatHistory []chat.Message
 	codeBlocks  []mdutils.CodeBlock
 
@@ -154,7 +181,9 @@ func (s *CodeGeneratorContext) Run(ctx context.Context) (err error) {
 
 		switch s.state {
 		case CodeGenStateInitial:
-			s.setState(CodeGenStateGenerate)
+			s.setState(CodeGenStatePlan)
+		case CodeGenStatePlan:
+			s.stepPlan(ctx)
 		case CodeGenStateGenerate:
 			s.stepGenerate(ctx)
 		case CodeGenStateVerify:
@@ -165,12 +194,30 @@ func (s *CodeGeneratorContext) Run(ctx context.Context) (err error) {
 	}
 }
 
-func (s *CodeGeneratorContext) stepGenerate(ctx context.Context) {
+func (s *CodeGeneratorContext) stepPlan(ctx context.Context) {
 	cctx := PrepareContext(ctx, s.req)
 
 	cctx.SetInput(chat.MemoryContextKey, s)
 
-	if err := s.gen.chain.Run(cctx); err != nil {
+	if err := s.gen.planChain.Run(cctx); err != nil {
+		s.abort(err)
+		return
+	}
+
+	result := chain.Output(cctx, chat.ChatReplyContextKey)
+
+	s.plan = result.Entries[0].Text
+
+	s.setState(CodeGenStateGenerate)
+}
+
+func (s *CodeGeneratorContext) stepGenerate(ctx context.Context) {
+	cctx := PrepareContext(ctx, s.req)
+
+	cctx.SetInput(PlanKey, s.plan)
+	cctx.SetInput(chat.MemoryContextKey, s)
+
+	if err := s.gen.generateChain.Run(cctx); err != nil {
 		s.abort(err)
 		return
 	}

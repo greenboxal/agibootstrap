@@ -7,6 +7,7 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/memory"
 )
 
+var PlanKey chain.ContextKey[any] = "Plan"
 var RequestKey chain.ContextKey[any] = "CodeGeneratorRequest"
 var ObjectiveKey chain.ContextKey[string] = "Objective"
 var ContextKey chain.ContextKey[any] = "Context"
@@ -15,9 +16,34 @@ var LanguageKey chain.ContextKey[string] = "Language"
 
 // CodeGeneratorPrompt is the prompt used to generate code.
 var CodeGeneratorPrompt chat.Prompt
+var CodeGeneratorPlannerPrompt chat.Prompt
 var CodeGeneratorChain chain.Chain
 
 func init() {
+	CodeGeneratorPlannerPrompt = chat.ComposeTemplate(
+		chat.EntryTemplate(
+			msn.RoleSystem,
+			chain.NewTemplatePrompt(`
+{{ .Context | markdownTree 2 }}
+You're an AI agent specialized in generating code in {{ .Language }}. Complete the request below.
+You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
+Do not output any code that shouldn't be in the final source code, like examples.
+Do not emit any code that is not valid Go code. You can use the context below to help you.
+			`, chain.WithRequiredInput(ContextKey), chain.WithRequiredInput(LanguageKey))),
+
+		chat.HistoryFromContext(memory.ContextualMemoryKey),
+
+		chat.EntryTemplate(
+			msn.RoleUser,
+			chain.NewTemplatePrompt(`
+# Request
+Write a plan to address the TODOs below in the document at the end.
+
+# TODOs:
+{{ .Objective }}
+		`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey), chain.WithRequiredInput(ContextKey), chain.WithRequiredInput(LanguageKey))),
+	)
+
 	CodeGeneratorPrompt = chat.ComposeTemplate(
 		chat.EntryTemplate(
 			msn.RoleSystem,
@@ -34,12 +60,12 @@ Do not emit any code that is not valid Go code. You can use the context below to
 		chat.EntryTemplate(
 			msn.RoleUser,
 			chain.NewTemplatePrompt(`
-# CodeGeneratorRequest
-Address all TODOs in the document below.
+# Request
+{{ .Plan }}
 
 # TODOs:
 {{ .Objective }}
-		`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey), chain.WithRequiredInput(ContextKey), chain.WithRequiredInput(LanguageKey))),
+		`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey), chain.WithRequiredInput(PlanKey), chain.WithRequiredInput(LanguageKey))),
 
 		chat.EntryTemplate(
 			msn.RoleAI,

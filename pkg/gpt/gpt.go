@@ -45,7 +45,7 @@ type CodeGeneratorRequest struct {
 // - req: The CodeGeneratorRequest containing the input data.
 //
 // Returns:
-// - chain.ChainContext: The prepared chain context.
+// - chain.ChainContext: The prepared generateChain context.
 func PrepareContext(ctx context.Context, req CodeGeneratorRequest) chain.ChainContext {
 	cctx := chain.NewChainContext(ctx)
 
