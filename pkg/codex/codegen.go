@@ -105,7 +105,15 @@ func (p *Project) ProcessNode(ctx context.Context, sf psi.SourceFile, root psi.N
 			return nil, err
 		}
 
-		queries := []string{wholeFile.Code, req.Objective}
+		queries := []string{wholeFile.Code}
+
+		if req.Objective != "" {
+			queries = append(queries, req.Objective)
+		}
+
+		if req.Plan != "" {
+			queries = append(queries, req.Plan)
+		}
 
 		for _, query := range queries {
 			hits, err := p.repo.Query(context.Background(), query, 5)

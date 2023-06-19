@@ -12,6 +12,7 @@ var RequestKey chain.ContextKey[any] = "CodeGeneratorRequest"
 var ObjectiveKey chain.ContextKey[string] = "Objective"
 var ContextKey chain.ContextKey[any] = "Context"
 var DocumentKey chain.ContextKey[string] = "Document"
+var FocusKey chain.ContextKey[string] = "Focus"
 var LanguageKey chain.ContextKey[string] = "Language"
 
 // CodeGeneratorPrompt is the prompt used to generate code.
@@ -62,7 +63,8 @@ Write a plan to address the items above.
 		chat.EntryTemplate(
 			msn.RoleSystem,
 			chain.NewTemplatePrompt(`
-Context: {{ .Context | json }}
+# Context
+{{ .Context | renderMarkdown 2 }}
 
 You're an AI agent specialized in generating code in {{ .Language }}. Complete the request below.
 You cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.
@@ -77,11 +79,15 @@ You are going to be given a detailed plan to generate the code. You will be give
 		chat.EntryTemplate(
 			msn.RoleUser,
 			chain.NewTemplatePrompt(`
+# Plan
 {{ .Plan }}
 
 Read the plan above and write the code in the document below:
 
-{{ .Document | renderMarkdown }}
+# Document
+{{ .Document | renderMarkdown 2 }}
+
+Read the plan above and write the code in the document.
 		`, chain.WithRequiredInput(ObjectiveKey), chain.WithRequiredInput(DocumentKey), chain.WithRequiredInput(PlanKey), chain.WithRequiredInput(LanguageKey))),
 
 		chat.EntryTemplate(

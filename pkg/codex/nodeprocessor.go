@@ -210,6 +210,10 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 		Objective: todoComment,
 		Language:  string(p.SourceFile.Language().Name()),
 		Context:   gpt.ContextBag{},
+
+		RetrieveContext: func(ctx context.Context, req gpt.CodeGeneratorRequest) (gpt.ContextBag, error) {
+			return p.prepareContext(p, scope, p.Root, req)
+		},
 	}
 
 	fullContext, err := p.prepareContext(p, scope, prunedRoot, req)

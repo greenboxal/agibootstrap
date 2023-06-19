@@ -2,7 +2,6 @@ package gpt
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -35,7 +34,11 @@ type CodeGeneratorRequest struct {
 	Context   ContextBag
 	Objective string
 	Document  mdutils.CodeBlock
+	Focus     mdutils.CodeBlock
 	Language  string
+	Plan      string
+
+	RetrieveContext func(ctx context.Context, req CodeGeneratorRequest) (ContextBag, error)
 }
 
 // PrepareContext prepares the context for the given request.
@@ -49,15 +52,9 @@ type CodeGeneratorRequest struct {
 func PrepareContext(ctx context.Context, req CodeGeneratorRequest) chain.ChainContext {
 	cctx := chain.NewChainContext(ctx)
 
-	data, err := json.Marshal(req)
-
-	if err != nil {
-		panic(err)
-	}
-
-	cctx.SetInput(RequestKey, string(data))
 	cctx.SetInput(ObjectiveKey, req.Objective)
 	cctx.SetInput(DocumentKey, req.Document)
+	cctx.SetInput(FocusKey, req.Focus)
 	cctx.SetInput(ContextKey, req.Context)
 	cctx.SetInput(LanguageKey, req.Language)
 

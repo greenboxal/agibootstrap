@@ -146,7 +146,6 @@ type CodeGeneratorContext struct {
 
 	state CodeGeneratorState
 
-	plan        string
 	chatHistory []chat.Message
 	codeBlocks  []mdutils.CodeBlock
 
@@ -206,15 +205,28 @@ func (s *CodeGeneratorContext) stepPlan(ctx context.Context) {
 
 	result := chain.Output(cctx, chat.ChatReplyContextKey)
 
-	s.plan = result.Entries[0].Text
+	s.req.Plan = result.Entries[0].Text
 
 	s.setState(CodeGenStateGenerate)
 }
 
 func (s *CodeGeneratorContext) stepGenerate(ctx context.Context) {
+	if s.req.RetrieveContext != nil {
+		extra, err := s.req.RetrieveContext(ctx, s.req)
+
+		if err != nil {
+			s.abort(err)
+			return
+		}
+
+		for k, v := range extra {
+			s.req.Context[k] = v
+		}
+	}
+
 	cctx := PrepareContext(ctx, s.req)
 
-	cctx.SetInput(PlanKey, s.plan)
+	cctx.SetInput(PlanKey, s.req.Plan)
 	cctx.SetInput(chat.MemoryContextKey, s)
 
 	if err := s.gen.generateChain.Run(cctx); err != nil {
