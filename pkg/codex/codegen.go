@@ -3,7 +3,6 @@ package codex
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/zeroflucs-given/generics/collections/stack"
@@ -99,33 +98,42 @@ func (p *Project) ProcessNode(ctx context.Context, sf psi.SourceFile, root psi.N
 		var err error
 
 		result := gpt.ContextBag{}
+
 		wholeFile, err := processor.SourceFile.ToCode(root)
 
 		if err != nil {
 			return nil, err
 		}
 
-		hits, err := p.repo.Query(context.Background(), wholeFile.Code, 10)
+		queries := []string{wholeFile.Code, req.Objective}
 
-		if err != nil {
-			return nil, err
-		}
+		for _, query := range queries {
+			hits, err := p.repo.Query(context.Background(), query, 5)
 
-		for _, hit := range hits {
-			key := fmt.Sprintf("for reference only, do not copy: %s @ %d", hit.Entry.Document.Path, hit.Entry.Chunk.Index)
+			if err != nil {
+				return nil, err
+			}
 
-			result[key] = mdutils.CodeBlock{
-				Language: "",
-				Filename: hit.Entry.Document.Path,
-				Code:     hit.Entry.Chunk.Content,
+			for _, hit := range hits {
+				key := fmt.Sprintf("for reference only, do not copy: %s @ %d", hit.Entry.Document.Path, hit.Entry.Chunk.Index)
+
+				result[key] = mdutils.CodeBlock{
+					Language: "",
+					Filename: hit.Entry.Document.Path,
+					Code:     hit.Entry.Chunk.Content,
+				}
 			}
 		}
 
 		return result, nil
 	}
 
-	processor.prepareObjective = func(p *NodeProcessor, ctx *NodeScope) (string, error) {
-		return strings.Join(ctx.Todos, "\n"), nil
+	processor.prepareObjective = func(p *NodeProcessor, ctx *NodeScope) (result string, err error) {
+		for _, todo := range ctx.Todos {
+			result += fmt.Sprintf("- [ ] %s\n", todoRegex.ReplaceAllString(todo, ""))
+		}
+
+		return
 	}
 
 	for _, opt := range opts {

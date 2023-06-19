@@ -25,7 +25,7 @@ var embedder = &openai.Embedder{
 var model = &openai.ChatLanguageModel{
 	Client:      oai,
 	Model:       "gpt-3.5-turbo-16k",
-	Temperature: 0.7,
+	Temperature: 1,
 }
 
 type ContextBag map[string]any
