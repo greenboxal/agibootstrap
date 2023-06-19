@@ -200,13 +200,19 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 
 	prunedRoot := p.Root
 
+	rootStr, err := p.SourceFile.ToCode(prunedRoot)
+	if err != nil {
+		return nil, err
+	}
+
 	stepStr, err := p.SourceFile.ToCode(stepRoot)
 	if err != nil {
 		return nil, err
 	}
 
 	req := gpt.CodeGeneratorRequest{
-		Document:  stepStr,
+		Document:  rootStr,
+		Focus:     stepStr,
 		Objective: todoComment,
 		Language:  string(p.SourceFile.Language().Name()),
 		Context:   gpt.ContextBag{},

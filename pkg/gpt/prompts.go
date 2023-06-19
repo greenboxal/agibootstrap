@@ -8,7 +8,7 @@ import (
 )
 
 var PlanKey chain.ContextKey[any] = "Plan"
-var RequestKey chain.ContextKey[any] = "CodeGeneratorRequest"
+var RequestKey chain.ContextKey[any] = "Request"
 var ObjectiveKey chain.ContextKey[string] = "Objective"
 var ContextKey chain.ContextKey[any] = "Context"
 var DocumentKey chain.ContextKey[string] = "Document"
