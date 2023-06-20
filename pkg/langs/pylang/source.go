@@ -3,7 +3,9 @@ package pylang
 import (
 	"bytes"
 	"context"
+	"go/token"
 	"io"
+	"strings"
 
 	"github.com/go-python/gpython/ast"
 	"github.com/go-python/gpython/py"
@@ -28,7 +30,10 @@ type SourceFile struct {
 	parsed ast.Ast
 	err    error
 
-	original string
+	original    string
+	lines       []string
+	lineOffsets []int
+	file        *token.File
 }
 
 func NewSourceFile(l *Language, name string, handle repofs.FileHandle) *SourceFile {
@@ -66,8 +71,8 @@ func (sf *SourceFile) Load() error {
 
 	sf.root = nil
 	sf.parsed = nil
+	sf.original = ""
 	sf.err = nil
-	sf.original = string(data)
 
 	_, err = sf.Parse(sf.name, string(data))
 
@@ -90,10 +95,25 @@ func (sf *SourceFile) Replace(code string) error {
 	return sf.Load()
 }
 
-func (sf *SourceFile) SetRoot(node ast.Mod) error {
+func (sf *SourceFile) SetRoot(node ast.Mod, original string) error {
+	sf.original = original
 	sf.parsed = node
 	sf.root = AstToPsi(sf.parsed)
 	sf.root.SetParent(sf)
+	sf.lines = strings.Split(sf.original, "\n")
+	sf.lineOffsets = make([]int, len(sf.lines))
+
+	sf.file = sf.l.project.FileSet().AddFile(sf.name, -1, len(original))
+
+	for i := range sf.lineOffsets {
+		if i == 0 {
+			sf.lineOffsets[i] = 0
+		} else {
+			sf.lineOffsets[i] = sf.lineOffsets[i-1] + len(sf.lines[i-1]) + 1
+		}
+
+		sf.file.AddLine(sf.lineOffsets[i])
+	}
 
 	return nil
 }
@@ -121,7 +141,7 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 	}
 
 	if sf.root == nil {
-		if err := sf.SetRoot(parsed); err != nil {
+		if err := sf.SetRoot(parsed, sourceCode); err != nil {
 			return nil, err
 		}
 
@@ -132,7 +152,22 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 }
 
 func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
-	txt := ast.Dump(node.(Node).Ast())
+	n := node.(Node)
+	ns := n.NextSibling()
+
+	initialLine := n.Ast().GetLineno()
+	initialCol := n.Ast().GetColOffset()
+	lastLine := -1
+	lastCol := -1
+
+	if ns != nil {
+		ns := ns.(Node)
+
+		lastLine = ns.Ast().GetLineno()
+		lastCol = ns.Ast().GetColOffset()
+	}
+
+	txt := sf.getRange(initialLine, initialCol, lastLine, lastCol)
 
 	return mdutils.CodeBlock{
 		Language: string(LanguageID),
@@ -145,4 +180,32 @@ func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope psi.Scop
 	cursor.Replace(newAst)
 
 	return nil
+}
+
+func (sf *SourceFile) getRange(line int, col int, line2 int, col2 int) string {
+	start := sf.file.Pos(sf.lineOffsets[line] + col)
+	startOffset := sf.file.Offset(start)
+
+	if line2 == -1 && col2 == -1 {
+		return sf.original[startOffset:]
+	}
+
+	end := sf.file.Pos(sf.lineOffsets[line2] + col2)
+	endOffset := sf.file.Offset(end)
+
+	return sf.original[startOffset:endOffset]
+}
+
+type ByteTokenizer struct{}
+
+func (b *ByteTokenizer) Count(text string) (int, error) {
+	return len(text), nil
+}
+
+func (b *ByteTokenizer) Encode(text string) ([]byte, error) {
+	return []byte(text), nil
+}
+
+func (b *ByteTokenizer) Decode(tokens []byte) (string, error) {
+	return string(tokens), nil
 }

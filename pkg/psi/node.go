@@ -15,6 +15,8 @@ type Node interface {
 	Node() *NodeBase
 
 	Parent() Node
+	PreviousSibling() Node
+	NextSibling() Node
 	CanonicalPath() Path
 
 	// SetParent sets the parent node of the current node.
@@ -114,6 +116,37 @@ func (n *NodeBase) CanonicalPath() (res Path) {
 
 	return
 }
+
+func (n *NodeBase) PreviousSibling() Node {
+	if n.parent == nil {
+		return nil
+	}
+
+	p := n.Parent().Node()
+	idx := slices.Index(p.children, n.self)
+
+	if idx <= 0 {
+		return nil
+	}
+
+	return p.children[idx-1]
+}
+
+func (n *NodeBase) NextSibling() Node {
+	if n.parent == nil {
+		return nil
+	}
+
+	p := n.Parent().Node()
+	idx := slices.Index(p.children, n.self)
+
+	if idx == -1 || idx >= len(p.children)-1 {
+		return nil
+	}
+
+	return p.children[idx+1]
+}
+
 func (n *NodeBase) IsContainer() bool { return true }
 func (n *NodeBase) IsLeaf() bool      { return false }
 
