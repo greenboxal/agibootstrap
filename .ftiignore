@@ -1,8 +1,11 @@
 .git
 .fti
+.build
 .idea
 agib
 agib-8k-0.7t
 agib-16k-0.7t
 hack/goldbld
 *.jpg
+go.mod
+go.sum

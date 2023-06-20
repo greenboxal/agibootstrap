@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/fti"
+	"github.com/greenboxal/agibootstrap/pkg/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/vfs"
@@ -44,7 +45,7 @@ type Project struct {
 	sourceFiles map[string]psi.SourceFile
 
 	vtsRoot      *vts.Scope
-	langRegistry *Registry
+	langRegistry *project.Registry
 
 	fset *token.FileSet
 }
@@ -76,7 +77,7 @@ func NewProject(rootPath string) (*Project, error) {
 		vtsRoot: vts.NewScope(),
 	}
 
-	p.langRegistry = NewRegistry(p)
+	p.langRegistry = project.NewRegistry(p)
 
 	p.Init(p, "")
 
@@ -93,6 +94,10 @@ func (p *Project) RootPath() string { return p.rootPath }
 // FS returns the file system interface of the project.
 // It provides methods for managing the project's files and directories.
 func (p *Project) FS() repofs.FS { return p.fs }
+
+func (p *Project) LanguageProvider() *project.Registry { return p.langRegistry }
+
+func (p *Project) Repo() *fti.Repository { return p.repo }
 
 // Generate performs the code generation process for the project.
 // It executes all the build steps specified in the project and
@@ -189,7 +194,7 @@ func (p *Project) Generate(ctx context.Context, isSingleStep bool) (changes int,
 // the sync process.
 func (p *Project) Sync() (err error) {
 	err = filepath.WalkDir(p.rootPath, func(path string, d fs.DirEntry, err error) error {
-		if !d.IsDir() {
+		if !d.IsDir() && !p.repo.IsIgnored(path) {
 			lang := p.langRegistry.ResolveExtension(path)
 
 			if lang == nil {

@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"path"
 
 	"github.com/spf13/cobra"
 
+	"github.com/greenboxal/agibootstrap/pkg/build"
 	"github.com/greenboxal/agibootstrap/pkg/codex"
 
 	// Register languages
@@ -71,7 +73,14 @@ func main() {
 				return err
 			}
 
-			_, err = p.Generate(cmd.Context(), false)
+			builder := build.NewBuilder(p, build.Configuration{
+				OutputDirectory: p.RootPath(),
+				BuildDirectory:  path.Join(p.RootPath(), ".build"),
+			})
+
+			_, err = builder.Build(cmd.Context())
+
+			//_, err = p.Generate(cmd.Context(), false)
 
 			if err != nil {
 				fmt.Printf("error: %s\n", err)

@@ -3,18 +3,28 @@ package gpt
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
-	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
 	"github.com/hashicorp/go-multierror"
-	openai2 "github.com/sashabaranov/go-openai"
 
 	"github.com/greenboxal/agibootstrap/pkg/mdutils"
 )
 
+type CodeGeneratorRequest struct {
+	Chain     chain.Chain
+	Context   ContextBag
+	Objective string
+	Document  mdutils.CodeBlock
+	Focus     mdutils.CodeBlock
+	Language  string
+	Plan      string
+
+	RetrieveContext func(ctx context.Context, req CodeGeneratorRequest) (ContextBag, error)
+}
 type CodeGeneratorResponse struct {
 	MessageLog chat.Message
 	CodeBlocks []mdutils.CodeBlock
@@ -29,6 +39,8 @@ type CodeGenerator struct {
 	verifyChain   chain.Chain
 }
 
+var blockCodeHeaderRegex = regexp.MustCompile("(?m)^\\w*\\x60\\x60\\x60([a-zA-Z0-9_-]+)?\\w*$")
+
 func NewCodeGenerator() *CodeGenerator {
 	cg := &CodeGenerator{
 		client: oai,
@@ -36,7 +48,7 @@ func NewCodeGenerator() *CodeGenerator {
 	}
 
 	cg.planChain = chain.New(
-		chain.WithName("CodeGeneratorPLanner"),
+		chain.WithName("CodeGeneratorPlanner"),
 
 		chain.Sequential(
 			chat.Predict(
@@ -54,48 +66,6 @@ func NewCodeGenerator() *CodeGenerator {
 				model,
 				CodeGeneratorPrompt,
 				chat.WithMaxTokens(4000),
-
-				chat.WithFunction(llm.FunctionDeclaration{
-					Name:        "getCodeContext",
-					Description: "Returns the code context for the given request, including type definitions for type/method references.",
-					Parameters: &llm.FunctionParams{
-						Type:     openai2.JSONSchemaTypeObject,
-						Required: []string{"code"},
-						Properties: map[string]*openai2.JSONSchemaDefine{
-							"code": {
-								Type: openai2.JSONSchemaTypeString,
-							},
-						},
-					},
-				}),
-
-				chat.WithFunction(llm.FunctionDeclaration{
-					Name:        "explainCode",
-					Description: "Explains the meaning of the given code.",
-					Parameters: &llm.FunctionParams{
-						Type:     openai2.JSONSchemaTypeObject,
-						Required: []string{"code"},
-						Properties: map[string]*openai2.JSONSchemaDefine{
-							"code": {
-								Type: openai2.JSONSchemaTypeString,
-							},
-						},
-					},
-				}),
-
-				chat.WithFunction(llm.FunctionDeclaration{
-					Name:        "recurseCodeGenerator",
-					Description: "Recurse the code generator state machine, calling GPT again with a sub-context.",
-					Parameters: &llm.FunctionParams{
-						Type:     openai2.JSONSchemaTypeObject,
-						Required: []string{"code"},
-						Properties: map[string]*openai2.JSONSchemaDefine{
-							"code": {
-								Type: openai2.JSONSchemaTypeString,
-							},
-						},
-					},
-				}),
 			),
 		),
 	)

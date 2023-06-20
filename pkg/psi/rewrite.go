@@ -118,8 +118,8 @@ func (c *cursor) Replace(newNode Node) {
 	c.SetCurrent(newNode)
 }
 
-func (c *cursor) Walk(n Node, walkFn WalkFunc) (err error) {
-	c.push(cursorState{current: n, walkChildren: true, walkEdges: false})
+func (c *cursor) Walk(n Node, defaultWalkChildren bool, defaultWalkEdges bool, walkFn WalkFunc) (err error) {
+	c.push(cursorState{current: n, walkChildren: defaultWalkChildren, walkEdges: defaultWalkEdges})
 
 	defer func() {
 		c.last = c.pop()
@@ -131,7 +131,7 @@ func (c *cursor) Walk(n Node, walkFn WalkFunc) (err error) {
 
 	if c.state().walkChildren {
 		for _, child := range n.Children() {
-			if err := c.Walk(child, walkFn); err != nil {
+			if err := c.Walk(child, defaultWalkChildren, defaultWalkEdges, walkFn); err != nil {
 				return err
 			}
 		}
@@ -157,14 +157,20 @@ type WalkFunc func(cursor Cursor, entering bool) error
 func Walk(node Node, walkFn WalkFunc) error {
 	c := &cursor{}
 
-	return c.Walk(node, walkFn)
+	return c.Walk(node, true, false, walkFn)
+}
+
+func WalkEx(node Node, walkFn WalkFunc) error {
+	c := &cursor{}
+
+	return c.Walk(node, false, false, walkFn)
 }
 
 // Rewrite traverses a PSI Tree in depth-first order and rewrites it.
 func Rewrite(node Node, walkFunc WalkFunc) (Node, error) {
 	c := &cursor{}
 
-	if err := c.Walk(node, walkFunc); err != nil && err != ErrAbort {
+	if err := c.Walk(node, true, false, walkFunc); err != nil && err != ErrAbort {
 		return nil, err
 	}
 

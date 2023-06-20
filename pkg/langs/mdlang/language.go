@@ -6,8 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/codex"
 	"github.com/greenboxal/agibootstrap/pkg/mdutils"
+	"github.com/greenboxal/agibootstrap/pkg/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
@@ -15,14 +15,14 @@ import (
 const LanguageID psi.LanguageID = "markdown"
 
 func init() {
-	codex.RegisterLanguage(LanguageID, NewLanguage)
+	project.RegisterLanguage(LanguageID, NewLanguage)
 }
 
 type Language struct {
-	project *codex.Project
+	project project.Project
 }
 
-func NewLanguage(p *codex.Project) psi.Language {
+func NewLanguage(p project.Project) psi.Language {
 	return &Language{
 		project: p,
 	}

@@ -11,8 +11,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/codex"
 	"github.com/greenboxal/agibootstrap/pkg/mdutils"
+	"github.com/greenboxal/agibootstrap/pkg/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
@@ -23,16 +23,16 @@ var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`
 const LanguageID psi.LanguageID = "go"
 
 func init() {
-	codex.RegisterLanguage(LanguageID, func(p *codex.Project) psi.Language {
+	project.RegisterLanguage(LanguageID, func(p project.Project) psi.Language {
 		return NewLanguage(p)
 	})
 }
 
 type Language struct {
-	project *codex.Project
+	project project.Project
 }
 
-func NewLanguage(p *codex.Project) *Language {
+func NewLanguage(p project.Project) *Language {
 	return &Language{
 		project: p,
 	}

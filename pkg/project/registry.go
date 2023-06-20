@@ -1,4 +1,4 @@
-package codex
+package project
 
 import (
 	"path/filepath"
@@ -6,14 +6,14 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
-type LanguageFactory func(p *Project) psi.Language
+type LanguageFactory func(p Project) psi.Language
 
 type Registry struct {
-	project *Project
+	project Project
 	langs   map[psi.LanguageID]psi.Language
 }
 
-func NewRegistry(project *Project) *Registry {
+func NewRegistry(project Project) *Registry {
 	r := &Registry{
 		project: project,
 		langs:   map[psi.LanguageID]psi.Language{},
