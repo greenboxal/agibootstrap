@@ -1,4 +1,4 @@
-package mdlang
+package pylang
 
 import (
 	"bytes"

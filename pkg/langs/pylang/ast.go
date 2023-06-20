@@ -1,4 +1,4 @@
-package mdlang
+package pylang
 
 import (
 	"strings"
@@ -51,14 +51,13 @@ func NewNodeFor(node ast.Ast) psi.Node {
 }
 
 func AstToPsi(parsed ast.Ast) (result psi.Node) {
+	result = NewNodeFor(parsed)
+
 	ast.Walk(parsed, func(node ast.Ast) bool {
-		wrapped := NewNodeFor(node)
-
 		if node == parsed {
-			result = wrapped
-
 			return true
 		} else {
+			wrapped := AstToPsi(node)
 			wrapped.SetParent(result)
 
 			return false
