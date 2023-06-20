@@ -9,7 +9,9 @@ require (
 
 require (
 	github.com/DataIntelligenceCrew/go-faiss v0.2.0
+	github.com/antlr4-go/antlr/v4 v4.13.0
 	github.com/dave/dst v0.27.2
+	github.com/go-python/gpython v0.1.0
 	github.com/google/uuid v1.3.0
 	github.com/greenboxal/aip/aip-controller v0.0.0-20230613210128-ceee04e39305
 	github.com/greenboxal/aip/aip-langchain v0.0.0-20230613210128-ceee04e39305
@@ -18,10 +20,10 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/samber/lo v1.38.1
-	github.com/sashabaranov/go-openai v1.11.3-0.20230617135729-e49d771fff3b
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	github.com/zeroflucs-given/generics v0.0.0-20230611080924-a806fa480d35
+	go.uber.org/zap v1.24.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	gonum.org/v1/gonum v0.13.0
 )
@@ -44,7 +46,6 @@ require (
 	github.com/go-chi/cors v1.2.1 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-python/gpython v0.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
@@ -60,7 +61,6 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/mattn/go-runewidth v0.0.3 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
@@ -71,7 +71,6 @@ require (
 	github.com/multiformats/go-varint v0.0.7 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
-	github.com/peterh/liner v1.2.2 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.3 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/polydawn/refmt v0.89.0 // indirect
@@ -82,6 +81,7 @@ require (
 	github.com/riandyrn/otelchi v0.5.1 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v2 v2.2.0 // indirect
+	github.com/sashabaranov/go-openai v1.11.3-0.20230617135729-e49d771fff3b // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
@@ -105,7 +105,6 @@ require (
 	go.uber.org/dig v1.17.0 // indirect
 	go.uber.org/fx v1.20.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.10.0 // indirect
 	golang.org/x/mod v0.11.0 // indirect
 	golang.org/x/sys v0.9.0 // indirect

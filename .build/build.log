@@ -1,0 +1,190 @@
+2023-06-20T13:47:16.846-0700	ERROR	build/context.go:31	invalid file offset 45 (should be <= 41)
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).ReportError
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:31
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:38
+github.com/greenboxal/agibootstrap/pkg/build.(*Builder).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/build.go:48
+main.main.func3
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:89
+github.com/spf13/cobra.(*Command).execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:940
+github.com/spf13/cobra.(*Command).ExecuteC
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:1068
+github.com/spf13/cobra.(*Command).Execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:992
+main.main
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:126
+runtime.main
+	/opt/homebrew/opt/go/libexec/src/runtime/proc.go:250
+2023-06-20T13:47:30.551-0700	ERROR	build/context.go:31	invalid file offset 45 (should be <= 41)
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).ReportError
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:31
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:38
+github.com/greenboxal/agibootstrap/pkg/build.(*Builder).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/build.go:48
+main.main.func3
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:89
+github.com/spf13/cobra.(*Command).execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:940
+github.com/spf13/cobra.(*Command).ExecuteC
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:1068
+github.com/spf13/cobra.(*Command).Execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:992
+main.main
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:126
+runtime.main
+	/opt/homebrew/opt/go/libexec/src/runtime/proc.go:250
+2023-06-20T13:48:06.222-0700	ERROR	build/context.go:31	runtime error: slice bounds out of range [2427:41]
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).ReportError
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:31
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:38
+github.com/greenboxal/agibootstrap/pkg/build.(*Builder).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/build.go:48
+main.main.func3
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:89
+github.com/spf13/cobra.(*Command).execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:940
+github.com/spf13/cobra.(*Command).ExecuteC
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:1068
+github.com/spf13/cobra.(*Command).Execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:992
+main.main
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:126
+runtime.main
+	/opt/homebrew/opt/go/libexec/src/runtime/proc.go:250
+2023-06-20T13:52:04.627-0700	ERROR	build/context.go:31	col out of range
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).ReportError
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:31
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:38
+github.com/greenboxal/agibootstrap/pkg/build.(*Builder).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/build.go:48
+main.main.func3
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:89
+github.com/spf13/cobra.(*Command).execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:940
+github.com/spf13/cobra.(*Command).ExecuteC
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:1068
+github.com/spf13/cobra.(*Command).Execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:992
+main.main
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:126
+runtime.main
+	/opt/homebrew/opt/go/libexec/src/runtime/proc.go:250
+2023-06-20T13:52:27.074-0700	ERROR	build/context.go:31	runtime error: index out of range [-1]
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).ReportError
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:31
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:38
+github.com/greenboxal/agibootstrap/pkg/build.(*Builder).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/build.go:48
+main.main.func3
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:89
+github.com/spf13/cobra.(*Command).execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:940
+github.com/spf13/cobra.(*Command).ExecuteC
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:1068
+github.com/spf13/cobra.(*Command).Execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:992
+main.main
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:126
+runtime.main
+	/opt/homebrew/opt/go/libexec/src/runtime/proc.go:250
+2023-06-20T13:52:52.599-0700	ERROR	build/context.go:31	col out of range
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).ReportError
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:31
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:38
+github.com/greenboxal/agibootstrap/pkg/build.(*Builder).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/build.go:48
+main.main.func3
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:89
+github.com/spf13/cobra.(*Command).execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:940
+github.com/spf13/cobra.(*Command).ExecuteC
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:1068
+github.com/spf13/cobra.(*Command).Execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:992
+main.main
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:126
+runtime.main
+	/opt/homebrew/opt/go/libexec/src/runtime/proc.go:250
+2023-06-20T13:53:50.329-0700	ERROR	build/context.go:31	runtime error: index out of range [-1]
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).ReportError
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:31
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:38
+github.com/greenboxal/agibootstrap/pkg/build.(*Builder).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/build.go:48
+main.main.func3
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:89
+github.com/spf13/cobra.(*Command).execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:940
+github.com/spf13/cobra.(*Command).ExecuteC
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:1068
+github.com/spf13/cobra.(*Command).Execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:992
+main.main
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:126
+runtime.main
+	/opt/homebrew/opt/go/libexec/src/runtime/proc.go:250
+2023-06-20T13:54:38.887-0700	ERROR	build/context.go:31	runtime error: index out of range [-1]
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).ReportError
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:31
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:38
+github.com/greenboxal/agibootstrap/pkg/build.(*Builder).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/build.go:48
+main.main.func3
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:89
+github.com/spf13/cobra.(*Command).execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:940
+github.com/spf13/cobra.(*Command).ExecuteC
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:1068
+github.com/spf13/cobra.(*Command).Execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:992
+main.main
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:126
+runtime.main
+	/opt/homebrew/opt/go/libexec/src/runtime/proc.go:250
+2023-06-20T13:54:49.713-0700	ERROR	build/context.go:31	runtime error: index out of range [-1]
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).ReportError
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:31
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:38
+github.com/greenboxal/agibootstrap/pkg/build.(*Builder).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/build.go:48
+main.main.func3
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:89
+github.com/spf13/cobra.(*Command).execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:940
+github.com/spf13/cobra.(*Command).ExecuteC
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:1068
+github.com/spf13/cobra.(*Command).Execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:992
+main.main
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:126
+runtime.main
+	/opt/homebrew/opt/go/libexec/src/runtime/proc.go:250
+2023-06-20T14:01:35.974-0700	ERROR	build/context.go:31	col out of range
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).ReportError
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:31
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:38
+github.com/greenboxal/agibootstrap/pkg/build.(*Builder).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/build.go:48
+main.main.func3
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:89
+github.com/spf13/cobra.(*Command).execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:940
+github.com/spf13/cobra.(*Command).ExecuteC
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:1068
+github.com/spf13/cobra.(*Command).Execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:992
+main.main
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:126
+runtime.main
+	/opt/homebrew/opt/go/libexec/src/runtime/proc.go:250

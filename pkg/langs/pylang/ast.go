@@ -3,9 +3,9 @@ package pylang
 import (
 	"strings"
 
-	"github.com/go-python/gpython/ast"
-	"github.com/go-python/gpython/py"
+	"github.com/antlr4-go/antlr/v4"
 
+	"github.com/greenboxal/agibootstrap/pkg/langs/pylang/pyparser"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -14,20 +14,20 @@ type Node interface {
 
 	Initialize(self Node)
 
-	Ast() ast.Ast
+	Ast() antlr.ParserRuleContext
 }
 
-type NodeBase[T ast.Ast] struct {
+type NodeBase[T antlr.ParserRuleContext] struct {
 	psi.NodeBase
 
 	node     T
 	comments []string
 }
 
-func (nb *NodeBase[T]) IsContainer() bool  { return false }
-func (nb *NodeBase[T]) IsLeaf() bool       { return false }
-func (nb *NodeBase[T]) Ast() ast.Ast       { return nb.node }
-func (nb *NodeBase[T]) Comments() []string { return nb.comments }
+func (nb *NodeBase[T]) IsContainer() bool            { return len(nb.Children()) > 0 }
+func (nb *NodeBase[T]) IsLeaf() bool                 { return len(nb.Children()) == 0 }
+func (nb *NodeBase[T]) Ast() antlr.ParserRuleContext { return nb.node }
+func (nb *NodeBase[T]) Comments() []string           { return nb.comments }
 
 func (nb *NodeBase[T]) Initialize(self Node) {
 	nb.NodeBase.Init(self, "")
@@ -42,35 +42,54 @@ func (nb *NodeBase[T]) Update() {
 
 }
 
-func NewNodeFor(node ast.Ast) psi.Node {
-	n := &NodeBase[ast.Ast]{node: node}
+func NewNodeFor(node antlr.ParserRuleContext) *NodeBase[antlr.ParserRuleContext] {
+	n := &NodeBase[antlr.ParserRuleContext]{node: node}
 
 	n.Initialize(n)
 
 	return n
 }
 
-func AstToPsi(parsed ast.Ast) (result psi.Node) {
-	result = NewNodeFor(parsed)
+type astConversionContext struct {
+	parentStack []Node
+	result      Node
+}
 
-	ast.Walk(parsed, func(node ast.Ast) bool {
-		if node == parsed {
-			return true
-		} else {
-			wrapped := AstToPsi(node)
-			wrapped.SetParent(result)
+func (a *astConversionContext) VisitTerminal(node antlr.TerminalNode) {
+}
 
-			return false
-		}
-	})
+func (a *astConversionContext) VisitErrorNode(node antlr.ErrorNode) {
+}
 
-	if strNode, ok := parsed.(*ast.Str); ok {
-		str := py.StringEscape(strNode.S, true)
+func (a *astConversionContext) EnterEveryRule(ctx antlr.ParserRuleContext) {
+	n := NewNodeFor(ctx)
 
-		if strings.HasPrefix(str, "// TODO:") {
-			result.(*NodeBase[ast.Ast]).comments = append(result.(*NodeBase[ast.Ast]).comments, str)
+	switch node := ctx.(type) {
+	case *pyparser.AtomContext:
+		str := node.STRING(0).GetText()
+
+		if strings.HasPrefix(str, `"""// TODO:`) {
+			n.comments = append(n.comments, str)
 		}
 	}
 
-	return
+	if len(a.parentStack) > 0 {
+		parent := a.parentStack[len(a.parentStack)-1]
+		n.SetParent(parent)
+	}
+
+	a.parentStack = append(a.parentStack, n)
+}
+
+func (a *astConversionContext) ExitEveryRule(ctx antlr.ParserRuleContext) {
+	a.parentStack = a.parentStack[:len(a.parentStack)-1]
+}
+
+func AstToPsi(parsed antlr.ParserRuleContext) (result psi.Node) {
+	ctx := &astConversionContext{}
+
+	walker := antlr.NewParseTreeWalker()
+	walker.Walk(ctx, parsed)
+
+	return ctx.result
 }
