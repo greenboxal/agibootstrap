@@ -25,9 +25,6 @@ type Python3Listener interface {
 	// EnterDecorated is called when entering the decorated production.
 	EnterDecorated(c *DecoratedContext)
 
-	// EnterAsync_funcdef is called when entering the async_funcdef production.
-	EnterAsync_funcdef(c *Async_funcdefContext)
-
 	// EnterFuncdef is called when entering the funcdef production.
 	EnterFuncdef(c *FuncdefContext)
 
@@ -57,9 +54,6 @@ type Python3Listener interface {
 
 	// EnterExpr_stmt is called when entering the expr_stmt production.
 	EnterExpr_stmt(c *Expr_stmtContext)
-
-	// EnterAnnassign is called when entering the annassign production.
-	EnterAnnassign(c *AnnassignContext)
 
 	// EnterTestlist_star_expr is called when entering the testlist_star_expr production.
 	EnterTestlist_star_expr(c *Testlist_star_exprContext)
@@ -126,9 +120,6 @@ type Python3Listener interface {
 
 	// EnterCompound_stmt is called when entering the compound_stmt production.
 	EnterCompound_stmt(c *Compound_stmtContext)
-
-	// EnterAsync_stmt is called when entering the async_stmt production.
-	EnterAsync_stmt(c *Async_stmtContext)
 
 	// EnterIf_stmt is called when entering the if_stmt production.
 	EnterIf_stmt(c *If_stmtContext)
@@ -208,9 +199,6 @@ type Python3Listener interface {
 	// EnterPower is called when entering the power production.
 	EnterPower(c *PowerContext)
 
-	// EnterAtom_expr is called when entering the atom_expr production.
-	EnterAtom_expr(c *Atom_exprContext)
-
 	// EnterAtom is called when entering the atom production.
 	EnterAtom(c *AtomContext)
 
@@ -256,14 +244,20 @@ type Python3Listener interface {
 	// EnterComp_if is called when entering the comp_if production.
 	EnterComp_if(c *Comp_ifContext)
 
-	// EnterEncoding_decl is called when entering the encoding_decl production.
-	EnterEncoding_decl(c *Encoding_declContext)
-
 	// EnterYield_expr is called when entering the yield_expr production.
 	EnterYield_expr(c *Yield_exprContext)
 
 	// EnterYield_arg is called when entering the yield_arg production.
 	EnterYield_arg(c *Yield_argContext)
+
+	// EnterStr is called when entering the str production.
+	EnterStr(c *StrContext)
+
+	// EnterNumber is called when entering the number production.
+	EnterNumber(c *NumberContext)
+
+	// EnterInteger is called when entering the integer production.
+	EnterInteger(c *IntegerContext)
 
 	// ExitSingle_input is called when exiting the single_input production.
 	ExitSingle_input(c *Single_inputContext)
@@ -282,9 +276,6 @@ type Python3Listener interface {
 
 	// ExitDecorated is called when exiting the decorated production.
 	ExitDecorated(c *DecoratedContext)
-
-	// ExitAsync_funcdef is called when exiting the async_funcdef production.
-	ExitAsync_funcdef(c *Async_funcdefContext)
 
 	// ExitFuncdef is called when exiting the funcdef production.
 	ExitFuncdef(c *FuncdefContext)
@@ -315,9 +306,6 @@ type Python3Listener interface {
 
 	// ExitExpr_stmt is called when exiting the expr_stmt production.
 	ExitExpr_stmt(c *Expr_stmtContext)
-
-	// ExitAnnassign is called when exiting the annassign production.
-	ExitAnnassign(c *AnnassignContext)
 
 	// ExitTestlist_star_expr is called when exiting the testlist_star_expr production.
 	ExitTestlist_star_expr(c *Testlist_star_exprContext)
@@ -384,9 +372,6 @@ type Python3Listener interface {
 
 	// ExitCompound_stmt is called when exiting the compound_stmt production.
 	ExitCompound_stmt(c *Compound_stmtContext)
-
-	// ExitAsync_stmt is called when exiting the async_stmt production.
-	ExitAsync_stmt(c *Async_stmtContext)
 
 	// ExitIf_stmt is called when exiting the if_stmt production.
 	ExitIf_stmt(c *If_stmtContext)
@@ -466,9 +451,6 @@ type Python3Listener interface {
 	// ExitPower is called when exiting the power production.
 	ExitPower(c *PowerContext)
 
-	// ExitAtom_expr is called when exiting the atom_expr production.
-	ExitAtom_expr(c *Atom_exprContext)
-
 	// ExitAtom is called when exiting the atom production.
 	ExitAtom(c *AtomContext)
 
@@ -514,12 +496,18 @@ type Python3Listener interface {
 	// ExitComp_if is called when exiting the comp_if production.
 	ExitComp_if(c *Comp_ifContext)
 
-	// ExitEncoding_decl is called when exiting the encoding_decl production.
-	ExitEncoding_decl(c *Encoding_declContext)
-
 	// ExitYield_expr is called when exiting the yield_expr production.
 	ExitYield_expr(c *Yield_exprContext)
 
 	// ExitYield_arg is called when exiting the yield_arg production.
 	ExitYield_arg(c *Yield_argContext)
+
+	// ExitStr is called when exiting the str production.
+	ExitStr(c *StrContext)
+
+	// ExitNumber is called when exiting the number production.
+	ExitNumber(c *NumberContext)
+
+	// ExitInteger is called when exiting the integer production.
+	ExitInteger(c *IntegerContext)
 }

@@ -1,4 +1,3 @@
 
-def main():
-    """// TODO: Implement"""
-    pass
+import sys
+main()

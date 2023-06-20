@@ -56,12 +56,6 @@ func (s *BasePython3Listener) EnterDecorated(ctx *DecoratedContext) {}
 // ExitDecorated is called when production decorated is exited.
 func (s *BasePython3Listener) ExitDecorated(ctx *DecoratedContext) {}
 
-// EnterAsync_funcdef is called when production async_funcdef is entered.
-func (s *BasePython3Listener) EnterAsync_funcdef(ctx *Async_funcdefContext) {}
-
-// ExitAsync_funcdef is called when production async_funcdef is exited.
-func (s *BasePython3Listener) ExitAsync_funcdef(ctx *Async_funcdefContext) {}
-
 // EnterFuncdef is called when production funcdef is entered.
 func (s *BasePython3Listener) EnterFuncdef(ctx *FuncdefContext) {}
 
@@ -121,12 +115,6 @@ func (s *BasePython3Listener) EnterExpr_stmt(ctx *Expr_stmtContext) {}
 
 // ExitExpr_stmt is called when production expr_stmt is exited.
 func (s *BasePython3Listener) ExitExpr_stmt(ctx *Expr_stmtContext) {}
-
-// EnterAnnassign is called when production annassign is entered.
-func (s *BasePython3Listener) EnterAnnassign(ctx *AnnassignContext) {}
-
-// ExitAnnassign is called when production annassign is exited.
-func (s *BasePython3Listener) ExitAnnassign(ctx *AnnassignContext) {}
 
 // EnterTestlist_star_expr is called when production testlist_star_expr is entered.
 func (s *BasePython3Listener) EnterTestlist_star_expr(ctx *Testlist_star_exprContext) {}
@@ -259,12 +247,6 @@ func (s *BasePython3Listener) EnterCompound_stmt(ctx *Compound_stmtContext) {}
 
 // ExitCompound_stmt is called when production compound_stmt is exited.
 func (s *BasePython3Listener) ExitCompound_stmt(ctx *Compound_stmtContext) {}
-
-// EnterAsync_stmt is called when production async_stmt is entered.
-func (s *BasePython3Listener) EnterAsync_stmt(ctx *Async_stmtContext) {}
-
-// ExitAsync_stmt is called when production async_stmt is exited.
-func (s *BasePython3Listener) ExitAsync_stmt(ctx *Async_stmtContext) {}
 
 // EnterIf_stmt is called when production if_stmt is entered.
 func (s *BasePython3Listener) EnterIf_stmt(ctx *If_stmtContext) {}
@@ -422,12 +404,6 @@ func (s *BasePython3Listener) EnterPower(ctx *PowerContext) {}
 // ExitPower is called when production power is exited.
 func (s *BasePython3Listener) ExitPower(ctx *PowerContext) {}
 
-// EnterAtom_expr is called when production atom_expr is entered.
-func (s *BasePython3Listener) EnterAtom_expr(ctx *Atom_exprContext) {}
-
-// ExitAtom_expr is called when production atom_expr is exited.
-func (s *BasePython3Listener) ExitAtom_expr(ctx *Atom_exprContext) {}
-
 // EnterAtom is called when production atom is entered.
 func (s *BasePython3Listener) EnterAtom(ctx *AtomContext) {}
 
@@ -518,12 +494,6 @@ func (s *BasePython3Listener) EnterComp_if(ctx *Comp_ifContext) {}
 // ExitComp_if is called when production comp_if is exited.
 func (s *BasePython3Listener) ExitComp_if(ctx *Comp_ifContext) {}
 
-// EnterEncoding_decl is called when production encoding_decl is entered.
-func (s *BasePython3Listener) EnterEncoding_decl(ctx *Encoding_declContext) {}
-
-// ExitEncoding_decl is called when production encoding_decl is exited.
-func (s *BasePython3Listener) ExitEncoding_decl(ctx *Encoding_declContext) {}
-
 // EnterYield_expr is called when production yield_expr is entered.
 func (s *BasePython3Listener) EnterYield_expr(ctx *Yield_exprContext) {}
 
@@ -535,3 +505,21 @@ func (s *BasePython3Listener) EnterYield_arg(ctx *Yield_argContext) {}
 
 // ExitYield_arg is called when production yield_arg is exited.
 func (s *BasePython3Listener) ExitYield_arg(ctx *Yield_argContext) {}
+
+// EnterStr is called when production str is entered.
+func (s *BasePython3Listener) EnterStr(ctx *StrContext) {}
+
+// ExitStr is called when production str is exited.
+func (s *BasePython3Listener) ExitStr(ctx *StrContext) {}
+
+// EnterNumber is called when production number is entered.
+func (s *BasePython3Listener) EnterNumber(ctx *NumberContext) {}
+
+// ExitNumber is called when production number is exited.
+func (s *BasePython3Listener) ExitNumber(ctx *NumberContext) {}
+
+// EnterInteger is called when production integer is entered.
+func (s *BasePython3Listener) EnterInteger(ctx *IntegerContext) {}
+
+// ExitInteger is called when production integer is exited.
+func (s *BasePython3Listener) ExitInteger(ctx *IntegerContext) {}

@@ -121,11 +121,13 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 	tokenStream := antlr.NewCommonTokenStream(lexer, 0)
 	parser := pyparser.NewPython3Parser(tokenStream)
 
+	parsed := parser.File_input()
+
 	if parser.HasError() {
 		sf.err = fmt.Errorf("%s", parser.GetError())
-	}
 
-	parsed := parser.File_input()
+		return nil, sf.err
+	}
 
 	if sf.root == nil {
 		if err := sf.SetRoot(parsed, sourceCode); err != nil {
