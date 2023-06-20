@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"strings"
 
 	"github.com/gomarkdown/markdown/ast"
 	"github.com/pkg/errors"
@@ -13,6 +12,41 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
+
+type PythonAstNode any
+
+type Node interface {
+	psi.Node
+
+	Initialize(self Node)
+
+	Ast() PythonAstNode
+}
+
+type NodeBase[T PythonAstNode] struct {
+	psi.NodeBase
+
+	node     T
+	comments []string
+}
+
+func (nb *NodeBase[T]) IsContainer() bool  { return false }
+func (nb *NodeBase[T]) IsLeaf() bool       { return false }
+func (nb *NodeBase[T]) Ast() PythonAstNode { return nb.node }
+func (nb *NodeBase[T]) Comments() []string { return nb.comments }
+
+func (nb *NodeBase[T]) Initialize(self Node) {
+	nb.NodeBase.Init(self, "")
+}
+
+func (nb *NodeBase[T]) Update() {
+	if nb.IsValid() {
+		return
+	}
+
+	nb.NodeBase.Update()
+
+}
 
 type SourceFile struct {
 	psi.NodeBase
@@ -109,9 +143,7 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 		}
 	}()
 
-	parsed := mdutils.ParseMarkdown([]byte(sourceCode))
-
-	if sf.root == nil {
+	/*if sf.root == nil {
 		if err := sf.SetRoot(parsed); err != nil {
 			return nil, err
 		}
@@ -119,13 +151,20 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 		return sf.root, nil
 	}
 
-	return AstToPsi(parsed), nil
+	return AstToPsi(parsed), nil*/
+
+	// TODO: Implement
+	panic("not implemented")
+}
+
+func AstToPsi(parsed PythonAstNode) psi.Node {
+	// TODO: Implement
+
+	return nil
 }
 
 func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
-	txt := string(mdutils.FormatMarkdown(node.(Node).Ast()))
-	txt = strings.TrimSpace(txt)
-	txt = strings.TrimRight(txt, "\n")
+	// TODO: Implement
 
 	return mdutils.CodeBlock{
 		Language: string(LanguageID),
