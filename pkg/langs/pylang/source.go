@@ -5,48 +5,16 @@ import (
 	"context"
 	"io"
 
-	"github.com/gomarkdown/markdown/ast"
+	"github.com/go-python/gpython/ast"
+	"github.com/go-python/gpython/py"
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
+
+	"github.com/go-python/gpython/parser"
 )
-
-type PythonAstNode any
-
-type Node interface {
-	psi.Node
-
-	Initialize(self Node)
-
-	Ast() PythonAstNode
-}
-
-type NodeBase[T PythonAstNode] struct {
-	psi.NodeBase
-
-	node     T
-	comments []string
-}
-
-func (nb *NodeBase[T]) IsContainer() bool  { return false }
-func (nb *NodeBase[T]) IsLeaf() bool       { return false }
-func (nb *NodeBase[T]) Ast() PythonAstNode { return nb.node }
-func (nb *NodeBase[T]) Comments() []string { return nb.comments }
-
-func (nb *NodeBase[T]) Initialize(self Node) {
-	nb.NodeBase.Init(self, "")
-}
-
-func (nb *NodeBase[T]) Update() {
-	if nb.IsValid() {
-		return
-	}
-
-	nb.NodeBase.Update()
-
-}
 
 type SourceFile struct {
 	psi.NodeBase
@@ -57,7 +25,7 @@ type SourceFile struct {
 	l *Language
 
 	root   psi.Node
-	parsed ast.Node
+	parsed ast.Ast
 	err    error
 
 	original string
@@ -122,7 +90,7 @@ func (sf *SourceFile) Replace(code string) error {
 	return sf.Load()
 }
 
-func (sf *SourceFile) SetRoot(node ast.Node) error {
+func (sf *SourceFile) SetRoot(node ast.Mod) error {
 	sf.parsed = node
 	sf.root = AstToPsi(sf.parsed)
 	sf.root.SetParent(sf)
@@ -143,7 +111,16 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 		}
 	}()
 
-	/*if sf.root == nil {
+	reader := bytes.NewBufferString(sourceCode)
+	parsed, err := parser.Parse(reader, filename, py.ExecMode)
+
+	if err != nil {
+		sf.err = err
+
+		return nil, err
+	}
+
+	if sf.root == nil {
 		if err := sf.SetRoot(parsed); err != nil {
 			return nil, err
 		}
@@ -151,20 +128,11 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 		return sf.root, nil
 	}
 
-	return AstToPsi(parsed), nil*/
-
-	// TODO: Implement
-	panic("not implemented")
-}
-
-func AstToPsi(parsed PythonAstNode) psi.Node {
-	// TODO: Implement
-
-	return nil
+	return AstToPsi(parsed), nil
 }
 
 func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
-	// TODO: Implement
+	txt := ast.Dump(node.(Node).Ast())
 
 	return mdutils.CodeBlock{
 		Language: string(LanguageID),
