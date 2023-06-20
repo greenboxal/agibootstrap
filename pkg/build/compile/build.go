@@ -1,4 +1,4 @@
-package codex
+package compile
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/packages"
 
+	"github.com/greenboxal/agibootstrap/pkg/codex"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -31,7 +32,7 @@ func (be BuildError) String() string {
 // FixBuildStep is responsible for fixing all build errors that were found
 type FixBuildStep struct{}
 
-func (s *FixBuildStep) Process(ctx context.Context, p *Project) (result BuildStepResult, err error) {
+func (s *FixBuildStep) Process(ctx context.Context, p *codex.Project) (result codex.BuildStepResult, err error) {
 	buildErrors, err := p.buildProject()
 
 	if err != nil {
@@ -61,7 +62,7 @@ func (s *FixBuildStep) Process(ctx context.Context, p *Project) (result BuildSte
 // The 'prepareObjective' function is responsible for generating a string that describes what needs to be done to fix a build error.
 // The expected input parameters are the psi.SourceFile 'sf' and pointer to the BuildError 'buildError' that needs to be fixed.
 // The expected output parameter is an error, which is nil if the process finishes successfully.
-func (s *FixBuildStep) ProcessFix(ctx context.Context, p *Project, sf psi.SourceFile, buildError *BuildError) error {
+func (s *FixBuildStep) ProcessFix(ctx context.Context, p *codex.Project, sf psi.SourceFile, buildError *BuildError) error {
 	fmt.Printf("Fixing build error: %s\n", buildError.String())
 
 	updated, err := p.ProcessNodes(ctx, sf, func(p *NodeProcessor) {
@@ -89,7 +90,7 @@ func (s *FixBuildStep) ProcessFix(ctx context.Context, p *Project, sf psi.Source
 
 // buildProject is responsible for analyzing the project and checking its types.
 // It returns a slice of BuildError and an error. BuildError contains information about type-checking errors and their associated package name, filename, line, column and error.
-func (p *Project) buildProject() (errs []*BuildError, err error) {
+func (p *codex.Project) buildProject() (errs []*BuildError, err error) {
 	// Set up the build context
 	buildContext := build.Default
 	buildContext.Dir = p.rootPath

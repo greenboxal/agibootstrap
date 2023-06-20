@@ -12,6 +12,7 @@ type Project interface {
 	psi.Node
 
 	RootPath() string
+	RootNode() psi.Node
 	FS() repofs.FS
 	FileSet() *token.FileSet
 

@@ -153,6 +153,10 @@ func (n *NodeBase) Edges() EdgeIterator {
 }
 
 func (n *NodeBase) SetParent(parent Node) {
+	if parent == n || parent == n.self {
+		panic("invalid parent")
+	}
+
 	if n.parent == parent {
 		return
 	}
@@ -202,6 +206,10 @@ func (n *NodeBase) removeChildNode(child Node) {
 }
 
 func (n *NodeBase) insertChildrenAt(idx int, child Node) {
+	if child == n || child == n.self {
+		panic("invalid child")
+	}
+
 	cn := child.Node()
 
 	existingIdx := slices.Index(n.children, child)

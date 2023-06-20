@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"go/token"
-	"io/fs"
 	"path/filepath"
 	"strings"
 
@@ -37,9 +36,11 @@ type BuildStep interface {
 type Project struct {
 	psi.NodeBase
 
+	fs   repofs.FS
+	repo *fti.Repository
+
 	rootPath string
-	fs       repofs.FS
-	repo     *fti.Repository
+	rootNode *vfs.DirectoryNode
 
 	files       map[string]*vfs.FileNode
 	sourceFiles map[string]psi.SourceFile
@@ -81,6 +82,9 @@ func NewProject(rootPath string) (*Project, error) {
 
 	p.Init(p, "")
 
+	p.rootNode = vfs.NewDirectoryNode(p.fs, ".")
+	p.rootNode.SetParent(p)
+
 	if err := p.Sync(); err != nil {
 		return nil, err
 	}
@@ -89,7 +93,8 @@ func NewProject(rootPath string) (*Project, error) {
 }
 
 // RootPath returns the root path of the project.
-func (p *Project) RootPath() string { return p.rootPath }
+func (p *Project) RootPath() string   { return p.rootPath }
+func (p *Project) RootNode() psi.Node { return p.rootNode }
 
 // FS returns the file system interface of the project.
 // It provides methods for managing the project's files and directories.
@@ -99,92 +104,7 @@ func (p *Project) LanguageProvider() *project.Registry { return p.langRegistry }
 
 func (p *Project) Repo() *fti.Repository { return p.repo }
 
-// Generate performs the code generation process for the project.
-// It executes all the build steps specified in the project and
-// stages and commits the changes to the file system.
-// The isSingleStep parameter determines whether the generation
-// process should be performed in a single step or multiple steps.
-// If isSingleStep is true, the process stops after the first step
-// that makes changes. The function returns the total number of changes
-// made during the generation process and an error if any.
-func (p *Project) Generate(ctx context.Context, isSingleStep bool) (changes int, err error) {
-	// Define the list of build steps to be executed
-	steps := []BuildStep{
-		//&AnalysisBuildStep{},
-		&CodeGenBuildStep{},
-		&FixImportsBuildStep{},
-		//&FixBuildStep{},
-	}
-
-	// Execute the build steps until no further changes are made
-	for {
-		stepChanges := 0
-
-		// Sync the project to ensure it is up to date
-		if err := p.Sync(); err != nil {
-			return changes, err
-		}
-
-		// Execute each build step
-		for _, step := range steps {
-			// Wrap the build step execution in a recover function
-			processWrapped := func() (result BuildStepResult, err error) {
-				defer func() {
-					if r := recover(); r != nil {
-						if e, ok := r.(error); ok {
-							err = e
-						} else {
-							err = fmt.Errorf("%v", r)
-						}
-					}
-				}()
-
-				// Execute the build step and return the result
-				return step.Process(ctx, p)
-			}
-
-			// Execute the build step and handle any errors
-			result, err := processWrapped()
-			if err != nil {
-				return changes, err
-			}
-
-			// Update the total number of changes
-			stepChanges += result.Changes
-		}
-
-		// Stage all the changes in the file system
-		if err = p.fs.StageAll(); err != nil {
-			return
-		}
-
-		// Commit the changes to the file system
-		if err = p.Commit(); err != nil {
-			return
-		}
-
-		// If no changes were made, exit the loop
-		if stepChanges == 0 {
-			break
-		}
-
-		// If isSingleStep is true, exit the loop after the first step
-		if isSingleStep {
-			break
-		}
-
-		// Update the total number of changes
-		changes += stepChanges
-	}
-
-	// Push the changes to the remote repository
-	if err = p.fs.Push(); err != nil {
-		return
-	}
-
-	// Return the total number of changes and no error
-	return
-}
+func (p *Project) FileSet() *token.FileSet { return p.fset }
 
 // Sync synchronizes the project with the file system.
 // It scans all files in the project directory and imports
@@ -192,26 +112,20 @@ func (p *Project) Generate(ctx context.Context, isSingleStep bool) (changes int,
 // have valid file extensions specified in the `validExtensions`
 // slice. The function returns an error if any occurs during
 // the sync process.
-func (p *Project) Sync() (err error) {
-	err = filepath.WalkDir(p.rootPath, func(path string, d fs.DirEntry, err error) error {
-		if !d.IsDir() && !p.repo.IsIgnored(path) {
-			lang := p.langRegistry.ResolveExtension(path)
+func (p *Project) Sync() error {
+	return psi.Walk(p.rootNode, func(cursor psi.Cursor, entering bool) error {
+		n := cursor.Node()
 
-			if lang == nil {
-				return nil
-			}
-
-			err := p.ImportFile(path)
-
-			if err != nil {
-				return err
-			}
+		if n, ok := n.(*vfs.DirectoryNode); ok && entering {
+			return n.Sync(func(path string) bool {
+				return !p.repo.IsIgnored(path)
+			})
+		} else {
+			cursor.SkipChildren()
 		}
 
 		return nil
 	})
-
-	return nil
 }
 
 // GetSourceFile retrieves the source file with the given filename from the project.
@@ -291,8 +205,4 @@ func (p *Project) ImportFile(path string) error {
 // The function returns an error if any error occurs during the reindexing process.
 func (p *Project) Reindex() error {
 	return nil
-}
-
-func (p *Project) FileSet() *token.FileSet {
-	return p.fset
 }

@@ -2,6 +2,7 @@ package vfs
 
 import (
 	"io/fs"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ type FS interface {
 type FsNode interface {
 	psi.Node
 
+	Name() string
 	Path() string
 }
 
@@ -30,7 +32,8 @@ type DirectoryNode struct {
 	key  string
 	path string
 
-	mu       sync.RWMutex
+	mu sync.RWMutex
+
 	children map[string]FsNode
 }
 
@@ -40,10 +43,13 @@ func NewDirectoryNode(fs FS, path string) *DirectoryNode {
 	key := strings.ToLower(path)
 
 	dn := &DirectoryNode{
-		fs:   fs,
-		key:  key,
-		path: path,
+		fs:       fs,
+		key:      key,
+		path:     path,
+		children: map[string]FsNode{},
 	}
+
+	dn.Init(dn, path)
 
 	return dn
 }
@@ -52,12 +58,24 @@ func (dn *DirectoryNode) Ast() dst.Node      { return nil }
 func (dn *DirectoryNode) IsContainer() bool  { return true }
 func (dn *DirectoryNode) IsLeaf() bool       { return false }
 func (dn *DirectoryNode) Comments() []string { return nil }
+func (dn *DirectoryNode) Name() string       { return filepath.Base(dn.path) }
 func (dn *DirectoryNode) Path() string       { return dn.path }
+
+func (dn *DirectoryNode) Resolve(name string) FsNode {
+	dn.mu.RLock()
+	defer dn.mu.RUnlock()
+
+	if child, ok := dn.children[name]; ok {
+		return child
+	}
+
+	return nil
+}
 
 // Sync synchronizes the DirectoryNode with the underlying filesystem.
 // It scans the directory and updates the children nodes to reflect the current state of the filesystem.
 // Any nodes that no longer exist in the filesystem are removed.
-func (dn *DirectoryNode) Sync(recursive bool) error {
+func (dn *DirectoryNode) Sync(filterFn func(path string) bool) error {
 	dn.mu.Lock()
 	defer dn.mu.Unlock()
 
@@ -67,25 +85,39 @@ func (dn *DirectoryNode) Sync(recursive bool) error {
 		return err
 	}
 
-	// Remove nodes that no longer exist in the filesystem
+	changes := make(map[string]FsNode)
+
 	for _, file := range files {
-		filePath := filepath.Join(dn.path, file.Name())
-		if file.IsDir() {
-			dirNode := NewDirectoryNode(dn.fs, filePath)
-			dirNode.SetParent(dn)
-			dn.children[filePath] = dirNode
+		fullPath := path.Join(dn.path, file.Name())
 
-			if recursive {
-				err := dirNode.Sync(recursive)
+		if filterFn != nil && !filterFn(fullPath) {
+			continue
+		}
 
-				if err != nil {
-					return err
-				}
+		n := dn.children[file.Name()]
+
+		if n == nil {
+			if file.IsDir() {
+				n = NewDirectoryNode(dn.fs, fullPath)
+			} else {
+				n = NewFileNode(dn.fs, fullPath)
 			}
-		} else {
-			fileNode := NewFileNode(dn.fs, filePath)
-			fileNode.SetParent(dn)
-			dn.children[filePath] = fileNode
+
+			n.SetParent(dn)
+
+			dn.children[file.Name()] = n
+		}
+
+		changes[file.Name()] = n
+	}
+
+	for _, child := range dn.children {
+		if _, ok := changes[child.Name()]; !ok {
+			child.SetParent(nil)
+
+			delete(dn.children, child.Name())
+
+			continue
 		}
 	}
 
@@ -104,18 +136,16 @@ func (fn *FileNode) Ast() dst.Node      { return nil }
 func (fn *FileNode) IsContainer() bool  { return true }
 func (fn *FileNode) IsLeaf() bool       { return false }
 func (fn *FileNode) Comments() []string { return nil }
+func (fn *FileNode) Name() string       { return filepath.Base(fn.path) }
 func (fn *FileNode) Path() string       { return fn.path }
 
 func NewFileNode(fs FS, path string) *FileNode {
-	key := strings.ToLower(path)
-
 	fn := &FileNode{
 		fs:   fs,
-		key:  key,
 		path: path,
 	}
 
-	fn.Init(fn, key)
+	fn.Init(fn, path)
 
 	return fn
 }
