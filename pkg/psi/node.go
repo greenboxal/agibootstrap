@@ -54,8 +54,8 @@ type Node interface {
 	Invalidate()
 	Update()
 
-	attachToGraph(g *Graph)
-	detachFromGraph(g *Graph)
+	attachToGraph(g Graph)
+	detachFromGraph(g Graph)
 
 	addChildNode(node Node)
 	removeChildNode(node Node)
@@ -66,7 +66,7 @@ type Node interface {
 	String() string
 }
 type NodeBase struct {
-	g *Graph
+	g Graph
 
 	id      int64
 	uuid    string
@@ -304,7 +304,7 @@ func (n *NodeBase) replaceChildNode(old, new Node) {
 // If the node is already attached to a different graph, it raises a panic.
 // The node is assigned a new ID from the graph's NewNode method.
 // After attaching the node, each child of the node is also attached to the graph recursively.
-func (n *NodeBase) attachToGraph(g *Graph) {
+func (n *NodeBase) attachToGraph(g Graph) {
 	if n.g == g {
 		return
 	}
@@ -319,7 +319,7 @@ func (n *NodeBase) attachToGraph(g *Graph) {
 	}
 
 	n.g = g
-	n.id = g.g.NewNode().ID()
+	n.id = g.AllocateNodeID()
 
 	for _, e := range n.children {
 		e.attachToGraph(g)
@@ -336,7 +336,7 @@ func (n *NodeBase) attachToGraph(g *Graph) {
 //
 // Parameters:
 // - g: The graph from which the node is to be detached.
-func (n *NodeBase) detachFromGraph(g *Graph) {
+func (n *NodeBase) detachFromGraph(g Graph) {
 	if n.g == nil {
 		return
 	}

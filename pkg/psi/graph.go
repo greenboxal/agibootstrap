@@ -4,27 +4,38 @@ import (
 	"gonum.org/v1/gonum/graph/multi"
 )
 
-type Graph struct {
-	g *multi.DirectedGraph
+type Graph interface {
+	Add(n Node)
+	Remove(n Node)
+	Replace(old, new Node)
+	AllocateNodeID() int64
 }
 
-func NewGraph() *Graph {
-	return &Graph{
-		g: multi.NewDirectedGraph(),
-	}
+type BaseGraph struct {
+	g    *multi.DirectedGraph
+	self Graph
 }
 
-func (g *Graph) Add(n Node) {
-	n.attachToGraph(g)
+func (g *BaseGraph) Init(self Graph) {
+	g.g = multi.NewDirectedGraph()
+	g.self = self
+}
+
+func (g *BaseGraph) AllocateNodeID() int64 {
+	return g.g.NewNode().ID()
+}
+
+func (g *BaseGraph) Add(n Node) {
+	n.attachToGraph(g.self)
 	g.g.AddNode(n)
 }
 
-func (g *Graph) Remove(n Node) {
+func (g *BaseGraph) Remove(n Node) {
 	g.g.RemoveNode(n.ID())
 	n.detachFromGraph(nil)
 }
 
-func (g *Graph) Replace(old, new Node) {
+func (g *BaseGraph) Replace(old, new Node) {
 	if old == new {
 		return
 	}
