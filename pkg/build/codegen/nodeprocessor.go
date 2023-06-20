@@ -32,22 +32,6 @@ func (n *NodeScope) Root() psi.Node {
 	return n.Node
 }
 
-// declaration represents a declaration in the code.
-//
-// It contains information about the declaration such as the AST node, the PSI node, the index, and the name.
-//
-// Fields:
-// - node: The AST node representing the declaration.
-// - element: The PSI node representing the declaration.
-// - index: The index of the declaration.
-// - name: The name of the declaration.
-type declaration struct {
-	node    dst.Node
-	element psi.Node
-	index   int
-	name    string
-}
-
 // NodeProcessorOption is a function type that defines an option for the NodeProcessor.
 //
 // It is used to configure the behavior of the NodeProcessor. Each option is a function that takes
@@ -58,11 +42,10 @@ type NodeProcessorOption func(p *NodeProcessor)
 // It is used to configure the behavior of the NodeProcessor. Each option is a function that takes
 // a pointer to the NodeProcessor as a parameter and modifies its properties in some way.
 type NodeProcessor struct {
-	Project      project.Project          // The project associated with the NodeProcessor.
-	SourceFile   psi.SourceFile           // The source file being processed.
-	Root         psi.Node                 // The root node of the AST being processed.
-	FuncStack    *stack.Stack[*NodeScope] // A stack of FunctionContexts.
-	Declarations map[string]*declaration  // A map of declaration names to declaration information.
+	Project    project.Project          // The project associated with the NodeProcessor.
+	SourceFile psi.SourceFile           // The source file being processed.
+	Root       psi.Node                 // The root node of the AST being processed.
+	FuncStack  *stack.Stack[*NodeScope] // A stack of FunctionContexts.
 
 	prepareObjective   func(p *NodeProcessor, ctx *NodeScope) (string, error)                                                              // A function to prepare the objective for GPT-3.
 	prepareContext     func(p *NodeProcessor, ctx *NodeScope, root psi.Node, baseRequest gpt.CodeGeneratorRequest) (gpt.ContextBag, error) // A function to prepare the context for GPT-3.

@@ -62,7 +62,7 @@ func (bs *BuildStep) Process(ctx context.Context, bctx *build.Context) (result b
 func (bs *BuildStep) processFile(ctx context.Context, bctx *build.Context, fsPath string, opts ...NodeProcessorOption) (int, error) {
 	p := bctx.Project()
 
-	fmt.Printf("Processing file %s\n", fsPath)
+	bctx.Log().Infow("Processing file", "file", fsPath)
 
 	sf, err := p.GetSourceFile(fsPath)
 
@@ -101,11 +101,10 @@ func (bs *BuildStep) processFile(ctx context.Context, bctx *build.Context, fsPat
 // ProcessNode processes the given node and returns the updated node.
 func (bs *BuildStep) ProcessNode(ctx context.Context, bctx *build.Context, sf psi.SourceFile, root psi.Node, opts ...NodeProcessorOption) (psi.Node, error) {
 	processor := &NodeProcessor{
-		Project:      bctx.Project(),
-		SourceFile:   sf,
-		Root:         root,
-		FuncStack:    stack.NewStack[*NodeScope](16),
-		Declarations: map[string]*declaration{},
+		Project:    bctx.Project(),
+		SourceFile: sf,
+		Root:       root,
+		FuncStack:  stack.NewStack[*NodeScope](16),
 	}
 
 	processor.ctx, processor.cancel = context.WithCancel(ctx)
