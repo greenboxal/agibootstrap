@@ -64,7 +64,7 @@ func (bctx *Context) runBuild(ctx context.Context) error {
 			}
 
 			// Wrap the build step execution in a recover function
-			processWrapped := func() (result *StepResult, err error) {
+			processWrapped := func() (result StepResult, err error) {
 				defer func() {
 					if r := recover(); r != nil {
 						if e, ok := r.(error); ok {

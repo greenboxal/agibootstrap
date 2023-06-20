@@ -42,18 +42,36 @@ func (nb *NodeBase[T]) Update() {
 
 }
 
-func AstToPsi(parsed ast.Ast) psi.Node {
-	n := &NodeBase[ast.Ast]{node: parsed}
+func NewNodeFor(node ast.Ast) psi.Node {
+	n := &NodeBase[ast.Ast]{node: node}
 
 	n.Initialize(n)
+
+	return n
+}
+
+func AstToPsi(parsed ast.Ast) (result psi.Node) {
+	ast.Walk(parsed, func(node ast.Ast) bool {
+		wrapped := NewNodeFor(node)
+
+		if node == parsed {
+			result = wrapped
+
+			return true
+		} else {
+			wrapped.SetParent(result)
+
+			return false
+		}
+	})
 
 	if strNode, ok := parsed.(*ast.Str); ok {
 		str := py.StringEscape(strNode.S, true)
 
 		if strings.HasPrefix(str, "// TODO:") {
-			n.comments = append(n.comments, str)
+			result.(*NodeBase[ast.Ast]).comments = append(result.(*NodeBase[ast.Ast]).comments, str)
 		}
 	}
 
-	return nil
+	return
 }

@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/greenboxal/agibootstrap/pkg/build"
+	"github.com/greenboxal/agibootstrap/pkg/build/codegen"
+	"github.com/greenboxal/agibootstrap/pkg/build/fiximports"
 	"github.com/greenboxal/agibootstrap/pkg/codex"
 
 	// Register languages
@@ -77,6 +79,11 @@ func main() {
 			builder := build.NewBuilder(p, build.Configuration{
 				OutputDirectory: p.RootPath(),
 				BuildDirectory:  path.Join(p.RootPath(), ".build"),
+
+				BuildSteps: []build.Step{
+					&codegen.BuildStep{},
+					&fiximports.BuildStep{},
+				},
 			})
 
 			_, err = builder.Build(cmd.Context())

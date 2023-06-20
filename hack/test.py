@@ -1,2 +1,1 @@
-def main():
-    """// TODO: Implement"""
+Module(body=[FunctionDef(name='main', args=arguments(args=[], vararg=None, kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[]), body=[Expr(value=Str(s='// TODO: Implement'))], decorator_list=[], returns=None)])

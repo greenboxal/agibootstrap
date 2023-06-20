@@ -9,5 +9,5 @@ type StepResult struct {
 }
 
 type Step interface {
-	Process(ctx context.Context, bctx *Context) (*StepResult, error)
+	Process(ctx context.Context, bctx *Context) (StepResult, error)
 }
