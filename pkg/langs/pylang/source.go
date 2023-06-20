@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"go/token"
 	"io"
-	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/pkg/errors"
@@ -99,25 +98,6 @@ func (sf *SourceFile) SetRoot(node antlr.ParserRuleContext, original string) err
 	sf.parsed = node
 	sf.root = AstToPsi(sf.parsed)
 	sf.root.SetParent(sf)
-	sf.lines = strings.Split(sf.original, "\n")
-	sf.lineOffsets = make([]int, len(sf.lines))
-
-	sf.file = sf.l.project.FileSet().AddFile(sf.name, -1, len(original))
-
-	for i := range sf.lineOffsets {
-		trimmed := strings.TrimLeft(sf.lines[i], " \t")
-		removed := len(sf.lines[i]) - len(trimmed)
-
-		if i == 0 {
-			sf.lineOffsets[i] = 0
-		} else {
-			sf.lineOffsets[i] = sf.lineOffsets[i-1] + len(sf.lines[i-1]) + 1
-		}
-
-		sf.lineOffsets[i] += removed
-
-		sf.file.AddLine(sf.lineOffsets[i])
-	}
 
 	return nil
 }

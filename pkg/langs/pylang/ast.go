@@ -66,10 +66,13 @@ func (a *astConversionContext) EnterEveryRule(ctx antlr.ParserRuleContext) {
 
 	switch node := ctx.(type) {
 	case *pyparser.AtomContext:
-		str := node.STRING(0).GetText()
+		strs := node.AllSTRING()
 
-		if strings.HasPrefix(str, `"""// TODO:`) {
-			n.comments = append(n.comments, str)
+		for _, str := range strs {
+			s := str.GetText()
+			if strings.HasPrefix(s, `"""// TODO:`) {
+				n.comments = append(n.comments, s)
+			}
 		}
 	}
 
@@ -85,7 +88,7 @@ func (a *astConversionContext) ExitEveryRule(ctx antlr.ParserRuleContext) {
 	a.parentStack = a.parentStack[:len(a.parentStack)-1]
 }
 
-func AstToPsi(parsed antlr.ParserRuleContext) (result psi.Node) {
+func AstToPsi(parsed antlr.ParserRuleContext) psi.Node {
 	ctx := &astConversionContext{}
 
 	walker := antlr.NewParseTreeWalker()
