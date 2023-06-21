@@ -1,3 +1,4 @@
-void main() {
-    // TODO: Write a rick roll hello world
+int main() {
+    // TO2asdDO: Write a rick roll hello world
+    return 0;
 }

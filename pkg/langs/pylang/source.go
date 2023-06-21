@@ -28,10 +28,9 @@ type SourceFile struct {
 	parsed antlr.ParserRuleContext
 	err    error
 
-	original    string
-	lines       []string
-	lineOffsets []int
-	file        *token.File
+	original string
+	file     *token.File
+	tokens   *antlr.CommonTokenStream
 }
 
 func NewSourceFile(l *Language, name string, handle repofs.FileHandle) *SourceFile {
@@ -93,10 +92,15 @@ func (sf *SourceFile) Replace(code string) error {
 	return sf.Load()
 }
 
-func (sf *SourceFile) SetRoot(node antlr.ParserRuleContext, original string) error {
+func (sf *SourceFile) SetRoot(node antlr.ParserRuleContext, original string, tokens *antlr.CommonTokenStream) error {
 	sf.original = original
 	sf.parsed = node
-	sf.root = AstToPsi(sf.parsed)
+	sf.tokens = tokens
+
+	sf.file = sf.l.project.FileSet().AddFile(sf.name, -1, len(sf.original))
+	sf.file.SetLinesForContent([]byte(original))
+
+	sf.root = AstToPsi(sf, sf.parsed)
 	sf.root.SetParent(sf)
 
 	return nil
@@ -118,8 +122,8 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 	reader := bytes.NewBufferString(sourceCode)
 	stream := antlr.NewIoStream(reader)
 	lexer := pyparser.NewPython3Lexer(stream)
-	tokenStream := antlr.NewCommonTokenStream(lexer, 0)
-	parser := pyparser.NewPython3Parser(tokenStream)
+	tokens := antlr.NewCommonTokenStream(lexer, 0)
+	parser := pyparser.NewPython3Parser(tokens)
 
 	parsed := parser.File_input()
 
@@ -130,19 +134,40 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 	}
 
 	if sf.root == nil {
-		if err := sf.SetRoot(parsed, sourceCode); err != nil {
+		if err := sf.SetRoot(parsed, sourceCode, tokens); err != nil {
 			return nil, err
 		}
 
 		return sf.root, nil
 	}
 
-	return AstToPsi(parsed), nil
+	return AstToPsi(sf, parsed), nil
 }
 
 func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
+	var start, end antlr.Token
 	n := node.(Node)
-	txt := n.Ast().GetText()
+
+	start = n.Ast().GetStart()
+	end = n.Ast().GetStop()
+
+	hiddenStart := sf.tokens.GetHiddenTokensToLeft(start.GetTokenIndex(), 2)
+
+	if len(hiddenStart) > 0 {
+		start = hiddenStart[0]
+	}
+
+	ns := n.NextSibling()
+
+	if ns != nil {
+		if ns, ok := ns.(Node); ok {
+			end = ns.Ast().GetStart()
+		}
+	} else {
+		end = nil
+	}
+
+	txt := sf.getRange(start, end)
 
 	return mdutils.CodeBlock{
 		Language: string(LanguageID),
@@ -157,16 +182,16 @@ func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope psi.Scop
 	return nil
 }
 
-type ByteTokenizer struct{}
+func (sf *SourceFile) getRange(start antlr.Token, end antlr.Token) string {
+	startLinePos := sf.file.LineStart(start.GetLine())
+	startLineOffset := sf.file.Offset(startLinePos) + start.GetColumn()
 
-func (b *ByteTokenizer) Count(text string) (int, error) {
-	return len(text), nil
-}
+	if end == nil {
+		return sf.original[startLineOffset:]
+	}
 
-func (b *ByteTokenizer) Encode(text string) ([]byte, error) {
-	return []byte(text), nil
-}
+	endLinePos := sf.file.LineStart(end.GetLine())
+	endLineOffset := sf.file.Offset(endLinePos) + end.GetColumn()
 
-func (b *ByteTokenizer) Decode(tokens []byte) (string, error) {
-	return string(tokens), nil
+	return sf.original[startLineOffset:endLineOffset]
 }

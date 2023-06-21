@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/zeroflucs-given/generics/collections/stack"
 
 	"github.com/greenboxal/agibootstrap/pkg/build"
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
@@ -104,7 +103,6 @@ func (bs *BuildStep) ProcessNode(ctx context.Context, bctx *build.Context, sf ps
 		Project:    bctx.Project(),
 		SourceFile: sf,
 		Root:       root,
-		FuncStack:  stack.NewStack[*NodeScope](16),
 	}
 
 	processor.ctx, processor.cancel = context.WithCancel(ctx)

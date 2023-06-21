@@ -194,17 +194,3 @@ func (sf *SourceFile) getRange(start antlr.Token, end antlr.Token) string {
 
 	return sf.original[startLineOffset:endLineOffset]
 }
-
-type ByteTokenizer struct{}
-
-func (b *ByteTokenizer) Count(text string) (int, error) {
-	return len(text), nil
-}
-
-func (b *ByteTokenizer) Encode(text string) ([]byte, error) {
-	return []byte(text), nil
-}
-
-func (b *ByteTokenizer) Decode(tokens []byte) (string, error) {
-	return string(tokens), nil
-}

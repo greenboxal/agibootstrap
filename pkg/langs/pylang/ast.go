@@ -53,6 +53,7 @@ func NewNodeFor(node antlr.ParserRuleContext) *NodeBase[antlr.ParserRuleContext]
 type astConversionContext struct {
 	parentStack []Node
 	result      Node
+	sf          *SourceFile
 }
 
 func (a *astConversionContext) VisitTerminal(node antlr.TerminalNode) {
@@ -64,9 +65,18 @@ func (a *astConversionContext) VisitErrorNode(node antlr.ErrorNode) {
 func (a *astConversionContext) EnterEveryRule(ctx antlr.ParserRuleContext) {
 	n := NewNodeFor(ctx)
 
+	if a.sf != nil {
+		hidden := a.sf.tokens.GetHiddenTokensToLeft(ctx.GetStart().GetTokenIndex(), 2)
+
+		for _, tk := range hidden {
+			if tk.GetChannel() == 2 {
+				n.comments = append(n.comments, tk.GetText())
+			}
+		}
+	}
 	switch node := ctx.(type) {
 	case *pyparser.AtomContext:
-		strs := node.AllStr()
+		strs := node.AllSTRING()
 
 		for _, str := range strs {
 			s := str.GetText()
@@ -89,8 +99,8 @@ func (a *astConversionContext) ExitEveryRule(ctx antlr.ParserRuleContext) {
 	a.parentStack = a.parentStack[:len(a.parentStack)-1]
 }
 
-func AstToPsi(parsed antlr.ParserRuleContext) psi.Node {
-	ctx := &astConversionContext{}
+func AstToPsi(sf *SourceFile, parsed antlr.ParserRuleContext) psi.Node {
+	ctx := &astConversionContext{sf: sf}
 
 	walker := antlr.NewParseTreeWalker()
 	walker.Walk(ctx, parsed)

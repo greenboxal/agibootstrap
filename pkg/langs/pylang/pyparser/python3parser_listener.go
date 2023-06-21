@@ -1,10 +1,10 @@
-// Code generated from Python3.g4 by ANTLR 4.13.0. DO NOT EDIT.
+// Code generated from Python3Parser.g4 by ANTLR 4.13.0. DO NOT EDIT.
 
-package pyparser // Python3
+package pyparser // Python3Parser
 import "github.com/antlr4-go/antlr/v4"
 
-// Python3Listener is a complete listener for a parse tree produced by Python3Parser.
-type Python3Listener interface {
+// Python3ParserListener is a complete listener for a parse tree produced by Python3Parser.
+type Python3ParserListener interface {
 	antlr.ParseTreeListener
 
 	// EnterSingle_input is called when entering the single_input production.
@@ -24,6 +24,9 @@ type Python3Listener interface {
 
 	// EnterDecorated is called when entering the decorated production.
 	EnterDecorated(c *DecoratedContext)
+
+	// EnterAsync_funcdef is called when entering the async_funcdef production.
+	EnterAsync_funcdef(c *Async_funcdefContext)
 
 	// EnterFuncdef is called when entering the funcdef production.
 	EnterFuncdef(c *FuncdefContext)
@@ -46,14 +49,17 @@ type Python3Listener interface {
 	// EnterStmt is called when entering the stmt production.
 	EnterStmt(c *StmtContext)
 
+	// EnterSimple_stmts is called when entering the simple_stmts production.
+	EnterSimple_stmts(c *Simple_stmtsContext)
+
 	// EnterSimple_stmt is called when entering the simple_stmt production.
 	EnterSimple_stmt(c *Simple_stmtContext)
 
-	// EnterSmall_stmt is called when entering the small_stmt production.
-	EnterSmall_stmt(c *Small_stmtContext)
-
 	// EnterExpr_stmt is called when entering the expr_stmt production.
 	EnterExpr_stmt(c *Expr_stmtContext)
+
+	// EnterAnnassign is called when entering the annassign production.
+	EnterAnnassign(c *AnnassignContext)
 
 	// EnterTestlist_star_expr is called when entering the testlist_star_expr production.
 	EnterTestlist_star_expr(c *Testlist_star_exprContext)
@@ -121,6 +127,9 @@ type Python3Listener interface {
 	// EnterCompound_stmt is called when entering the compound_stmt production.
 	EnterCompound_stmt(c *Compound_stmtContext)
 
+	// EnterAsync_stmt is called when entering the async_stmt production.
+	EnterAsync_stmt(c *Async_stmtContext)
+
 	// EnterIf_stmt is called when entering the if_stmt production.
 	EnterIf_stmt(c *If_stmtContext)
 
@@ -142,8 +151,122 @@ type Python3Listener interface {
 	// EnterExcept_clause is called when entering the except_clause production.
 	EnterExcept_clause(c *Except_clauseContext)
 
-	// EnterSuite is called when entering the suite production.
-	EnterSuite(c *SuiteContext)
+	// EnterBlock is called when entering the block production.
+	EnterBlock(c *BlockContext)
+
+	// EnterMatch_stmt is called when entering the match_stmt production.
+	EnterMatch_stmt(c *Match_stmtContext)
+
+	// EnterSubject_expr is called when entering the subject_expr production.
+	EnterSubject_expr(c *Subject_exprContext)
+
+	// EnterStar_named_expressions is called when entering the star_named_expressions production.
+	EnterStar_named_expressions(c *Star_named_expressionsContext)
+
+	// EnterStar_named_expression is called when entering the star_named_expression production.
+	EnterStar_named_expression(c *Star_named_expressionContext)
+
+	// EnterCase_block is called when entering the case_block production.
+	EnterCase_block(c *Case_blockContext)
+
+	// EnterGuard is called when entering the guard production.
+	EnterGuard(c *GuardContext)
+
+	// EnterPatterns is called when entering the patterns production.
+	EnterPatterns(c *PatternsContext)
+
+	// EnterPattern is called when entering the pattern production.
+	EnterPattern(c *PatternContext)
+
+	// EnterAs_pattern is called when entering the as_pattern production.
+	EnterAs_pattern(c *As_patternContext)
+
+	// EnterOr_pattern is called when entering the or_pattern production.
+	EnterOr_pattern(c *Or_patternContext)
+
+	// EnterClosed_pattern is called when entering the closed_pattern production.
+	EnterClosed_pattern(c *Closed_patternContext)
+
+	// EnterLiteral_pattern is called when entering the literal_pattern production.
+	EnterLiteral_pattern(c *Literal_patternContext)
+
+	// EnterLiteral_expr is called when entering the literal_expr production.
+	EnterLiteral_expr(c *Literal_exprContext)
+
+	// EnterComplex_number is called when entering the complex_number production.
+	EnterComplex_number(c *Complex_numberContext)
+
+	// EnterSigned_number is called when entering the signed_number production.
+	EnterSigned_number(c *Signed_numberContext)
+
+	// EnterSigned_real_number is called when entering the signed_real_number production.
+	EnterSigned_real_number(c *Signed_real_numberContext)
+
+	// EnterReal_number is called when entering the real_number production.
+	EnterReal_number(c *Real_numberContext)
+
+	// EnterImaginary_number is called when entering the imaginary_number production.
+	EnterImaginary_number(c *Imaginary_numberContext)
+
+	// EnterCapture_pattern is called when entering the capture_pattern production.
+	EnterCapture_pattern(c *Capture_patternContext)
+
+	// EnterPattern_capture_target is called when entering the pattern_capture_target production.
+	EnterPattern_capture_target(c *Pattern_capture_targetContext)
+
+	// EnterWildcard_pattern is called when entering the wildcard_pattern production.
+	EnterWildcard_pattern(c *Wildcard_patternContext)
+
+	// EnterValue_pattern is called when entering the value_pattern production.
+	EnterValue_pattern(c *Value_patternContext)
+
+	// EnterAttr is called when entering the attr production.
+	EnterAttr(c *AttrContext)
+
+	// EnterName_or_attr is called when entering the name_or_attr production.
+	EnterName_or_attr(c *Name_or_attrContext)
+
+	// EnterGroup_pattern is called when entering the group_pattern production.
+	EnterGroup_pattern(c *Group_patternContext)
+
+	// EnterSequence_pattern is called when entering the sequence_pattern production.
+	EnterSequence_pattern(c *Sequence_patternContext)
+
+	// EnterOpen_sequence_pattern is called when entering the open_sequence_pattern production.
+	EnterOpen_sequence_pattern(c *Open_sequence_patternContext)
+
+	// EnterMaybe_sequence_pattern is called when entering the maybe_sequence_pattern production.
+	EnterMaybe_sequence_pattern(c *Maybe_sequence_patternContext)
+
+	// EnterMaybe_star_pattern is called when entering the maybe_star_pattern production.
+	EnterMaybe_star_pattern(c *Maybe_star_patternContext)
+
+	// EnterStar_pattern is called when entering the star_pattern production.
+	EnterStar_pattern(c *Star_patternContext)
+
+	// EnterMapping_pattern is called when entering the mapping_pattern production.
+	EnterMapping_pattern(c *Mapping_patternContext)
+
+	// EnterItems_pattern is called when entering the items_pattern production.
+	EnterItems_pattern(c *Items_patternContext)
+
+	// EnterKey_value_pattern is called when entering the key_value_pattern production.
+	EnterKey_value_pattern(c *Key_value_patternContext)
+
+	// EnterDouble_star_pattern is called when entering the double_star_pattern production.
+	EnterDouble_star_pattern(c *Double_star_patternContext)
+
+	// EnterClass_pattern is called when entering the class_pattern production.
+	EnterClass_pattern(c *Class_patternContext)
+
+	// EnterPositional_patterns is called when entering the positional_patterns production.
+	EnterPositional_patterns(c *Positional_patternsContext)
+
+	// EnterKeyword_patterns is called when entering the keyword_patterns production.
+	EnterKeyword_patterns(c *Keyword_patternsContext)
+
+	// EnterKeyword_pattern is called when entering the keyword_pattern production.
+	EnterKeyword_pattern(c *Keyword_patternContext)
 
 	// EnterTest is called when entering the test production.
 	EnterTest(c *TestContext)
@@ -199,8 +322,14 @@ type Python3Listener interface {
 	// EnterPower is called when entering the power production.
 	EnterPower(c *PowerContext)
 
+	// EnterAtom_expr is called when entering the atom_expr production.
+	EnterAtom_expr(c *Atom_exprContext)
+
 	// EnterAtom is called when entering the atom production.
 	EnterAtom(c *AtomContext)
+
+	// EnterName is called when entering the name production.
+	EnterName(c *NameContext)
 
 	// EnterTestlist_comp is called when entering the testlist_comp production.
 	EnterTestlist_comp(c *Testlist_compContext)
@@ -211,8 +340,8 @@ type Python3Listener interface {
 	// EnterSubscriptlist is called when entering the subscriptlist production.
 	EnterSubscriptlist(c *SubscriptlistContext)
 
-	// EnterSubscript is called when entering the subscript production.
-	EnterSubscript(c *SubscriptContext)
+	// EnterSubscript_ is called when entering the subscript_ production.
+	EnterSubscript_(c *Subscript_Context)
 
 	// EnterSliceop is called when entering the sliceop production.
 	EnterSliceop(c *SliceopContext)
@@ -244,20 +373,17 @@ type Python3Listener interface {
 	// EnterComp_if is called when entering the comp_if production.
 	EnterComp_if(c *Comp_ifContext)
 
+	// EnterEncoding_decl is called when entering the encoding_decl production.
+	EnterEncoding_decl(c *Encoding_declContext)
+
 	// EnterYield_expr is called when entering the yield_expr production.
 	EnterYield_expr(c *Yield_exprContext)
 
 	// EnterYield_arg is called when entering the yield_arg production.
 	EnterYield_arg(c *Yield_argContext)
 
-	// EnterStr is called when entering the str production.
-	EnterStr(c *StrContext)
-
-	// EnterNumber is called when entering the number production.
-	EnterNumber(c *NumberContext)
-
-	// EnterInteger is called when entering the integer production.
-	EnterInteger(c *IntegerContext)
+	// EnterStrings is called when entering the strings production.
+	EnterStrings(c *StringsContext)
 
 	// ExitSingle_input is called when exiting the single_input production.
 	ExitSingle_input(c *Single_inputContext)
@@ -276,6 +402,9 @@ type Python3Listener interface {
 
 	// ExitDecorated is called when exiting the decorated production.
 	ExitDecorated(c *DecoratedContext)
+
+	// ExitAsync_funcdef is called when exiting the async_funcdef production.
+	ExitAsync_funcdef(c *Async_funcdefContext)
 
 	// ExitFuncdef is called when exiting the funcdef production.
 	ExitFuncdef(c *FuncdefContext)
@@ -298,14 +427,17 @@ type Python3Listener interface {
 	// ExitStmt is called when exiting the stmt production.
 	ExitStmt(c *StmtContext)
 
+	// ExitSimple_stmts is called when exiting the simple_stmts production.
+	ExitSimple_stmts(c *Simple_stmtsContext)
+
 	// ExitSimple_stmt is called when exiting the simple_stmt production.
 	ExitSimple_stmt(c *Simple_stmtContext)
 
-	// ExitSmall_stmt is called when exiting the small_stmt production.
-	ExitSmall_stmt(c *Small_stmtContext)
-
 	// ExitExpr_stmt is called when exiting the expr_stmt production.
 	ExitExpr_stmt(c *Expr_stmtContext)
+
+	// ExitAnnassign is called when exiting the annassign production.
+	ExitAnnassign(c *AnnassignContext)
 
 	// ExitTestlist_star_expr is called when exiting the testlist_star_expr production.
 	ExitTestlist_star_expr(c *Testlist_star_exprContext)
@@ -373,6 +505,9 @@ type Python3Listener interface {
 	// ExitCompound_stmt is called when exiting the compound_stmt production.
 	ExitCompound_stmt(c *Compound_stmtContext)
 
+	// ExitAsync_stmt is called when exiting the async_stmt production.
+	ExitAsync_stmt(c *Async_stmtContext)
+
 	// ExitIf_stmt is called when exiting the if_stmt production.
 	ExitIf_stmt(c *If_stmtContext)
 
@@ -394,8 +529,122 @@ type Python3Listener interface {
 	// ExitExcept_clause is called when exiting the except_clause production.
 	ExitExcept_clause(c *Except_clauseContext)
 
-	// ExitSuite is called when exiting the suite production.
-	ExitSuite(c *SuiteContext)
+	// ExitBlock is called when exiting the block production.
+	ExitBlock(c *BlockContext)
+
+	// ExitMatch_stmt is called when exiting the match_stmt production.
+	ExitMatch_stmt(c *Match_stmtContext)
+
+	// ExitSubject_expr is called when exiting the subject_expr production.
+	ExitSubject_expr(c *Subject_exprContext)
+
+	// ExitStar_named_expressions is called when exiting the star_named_expressions production.
+	ExitStar_named_expressions(c *Star_named_expressionsContext)
+
+	// ExitStar_named_expression is called when exiting the star_named_expression production.
+	ExitStar_named_expression(c *Star_named_expressionContext)
+
+	// ExitCase_block is called when exiting the case_block production.
+	ExitCase_block(c *Case_blockContext)
+
+	// ExitGuard is called when exiting the guard production.
+	ExitGuard(c *GuardContext)
+
+	// ExitPatterns is called when exiting the patterns production.
+	ExitPatterns(c *PatternsContext)
+
+	// ExitPattern is called when exiting the pattern production.
+	ExitPattern(c *PatternContext)
+
+	// ExitAs_pattern is called when exiting the as_pattern production.
+	ExitAs_pattern(c *As_patternContext)
+
+	// ExitOr_pattern is called when exiting the or_pattern production.
+	ExitOr_pattern(c *Or_patternContext)
+
+	// ExitClosed_pattern is called when exiting the closed_pattern production.
+	ExitClosed_pattern(c *Closed_patternContext)
+
+	// ExitLiteral_pattern is called when exiting the literal_pattern production.
+	ExitLiteral_pattern(c *Literal_patternContext)
+
+	// ExitLiteral_expr is called when exiting the literal_expr production.
+	ExitLiteral_expr(c *Literal_exprContext)
+
+	// ExitComplex_number is called when exiting the complex_number production.
+	ExitComplex_number(c *Complex_numberContext)
+
+	// ExitSigned_number is called when exiting the signed_number production.
+	ExitSigned_number(c *Signed_numberContext)
+
+	// ExitSigned_real_number is called when exiting the signed_real_number production.
+	ExitSigned_real_number(c *Signed_real_numberContext)
+
+	// ExitReal_number is called when exiting the real_number production.
+	ExitReal_number(c *Real_numberContext)
+
+	// ExitImaginary_number is called when exiting the imaginary_number production.
+	ExitImaginary_number(c *Imaginary_numberContext)
+
+	// ExitCapture_pattern is called when exiting the capture_pattern production.
+	ExitCapture_pattern(c *Capture_patternContext)
+
+	// ExitPattern_capture_target is called when exiting the pattern_capture_target production.
+	ExitPattern_capture_target(c *Pattern_capture_targetContext)
+
+	// ExitWildcard_pattern is called when exiting the wildcard_pattern production.
+	ExitWildcard_pattern(c *Wildcard_patternContext)
+
+	// ExitValue_pattern is called when exiting the value_pattern production.
+	ExitValue_pattern(c *Value_patternContext)
+
+	// ExitAttr is called when exiting the attr production.
+	ExitAttr(c *AttrContext)
+
+	// ExitName_or_attr is called when exiting the name_or_attr production.
+	ExitName_or_attr(c *Name_or_attrContext)
+
+	// ExitGroup_pattern is called when exiting the group_pattern production.
+	ExitGroup_pattern(c *Group_patternContext)
+
+	// ExitSequence_pattern is called when exiting the sequence_pattern production.
+	ExitSequence_pattern(c *Sequence_patternContext)
+
+	// ExitOpen_sequence_pattern is called when exiting the open_sequence_pattern production.
+	ExitOpen_sequence_pattern(c *Open_sequence_patternContext)
+
+	// ExitMaybe_sequence_pattern is called when exiting the maybe_sequence_pattern production.
+	ExitMaybe_sequence_pattern(c *Maybe_sequence_patternContext)
+
+	// ExitMaybe_star_pattern is called when exiting the maybe_star_pattern production.
+	ExitMaybe_star_pattern(c *Maybe_star_patternContext)
+
+	// ExitStar_pattern is called when exiting the star_pattern production.
+	ExitStar_pattern(c *Star_patternContext)
+
+	// ExitMapping_pattern is called when exiting the mapping_pattern production.
+	ExitMapping_pattern(c *Mapping_patternContext)
+
+	// ExitItems_pattern is called when exiting the items_pattern production.
+	ExitItems_pattern(c *Items_patternContext)
+
+	// ExitKey_value_pattern is called when exiting the key_value_pattern production.
+	ExitKey_value_pattern(c *Key_value_patternContext)
+
+	// ExitDouble_star_pattern is called when exiting the double_star_pattern production.
+	ExitDouble_star_pattern(c *Double_star_patternContext)
+
+	// ExitClass_pattern is called when exiting the class_pattern production.
+	ExitClass_pattern(c *Class_patternContext)
+
+	// ExitPositional_patterns is called when exiting the positional_patterns production.
+	ExitPositional_patterns(c *Positional_patternsContext)
+
+	// ExitKeyword_patterns is called when exiting the keyword_patterns production.
+	ExitKeyword_patterns(c *Keyword_patternsContext)
+
+	// ExitKeyword_pattern is called when exiting the keyword_pattern production.
+	ExitKeyword_pattern(c *Keyword_patternContext)
 
 	// ExitTest is called when exiting the test production.
 	ExitTest(c *TestContext)
@@ -451,8 +700,14 @@ type Python3Listener interface {
 	// ExitPower is called when exiting the power production.
 	ExitPower(c *PowerContext)
 
+	// ExitAtom_expr is called when exiting the atom_expr production.
+	ExitAtom_expr(c *Atom_exprContext)
+
 	// ExitAtom is called when exiting the atom production.
 	ExitAtom(c *AtomContext)
+
+	// ExitName is called when exiting the name production.
+	ExitName(c *NameContext)
 
 	// ExitTestlist_comp is called when exiting the testlist_comp production.
 	ExitTestlist_comp(c *Testlist_compContext)
@@ -463,8 +718,8 @@ type Python3Listener interface {
 	// ExitSubscriptlist is called when exiting the subscriptlist production.
 	ExitSubscriptlist(c *SubscriptlistContext)
 
-	// ExitSubscript is called when exiting the subscript production.
-	ExitSubscript(c *SubscriptContext)
+	// ExitSubscript_ is called when exiting the subscript_ production.
+	ExitSubscript_(c *Subscript_Context)
 
 	// ExitSliceop is called when exiting the sliceop production.
 	ExitSliceop(c *SliceopContext)
@@ -496,18 +751,15 @@ type Python3Listener interface {
 	// ExitComp_if is called when exiting the comp_if production.
 	ExitComp_if(c *Comp_ifContext)
 
+	// ExitEncoding_decl is called when exiting the encoding_decl production.
+	ExitEncoding_decl(c *Encoding_declContext)
+
 	// ExitYield_expr is called when exiting the yield_expr production.
 	ExitYield_expr(c *Yield_exprContext)
 
 	// ExitYield_arg is called when exiting the yield_arg production.
 	ExitYield_arg(c *Yield_argContext)
 
-	// ExitStr is called when exiting the str production.
-	ExitStr(c *StrContext)
-
-	// ExitNumber is called when exiting the number production.
-	ExitNumber(c *NumberContext)
-
-	// ExitInteger is called when exiting the integer production.
-	ExitInteger(c *IntegerContext)
+	// ExitStrings is called when exiting the strings production.
+	ExitStrings(c *StringsContext)
 }

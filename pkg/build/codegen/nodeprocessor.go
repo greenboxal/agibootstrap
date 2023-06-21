@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/dave/dst"
-	"github.com/zeroflucs-given/generics/collections/stack"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/project"
@@ -42,10 +41,10 @@ type NodeProcessorOption func(p *NodeProcessor)
 // It is used to configure the behavior of the NodeProcessor. Each option is a function that takes
 // a pointer to the NodeProcessor as a parameter and modifies its properties in some way.
 type NodeProcessor struct {
-	Project    project.Project          // The project associated with the NodeProcessor.
-	SourceFile psi.SourceFile           // The source file being processed.
-	Root       psi.Node                 // The root node of the AST being processed.
-	FuncStack  *stack.Stack[*NodeScope] // A stack of FunctionContexts.
+	Project    project.Project // The project associated with the NodeProcessor.
+	SourceFile psi.SourceFile  // The source file being processed.
+	Root       psi.Node        // The root node of the AST being processed.
+	FuncStack  []*NodeScope    // A stack of FunctionContexts.
 
 	prepareObjective   func(p *NodeProcessor, ctx *NodeScope) (string, error)                                                              // A function to prepare the objective for GPT-3.
 	prepareContext     func(p *NodeProcessor, ctx *NodeScope, root psi.Node, baseRequest gpt.CodeGeneratorRequest) (gpt.ContextBag, error) // A function to prepare the context for GPT-3.
@@ -74,26 +73,20 @@ func (p *NodeProcessor) OnEnter(cursor psi.Cursor) error {
 	e := cursor.Node()
 
 	if e.IsContainer() {
-		err := p.FuncStack.Push(&NodeScope{
+		scope := &NodeScope{
 			Processor: p,
 			Node:      cursor.Node(),
 			Todos:     make([]string, 0),
-		})
-
-		if err != nil {
-			panic(err)
 		}
+
+		p.FuncStack = append(p.FuncStack, scope)
 	}
 
 	for _, txt := range cursor.Node().Comments() {
 		txt = strings.TrimSpace(txt)
 
-		if todoRegex.MatchString(txt) {
-			ok, currentFn := p.FuncStack.Peek()
-
-			if !ok {
-				break
-			}
+		if todoRegex.MatchString(txt) && len(p.FuncStack) > 0 {
+			currentFn := p.FuncStack[len(p.FuncStack)-1]
 
 			currentFn.Todos = append(currentFn.Todos, txt)
 		}
@@ -120,11 +113,12 @@ func (p *NodeProcessor) OnLeave(cursor psi.Cursor) error {
 	e := cursor.Node()
 
 	if e.IsContainer() {
-		ok, currentFn := p.FuncStack.Pop()
-
-		if !ok {
+		if len(p.FuncStack) == 0 {
 			return nil
 		}
+
+		currentFn := p.FuncStack[len(p.FuncStack)-1]
+		p.FuncStack = p.FuncStack[:len(p.FuncStack)-1]
 
 		if !p.checkShouldProcess(currentFn, cursor) {
 			return nil
