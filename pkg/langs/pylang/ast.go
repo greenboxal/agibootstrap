@@ -5,7 +5,6 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 
-	"github.com/greenboxal/agibootstrap/pkg/langs/pylang/pyparser"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -40,6 +39,17 @@ func (nb *NodeBase[T]) Update() {
 
 	nb.NodeBase.Update()
 
+	if sf, ok := nb.Parent().(*SourceFile); ok {
+		newFile := NewSourceFile(sf.l, sf.name, &BufferFileHandle{data: sf.original})
+
+		if err := newFile.Load(); err != nil {
+			panic(err)
+		}
+
+		if err := sf.SetRoot(newFile.parsed, sf.original, sf.tokens); err != nil {
+			panic(err)
+		}
+	}
 }
 
 func NewNodeFor(sf *SourceFile, node antlr.ParserRuleContext) *NodeBase[antlr.ParserRuleContext] {
@@ -80,18 +90,6 @@ func (a *astConversionContext) EnterEveryRule(ctx antlr.ParserRuleContext) {
 
 					n.comments = append(n.comments, txt)
 				}
-			}
-		}
-	}
-
-	switch node := ctx.(type) {
-	case *pyparser.AtomContext:
-		strs := node.AllSTRING()
-
-		for _, str := range strs {
-			s := str.GetText()
-			if strings.HasPrefix(s, `"""// TODO:`) {
-				n.comments = append(n.comments, s)
 			}
 		}
 	}
