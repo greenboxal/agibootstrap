@@ -13,6 +13,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/codex"
 
 	// Register languages
+	_ "github.com/greenboxal/agibootstrap/pkg/langs/clang"
 	_ "github.com/greenboxal/agibootstrap/pkg/langs/golang"
 	_ "github.com/greenboxal/agibootstrap/pkg/langs/mdlang"
 	_ "github.com/greenboxal/agibootstrap/pkg/langs/pylang"

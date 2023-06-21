@@ -640,7 +640,7 @@ PASS : 'pass';
 CONTINUE : 'continue';
 BREAK : 'break';
 
-NEWLINE : ( '\r'? '\n' | '\r' | '\f' ) SPACES?;
+NEWLINE : ( '\r'? '\n' | '\r' | '\f' ) ;
 
 /// identifier   ::=  id_start id_continue*
 NAME

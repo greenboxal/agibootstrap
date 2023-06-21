@@ -1,11 +1,8 @@
-package pylang
+package clang
 
 import (
-	"strings"
-
 	"github.com/antlr4-go/antlr/v4"
 
-	"github.com/greenboxal/agibootstrap/pkg/langs/pylang/pyparser"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -51,6 +48,8 @@ func NewNodeFor(node antlr.ParserRuleContext) *NodeBase[antlr.ParserRuleContext]
 }
 
 type astConversionContext struct {
+	sf *SourceFile
+
 	parentStack []Node
 	result      Node
 }
@@ -64,14 +63,12 @@ func (a *astConversionContext) VisitErrorNode(node antlr.ErrorNode) {
 func (a *astConversionContext) EnterEveryRule(ctx antlr.ParserRuleContext) {
 	n := NewNodeFor(ctx)
 
-	switch node := ctx.(type) {
-	case *pyparser.AtomContext:
-		strs := node.AllStr()
+	if a.sf != nil {
+		hidden := a.sf.tokens.GetHiddenTokensToLeft(ctx.GetStart().GetTokenIndex(), 1)
 
-		for _, str := range strs {
-			s := str.GetText()
-			if strings.HasPrefix(s, `"""// TODO:`) {
-				n.comments = append(n.comments, s)
+		for _, tk := range hidden {
+			if tk.GetChannel() == 1 {
+				n.comments = append(n.comments, tk.GetText())
 			}
 		}
 	}
@@ -89,8 +86,10 @@ func (a *astConversionContext) ExitEveryRule(ctx antlr.ParserRuleContext) {
 	a.parentStack = a.parentStack[:len(a.parentStack)-1]
 }
 
-func AstToPsi(parsed antlr.ParserRuleContext) psi.Node {
-	ctx := &astConversionContext{}
+func AstToPsi(sf *SourceFile, parsed antlr.ParserRuleContext) psi.Node {
+	ctx := &astConversionContext{
+		sf: sf,
+	}
 
 	walker := antlr.NewParseTreeWalker()
 	walker.Walk(ctx, parsed)
