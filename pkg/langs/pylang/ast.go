@@ -39,16 +39,12 @@ func (nb *NodeBase[T]) Update() {
 
 	nb.NodeBase.Update()
 
-	if sf, ok := nb.Parent().(*SourceFile); ok {
-		newFile := NewSourceFile(sf.l, sf.name, &BufferFileHandle{data: sf.original})
+	for i := 0; i < nb.node.GetChildCount(); i++ {
+		nb.node.RemoveLastChild()
+	}
 
-		if err := newFile.Load(); err != nil {
-			panic(err)
-		}
-
-		if err := sf.SetRoot(newFile.parsed, sf.original, sf.tokens); err != nil {
-			panic(err)
-		}
+	for _, c := range nb.Children() {
+		nb.node.AddChild(c.(Node).Ast())
 	}
 }
 
