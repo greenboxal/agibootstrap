@@ -530,3 +530,22 @@ main.main
 	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:127
 runtime.main
 	/opt/homebrew/opt/go/libexec/src/runtime/proc.go:250
+2023-06-20T18:22:37.494-0700	ERROR	build/context.go:31	panic in chain: <nil>
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).ReportError
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:31
+github.com/greenboxal/agibootstrap/pkg/build.(*Context).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/context.go:38
+github.com/greenboxal/agibootstrap/pkg/build.(*Builder).Build
+	/Users/jonathanlima/mark/agibootstrap/staging/pkg/build/build.go:48
+main.main.func3
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:90
+github.com/spf13/cobra.(*Command).execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:940
+github.com/spf13/cobra.(*Command).ExecuteC
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:1068
+github.com/spf13/cobra.(*Command).Execute
+	/Users/jonathanlima/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:992
+main.main
+	/Users/jonathanlima/mark/agibootstrap/staging/cmd/agib/main.go:127
+runtime.main
+	/opt/homebrew/opt/go/libexec/src/runtime/proc.go:250

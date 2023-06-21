@@ -123,6 +123,6 @@ func (bctx *Context) runBuild(ctx context.Context) error {
 
 func (bctx *Context) Close() {
 	if bctx.log != nil {
-		_ = bctx.log.Sync()
+		_ = bctx.log.Close()
 	}
 }
