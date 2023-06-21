@@ -64,10 +64,10 @@ func (a *astConversionContext) EnterEveryRule(ctx antlr.ParserRuleContext) {
 	n := NewNodeFor(ctx)
 
 	if a.sf != nil {
-		hidden := a.sf.tokens.GetHiddenTokensToLeft(ctx.GetStart().GetTokenIndex(), 1)
+		hidden := a.sf.tokens.GetHiddenTokensToLeft(ctx.GetStart().GetTokenIndex(), 2)
 
 		for _, tk := range hidden {
-			if tk.GetChannel() == 1 {
+			if tk.GetChannel() == 2 {
 				n.comments = append(n.comments, tk.GetText())
 			}
 		}

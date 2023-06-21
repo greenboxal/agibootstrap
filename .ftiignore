@@ -9,3 +9,6 @@ hack/goldbld
 *.jpg
 go.mod
 go.sum
+
+*.interp
+*.tokens

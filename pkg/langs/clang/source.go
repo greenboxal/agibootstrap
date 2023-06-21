@@ -10,6 +10,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/pkg/errors"
 
+	"github.com/greenboxal/agibootstrap/pkg/langs/clang/cparser"
 	"github.com/greenboxal/agibootstrap/pkg/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
@@ -120,9 +121,9 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 
 	reader := bytes.NewBufferString(sourceCode)
 	stream := antlr.NewIoStream(reader)
-	lexer := NewCLexer(stream)
+	lexer := cparser.NewCLexer(stream)
 	tokens := antlr.NewCommonTokenStream(lexer, 0)
-	parser := NewCParser(tokens)
+	parser := cparser.NewCParser(tokens)
 	parsed := parser.CompilationUnit()
 
 	if parser.HasError() {
@@ -143,10 +144,17 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 }
 
 func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
+	var start, end antlr.Token
 	n := node.(Node)
 
-	start := n.Ast().GetStart()
-	end := n.Ast().GetStop()
+	start = n.Ast().GetStart()
+	end = n.Ast().GetStop()
+
+	hiddenStart := sf.tokens.GetHiddenTokensToLeft(start.GetTokenIndex(), 2)
+
+	if len(hiddenStart) > 0 {
+		start = hiddenStart[0]
+	}
 
 	ns := n.NextSibling()
 
