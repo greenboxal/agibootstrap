@@ -173,8 +173,6 @@ func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
 	rewriter := antlr.NewTokenStreamRewriter(sf.tokens)
 	txt := rewriter.GetTextDefault()
 
-	sf.l.project.FileSet().AddFile(sf.Name(), -1, len(txt))
-
 	txt = sf.getRange(txt, start, end)
 
 	return mdutils.CodeBlock{
@@ -185,6 +183,45 @@ func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
 }
 
 func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope psi.Scope, cursor psi.Cursor, newSource psi.SourceFile, newAst psi.Node) error {
+	nb := newAst.(*NodeBase[antlr.ParserRuleContext])
+
+	start := nb.Ast().GetStart()
+	end := nb.Ast().GetStop()
+
+	hiddenStart := nb.sf.tokens.GetHiddenTokensToLeft(start.GetTokenIndex(), 2)
+
+	if len(hiddenStart) > 0 {
+		start = hiddenStart[0]
+	}
+
+	ns := nb.NextSibling()
+
+	if ns != nil {
+		if ns, ok := ns.(Node); ok {
+			end = ns.Ast().GetStart()
+		}
+	} else {
+		end = nil
+	}
+
+	code, err := nb.sf.ToCode(nb)
+
+	if err != nil {
+		panic(err)
+	}
+
+	startIndex := start.GetTokenIndex()
+	endIndex := -1
+
+	if end != nil {
+		endIndex = end.GetTokenIndex()
+	}
+
+	if endIndex == -1 {
+		endIndex = nb.sf.tokens.Size() - 1
+	}
+
+	nb.sf.rewriter.Replace(antlr.DefaultProgramName, startIndex, endIndex, code.Code)
 	cursor.Replace(newAst)
 
 	return nil

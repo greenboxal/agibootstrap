@@ -21,6 +21,9 @@ type NodeBase[T antlr.ParserRuleContext] struct {
 
 	node     T
 	comments []string
+
+	sf         *SourceFile
+	start, end antlr.Token
 }
 
 func (nb *NodeBase[T]) IsContainer() bool            { return len(nb.Children()) > 0 }
@@ -49,7 +52,7 @@ func (nb *NodeBase[T]) Update() {
 }
 
 func NewNodeFor(sf *SourceFile, node antlr.ParserRuleContext) *NodeBase[antlr.ParserRuleContext] {
-	n := &NodeBase[antlr.ParserRuleContext]{node: node}
+	n := &NodeBase[antlr.ParserRuleContext]{node: node, sf: sf}
 
 	n.Initialize(n)
 
