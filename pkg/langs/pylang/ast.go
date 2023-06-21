@@ -74,6 +74,7 @@ func (a *astConversionContext) EnterEveryRule(ctx antlr.ParserRuleContext) {
 			}
 		}
 	}
+
 	switch node := ctx.(type) {
 	case *pyparser.AtomContext:
 		strs := node.AllSTRING()

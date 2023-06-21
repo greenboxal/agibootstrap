@@ -13,17 +13,6 @@ type Python3LexerBase struct {
 	indents   []int
 	opened    int
 	lastToken antlr.Token
-	input     antlr.CharStream
-}
-
-func NewPython3LexerBase(input antlr.CharStream) *Python3LexerBase {
-	return &Python3LexerBase{
-		BaseLexer: antlr.NewBaseLexer(input),
-
-		input:   input,
-		tokens:  make([]antlr.Token, 0),
-		indents: make([]int, 0),
-	}
 }
 
 func (p *Python3LexerBase) EmitToken(t antlr.Token) {
@@ -31,7 +20,7 @@ func (p *Python3LexerBase) EmitToken(t antlr.Token) {
 }
 
 func (p *Python3LexerBase) NextToken() antlr.Token {
-	if p.input.LA(1) == -1 && len(p.indents) != 0 {
+	if p.BaseLexer.GetInputStream().LA(1) == -1 && len(p.indents) != 0 {
 		// Remove any trailing EOF tokens from our buffer.
 		for i := len(p.tokens) - 1; i >= 0; i-- {
 			if p.tokens[i].GetTokenType() == -1 {
@@ -115,13 +104,10 @@ func (p *Python3LexerBase) OnNewLine() {
 	newLine := newLineRegex.ReplaceAllString(p.GetText(), "")
 	spaces := spaceRegex.ReplaceAllString(p.GetText(), "")
 
-	// ...
-	// omitted for brevity
-	// ...
 	// Strip newlines inside open clauses except if we are near EOF. We keep NEWLINEs near EOF to
 	// satisfy the final newline needed by the single_put rule used by the REPL.
-	next := p.input.LA(1)
-	nextnext := p.input.LA(2)
+	next := p.GetInputStream().LA(1)
+	nextnext := p.GetInputStream().LA(2)
 	if p.opened > 0 || (nextnext != -1 && (next == '\r' || next == '\n' || next == '\f' || next == '#')) {
 		// If we're inside a list or on a blank line, ignore all indents,
 		// dedents and line breaks.
