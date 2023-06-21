@@ -255,6 +255,10 @@ func (r *Repository) UpdateFile(ctx context.Context, f FileCursor) error {
 		return err
 	}
 
+	if len(data) == 0 {
+		return nil
+	}
+
 	h := hasher.Sum(nil)
 	fileHash := hex.EncodeToString(h)
 
