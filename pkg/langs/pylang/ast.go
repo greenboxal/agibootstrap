@@ -70,7 +70,16 @@ func (a *astConversionContext) EnterEveryRule(ctx antlr.ParserRuleContext) {
 
 		for _, tk := range hidden {
 			if tk.GetChannel() == 2 {
-				n.comments = append(n.comments, tk.GetText())
+				txt := tk.GetText()
+				txt = strings.TrimSpace(txt)
+
+				if txt != "" {
+					if strings.HasPrefix(txt, "# TODO:") {
+						txt = strings.Replace(txt, "# TODO:", "// TODO:", 1)
+					}
+
+					n.comments = append(n.comments, txt)
+				}
 			}
 		}
 	}
