@@ -34,7 +34,7 @@ type SourceFile interface {
 	OriginalText() string
 	ToCode(node Node) (mdutils.CodeBlock, error)
 
-	MergeCompletionResults(ctx context.Context, scope Scope, cursor Cursor, newAst Node) error
+	MergeCompletionResults(ctx context.Context, scope Scope, cursor Cursor, newSource SourceFile, newAst Node) error
 }
 
 type Scope interface {
