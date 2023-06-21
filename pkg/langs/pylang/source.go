@@ -173,7 +173,9 @@ func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
 	rewriter := antlr.NewTokenStreamRewriter(sf.tokens)
 	txt := rewriter.GetTextDefault()
 
-	txt = sf.getRange(start, end)
+	sf.l.project.FileSet().AddFile(sf.Name(), -1, len(txt))
+
+	txt = sf.getRange(txt, start, end)
 
 	return mdutils.CodeBlock{
 		Language: string(LanguageID),
@@ -188,7 +190,7 @@ func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope psi.Scop
 	return nil
 }
 
-func (sf *SourceFile) getRange(start antlr.Token, end antlr.Token) string {
+func (sf *SourceFile) getRange(txt string, start antlr.Token, end antlr.Token) string {
 	startLinePos := sf.file.LineStart(start.GetLine())
 	startLineOffset := sf.file.Offset(startLinePos) + start.GetColumn()
 
@@ -199,5 +201,5 @@ func (sf *SourceFile) getRange(start antlr.Token, end antlr.Token) string {
 	endLinePos := sf.file.LineStart(end.GetLine())
 	endLineOffset := sf.file.Offset(endLinePos) + end.GetColumn()
 
-	return sf.original[startLineOffset:endLineOffset]
+	return txt[startLineOffset:endLineOffset]
 }
