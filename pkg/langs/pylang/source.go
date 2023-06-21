@@ -170,9 +170,7 @@ func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
 		end = nil
 	}
 
-	rewriter := antlr.NewTokenStreamRewriter(sf.tokens)
-	txt := rewriter.GetTextDefault()
-
+	txt := sf.rewriter.GetTextDefault()
 	txt = sf.getRange(txt, start, end)
 
 	return mdutils.CodeBlock{
