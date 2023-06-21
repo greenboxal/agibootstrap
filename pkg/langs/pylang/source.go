@@ -147,9 +147,9 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 }
 
 func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
-	var start, end antlr.Token
-
 	n := node.(Node)
+
+	var start, end antlr.Token
 
 	start = n.Ast().GetStart()
 	end = n.Ast().GetStop()
@@ -170,7 +170,10 @@ func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
 		end = nil
 	}
 
-	txt := sf.getRange(start, end)
+	rewriter := antlr.NewTokenStreamRewriter(sf.tokens)
+	txt := rewriter.GetTextDefault()
+
+	txt = sf.getRange(start, end)
 
 	return mdutils.CodeBlock{
 		Language: string(LanguageID),
@@ -180,52 +183,6 @@ func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
 }
 
 func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope psi.Scope, cursor psi.Cursor, newSource psi.SourceFile, newAst psi.Node) error {
-	var start, end antlr.Token
-
-	n := cursor.Node().(Node)
-	start = n.Ast().GetStart()
-	end = n.Ast().GetStop()
-
-	hiddenStart := sf.tokens.GetHiddenTokensToLeft(start.GetTokenIndex(), 2)
-
-	if len(hiddenStart) > 0 {
-		start = hiddenStart[0]
-	}
-
-	ns := n.NextSibling()
-
-	if ns != nil {
-		if ns, ok := ns.(Node); ok {
-			end = ns.Ast().GetStart()
-		}
-	} else {
-		end = nil
-	}
-
-	replacement, err := newSource.(*SourceFile).ToCode(newAst)
-
-	if err != nil {
-		return err
-	}
-
-	prefix := ""
-	suffix := ""
-
-	startLinePos := sf.file.LineStart(start.GetLine())
-	startLineOffset := sf.file.Offset(startLinePos) + start.GetColumn()
-
-	prefix = sf.original[:startLineOffset]
-
-	if end != nil {
-		endLinePos := sf.file.LineStart(end.GetLine())
-		endLineOffset := sf.file.Offset(endLinePos) + end.GetColumn()
-
-		suffix = sf.original[endLineOffset:]
-	}
-
-	newCode := suffix + replacement.Code + prefix
-
-	sf.original = newCode
 	cursor.Replace(newAst)
 
 	return nil
