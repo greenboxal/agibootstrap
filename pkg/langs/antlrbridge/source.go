@@ -1,4 +1,4 @@
-package pylang
+package antlrbridge
 
 import (
 	"bytes"
@@ -49,7 +49,7 @@ func NewSourceFile(l *Language, name string, handle repofs.FileHandle) *SourceFi
 }
 
 func (sf *SourceFile) Name() string           { return sf.name }
-func (sf *SourceFile) Language() psi.Language { return sf.l }
+func (sf *SourceFile) Language() psi.Language { return sf.l.self }
 func (sf *SourceFile) Path() string           { return sf.name }
 func (sf *SourceFile) OriginalText() string   { return sf.original }
 func (sf *SourceFile) Root() psi.Node         { return sf.root }
@@ -212,7 +212,7 @@ func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
 	txt = n.Tree().GetText()
 
 	return mdutils.CodeBlock{
-		Language: string(LanguageID),
+		Language: string(sf.l.self.Name()),
 		Code:     txt,
 		Filename: sf.Name(),
 	}, nil

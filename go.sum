@@ -1,6 +1,8 @@
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/DataIntelligenceCrew/go-faiss v0.2.0 h1:c0pxAr0vldXIuE4DZnqpl6FuuH1uZd45d+NiQHKg1uU=
 github.com/DataIntelligenceCrew/go-faiss v0.2.0/go.mod h1:4Gi7G3PF78IwZigTL2M1AJXOaAgxyL66vCqUYVaNgwk=
+github.com/antlr4-go/antlr v0.0.0-20230518091524-98b52378c522 h1:o+W7GDFUwWtVkN28CW/nhh/aCmHn6OJddUs3+8vMMjs=
+github.com/antlr4-go/antlr v0.0.0-20230518091524-98b52378c522/go.mod h1:srLVvW4JLxy+tCG9Nn2l8al77mUIMCwAOLQocfLDU2w=
 github.com/antlr4-go/antlr/v4 v4.13.0 h1:lxCg3LAv+EUK6t1i0y1V6/SLeUi0eKEKdhQAlS8TVTI=
 github.com/antlr4-go/antlr/v4 v4.13.0/go.mod h1:pfChB/xh/Unjila75QW7+VU4TSnWnnk9UTnmpPaOR2g=
 github.com/antonmedv/expr v1.12.5 h1:Fq4okale9swwL3OeLLs9WD9H6GbgBLJyN/NUHRv+n0E=

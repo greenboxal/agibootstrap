@@ -36,53 +36,59 @@ type Cursor interface {
 }
 
 type cursorState struct {
-	current      Node
+	current Node
+	queue   []Node
+
 	walkChildren bool
 	walkEdges    bool
 }
 
 type cursor struct {
+	state cursorState
+	stack []cursorState
+
 	walkChildren bool
-	stack        []cursorState
-	last         cursorState
+	walkEdges    bool
 }
 
 func (c *cursor) push(st cursorState) {
-	c.stack = append(c.stack, st)
+	c.stack = append(c.stack, c.state)
+	c.state = st
 }
 
 func (c *cursor) pop() cursorState {
-	st := c.stack[len(c.stack)-1]
+	old := c.state
+	c.state = c.stack[len(c.stack)-1]
 	c.stack = c.stack[:len(c.stack)-1]
-	return st
-}
-
-func (c *cursor) state() *cursorState {
-	return &c.stack[len(c.stack)-1]
+	return old
 }
 
 func (c *cursor) Node() Node {
-	return c.state().current
+	return c.state.current
 }
 
 func (c *cursor) WalkChildren() {
-	c.state().walkChildren = true
+	c.state.walkChildren = true
 }
 
 func (c *cursor) SkipChildren() {
-	c.state().walkChildren = false
+	c.state.walkChildren = false
 }
 
 func (c *cursor) WalkEdges() {
-	c.state().walkEdges = true
+	c.state.walkEdges = true
 }
 
 func (c *cursor) SkipEdges() {
-	c.state().walkEdges = false
+	c.state.walkEdges = false
+}
+
+func (c *cursor) Enqueue(node Node) {
+	c.state.queue = append(c.state.queue, node)
 }
 
 func (c *cursor) SetCurrent(node Node) {
-	c.state().current = node
+	c.state.current = node
 }
 
 func (c *cursor) InsertBefore(newNode Node) {
@@ -118,33 +124,52 @@ func (c *cursor) Replace(newNode Node) {
 	c.SetCurrent(newNode)
 }
 
-func (c *cursor) Walk(n Node, defaultWalkChildren bool, defaultWalkEdges bool, walkFn WalkFunc) (err error) {
-	c.push(cursorState{current: n, walkChildren: defaultWalkChildren, walkEdges: defaultWalkEdges})
+func (c *cursor) Next() bool {
+	if len(c.state.queue) > 0 {
+		c.state.current = c.state.queue[0]
+		c.state.queue = c.state.queue[1:]
 
-	defer func() {
-		c.last = c.pop()
-	}()
-
-	if err := walkFn(c, true); err != nil {
-		return err
+		return true
 	}
 
-	if c.state().walkChildren {
-		for _, child := range n.Children() {
-			if err := c.Walk(child, defaultWalkChildren, defaultWalkEdges, walkFn); err != nil {
+	return false
+}
+
+func (c *cursor) Walk(n Node, walkFn WalkFunc) (err error) {
+	for {
+		if c.Next() {
+			if c.state.current == nil {
+				break
+			}
+
+			if err := walkFn(c, true); err != nil {
+				return err
+			}
+
+			if c.state.walkEdges {
+				panic("not implemented")
+			}
+
+			if c.state.walkChildren {
+				st := cursorState{queue: n.Children(), walkChildren: c.walkChildren, walkEdges: c.walkEdges}
+
+				c.push(st)
+			}
+		} else {
+			if len(c.stack) == 0 {
+				break
+			}
+
+			c.pop()
+
+			if c.state.current == nil {
+				break
+			}
+
+			if err := walkFn(c, false); err != nil {
 				return err
 			}
 		}
-	} else {
-		return nil
-	}
-
-	if err := walkFn(c, false); err != nil {
-		return err
-	}
-
-	if c.state().walkEdges {
-		panic("not implemented")
 	}
 
 	return nil
@@ -155,24 +180,26 @@ type WalkFunc func(cursor Cursor, entering bool) error
 
 // Walk traverses a PSI Tree in depth-first order.
 func Walk(node Node, walkFn WalkFunc) error {
-	c := &cursor{}
+	c := &cursor{
+		walkChildren: true,
+	}
 
-	return c.Walk(node, true, false, walkFn)
-}
-
-func WalkEx(node Node, walkFn WalkFunc) error {
-	c := &cursor{}
-
-	return c.Walk(node, false, false, walkFn)
+	return c.Walk(node, walkFn)
 }
 
 // Rewrite traverses a PSI Tree in depth-first order and rewrites it.
 func Rewrite(node Node, walkFunc WalkFunc) (Node, error) {
-	c := &cursor{}
+	c := &cursor{
+		walkChildren: true,
+	}
 
-	if err := c.Walk(node, true, false, walkFunc); err != nil && err != ErrAbort {
+	if err := c.Walk(node, walkFunc); err != nil && err != ErrAbort {
 		return nil, err
 	}
 
-	return c.last.current, nil
+	return c.state.current, nil
+}
+
+func NewCursor() Cursor {
+	return &cursor{}
 }

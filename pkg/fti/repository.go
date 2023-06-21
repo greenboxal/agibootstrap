@@ -106,6 +106,10 @@ func (r *Repository) OpenFile(filePath string) (fs.File, error) {
 func (r *Repository) IsIgnored(name string) bool {
 	p := r.RelativeToRoot(name)
 
+	if r.ignore == nil {
+		return false
+	}
+
 	return r.ignore.MatchesPath(p)
 }
 

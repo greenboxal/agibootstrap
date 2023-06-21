@@ -15,14 +15,16 @@ import (
 const LanguageID psi.LanguageID = "python"
 
 func init() {
-	project.RegisterLanguage(LanguageID, NewLanguage)
+	project.RegisterLanguage(LanguageID, func(p project.Project) psi.Language {
+		return NewLanguage(p)
+	})
 }
 
 type Language struct {
 	project project.Project
 }
 
-func NewLanguage(p project.Project) psi.Language {
+func NewLanguage(p project.Project) *Language {
 	return &Language{
 		project: p,
 	}

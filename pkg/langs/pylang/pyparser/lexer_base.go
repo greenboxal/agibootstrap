@@ -1,145 +1,136 @@
 package pyparser
 
 import (
-	"regexp"
-
 	"github.com/antlr4-go/antlr/v4"
 )
 
 type Python3LexerBase struct {
 	*antlr.BaseLexer
 
-	tokens    []antlr.Token
-	indents   []int
 	opened    int
 	lastToken antlr.Token
+	indents   []int
+	buffer    []antlr.Token
 }
 
-func (p *Python3LexerBase) EmitToken(t antlr.Token) {
-	p.tokens = append(p.tokens, t)
+const TabSize = 8
+
+func (l *Python3LexerBase) EmitToken(token antlr.Token) {
+	l.BaseLexer.EmitToken(token)
+
+	l.buffer = append(l.buffer, token)
+	l.lastToken = token
 }
 
-func (p *Python3LexerBase) NextToken() antlr.Token {
-	if p.BaseLexer.GetInputStream().LA(1) == -1 && len(p.indents) != 0 {
-		// Remove any trailing EOF tokens from our buffer.
-		for i := len(p.tokens) - 1; i >= 0; i-- {
-			if p.tokens[i].GetTokenType() == -1 {
-				p.tokens = p.tokens[:i]
-			}
+func (l *Python3LexerBase) NextToken() antlr.Token {
+	input := l.GetInputStream()
+
+	// Check if the end-of-file is ahead and there are still some DEDENTS expected.
+	if input.LA(1) == -1 && len(l.indents) > 0 {
+		if len(l.buffer) == 0 || l.buffer[len(l.buffer)].GetTokenType() != Python3LexerLINE_BREAK {
+			// First emit an extra line break that serves as the end of the statement.
+			l.emit(Python3LexerLINE_BREAK, antlr.TokenDefaultChannel, "")
 		}
-
-		// First emit an extra line break that serves as the end of the statement.
-		p.EmitToken(p.CommonToken(Python3LexerNEWLINE, "\n"))
 
 		// Now emit as much DEDENT tokens as needed.
-		for len(p.indents) > 0 {
-			p.EmitToken(p.CreateDedent())
-			p.indents = p.indents[:len(p.indents)-1]
-		}
-
-		// Put the EOF back on the token stream.
-		p.EmitToken(p.CommonToken(-1, "<EOF>"))
-	}
-
-	next := p.BaseLexer.NextToken() // You will need to replace this part
-
-	if next.GetChannel() == 0 {
-		p.lastToken = next
-	}
-
-	if len(p.tokens) == 0 {
-		return next
-	} else {
-		token := p.tokens[0]
-		p.tokens = p.tokens[1:]
-		return token
-	}
-}
-
-func (p *Python3LexerBase) CreateDedent() antlr.Token {
-	dedent := p.CommonToken(Python3LexerDEDENT, "")
-	//dedent.SetLine(p.lastToken.GetLine())
-	return dedent
-}
-
-func (p *Python3LexerBase) CommonToken(ttype int, text string) *antlr.CommonToken {
-	stop := p.GetCharIndex() - 1 // You will need to replace this part
-	start := stop
-	if len(text) != 0 {
-		start = stop - len(text) + 1
-	}
-	return antlr.NewCommonToken(p.GetTokenSourceCharStreamPair(), ttype, 0, start, stop) // You will need to replace this part
-}
-
-func GetIndentationCount(spaces string) int {
-	count := 0
-	for _, ch := range spaces {
-		switch ch {
-		case '\t':
-			count += 8 - (count % 8)
-		default:
-			count++
+		for len(l.indents) != 0 {
+			l.emit(Python3LexerDEDENT, antlr.TokenDefaultChannel, "")
+			l.indents = l.indents[:len(l.indents)-1]
 		}
 	}
 
-	return count
+	if len(l.buffer) == 0 {
+		return l.BaseLexer.NextToken()
+	}
+
+	result := l.buffer[0]
+	l.buffer = l.buffer[1:]
+
+	return result
 }
 
-func (p *Python3LexerBase) AtStartOfInput() bool {
-	return p.GetCharPositionInLine() == 0 && p.GetLine() == 1 // You will need to replace this part
+func (l *Python3LexerBase) IncIndentLevel() {
+	l.opened++
 }
 
-func (p *Python3LexerBase) OpenBrace() {
-	p.opened++
+func (l *Python3LexerBase) DecIndentLevel() {
+	if l.opened > 0 {
+		l.opened--
+	}
 }
 
-func (p *Python3LexerBase) CloseBrace() {
-	p.opened--
+func (l *Python3LexerBase) HandleNewLine() {
+	l.emit(Python3LexerNEWLINE, antlr.TokenHiddenChannel, l.GetText())
+
+	input := l.GetInputStream()
+	next := input.LA(1)
+
+	// Process whitespaces in HandleSpaces
+	if next != ' ' && next != '\t' && l.IsNotNewLineOrComment(next) {
+		l.ProcessNewLine(0)
+	}
 }
 
-var newLineRegex = regexp.MustCompile("[^\\r\\n\\f]+")
-var spaceRegex = regexp.MustCompile("[\\r\\n\\f]+")
+func (l *Python3LexerBase) HandleSpaces() {
+	input := l.GetInputStream()
+	next := input.LA(1)
 
-func (p *Python3LexerBase) OnNewLine() {
-	newLine := newLineRegex.ReplaceAllString(p.GetText(), "")
-	spaces := spaceRegex.ReplaceAllString(p.GetText(), "")
+	if (l.lastToken == nil || l.lastToken.GetTokenType() == Python3LexerNEWLINE) && l.IsNotNewLineOrComment(next) {
+		// Calculates the indentation of the provided spaces, taking the
+		// following rules into account:
+		//
+		// "Tabs are replaced (from left to right) by one to eight spaces
+		//  such that the total number of characters up to and including
+		//  the replacement is a multiple of eight [...]"
+		//
+		//  -- https://docs.python.org/3.1/reference/lexical_analysis.html#indentation
 
-	// Strip newlines inside open clauses except if we are near EOF. We keep NEWLINEs near EOF to
-	// satisfy the final newline needed by the single_put rule used by the REPL.
-	next := p.GetInputStream().LA(1)
-	nextnext := p.GetInputStream().LA(2)
-	if p.opened > 0 || (nextnext != -1 && (next == '\r' || next == '\n' || next == '\f' || next == '#')) {
-		// If we're inside a list or on a blank line, ignore all indents,
-		// dedents and line breaks.
-		p.Skip()
-	} else {
-		p.EmitToken(p.CommonToken(Python3LexerNEWLINE, newLine))
-		indent := GetIndentationCount(spaces)
-		previous := 0
-		if len(p.indents) != 0 {
-			previous = p.indents[len(p.indents)-1]
-		}
+		indent := 0
+		text := l.GetText()
 
-		if indent == previous {
-			// skip indents of the same size as the present indent-size
-			p.Skip()
-		} else if indent > previous {
-			p.indents = append(p.indents, indent)
-			p.EmitToken(p.CommonToken(Python3LexerINDENT, spaces))
-		} else {
-			// Possibly emit more than 1 DEDENT token.
-			for len(p.indents) != 0 && p.indents[len(p.indents)-1] > indent {
-				p.EmitToken(p.CreateDedent())
-				p.indents = p.indents[:len(p.indents)-1]
+		for i := 0; i < len(text); i++ {
+			if text[i] == '\t' {
+				indent += TabSize - indent%TabSize
+			} else {
+				indent++
 			}
 		}
+
+		l.ProcessNewLine(indent)
 	}
+
+	l.emit(Python3LexerWS, antlr.TokenHiddenChannel, l.GetText())
 }
 
-func (p *Python3LexerBase) Reset() {
-	p.tokens = make([]antlr.Token, 0)
-	p.indents = make([]int, 0)
-	p.opened = 0
-	p.lastToken = nil
-	p.BaseLexer.Reset()
+func (l *Python3LexerBase) emit(tokenType, channel int, text string) {
+	charIndex := l.GetCharIndex()
+	token := antlr.NewCommonToken(l.GetTokenSourceCharStreamPair(), tokenType, channel, charIndex-len(text), charIndex-1)
+	token.SetText(text)
+
+	l.EmitToken(token)
+}
+
+func (l *Python3LexerBase) IsNotNewLineOrComment(next int) bool {
+	return l.opened == 0 && next != '\r' && next != '\n' && next != '\f' && next != '#'
+}
+
+func (l *Python3LexerBase) ProcessNewLine(indent int) {
+	l.emit(Python3LexerLINE_BREAK, antlr.TokenDefaultChannel, "")
+
+	previous := 0
+
+	if len(l.indents) > 0 {
+		previous = l.indents[len(l.indents)-1]
+	}
+
+	if indent > previous {
+		l.indents = append(l.indents, indent)
+		l.emit(Python3LexerINDENT, antlr.TokenDefaultChannel, "")
+	} else {
+		// Possibly emit more than 1 DEDENT token.
+		for len(l.indents) != 0 && l.indents[len(l.indents)-1] > indent {
+			l.emit(Python3LexerDEDENT, antlr.TokenDefaultChannel, "")
+			l.indents = l.indents[:len(l.indents)-1]
+		}
+	}
 }

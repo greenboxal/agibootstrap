@@ -1,4 +1,4 @@
-package pylang
+package antlrbridge
 
 import (
 	"strings"

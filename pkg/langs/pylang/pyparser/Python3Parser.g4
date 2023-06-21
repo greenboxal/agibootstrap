@@ -1,239 +1,386 @@
 /*
- * The MIT License (MIT)
- *
- * Copyright (c) 2014 by Bart Kiers
- *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use,
- * copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following
- * conditions:
- *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
- * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
- * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- * OTHER DEALINGS IN THE SOFTWARE.
- *
- * Project      : python3-parser; an ANTLR4 grammar for Python 3
- *                https://github.com/bkiers/python3-parser
- * Developed by : Bart Kiers, bart@big-o.nl
- */
+Python grammar.
+The MIT License (MIT).
+Copyright (c) 2014, Bart Kiers, bart@big-o.nl
+Copyright (c) 2019, Dmitriy Litovchenko, Dmitry.Litovchenko1@yandex.ru, Positive Technologies
+Copyright (c) 2019, Nikita Subbotin, sub.nik.and@gmail.com, Positive Technologies
+Copyright (c) 2019, Ivan Kochurkin, kvanttt@gmail.com, Positive Technologies
 
-// Scraping from https://docs.python.org/3/reference/grammar.html
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
 
 parser grammar Python3Parser;
 
-options {
-    superClass = Python3ParserBase;
-    tokenVocab=Python3Lexer;
-}
+// Insert here @header for C++ parser.
 
-// All comments that start with "///" are copy-pasted from
-// The Python Language Reference
+options { tokenVocab=Python3Lexer; superClass=Python3ParserBase; }
 
-single_input: NEWLINE | simple_stmts | compound_stmt NEWLINE;
-file_input: (NEWLINE | stmt)* EOF;
-eval_input: testlist NEWLINE* EOF;
-
-decorator: '@' dotted_name ( '(' arglist? ')' )? NEWLINE;
-decorators: decorator+;
-decorated: decorators (classdef | funcdef | async_funcdef);
-
-async_funcdef: ASYNC funcdef;
-funcdef: 'def' name parameters ('->' test)? ':' block;
-
-parameters: '(' typedargslist? ')';
-typedargslist: (tfpdef ('=' test)? (',' tfpdef ('=' test)?)* (',' (
-        '*' tfpdef? (',' tfpdef ('=' test)?)* (',' ('**' tfpdef ','? )? )?
-      | '**' tfpdef ','? )? )?
-  | '*' tfpdef? (',' tfpdef ('=' test)?)* (',' ('**' tfpdef ','? )? )?
-  | '**' tfpdef ','?);
-tfpdef: name (':' test)?;
-varargslist: (vfpdef ('=' test)? (',' vfpdef ('=' test)?)* (',' (
-        '*' vfpdef? (',' vfpdef ('=' test)?)* (',' ('**' vfpdef ','? )? )?
-      | '**' vfpdef (',')?)?)?
-  | '*' vfpdef? (',' vfpdef ('=' test)?)* (',' ('**' vfpdef ','? )? )?
-  | '**' vfpdef ','?
-);
-vfpdef: name;
-
-stmt: simple_stmts | compound_stmt;
-simple_stmts: simple_stmt (';' simple_stmt)* ';'? NEWLINE;
-simple_stmt: (expr_stmt | del_stmt | pass_stmt | flow_stmt |
-             import_stmt | global_stmt | nonlocal_stmt | assert_stmt);
-expr_stmt: testlist_star_expr (annassign | augassign (yield_expr|testlist) |
-                     ('=' (yield_expr|testlist_star_expr))*);
-annassign: ':' test ('=' test)?;
-testlist_star_expr: (test|star_expr) (',' (test|star_expr))* ','?;
-augassign: ('+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' |
-            '<<=' | '>>=' | '**=' | '//=');
-// For normal and annotated assignments, additional restrictions enforced by the interpreter
-del_stmt: 'del' exprlist;
-pass_stmt: 'pass';
-flow_stmt: break_stmt | continue_stmt | return_stmt | raise_stmt | yield_stmt;
-break_stmt: 'break';
-continue_stmt: 'continue';
-return_stmt: 'return' testlist?;
-yield_stmt: yield_expr;
-raise_stmt: 'raise' (test ('from' test)?)?;
-import_stmt: import_name | import_from;
-import_name: 'import' dotted_as_names;
-// note below: the ('.' | '...') is necessary because '...' is tokenized as ELLIPSIS
-import_from: ('from' (('.' | '...')* dotted_name | ('.' | '...')+)
-              'import' ('*' | '(' import_as_names ')' | import_as_names));
-import_as_name: name ('as' name)?;
-dotted_as_name: dotted_name ('as' name)?;
-import_as_names: import_as_name (',' import_as_name)* ','?;
-dotted_as_names: dotted_as_name (',' dotted_as_name)*;
-dotted_name: name ('.' name)*;
-global_stmt: 'global' name (',' name)*;
-nonlocal_stmt: 'nonlocal' name (',' name)*;
-assert_stmt: 'assert' test (',' test)?;
-
-compound_stmt: if_stmt | while_stmt | for_stmt | try_stmt | with_stmt | funcdef | classdef | decorated | async_stmt | match_stmt;
-async_stmt: ASYNC (funcdef | with_stmt | for_stmt);
-if_stmt: 'if' test ':' block ('elif' test ':' block)* ('else' ':' block)?;
-while_stmt: 'while' test ':' block ('else' ':' block)?;
-for_stmt: 'for' exprlist 'in' testlist ':' block ('else' ':' block)?;
-try_stmt: ('try' ':' block
-           ((except_clause ':' block)+
-            ('else' ':' block)?
-            ('finally' ':' block)? |
-           'finally' ':' block));
-with_stmt: 'with' with_item (',' with_item)*  ':' block;
-with_item: test ('as' expr)?;
-// NB compile.c makes sure that the default except clause is last
-except_clause: 'except' (test ('as' name)?)?;
-block: simple_stmts | NEWLINE INDENT stmt+ DEDENT;
-match_stmt: 'match' subject_expr ':' NEWLINE INDENT case_block+ DEDENT ;
-subject_expr: star_named_expression ',' star_named_expressions? | test ;
-star_named_expressions: ',' star_named_expression+ ','? ;
-star_named_expression: '*' expr | test ;
-case_block: 'case' patterns guard? ':' block ;
-guard: 'if' test ;
-patterns: open_sequence_pattern | pattern ;
-pattern: as_pattern | or_pattern ;
-as_pattern: or_pattern 'as' pattern_capture_target ;
-or_pattern: closed_pattern ('|' closed_pattern)* ;
-closed_pattern: literal_pattern | capture_pattern | wildcard_pattern | value_pattern | group_pattern | sequence_pattern | mapping_pattern | class_pattern ;
-literal_pattern: signed_number { p.CannotBePlusMinus() }? | complex_number | strings | 'None' | 'True' | 'False' ;
-literal_expr: signed_number { p.CannotBePlusMinus() }? | complex_number | strings | 'None' | 'True' | 'False' ;
-complex_number: signed_real_number '+' imaginary_number
-    | signed_real_number '-' imaginary_number
+root
+    : (single_input
+    | file_input
+    | eval_input)? EOF
     ;
-signed_number: NUMBER | '-' NUMBER ;
-signed_real_number: real_number | '-' real_number ;
-real_number: NUMBER ;
-imaginary_number: NUMBER ;
-capture_pattern: pattern_capture_target ;
-pattern_capture_target: /* cannot be '_' */ name { p.CannotBeDotLpEq() }? ;
-wildcard_pattern: '_' ;
-value_pattern: attr { p.CannotBeDotLpEq() }? ;
-attr: name ('.' name)+ ;
-name_or_attr: attr | name ;
-group_pattern: '(' pattern ')' ;
-sequence_pattern:
-    '[' maybe_sequence_pattern? ']'
-    | '(' open_sequence_pattern? ')'
+
+// A single interactive statement;
+single_input
+    : LINE_BREAK
+    | simple_stmt
+    | compound_stmt LINE_BREAK
     ;
-open_sequence_pattern: maybe_star_pattern ',' maybe_sequence_pattern? ;
-maybe_sequence_pattern: maybe_star_pattern (',' maybe_star_pattern)* ','? ;
-maybe_star_pattern: star_pattern | pattern ;
-star_pattern:
-    '*' pattern_capture_target
-    | '*' wildcard_pattern
+
+// A module or sequence of commands read from an input file
+file_input
+    : (LINE_BREAK | stmt)+
     ;
-mapping_pattern: '{' '}'
-    | '{' double_star_pattern ','? '}'
-    | '{' items_pattern ',' double_star_pattern ','? '}'
-    | '{' items_pattern ','? '}'
+
+// An input for the eval() and input() functions
+eval_input
+    : testlist LINE_BREAK*
     ;
-items_pattern: key_value_pattern (',' key_value_pattern)* ;
-key_value_pattern: (literal_expr | attr) ':' pattern ;
-double_star_pattern: '**' pattern_capture_target ;
-class_pattern: name_or_attr '(' ')'
-    | name_or_attr '(' positional_patterns ','? ')'
-    | name_or_attr '(' keyword_patterns ','? ')'
-    | name_or_attr '(' positional_patterns ',' keyword_patterns ','? ')'
+
+stmt
+    : simple_stmt
+    | compound_stmt
     ;
-positional_patterns: pattern (',' pattern)* ;
-keyword_patterns: keyword_pattern (',' keyword_pattern)* ;
-keyword_pattern: name '=' pattern ;
 
-test: or_test ('if' or_test 'else' test)? | lambdef;
-test_nocond: or_test | lambdef_nocond;
-lambdef: 'lambda' varargslist? ':' test;
-lambdef_nocond: 'lambda' varargslist? ':' test_nocond;
-or_test: and_test ('or' and_test)*;
-and_test: not_test ('and' not_test)*;
-not_test: 'not' not_test | comparison;
-comparison: expr (comp_op expr)*;
-// <> isn't actually a valid comparison operator in Python. It's here for the
-// sake of a __future__ import described in PEP 401 (which really works :-)
-comp_op: '<'|'>'|'=='|'>='|'<='|'<>'|'!='|'in'|'not' 'in'|'is'|'is' 'not';
-star_expr: '*' expr;
-expr: xor_expr ('|' xor_expr)*;
-xor_expr: and_expr ('^' and_expr)*;
-and_expr: shift_expr ('&' shift_expr)*;
-shift_expr: arith_expr (('<<'|'>>') arith_expr)*;
-arith_expr: term (('+'|'-') term)*;
-term: factor (('*'|'@'|'/'|'%'|'//') factor)*;
-factor: ('+'|'-'|'~') factor | power;
-power: atom_expr ('**' factor)?;
-atom_expr: AWAIT? atom trailer*;
-atom: '(' (yield_expr|testlist_comp)? ')'
-   | '[' testlist_comp? ']'
-   | '{' dictorsetmaker? '}'
-   | name | NUMBER | STRING+ | '...' | 'None' | 'True' | 'False' ;
-name : NAME | '_' | 'match' ;
-testlist_comp: (test|star_expr) ( comp_for | (',' (test|star_expr))* ','? );
-trailer: '(' arglist? ')' | '[' subscriptlist ']' | '.' name ;
-subscriptlist: subscript_ (',' subscript_)* ','?;
-subscript_: test | test? ':' test? sliceop?;
-sliceop: ':' test?;
-exprlist: (expr|star_expr) (',' (expr|star_expr))* ','?;
-testlist: test (',' test)* ','?;
-dictorsetmaker: ( ((test ':' test | '**' expr)
-                   (comp_for | (',' (test ':' test | '**' expr))* ','?)) |
-                  ((test | star_expr)
-                   (comp_for | (',' (test | star_expr))* ','?)) );
+compound_stmt
+    : IF cond=test COLON suite elif_clause* else_clause?                             #if_stmt
+    | WHILE test COLON suite else_clause?                                            #while_stmt
+    | ASYNC? FOR exprlist IN testlist COLON suite else_clause?                       #for_stmt
+    | TRY COLON suite (except_clause+ else_clause? finally_clause? | finally_clause) #try_stmt
+    | ASYNC? WITH with_item (COMMA with_item)* COLON suite                           #with_stmt
+    | decorator* (classdef | funcdef)                                                #class_or_func_def_stmt
+    ;
 
-classdef: 'class' name ('(' arglist? ')')? ':' block;
+suite
+    : simple_stmt
+    | LINE_BREAK INDENT stmt+ DEDENT
+    ;
 
-arglist: argument (',' argument)* ','?;
+decorator
+    : AT dotted_name (OPEN_PAREN arglist? CLOSE_PAREN)? LINE_BREAK
+    ;
 
-// The reason that keywords are test nodes instead of NAME is that using NAME
-// results in an ambiguity. ast.c makes sure it's a NAME.
-// "test '=' test" is really "keyword '=' test", but we have no such token.
-// These need to be in a single rule to avoid grammar that is ambiguous
-// to our LL(1) parser. Even though 'test' includes '*expr' in star_expr,
-// we explicitly match '*' here, too, to give it proper precedence.
-// Illegal combinations and orderings are blocked in ast.c:
-// multiple (test comp_for) arguments are blocked; keyword unpackings
-// that precede iterable unpackings are blocked; etc.
-argument: ( test comp_for? |
-            test '=' test |
-            '**' test |
-            '*' test );
+elif_clause
+    : ELIF test COLON suite
+    ;
 
-comp_iter: comp_for | comp_if;
-comp_for: ASYNC? 'for' exprlist 'in' or_test comp_iter?;
-comp_if: 'if' test_nocond comp_iter?;
+else_clause
+    : ELSE COLON suite
+    ;
 
-// not used in grammar, but may appear in "node" passed from Parser to Compiler
-encoding_decl: name;
+finally_clause
+    : FINALLY COLON suite
+    ;
 
-yield_expr: 'yield' yield_arg?;
-yield_arg: 'from' test | testlist;
+with_item
+    // NB compile.c makes sure that the default except clause is last
+    : test (AS expr)?
+    ;
 
-strings: STRING+ ;
+// Python 2 : EXCEPT test COMMA name
+// Python 3 : EXCEPT test AS name
+except_clause
+    : EXCEPT (test ({p.CheckVersion(2)}? COMMA name {p.SetVersion(2);} | {p.CheckVersion(3)}? AS name {p.SetVersion(3);})?)? COLON suite
+    ;
+
+classdef
+    : CLASS name (OPEN_PAREN arglist? CLOSE_PAREN)? COLON suite
+    ;
+
+funcdef
+    : ASYNC? DEF name OPEN_PAREN typedargslist? CLOSE_PAREN (ARROW test)? COLON suite
+    ;
+
+// python 3 paramters
+// parameters list may have a trailing comma
+typedargslist
+    : (def_parameters COMMA)? (args (COMMA def_parameters)? (COMMA kwargs)? | kwargs) COMMA?
+    | def_parameters COMMA?
+    ;
+
+args
+    : STAR named_parameter
+    ;
+
+kwargs
+    : POWER named_parameter
+    ;
+
+def_parameters
+    : def_parameter (COMMA def_parameter)*
+    ;
+
+// TODO: bare STAR parameter must follow named ones
+def_parameter
+    : named_parameter (ASSIGN test)?
+    | STAR
+    ;
+
+named_parameter
+    : name (COLON test)?
+    ;
+
+simple_stmt
+    : small_stmt (SEMI_COLON small_stmt)* SEMI_COLON? (LINE_BREAK | EOF)
+    ;
+
+// TODO 1: left part augmented assignment should be `test` only, no stars or lists
+// TODO 2: semantically annotated declaration is not an assignment
+small_stmt
+    : testlist_star_expr assign_part?                                                 #expr_stmt
+    | {p.CheckVersion(2)}? PRINT ((test (COMMA test)* COMMA?)
+                       | RIGHT_SHIFT test ((COMMA test)+ COMMA?)) {p.SetVersion(2);}    #print_stmt   // Python 2
+    | DEL exprlist                                                                    #del_stmt
+    | PASS                                                                            #pass_stmt
+    | BREAK                                                                           #break_stmt
+    | CONTINUE                                                                        #continue_stmt
+    | RETURN testlist?                                                                #return_stmt
+    | RAISE (test (COMMA test (COMMA test)?)?)? (FROM test)?                          #raise_stmt
+    | yield_expr                                                                      #yield_stmt
+    | IMPORT dotted_as_names                                                          #import_stmt
+    | FROM ((DOT | ELLIPSIS)* dotted_name | (DOT | ELLIPSIS)+)
+      IMPORT (STAR | OPEN_PAREN import_as_names CLOSE_PAREN | import_as_names)        #from_stmt
+    | GLOBAL name (COMMA name)*                                                       #global_stmt
+    | {p.CheckVersion(2)}? EXEC expr (IN test (COMMA test)?)? {p.SetVersion(2);}          #exec_stmt     // Python 2
+    | ASSERT test (COMMA test)?                                                       #assert_stmt
+    | {p.CheckVersion(3)}? NONLOCAL name (COMMA name)* {p.SetVersion(3);}                 #nonlocal_stmt // Python 3
+    ;
+
+testlist_star_expr
+    : ((test | star_expr) COMMA)+ (test | star_expr)?
+    | testlist
+    ;
+
+star_expr
+    : STAR expr
+    ;
+
+assign_part
+    // if left expression in assign is bool literal, it's mean that is Python 2 here
+    : ASSIGN ( testlist_star_expr (ASSIGN testlist_star_expr)* (ASSIGN yield_expr)?
+             | yield_expr)
+    | {p.CheckVersion(3)}? COLON test (ASSIGN testlist)? {p.SetVersion(3);} // annassign Python3 rule
+    | op=( ADD_ASSIGN
+         | SUB_ASSIGN
+         | MULT_ASSIGN
+         | AT_ASSIGN
+         | DIV_ASSIGN
+         | MOD_ASSIGN
+         | AND_ASSIGN
+         | OR_ASSIGN
+         | XOR_ASSIGN
+         | LEFT_SHIFT_ASSIGN
+         | RIGHT_SHIFT_ASSIGN
+         | POWER_ASSIGN
+         | IDIV_ASSIGN
+         )
+      (yield_expr | testlist)
+    ;
+
+exprlist
+    : expr (COMMA expr)* COMMA?
+    ;
+
+import_as_names
+    : import_as_name (COMMA import_as_name)* COMMA?
+    ;
+
+// TODO: that means we can use keyword True as the name here: `from foo import bar as True` -- no
+import_as_name
+    : name (AS name)?
+    ;
+
+dotted_as_names
+    : dotted_as_name (COMMA dotted_as_name)*
+    ;
+
+dotted_as_name
+    : dotted_name (AS name)?
+    ;
+
+/*
+ * Warning!
+ * According to https://docs.python.org/3/reference/expressions.html#lambda LAMBDA should be followed by
+ * `parameter_list` (in our case it is `typedargslist`)
+ * But that's not true! `typedargslist` may have parameters with type hinting, but that's not permitted in lambda
+ * definition
+ */
+// https://docs.python.org/3/reference/expressions.html#operator-precedence
+test
+    : logical_test (IF logical_test ELSE test)?
+    | LAMBDA varargslist? COLON test
+    ;
+
+// the same as `typedargslist`, but with no types
+varargslist
+    : (vardef_parameters COMMA)? (varargs (COMMA vardef_parameters)? (COMMA varkwargs)? | varkwargs) COMMA?
+    | vardef_parameters COMMA?
+    ;
+
+vardef_parameters
+    : vardef_parameter (COMMA vardef_parameter)*
+    ;
+
+// TODO: bare STAR parameter must follow named ones
+vardef_parameter
+    : name (ASSIGN test)?
+    | STAR
+    ;
+
+varargs
+    : STAR name
+    ;
+
+varkwargs
+    : POWER name
+    ;
+
+logical_test
+    : comparison
+    | NOT logical_test
+    | logical_test op=AND logical_test
+    | logical_test op=OR logical_test
+    ;
+
+comparison
+    : comparison (LESS_THAN | GREATER_THAN | EQUALS | GT_EQ | LT_EQ | NOT_EQ_1 | NOT_EQ_2 | optional=NOT? IN | IS optional=NOT?) comparison
+    | expr
+    ;
+
+expr
+    : AWAIT? atom trailer*
+    | <assoc=right> expr op=POWER expr
+    | op=(ADD | MINUS | NOT_OP) expr
+    | expr op=(STAR | DIV | MOD | IDIV | AT) expr
+    | expr op=(ADD | MINUS) expr
+    | expr op=(LEFT_SHIFT | RIGHT_SHIFT) expr
+    | expr op=AND_OP expr
+    | expr op=XOR expr
+    | expr op=OR_OP expr
+    ;
+
+atom
+    : OPEN_PAREN (yield_expr | testlist_comp)? CLOSE_PAREN
+    | OPEN_BRACKET testlist_comp? CLOSE_BRACKET
+    | OPEN_BRACE dictorsetmaker? CLOSE_BRACE
+    | REVERSE_QUOTE testlist COMMA? REVERSE_QUOTE
+    | ELLIPSIS
+    | name
+    | PRINT
+    | EXEC
+    | MINUS? number
+    | NONE
+    | STRING+
+    ;
+
+dictorsetmaker
+    : (test COLON test | POWER expr) (COMMA (test COLON test | POWER expr))* COMMA? // key_datum_list
+    | test COLON test comp_for                                                      // dict_comprehension
+    | testlist_comp
+    ;
+
+testlist_comp
+    : (test | star_expr) (comp_for | (COMMA (test | star_expr))* COMMA?)
+    ;
+
+testlist
+    : test (COMMA test)* COMMA?
+    ;
+
+dotted_name
+    : dotted_name DOT name
+    | name
+    ;
+
+name
+    : NAME
+    | TRUE
+    | FALSE
+    ;
+
+number
+    : integer
+    | IMAG_NUMBER
+    | FLOAT_NUMBER
+    ;
+
+integer
+    : DECIMAL_INTEGER
+    | OCT_INTEGER
+    | HEX_INTEGER
+    | BIN_INTEGER
+    ;
+
+yield_expr
+    : YIELD yield_arg?
+    ;
+
+yield_arg
+    : FROM test
+    | testlist
+    ;
+
+// TODO: this way we can pass: `f(x for x in i, a)`, but it's invalid.
+// See: https://docs.python.org/3/reference/expressions.html#calls
+trailer
+    : DOT name arguments?
+    | arguments
+    ;
+
+arguments
+    : OPEN_PAREN arglist? CLOSE_PAREN
+    | OPEN_BRACKET subscriptlist CLOSE_BRACKET
+    ;
+
+arglist
+    // The reason that keywords are test nodes instead of name is that using name
+    // results in an ambiguity. ast.c makes sure it's a name.
+    : argument (COMMA argument)* COMMA?
+    ;
+
+argument
+    : test (comp_for | ASSIGN test)?
+    | (POWER | STAR) test
+    ;
+
+// TODO: maybe inline?
+subscriptlist
+    : subscript (COMMA subscript)* COMMA?
+    ;
+
+subscript
+    : ELLIPSIS
+    | test (COLON test? sliceop?)?
+    | COLON test? sliceop?
+    ;
+
+// TODO: maybe inline?
+sliceop
+    : COLON test?
+    ;
+
+comp_for
+    : FOR exprlist IN logical_test comp_iter?
+    ;
+
+comp_iter
+    : comp_for
+    | IF test comp_iter?
+    ;

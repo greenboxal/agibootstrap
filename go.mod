@@ -29,6 +29,7 @@ require (
 )
 
 require (
+	github.com/antlr4-go/antlr v0.0.0-20230518091524-98b52378c522 // indirect
 	github.com/antonmedv/expr v1.12.5 // indirect
 	github.com/arl/statsviz v0.5.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

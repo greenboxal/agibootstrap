@@ -219,8 +219,10 @@ func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
 func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope psi.Scope, cursor psi.Cursor, newSource psi.SourceFile, newAst psi.Node) error {
 	MergeFiles(sf.root.(Node).Ast().(*dst.File), newAst.(Node).Ast().(*dst.File))
 
+	scopeRootFn, hasScopeRootFn := scope.Root().(Node).Ast().(*dst.FuncDecl)
+
 	for _, decl := range newAst.Children() {
-		if funcType, ok := decl.(Node).Ast().(*dst.FuncDecl); ok && funcType.Name.Name == scope.Root().(Node).Ast().(*dst.FuncDecl).Name.Name {
+		if funcType, ok := decl.(Node).Ast().(*dst.FuncDecl); ok && hasScopeRootFn && funcType.Name.Name == scopeRootFn.Name.Name {
 			sf.ReplaceDeclarationAt(cursor, decl, funcType.Name.Name)
 		} else {
 			sf.MergeDeclarations(cursor, decl)

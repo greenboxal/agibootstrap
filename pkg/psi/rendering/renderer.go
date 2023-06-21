@@ -121,7 +121,7 @@ func (r *PruningRenderer) Render(node psi.Node, writer io.Writer) (total int64, 
 
 	totalWeight := float32(0.0)
 
-	_ = psi.Walk(node, func(cursor psi.Cursor, entering bool) error {
+	err = psi.Walk(node, func(cursor psi.Cursor, entering bool) error {
 		n := cursor.Node()
 		s := r.getState(n)
 
@@ -167,7 +167,17 @@ func (r *PruningRenderer) Render(node psi.Node, writer io.Writer) (total int64, 
 		return nil
 	})
 
-	n, err := writer.Write(r.nodeStates[node.UUID()].Buffer.Bytes())
+	if err != nil {
+		return
+	}
+
+	targetState := r.getState(node)
+
+	if err := targetState.Update(r); err != nil {
+		return total, err
+	}
+
+	n, err := writer.Write(targetState.Buffer.Bytes())
 
 	if err != nil {
 		return total, err
