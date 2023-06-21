@@ -1,5 +1,3 @@
-// TODO: Continue
 void main() {
-// TODO: Continue
+    // TODO: Write a rick roll hello world
 }
-// TODO: Continue
