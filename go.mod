@@ -116,14 +116,14 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/greenboxal/aip => /Users/jonathanlima/IdeaProjects/aip
+replace github.com/greenboxal/aip => ../aip
 
-replace github.com/greenboxal/aip/aip-langchain => /Users/jonathanlima/IdeaProjects/aip/aip-langchain
+replace github.com/greenboxal/aip/aip-langchain => ../aip/aip-langchain
 
-replace github.com/greenboxal/aip/aip-sdk => /Users/jonathanlima/IdeaProjects/aip/aip-sdk
+replace github.com/greenboxal/aip/aip-sdk => ../aip/aip-sdk
 
-replace github.com/greenboxal/aip/aip-forddb => /Users/jonathanlima/IdeaProjects/aip/aip-forddb
+replace github.com/greenboxal/aip/aip-forddb => ../aip/aip-forddb
 
-replace github.com/greenboxal/aip/aip-controller => /Users/jonathanlima/IdeaProjects/aip/aip-controller
+replace github.com/greenboxal/aip/aip-controller => ../aip/aip-controller
 
-replace github.com/greenboxal/aip/aip-wiki => /Users/jonathanlima/IdeaProjects/aip/aip-wiki
+replace github.com/greenboxal/aip/aip-wiki => ../aip/aip-wiki
