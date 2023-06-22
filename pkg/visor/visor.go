@@ -2,10 +2,11 @@ package visor
 
 import (
 	"fmt"
-	"time"
+	"path"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 	"github.com/samber/lo"
 
@@ -44,8 +45,10 @@ func newVisor() *Visor {
 				return nil
 			}
 
+			rootPath := fmt.Sprintf("Project:%s@0", v.p.UUID())
+
 			if id == "" {
-				return []string{fmt.Sprintf("Project:%s@0", v.p.UUID())}
+				return []string{rootPath}
 			}
 
 			p := psi.ParsePath(id)
@@ -57,7 +60,7 @@ func newVisor() *Visor {
 			}
 
 			return lo.Map(children, func(id psi.Path, _ int) widget.TreeNodeID {
-				return id.String()
+				return path.Join(rootPath, id.String())
 			})
 		},
 
@@ -99,7 +102,15 @@ func newVisor() *Visor {
 		},
 	)
 
-	v.w.SetContent(v.tree)
+	vbox := container.NewVBox(
+		widget.NewButton("Refresh", func() {
+			v.tree.Refresh()
+		}),
+
+		v.tree,
+	)
+
+	v.w.SetContent(vbox)
 
 	return v
 }
@@ -113,12 +124,6 @@ func (v *Visor) Initialize(p project.Project) {
 	v.g = p.Graph().(*indexing.IndexedGraph)
 
 	v.tree.Refresh()
-
-	go func() {
-		for range time.Tick(time.Second) {
-			v.tree.Refresh()
-		}
-	}()
 }
 
 type ProjectGraph interface {

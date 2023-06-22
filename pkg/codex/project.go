@@ -125,6 +125,8 @@ func (p *Project) Sync() error {
 		n := cursor.Node()
 
 		if n, ok := n.(*vfs.DirectoryNode); ok && entering {
+			cursor.WalkChildren()
+
 			return n.Sync(func(path string) bool {
 				return !p.repo.IsIgnored(path)
 			})

@@ -25,6 +25,7 @@ type Edge interface {
 
 	ReplaceTo(node Node) Edge
 	ReplaceFrom(node Node) Edge
+	attachToGraph(g Graph)
 }
 
 type EdgeBase struct {
@@ -57,6 +58,11 @@ func (e *EdgeBase) ReplaceFrom(node Node) Edge {
 		from: node,
 		to:   e.to,
 	}
+}
+
+func (e *EdgeBase) attachToGraph(g Graph) {
+	e.from.attachToGraph(g)
+	e.to.attachToGraph(g)
 }
 
 type EdgeIterator interface {

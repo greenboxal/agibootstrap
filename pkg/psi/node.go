@@ -377,6 +377,10 @@ func (n *NodeBase) attachToGraph(g Graph) {
 		e.attachToGraph(g)
 	}
 
+	for _, e := range n.edges {
+		e.attachToGraph(g)
+	}
+
 	n.Invalidate()
 }
 

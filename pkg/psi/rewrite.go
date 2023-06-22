@@ -184,6 +184,8 @@ func Walk(node Node, walkFn WalkFunc) error {
 		walkChildren: true,
 	}
 
+	c.Enqueue(node)
+
 	return c.Walk(node, walkFn)
 }
 
@@ -192,6 +194,8 @@ func Rewrite(node Node, walkFunc WalkFunc) (Node, error) {
 	c := &cursor{
 		walkChildren: true,
 	}
+
+	c.Enqueue(node)
 
 	if err := c.Walk(node, walkFunc); err != nil && err != ErrAbort {
 		return nil, err
