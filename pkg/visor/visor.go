@@ -48,7 +48,9 @@ func newVisor() *Visor {
 				return []string{fmt.Sprintf("Project:%s@0", v.p.UUID())}
 			}
 
-			children, err := v.g.GetNodeChildren(id)
+			p := psi.ParsePath(id)
+
+			children, err := v.g.GetNodeChildren(p)
 
 			if err != nil {
 				return nil
@@ -68,7 +70,8 @@ func newVisor() *Visor {
 				return false
 			}
 
-			n, err := v.g.GetNode(id)
+			p := psi.ParsePath(id)
+			n, err := v.g.ResolveNode(p)
 
 			if err != nil {
 				return false
@@ -119,7 +122,7 @@ func (v *Visor) Initialize(p project.Project) {
 }
 
 type ProjectGraph interface {
-	GetNode(id psi.NodeID) (psi.Node, error)
+	GetNodeByID(id psi.NodeID) (psi.Node, error)
 	ResolveNode(id psi.Path) (psi.Node, error)
-	GetNodeChildren(id psi.NodeID) ([]psi.Path, error)
+	GetNodeChildren(id psi.Path) ([]psi.Path, error)
 }

@@ -47,7 +47,7 @@ func (g *IndexedGraph) Remove(n psi.Node) {
 func (g *IndexedGraph) ResolveNode(path psi.Path) (n psi.Node, err error) {
 	for i, component := range path {
 		if i == 0 {
-			n, err = g.GetNode(component.Name)
+			n, err = g.GetNodeByID(component.Name)
 
 			if err != nil {
 				return
@@ -66,7 +66,7 @@ func (g *IndexedGraph) ResolveNode(path psi.Path) (n psi.Node, err error) {
 	return
 }
 
-func (g *IndexedGraph) GetNode(id psi.NodeID) (psi.Node, error) {
+func (g *IndexedGraph) GetNodeByID(id psi.NodeID) (psi.Node, error) {
 	if n, ok := g.nodeMap[id]; ok {
 		return n, nil
 	}
@@ -74,8 +74,8 @@ func (g *IndexedGraph) GetNode(id psi.NodeID) (psi.Node, error) {
 	return nil, psi.ErrNodeNotFound
 }
 
-func (g *IndexedGraph) GetNodeChildren(id psi.NodeID) ([]psi.Path, error) {
-	n, err := g.GetNode(id)
+func (g *IndexedGraph) GetNodeChildren(path psi.Path) ([]psi.Path, error) {
+	n, err := g.ResolveNode(path)
 
 	if err != nil {
 		return nil, err
