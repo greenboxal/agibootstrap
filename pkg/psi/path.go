@@ -23,6 +23,10 @@ type Path []PathElement
 func ParsePath(path string) Path {
 	strs := strings.Split(path, "/")
 
+	if strs[0] == "" {
+		strs = strs[1:]
+	}
+
 	return lo.Map(strs, func(str string, _ int) PathElement {
 		kindAndNameIndex := strings.Split(str, ":")
 		nameAndIndex := strings.Split(kindAndNameIndex[1], "@")
