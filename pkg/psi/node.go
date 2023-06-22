@@ -8,10 +8,12 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+type NodeID = string
+
 // Node represents a PSI element in the graph.
 type Node interface {
 	ID() int64
-	UUID() string
+	UUID() NodeID
 	Node() *NodeBase
 
 	Parent() Node
@@ -354,6 +356,10 @@ func (n *NodeBase) attachToGraph(g Graph) {
 	n.g = g
 	n.id = g.AllocateNodeID()
 
+	if n.g != nil {
+		n.g.Add(n.self)
+	}
+
 	for _, e := range n.children {
 		e.attachToGraph(g)
 	}
@@ -382,7 +388,11 @@ func (n *NodeBase) detachFromGraph(g Graph) {
 		e.detachFromGraph(n.g)
 	}
 
+	oldGraph := n.g
+
 	n.g = nil
+
+	oldGraph.Remove(n.self)
 
 	n.Invalidate()
 }

@@ -8,10 +8,10 @@ require (
 )
 
 require (
+	fyne.io/fyne/v2 v2.3.5
 	github.com/DataIntelligenceCrew/go-faiss v0.2.0
 	github.com/antlr4-go/antlr/v4 v4.13.0
 	github.com/dave/dst v0.27.2
-	github.com/go-python/gpython v0.1.0
 	github.com/google/uuid v1.3.0
 	github.com/greenboxal/aip/aip-controller v0.0.0-20230613210128-ceee04e39305
 	github.com/greenboxal/aip/aip-langchain v0.0.0-20230613210128-ceee04e39305
@@ -23,13 +23,12 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	github.com/zeroflucs-given/generics v0.0.0-20230611080924-a806fa480d35
-	go.uber.org/zap v1.24.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	gonum.org/v1/gonum v0.13.0
 )
 
 require (
-	github.com/antlr4-go/antlr v0.0.0-20230518091524-98b52378c522 // indirect
+	fyne.io/systray v1.10.1-0.20230602210930-b6a2d6ca2a7b // indirect
 	github.com/antonmedv/expr v1.12.5 // indirect
 	github.com/arl/statsviz v0.5.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -41,14 +40,25 @@ require (
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/eientei/wsgraphql v1.4.2 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
+	github.com/fredbi/uri v0.1.0 // indirect
+	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/fyne-io/gl-js v0.0.0-20220119005834-d2da28d9ccfe // indirect
+	github.com/fyne-io/glfw-js v0.0.0-20220120001248-ee7290d23504 // indirect
+	github.com/fyne-io/image v0.0.0-20220602074514-4956b0afb3d2 // indirect
 	github.com/gertd/go-pluralize v0.2.1 // indirect
 	github.com/getsentry/sentry-go v0.22.0 // indirect
 	github.com/go-chi/chi/v5 v5.0.8 // indirect
 	github.com/go-chi/cors v1.2.1 // indirect
+	github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6 // indirect
+	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20221017161538-93cebf72946b // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-text/typesetting v0.0.0-20230405155246-bf9c697c6e16 // indirect
+	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/goki/freetype v0.0.0-20220119013949-7a161fd3728c // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/graph-gophers/dataloader v5.0.0+incompatible // indirect
 	github.com/graphql-go/graphql v0.8.1 // indirect
@@ -59,6 +69,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfs/go-cid v0.4.1 // indirect
 	github.com/ipld/go-ipld-prime v0.20.0 // indirect
+	github.com/jsummers/gobmp v0.0.0-20151104160322-e2ba15ffa76e // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -85,6 +96,8 @@ require (
 	github.com/sashabaranov/go-openai v1.11.3-0.20230617135729-e49d771fff3b // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/srwiley/oksvg v0.0.0-20220731023508-a61f04f16b76 // indirect
+	github.com/srwiley/rasterx v0.0.0-20210519020934-456a8d69b780 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/swaggest/jsonrpc v0.2.0 // indirect
 	github.com/swaggest/jsonschema-go v0.3.52 // indirect
@@ -92,11 +105,13 @@ require (
 	github.com/swaggest/refl v1.1.0 // indirect
 	github.com/swaggest/swgui v1.6.3 // indirect
 	github.com/swaggest/usecase v1.2.1 // indirect
+	github.com/tevino/abool v1.2.0 // indirect
 	github.com/tidwall/gjson v1.14.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/tinylru v1.2.1 // indirect
 	github.com/tidwall/wal v1.1.7 // indirect
+	github.com/yuin/goldmark v1.4.13 // indirect
 	go.mongodb.org/mongo-driver v1.11.7 // indirect
 	go.opentelemetry.io/contrib v1.17.0 // indirect
 	go.opentelemetry.io/otel v1.16.0 // indirect
@@ -106,13 +121,18 @@ require (
 	go.uber.org/dig v1.17.0 // indirect
 	go.uber.org/fx v1.20.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.10.0 // indirect
+	golang.org/x/image v0.6.0 // indirect
+	golang.org/x/mobile v0.0.0-20211207041440-4e6c2922fdee // indirect
 	golang.org/x/mod v0.11.0 // indirect
+	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/sys v0.9.0 // indirect
 	golang.org/x/text v0.10.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	honnef.co/go/js/dom v0.0.0-20210725211120-f030747120f2 // indirect
 	lukechampine.com/blake3 v1.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )

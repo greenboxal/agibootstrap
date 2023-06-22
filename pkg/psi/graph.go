@@ -1,6 +1,8 @@
 package psi
 
 import (
+	"sync/atomic"
+
 	"gonum.org/v1/gonum/graph/multi"
 )
 
@@ -12,17 +14,19 @@ type Graph interface {
 }
 
 type BaseGraph struct {
-	g    *multi.DirectedGraph
-	self Graph
+	g         *multi.DirectedGraph
+	self      Graph
+	idCounter atomic.Int64
 }
 
 func (g *BaseGraph) Init(self Graph) {
-	g.g = multi.NewDirectedGraph()
 	g.self = self
+	g.g = multi.NewDirectedGraph()
+	g.g.AddNode(g.g.NewNode())
 }
 
 func (g *BaseGraph) AllocateNodeID() int64 {
-	return g.g.NewNode().ID()
+	return g.idCounter.Add(1)
 }
 
 func (g *BaseGraph) Add(n Node) {

@@ -173,7 +173,7 @@ func (actx *AnalysisContext) analyzePackage(ctx context.Context, info *loader.Pa
 		pkg.Types = append(pkg.Types, typ)
 	}
 
-	actx.project.vtsRoot.AddPackage(pkg)
+	actx.project.vts.AddPackage(pkg)
 
 	return nil
 }

@@ -5,12 +5,14 @@ import (
 	"os"
 	"path"
 
+	"github.com/jbenet/goprocess"
 	"github.com/spf13/cobra"
 
 	"github.com/greenboxal/agibootstrap/pkg/build"
 	"github.com/greenboxal/agibootstrap/pkg/build/codegen"
 	"github.com/greenboxal/agibootstrap/pkg/build/fiximports"
 	"github.com/greenboxal/agibootstrap/pkg/codex"
+	"github.com/greenboxal/agibootstrap/pkg/visor"
 
 	// Register languages
 	_ "github.com/greenboxal/agibootstrap/pkg/langs/clang"
@@ -20,6 +22,8 @@ import (
 )
 
 func main() {
+	var vis *visor.Visor
+
 	var rootCmd = &cobra.Command{Use: "app"}
 
 	var initCmd = &cobra.Command{
@@ -77,6 +81,10 @@ func main() {
 				return err
 			}
 
+			if vis != nil {
+				vis.Initialize(p)
+			}
+
 			builder := build.NewBuilder(p, build.Configuration{
 				OutputDirectory: p.RootPath(),
 				BuildDirectory:  path.Join(p.RootPath(), ".build"),
@@ -88,8 +96,6 @@ func main() {
 			})
 
 			_, err = builder.Build(cmd.Context())
-
-			//_, err = p.Generate(cmd.Context(), false)
 
 			if err != nil {
 				fmt.Printf("error: %s\n", err)
@@ -122,10 +128,26 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(initCmd, reindexCmd, generateCmd, commitCmd) // Added reindexCmd in the command execution
+	rootCmd.AddCommand(initCmd, reindexCmd, generateCmd, commitCmd)
 
-	if err := rootCmd.Execute(); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "error: %s\n", err)
+	if os.Getenv("AGIB_VISOR") != "" {
+		vis = visor.NewVisor()
+	}
+
+	cmdProcess := goprocess.Go(func(proc goprocess.Process) {
+		if err := rootCmd.Execute(); err != nil {
+			panic(err)
+		}
+	})
+
+	if vis != nil {
+		vis.Run()
+	}
+
+	err := cmdProcess.Err()
+
+	if err != nil {
+		fmt.Printf("error: %s\n", err)
 		os.Exit(1)
 	}
 

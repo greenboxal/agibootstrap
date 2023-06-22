@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/fti"
+	"github.com/greenboxal/agibootstrap/pkg/indexing"
 	"github.com/greenboxal/agibootstrap/pkg/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
@@ -36,6 +37,7 @@ type BuildStep interface {
 type Project struct {
 	psi.NodeBase
 
+	g    *indexing.IndexedGraph
 	fs   repofs.FS
 	repo *fti.Repository
 
@@ -45,7 +47,7 @@ type Project struct {
 	files       map[string]*vfs.FileNode
 	sourceFiles map[string]psi.SourceFile
 
-	vtsRoot      *vts.Scope
+	vts          *vts.Scope
 	langRegistry *project.Registry
 
 	fset *token.FileSet
@@ -68,14 +70,17 @@ func NewProject(rootPath string) (*Project, error) {
 	}
 
 	p := &Project{
-		rootPath:    rootPath,
-		fs:          root,
-		repo:        repo,
+		rootPath: rootPath,
+
+		fs:   root,
+		repo: repo,
+
+		g:    indexing.NewIndexedGraph(),
+		fset: token.NewFileSet(),
+		vts:  vts.NewScope(),
+
 		files:       map[string]*vfs.FileNode{},
 		sourceFiles: map[string]psi.SourceFile{},
-		fset:        token.NewFileSet(),
-
-		vtsRoot: vts.NewScope(),
 	}
 
 	p.langRegistry = project.NewRegistry(p)
@@ -84,6 +89,8 @@ func NewProject(rootPath string) (*Project, error) {
 
 	p.rootNode = vfs.NewDirectoryNode(p.fs, ".")
 	p.rootNode.SetParent(p)
+
+	p.g.Add(p)
 
 	if err := p.Sync(); err != nil {
 		return nil, err
@@ -100,6 +107,7 @@ func (p *Project) RootNode() psi.Node { return p.rootNode }
 // It provides methods for managing the project's files and directories.
 func (p *Project) FS() repofs.FS { return p.fs }
 
+func (p *Project) Graph() psi.Graph                    { return p.g }
 func (p *Project) LanguageProvider() *project.Registry { return p.langRegistry }
 
 func (p *Project) Repo() *fti.Repository { return p.repo }

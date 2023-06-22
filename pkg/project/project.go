@@ -13,10 +13,10 @@ type Project interface {
 
 	RootPath() string
 	RootNode() psi.Node
+	Repo() *fti.Repository
 	FS() repofs.FS
 	FileSet() *token.FileSet
-
-	Repo() *fti.Repository
+	Graph() psi.Graph
 	LanguageProvider() *Registry
 
 	Sync() error
