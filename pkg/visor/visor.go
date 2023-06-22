@@ -1,6 +1,7 @@
 package visor
 
 import (
+	"fmt"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -44,7 +45,7 @@ func newVisor() *Visor {
 			}
 
 			if id == "" {
-				return []string{v.p.UUID()}
+				return []string{fmt.Sprintf("Project:%s@0", v.p.UUID())}
 			}
 
 			children, err := v.g.GetNodeChildren(id)
@@ -53,8 +54,8 @@ func newVisor() *Visor {
 				return nil
 			}
 
-			return lo.Map(children, func(id psi.NodeID, _ int) widget.TreeNodeID {
-				return id
+			return lo.Map(children, func(id psi.Path, _ int) widget.TreeNodeID {
+				return id.String()
 			})
 		},
 
@@ -119,5 +120,6 @@ func (v *Visor) Initialize(p project.Project) {
 
 type ProjectGraph interface {
 	GetNode(id psi.NodeID) (psi.Node, error)
-	GetNodeChildren(id psi.NodeID) ([]psi.NodeID, error)
+	ResolveNode(id psi.Path) (psi.Node, error)
+	GetNodeChildren(id psi.NodeID) ([]psi.Path, error)
 }

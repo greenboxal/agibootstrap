@@ -36,6 +36,8 @@ type Node interface {
 	IsContainer() bool
 	IsLeaf() bool
 
+	ResolveChild(component PathElement) Node
+
 	// SetEdge sets the given edge on the current node.
 	// It checks if the edge is valid by verifying that it originates from the current node.
 	// If an edge with the same key already exists, it replaces the edge's destination node with the current node.
@@ -119,6 +121,17 @@ func (n *NodeBase) CanonicalPath() (res Path) {
 	return
 }
 
+func (n *NodeBase) ResolveChild(component PathElement) Node {
+	for _, child := range n.children {
+		cn := child.Node()
+
+		if len(cn.path) > 0 && cn.path[0] == component {
+			return child
+		}
+	}
+
+	return nil
+}
 func (n *NodeBase) PreviousSibling() Node {
 	if n.parent == nil {
 		return nil

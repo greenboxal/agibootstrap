@@ -2,6 +2,10 @@ package psi
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/samber/lo"
 )
 
 type PathElement struct {
@@ -15,6 +19,29 @@ func (p PathElement) String() string {
 }
 
 type Path []PathElement
+
+func ParsePath(path string) Path {
+	strs := strings.Split(path, "/")
+
+	return lo.Map(strs, func(str string, _ int) PathElement {
+		kindAndNameIndex := strings.Split(str, ":")
+		nameAndIndex := strings.Split(kindAndNameIndex[1], "@")
+
+		kind := EdgeKind(kindAndNameIndex[0])
+		name := nameAndIndex[0]
+		index, err := strconv.ParseInt(nameAndIndex[1], 10, 64)
+
+		if err != nil {
+			panic(err)
+		}
+
+		return PathElement{
+			Kind:  kind,
+			Name:  name,
+			Index: int(index),
+		}
+	})
+}
 
 func (p Path) Parent() Path {
 	if len(p) == 0 {
