@@ -9,9 +9,11 @@ require (
 
 require (
 	fyne.io/fyne/v2 v2.3.5
+	git.mills.io/prologic/bitcask v1.0.2
 	github.com/DataIntelligenceCrew/go-faiss v0.2.0
 	github.com/antlr4-go/antlr/v4 v4.13.0
 	github.com/dave/dst v0.27.2
+	github.com/go-errors/errors v1.4.2
 	github.com/google/uuid v1.3.0
 	github.com/greenboxal/aip/aip-controller v0.0.0-20230613210128-ceee04e39305
 	github.com/greenboxal/aip/aip-langchain v0.0.0-20230613210128-ceee04e39305
@@ -31,7 +33,6 @@ require (
 
 require (
 	fyne.io/systray v1.10.1-0.20230602210930-b6a2d6ca2a7b // indirect
-	git.mills.io/prologic/bitcask v1.0.2 // indirect
 	github.com/abcum/lcp v0.0.0-20201209214815-7a3f3840be81 // indirect
 	github.com/antonmedv/expr v1.12.5 // indirect
 	github.com/arl/statsviz v0.5.2 // indirect

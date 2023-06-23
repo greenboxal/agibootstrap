@@ -1,6 +1,8 @@
 package mdlang
 
 import (
+	"fmt"
+
 	"github.com/gomarkdown/markdown/ast"
 	"github.com/samber/lo"
 
@@ -26,6 +28,10 @@ func (nb *NodeBase[T]) IsContainer() bool  { return nb.node.AsContainer() != nil
 func (nb *NodeBase[T]) IsLeaf() bool       { return nb.node.AsLeaf() != nil }
 func (nb *NodeBase[T]) Ast() ast.Node      { return nb.node }
 func (nb *NodeBase[T]) Comments() []string { return nb.comments }
+
+func (nb *NodeBase[T]) String() string {
+	return fmt.Sprintf("%T(%d, %s)", nb.node, nb.ID(), nb.UUID())
+}
 
 func (nb *NodeBase[T]) Initialize(self Node) {
 	nb.NodeBase.Init(self, "")

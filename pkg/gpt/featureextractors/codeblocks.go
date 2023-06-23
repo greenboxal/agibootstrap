@@ -12,7 +12,7 @@ type CodeBocks struct {
 	Blocks []mdutils.CodeBlock
 }
 
-func ExtractCodeBlocks(ctx context.Context, expectedLanguage string, history... agents.Message) (CodeBocks, error) {
+func ExtractCodeBlocks(ctx context.Context, expectedLanguage string, history ...agents.Message) (CodeBocks, error) {
 	var blocks []mdutils.CodeBlock
 
 	for _, msg := range history {

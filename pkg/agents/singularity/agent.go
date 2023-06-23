@@ -150,6 +150,7 @@ func (a *Agent) RunPostCycleHooks(ctx context.Context) error {
 	}
 
 	a.lastSummary = summary
+	a.log.EpochBarrier()
 
 	return nil
 }

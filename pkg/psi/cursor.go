@@ -1,8 +1,8 @@
 package psi
 
-import "github.com/pkg/errors"
-
-var ErrAbort = errors.New("abort")
+func NewCursor() Cursor {
+	return &cursor{}
+}
 
 // Cursor is a stateful tree traversal interface.
 type Cursor interface {
@@ -36,8 +36,8 @@ type Cursor interface {
 }
 
 type cursorState struct {
-	current Node
-	queue   []Node
+	current  Node
+	iterator NodeIterator
 
 	walkChildren bool
 	walkEdges    bool
@@ -83,8 +83,14 @@ func (c *cursor) SkipEdges() {
 	c.state.walkEdges = false
 }
 
-func (c *cursor) Enqueue(node Node) {
-	c.state.queue = append(c.state.queue, node)
+func (c *cursor) Enqueue(it NodeIterator) {
+	if c.state.iterator == nil {
+		c.state.iterator = it
+	} else {
+		c.state.iterator = &nestedNodeIterator{
+			iterators: []NodeIterator{c.state.iterator, it},
+		}
+	}
 }
 
 func (c *cursor) SetCurrent(node Node) {
@@ -125,22 +131,36 @@ func (c *cursor) Replace(newNode Node) {
 }
 
 func (c *cursor) Next() bool {
-	if len(c.state.queue) > 0 {
-		c.state.current = c.state.queue[0]
-		c.state.queue = c.state.queue[1:]
-
-		return true
+	if !c.state.iterator.Next() {
+		return false
 	}
 
-	return false
+	c.state.current = c.state.iterator.Node()
+
+	return true
 }
 
 func (c *cursor) Walk(n Node, walkFn WalkFunc) (err error) {
+	c.Enqueue(&nodeSliceIterator{items: []Node{n}})
+
+	seenMap := map[Node]int{}
+
 	for {
 		if c.Next() {
 			if c.state.current == nil {
 				break
 			}
+
+			if seenMap != nil {
+				if seenMap[c.state.current] != 0 {
+					continue
+				}
+
+				seenMap[c.state.current]++
+			}
+
+			c.state.walkEdges = c.walkEdges
+			c.state.walkChildren = c.walkChildren
 
 			if err := walkFn(c, true); err != nil {
 				return err
@@ -151,7 +171,12 @@ func (c *cursor) Walk(n Node, walkFn WalkFunc) (err error) {
 			}
 
 			if c.state.walkChildren {
-				st := cursorState{queue: n.Children(), walkChildren: c.walkChildren, walkEdges: c.walkEdges}
+				st := cursorState{
+					iterator: c.state.current.ChildrenIterator(),
+
+					walkChildren: c.walkChildren,
+					walkEdges:    c.walkEdges,
+				}
 
 				c.push(st)
 			}
@@ -166,6 +191,14 @@ func (c *cursor) Walk(n Node, walkFn WalkFunc) (err error) {
 				break
 			}
 
+			if seenMap != nil {
+				if seenMap[c.state.current] != 1 {
+					continue
+				}
+
+				seenMap[c.state.current] *= -1
+			}
+
 			if err := walkFn(c, false); err != nil {
 				return err
 			}
@@ -173,37 +206,4 @@ func (c *cursor) Walk(n Node, walkFn WalkFunc) (err error) {
 	}
 
 	return nil
-}
-
-// WalkFunc is the type of the function called for each node visited by Walk.
-type WalkFunc func(cursor Cursor, entering bool) error
-
-// Walk traverses a PSI Tree in depth-first order.
-func Walk(node Node, walkFn WalkFunc) error {
-	c := &cursor{
-		walkChildren: true,
-	}
-
-	c.Enqueue(node)
-
-	return c.Walk(node, walkFn)
-}
-
-// Rewrite traverses a PSI Tree in depth-first order and rewrites it.
-func Rewrite(node Node, walkFunc WalkFunc) (Node, error) {
-	c := &cursor{
-		walkChildren: true,
-	}
-
-	c.Enqueue(node)
-
-	if err := c.Walk(node, walkFunc); err != nil && err != ErrAbort {
-		return nil, err
-	}
-
-	return c.state.current, nil
-}
-
-func NewCursor() Cursor {
-	return &cursor{}
 }

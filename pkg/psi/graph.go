@@ -44,7 +44,7 @@ func (g *BaseGraph) Replace(old, new Node) {
 		return
 	}
 
-	gn := old.Node().g
+	gn := old.PsiNodeBase().g
 
 	if gn != nil && gn != g {
 		panic("nodes belong to different graphs")

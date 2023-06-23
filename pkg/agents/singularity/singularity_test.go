@@ -26,7 +26,7 @@ func TestSingularity(t *testing.T) {
 		},
 
 		Text: `
-Write a complete, world class, design document for a communication mesh for multiple LLM-based agents to contribute towards a common goal.
+Create a Pytorch model based on the human brain cytoarchitecture.
 `,
 	})
 

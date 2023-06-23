@@ -6,19 +6,53 @@ type EdgeID int64
 
 type EdgeKind string
 
+type TypedEdgeKind[T Node] EdgeKind
+
+func (f TypedEdgeKind[T]) Singleton() TypedEdgeKey[T] {
+	return TypedEdgeKey[T]{Kind: f}
+}
+
+type EdgeReference interface {
+	GetKind() EdgeKind
+	GetName() string
+	GetIndex() int64
+	GetKey() EdgeKey
+}
+
 type EdgeKey struct {
 	Kind  EdgeKind
 	Name  string
-	Index int
+	Index int64
 }
 
-func (k EdgeKey) String() string {
-	return fmt.Sprintf("%s=%d:%s", k.Kind, k.Index, k.Name)
+func (k EdgeKey) GetKind() EdgeKind { return k.Kind }
+func (k EdgeKey) GetName() string   { return k.Name }
+func (k EdgeKey) GetIndex() int64   { return k.Index }
+func (k EdgeKey) GetKey() EdgeKey   { return k }
+func (k EdgeKey) String() string    { return fmt.Sprintf("%s=%d:%s", k.Kind, k.Index, k.Name) }
+
+type TypedEdgeKey[T Node] struct {
+	Kind  TypedEdgeKind[T]
+	Name  string
+	Index int64
+}
+
+func (k TypedEdgeKey[T]) GetKind() EdgeKind { return EdgeKind(k.Kind) }
+func (k TypedEdgeKey[T]) GetName() string   { return k.Name }
+func (k TypedEdgeKey[T]) GetIndex() int64   { return k.Index }
+func (k TypedEdgeKey[T]) String() string    { return fmt.Sprintf("%s=%d:%s", k.Kind, k.Index, k.Name) }
+
+func (k TypedEdgeKey[T]) GetKey() EdgeKey {
+	return EdgeKey{
+		Kind:  k.GetKind(),
+		Name:  k.GetName(),
+		Index: k.GetIndex(),
+	}
 }
 
 type Edge interface {
 	ID() EdgeID
-	Key() EdgeKey
+	Key() EdgeReference
 	Kind() EdgeKind
 	From() Node
 	To() Node
@@ -30,7 +64,7 @@ type Edge interface {
 
 type EdgeBase struct {
 	id   EdgeID
-	key  EdgeKey
+	key  EdgeReference
 	from Node
 	to   Node
 }
@@ -39,11 +73,11 @@ func (e *EdgeBase) String() string {
 	return fmt.Sprintf("Edge(%s): %s -> %s", e.key, e.from, e.to)
 }
 
-func (e *EdgeBase) ID() EdgeID     { return e.id }
-func (e *EdgeBase) Key() EdgeKey   { return e.key }
-func (e *EdgeBase) Kind() EdgeKind { return e.key.Kind }
-func (e *EdgeBase) From() Node     { return e.from }
-func (e *EdgeBase) To() Node       { return e.to }
+func (e *EdgeBase) ID() EdgeID         { return e.id }
+func (e *EdgeBase) Key() EdgeReference { return e.key }
+func (e *EdgeBase) Kind() EdgeKind     { return e.key.GetKind() }
+func (e *EdgeBase) From() Node         { return e.from }
+func (e *EdgeBase) To() Node           { return e.to }
 
 func (e *EdgeBase) ReplaceTo(node Node) Edge {
 	return &EdgeBase{

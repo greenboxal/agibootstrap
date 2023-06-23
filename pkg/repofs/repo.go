@@ -6,7 +6,11 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path"
+	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 type FS interface {
@@ -32,13 +36,84 @@ type FS interface {
 }
 
 func NewFS(repoPath string) (FS, error) {
-	base := os.DirFS(repoPath)
-
 	return &gitFS{
-		FS: base,
+		FS: baseFS(repoPath),
 
 		path: repoPath,
 	}, nil
+}
+
+type baseFS string
+
+func (bfs baseFS) Open(name string) (fs.File, error) {
+	fullname, err := bfs.join(name)
+
+	if err != nil {
+		return nil, &fs.PathError{Op: "stat", Path: name, Err: err}
+	}
+
+	f, err := os.Open(fullname)
+
+	if err != nil {
+		// DirFS takes a string appropriate for GOOS,
+		// while the name argument here is always slash separated.
+		// bfs.join will have mixed the two; undo that for
+		// error reporting.
+		err.(*os.PathError).Path = name
+		return nil, err
+	}
+
+	return f, nil
+}
+
+func (bfs baseFS) Stat(name string) (fs.FileInfo, error) {
+	fullname, err := bfs.join(name)
+
+	if err != nil {
+		return nil, &fs.PathError{Op: "stat", Path: name, Err: err}
+	}
+
+	f, err := os.Stat(fullname)
+
+	if err != nil {
+		err.(*fs.PathError).Path = name
+		return nil, err
+	}
+
+	return f, nil
+}
+
+// join returns the path for name in dir.
+func (bfs baseFS) join(name string) (string, error) {
+	var relPath, absPath string
+
+	if bfs == "" {
+		return "", errors.New("repofs: baseFS with empty root")
+	}
+
+	if path.IsAbs(name) {
+		absPath = name
+
+		rel, relErr := filepath.Rel(string(bfs), name)
+
+		if relErr == nil {
+			relPath = rel
+		}
+	} else {
+		relPath = name
+
+		abs, err := filepath.Abs(path.Join(string(bfs), relPath))
+
+		if err == nil {
+			absPath = abs
+		}
+	}
+
+	if relPath == "" || absPath == "" {
+		return "", errors.New("file outside of project")
+	}
+
+	return absPath, nil
 }
 
 type gitFS struct {

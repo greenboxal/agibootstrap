@@ -1,6 +1,8 @@
 package clang
 
 import (
+	"fmt"
+
 	"github.com/antlr4-go/antlr/v4"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -25,6 +27,10 @@ func (nb *NodeBase[T]) IsContainer() bool            { return len(nb.Children())
 func (nb *NodeBase[T]) IsLeaf() bool                 { return len(nb.Children()) == 0 }
 func (nb *NodeBase[T]) Ast() antlr.ParserRuleContext { return nb.node }
 func (nb *NodeBase[T]) Comments() []string           { return nb.comments }
+
+func (nb *NodeBase[T]) String() string {
+	return fmt.Sprintf("%T(%d, %s)", nb.node, nb.ID(), nb.UUID())
+}
 
 func (nb *NodeBase[T]) Initialize(self Node) {
 	nb.NodeBase.Init(self, "")

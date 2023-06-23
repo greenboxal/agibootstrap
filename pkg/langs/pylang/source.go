@@ -134,10 +134,6 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 		return nil, sf.err
 	}
 
-	for _, tk := range tokens.GetAllTokens() {
-		fmt.Printf("%s\n", tk)
-	}
-
 	if sf.root == nil {
 		if err := sf.SetRoot(parsed, sourceCode, tokens); err != nil {
 			return nil, err

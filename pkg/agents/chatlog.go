@@ -149,3 +149,10 @@ func (cl *ChatLog) GC() error {
 
 	return nil
 }
+
+func (cl *ChatLog) EpochBarrier() {
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
+
+	cl.messages = cl.messages[0:0]
+}

@@ -11,14 +11,16 @@ import (
 type IndexedGraph struct {
 	psi.BaseGraph
 
-	mu sync.RWMutex
+	mu   sync.RWMutex
+	root psi.Node
 
 	nodeMap map[psi.NodeID]psi.Node
 	pathMap map[string]psi.Node
 }
 
-func NewIndexedGraph() *IndexedGraph {
+func NewIndexedGraph(root psi.Node) *IndexedGraph {
 	g := &IndexedGraph{
+		root:    root,
 		nodeMap: make(map[psi.NodeID]psi.Node),
 		pathMap: make(map[string]psi.Node),
 	}
@@ -45,25 +47,7 @@ func (g *IndexedGraph) Remove(n psi.Node) {
 }
 
 func (g *IndexedGraph) ResolveNode(path psi.Path) (n psi.Node, err error) {
-	for i, component := range path {
-		if i == 0 {
-			n, err = g.GetNodeByID(component.Name)
-
-			if err != nil {
-				return
-			}
-
-			continue
-		}
-
-		n = n.ResolveChild(component)
-	}
-
-	if n == nil {
-		err = psi.ErrNodeNotFound
-	}
-
-	return
+	return psi.ResolvePath(g.root, path)
 }
 
 func (g *IndexedGraph) GetNodeByID(id psi.NodeID) (psi.Node, error) {
@@ -74,11 +58,21 @@ func (g *IndexedGraph) GetNodeByID(id psi.NodeID) (psi.Node, error) {
 	return nil, psi.ErrNodeNotFound
 }
 
-func (g *IndexedGraph) GetNodeChildren(path psi.Path) ([]psi.Path, error) {
-	n, err := g.ResolveNode(path)
+func (g *IndexedGraph) GetNodeChildren(path psi.Path) (result []psi.Path, err error) {
+	var n psi.Node
 
-	if err != nil {
-		return nil, err
+	if path.Root() != nil {
+		n, err = psi.ResolvePath(path.Root(), path)
+
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		n, err = g.ResolveNode(path)
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return lo.Map(n.Children(), func(c psi.Node, _ int) psi.Path {

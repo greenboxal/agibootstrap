@@ -4,7 +4,6 @@ import (
 	"io/fs"
 	"path"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/dave/dst"
@@ -24,13 +23,25 @@ type FsNode interface {
 	Path() string
 }
 
-// A DirectoryNode is a directory in the virtual file system.
-type DirectoryNode struct {
+type NodeBase struct {
 	psi.NodeBase
 
 	fs   FS
-	key  string
+	name string
 	path string
+}
+
+func (nb *NodeBase) PsiNodeName() string { return nb.name }
+func (nb *NodeBase) Ast() dst.Node       { return nil }
+func (nb *NodeBase) IsContainer() bool   { return true }
+func (nb *NodeBase) IsLeaf() bool        { return false }
+func (nb *NodeBase) Comments() []string  { return nil }
+func (nb *NodeBase) Name() string        { return path.Base(nb.path) }
+func (nb *NodeBase) Path() string        { return nb.path }
+
+// A DirectoryNode is a directory in the virtual file system.
+type DirectoryNode struct {
+	NodeBase
 
 	mu sync.RWMutex
 
@@ -39,27 +50,23 @@ type DirectoryNode struct {
 
 // NewDirectoryNode creates a new DirectoryNode with the specified path.
 // The key of the DirectoryNode is set to the lowercase version of the path.
-func NewDirectoryNode(fs FS, path string) *DirectoryNode {
-	key := strings.ToLower(path)
-
+func NewDirectoryNode(fs FS, path string, name string) *DirectoryNode {
 	dn := &DirectoryNode{
-		fs:       fs,
-		key:      key,
-		path:     path,
 		children: map[string]FsNode{},
 	}
+
+	if name == "" {
+		name = filepath.Base(path)
+	}
+
+	dn.fs = fs
+	dn.name = name
+	dn.path = path
 
 	dn.Init(dn, path)
 
 	return dn
 }
-
-func (dn *DirectoryNode) Ast() dst.Node      { return nil }
-func (dn *DirectoryNode) IsContainer() bool  { return true }
-func (dn *DirectoryNode) IsLeaf() bool       { return false }
-func (dn *DirectoryNode) Comments() []string { return nil }
-func (dn *DirectoryNode) Name() string       { return filepath.Base(dn.path) }
-func (dn *DirectoryNode) Path() string       { return dn.path }
 
 func (dn *DirectoryNode) Resolve(name string) FsNode {
 	dn.mu.RLock()
@@ -98,7 +105,7 @@ func (dn *DirectoryNode) Sync(filterFn func(path string) bool) error {
 
 		if n == nil {
 			if file.IsDir() {
-				n = NewDirectoryNode(dn.fs, fullPath)
+				n = NewDirectoryNode(dn.fs, fullPath, file.Name())
 			} else {
 				n = NewFileNode(dn.fs, fullPath)
 			}
@@ -125,25 +132,15 @@ func (dn *DirectoryNode) Sync(filterFn func(path string) bool) error {
 }
 
 type FileNode struct {
-	psi.NodeBase
-
-	fs   FS
-	key  string
-	path string
+	NodeBase
 }
 
-func (fn *FileNode) Ast() dst.Node      { return nil }
-func (fn *FileNode) IsContainer() bool  { return true }
-func (fn *FileNode) IsLeaf() bool       { return false }
-func (fn *FileNode) Comments() []string { return nil }
-func (fn *FileNode) Name() string       { return filepath.Base(fn.path) }
-func (fn *FileNode) Path() string       { return fn.path }
-
 func NewFileNode(fs FS, path string) *FileNode {
-	fn := &FileNode{
-		fs:   fs,
-		path: path,
-	}
+	fn := &FileNode{}
+
+	fn.fs = fs
+	fn.name = filepath.Base(path)
+	fn.path = path
 
 	fn.Init(fn, path)
 

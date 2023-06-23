@@ -5,7 +5,6 @@ import (
 	"os"
 	"path"
 
-	"github.com/jbenet/goprocess"
 	"github.com/spf13/cobra"
 
 	"github.com/greenboxal/agibootstrap/pkg/build"
@@ -22,8 +21,6 @@ import (
 )
 
 func main() {
-	var vis *visor.Visor
-
 	var rootCmd = &cobra.Command{Use: "app"}
 
 	var initCmd = &cobra.Command{
@@ -35,7 +32,7 @@ func main() {
 		},
 	}
 
-	var reindexCmd = &cobra.Command{ //Added reindex command
+	var reindexCmd = &cobra.Command{
 		Use:   "reindex",
 		Short: "Reindex the project",
 		Long:  "This command reindex the project.",
@@ -81,10 +78,6 @@ func main() {
 				return err
 			}
 
-			if vis != nil {
-				vis.Initialize(p)
-			}
-
 			builder := build.NewBuilder(p, build.Configuration{
 				OutputDirectory: p.RootPath(),
 				BuildDirectory:  path.Join(p.RootPath(), ".build"),
@@ -128,27 +121,37 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(initCmd, reindexCmd, generateCmd, commitCmd)
+	var debugCmd = &cobra.Command{
+		Use:   "debug",
+		Short: "Runs the debugger",
+		Long:  "This command runs the debugger UI.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			wd, err := os.Getwd()
 
-	if os.Getenv("AGIB_VISOR") != "" {
-		vis = visor.NewVisor()
+			if err != nil {
+				return err
+			}
+
+			cmd.SilenceUsage = true
+
+			p, err := codex.NewProject(wd)
+
+			if err != nil {
+				return err
+			}
+
+			vis := visor.NewVisor(p)
+
+			vis.Run()
+
+			return nil
+		},
 	}
 
-	cmdProcess := goprocess.Go(func(proc goprocess.Process) {
-		if err := rootCmd.Execute(); err != nil {
-			panic(err)
-		}
-	})
+	rootCmd.AddCommand(initCmd, reindexCmd, generateCmd, commitCmd, debugCmd)
 
-	if vis != nil {
-		vis.Run()
-	}
-
-	err := cmdProcess.Err()
-
-	if err != nil {
-		fmt.Printf("error: %s\n", err)
-		os.Exit(1)
+	if err := rootCmd.Execute(); err != nil {
+		panic(err)
 	}
 
 	os.Exit(0)

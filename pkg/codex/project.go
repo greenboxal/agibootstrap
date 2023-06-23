@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -14,9 +15,12 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/repofs"
+	"github.com/greenboxal/agibootstrap/pkg/tasks"
 	"github.com/greenboxal/agibootstrap/pkg/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/vts"
 )
+
+const SourceFileEdge psi.TypedEdgeKind[psi.SourceFile] = "SourceFile"
 
 // BuildStepResult represents the result of a build step.
 // It contains the number of changes made during the build step.
@@ -37,20 +41,24 @@ type BuildStep interface {
 type Project struct {
 	psi.NodeBase
 
-	g    *indexing.IndexedGraph
-	fs   repofs.FS
+	g *indexing.IndexedGraph
+
+	fs         repofs.FS
+	fsRootNode *vfs.DirectoryNode
+
 	repo *fti.Repository
+	tm   *tasks.Manager
 
 	rootPath string
 	rootNode *vfs.DirectoryNode
-
-	files       map[string]*vfs.FileNode
-	sourceFiles map[string]psi.SourceFile
 
 	vts          *vts.Scope
 	langRegistry *project.Registry
 
 	fset *token.FileSet
+
+	currentSyncTaskMutex sync.Mutex
+	currentSyncTask      tasks.Task
 }
 
 // NewProject creates a new codex project with the given root path.
@@ -75,22 +83,19 @@ func NewProject(rootPath string) (*Project, error) {
 		fs:   root,
 		repo: repo,
 
-		g:    indexing.NewIndexedGraph(),
 		fset: token.NewFileSet(),
 		vts:  vts.NewScope(),
-
-		files:       map[string]*vfs.FileNode{},
-		sourceFiles: map[string]psi.SourceFile{},
+		tm:   tasks.NewManager(),
 	}
 
+	p.g = indexing.NewIndexedGraph(p)
 	p.langRegistry = project.NewRegistry(p)
 
 	p.Init(p, "")
-
-	p.rootNode = vfs.NewDirectoryNode(p.fs, ".")
-	p.rootNode.SetParent(p)
-
 	p.g.Add(p)
+
+	p.rootNode = vfs.NewDirectoryNode(p.fs, p.rootPath, "srcs")
+	p.rootNode.SetParent(p)
 
 	if err := p.Sync(); err != nil {
 		return nil, err
@@ -98,6 +103,8 @@ func NewProject(rootPath string) (*Project, error) {
 
 	return p, nil
 }
+
+func (p *Project) TaskManager() *tasks.Manager { return p.tm }
 
 // RootPath returns the root path of the project.
 func (p *Project) RootPath() string   { return p.rootPath }
@@ -121,21 +128,51 @@ func (p *Project) FileSet() *token.FileSet { return p.fset }
 // slice. The function returns an error if any occurs during
 // the sync process.
 func (p *Project) Sync() error {
-	return psi.Walk(p.rootNode, func(cursor psi.Cursor, entering bool) error {
-		n := cursor.Node()
+	p.currentSyncTaskMutex.Lock()
+	defer p.currentSyncTaskMutex.Unlock()
 
-		if n, ok := n.(*vfs.DirectoryNode); ok && entering {
-			cursor.WalkChildren()
-
-			return n.Sync(func(path string) bool {
-				return !p.repo.IsIgnored(path)
-			})
-		} else {
-			cursor.SkipChildren()
-		}
-
+	if p.currentSyncTask != nil {
 		return nil
+	}
+
+	task := p.tm.SpawnTask(context.Background(), func(progress tasks.TaskProgress) error {
+		count := 1
+
+		return psi.Walk(p.rootNode, func(cursor psi.Cursor, entering bool) error {
+			progress.Update(count, count)
+
+			n := cursor.Node()
+
+			if n, ok := n.(*vfs.DirectoryNode); ok && entering {
+				count++
+
+				cursor.WalkChildren()
+
+				return n.Sync(func(path string) bool {
+					return !p.repo.IsIgnored(path)
+				})
+			} else {
+				cursor.SkipChildren()
+			}
+
+			return nil
+		})
 	})
+
+	p.currentSyncTask = task
+
+	go func() {
+		<-task.Done()
+
+		p.currentSyncTaskMutex.Lock()
+		defer p.currentSyncTaskMutex.Unlock()
+
+		if p.currentSyncTask == task {
+			p.currentSyncTask = nil
+		}
+	}()
+
+	return nil
 }
 
 // GetSourceFile retrieves the source file with the given filename from the project.
@@ -153,17 +190,26 @@ func (p *Project) GetSourceFile(filename string) (_ psi.SourceFile, err error) {
 		}
 	}()
 
-	absPath, err := filepath.Abs(filename)
+	relPath, err := filepath.Rel(p.rootPath, filename)
 
 	if err != nil {
 		return nil, err
 	}
 
-	key := strings.ToLower(absPath)
+	psiPath := psi.MustParsePath(relPath)
+	fileNode, err := psi.ResolvePath(p.rootNode, psiPath)
 
-	existing := p.sourceFiles[key]
+	if err != nil {
+		return nil, err
+	}
+
+	existing := psi.ResolveEdge(fileNode, SourceFileEdge.Singleton())
 
 	if existing == nil {
+		if err != nil {
+			return nil, err
+		}
+
 		lang := p.langRegistry.ResolveExtension(filepath.Base(filename))
 
 		if lang == nil {
@@ -175,39 +221,17 @@ func (p *Project) GetSourceFile(filename string) (_ psi.SourceFile, err error) {
 			Path: strings.TrimPrefix(filename, p.rootPath+"/"),
 		})
 
+		existing.SetParent(fileNode)
+		fileNode.SetEdge(SourceFileEdge.Singleton(), existing)
+
 		err = existing.Load()
 
 		if err != nil {
 			return nil, err
 		}
-
-		p.sourceFiles[key] = existing
 	}
 
 	return existing, nil
-}
-
-// ImportFile imports a file into the project.
-// It takes the path of the file to import as a parameter.
-// It returns an error if the path is invalid or if there
-// is any error during the process.
-func (p *Project) ImportFile(path string) error {
-	absPath, err := filepath.Abs(path)
-
-	if err != nil {
-		return err
-	}
-
-	file := vfs.NewFileNode(p.fs, absPath)
-
-	p.files[file.UUID()] = file
-	p.sourceFiles[file.UUID()] = nil
-
-	if _, err := p.GetSourceFile(file.Path()); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // Reindex is a method that performs the reindexing operation for the project.

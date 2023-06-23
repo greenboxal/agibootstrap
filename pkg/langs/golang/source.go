@@ -255,7 +255,7 @@ func (sf *SourceFile) MergeDeclarations(cursor psi.Cursor, node psi.Node) bool {
 				cursor.Replace(node)
 			}
 
-			sf.setExistingDeclaration(previous.Key().Index, name, node)
+			sf.setExistingDeclaration(int(previous.Key().GetIndex()), name, node)
 		}
 	}
 
@@ -302,7 +302,7 @@ func (sf *SourceFile) ReplaceDeclarationAt(cursor psi.Cursor, decl psi.Node, nam
 // This function is responsible for maintaining and updating the information about existing declarations,
 // ensuring their accuracy and consistency throughout the code generation process.
 func (sf *SourceFile) setExistingDeclaration(index int, name string, node psi.Node) {
-	sf.Root().SetEdge(psi.EdgeKey{Kind: EdgeKindDeclarations, Name: name, Index: index}, node)
+	sf.Root().SetEdge(psi.EdgeKey{Kind: EdgeKindDeclarations, Name: name, Index: int64(index)}, node)
 }
 
 func MergeFiles(file1, file2 *dst.File) *dst.File {

@@ -1,6 +1,7 @@
 package pylang
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -27,6 +28,10 @@ type NodeBase[T antlr.ParseTree] struct {
 	sf         *SourceFile
 	start, end antlr.Token
 	isTerminal bool
+}
+
+func (nb *NodeBase[T]) String() string {
+	return fmt.Sprintf("%T(%d, %s)", nb.node, nb.ID(), nb.UUID())
 }
 
 func (nb *NodeBase[T]) IsContainer() bool  { return !nb.isTerminal }
