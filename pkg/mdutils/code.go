@@ -4,9 +4,9 @@ import "github.com/gomarkdown/markdown/ast"
 
 // CodeBlock represents a block of code with its language and code content.
 type CodeBlock struct {
-	Filename string `json:"filename"`
-	Language string `json:"language"`
-	Code     string `json:"code"`
+	Filename string `json:"filename" jsonschema:"title=Filename,description=Filename of the code block."`
+	Language string `json:"language" jsonschema:"title=Language,description=Language of the code block."`
+	Code     string `json:"code" jsonschema:"title=Code,description=Code of the code block."`
 }
 
 func (c CodeBlock) Render(ctx *RenderContext) ast.Node {
