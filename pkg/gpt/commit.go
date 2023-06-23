@@ -52,7 +52,7 @@ var CommitMessageChain = chain.New(
 
 	chain.Sequential(
 		chat.Predict(
-			model,
+			GlobalModel,
 			CommitMessagePrompt,
 			chat.WithMaxTokens(1024),
 		),

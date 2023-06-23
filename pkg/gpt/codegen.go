@@ -43,8 +43,8 @@ var blockCodeHeaderRegex = regexp.MustCompile("(?m)^\\w*\\x60\\x60\\x60([a-zA-Z0
 
 func NewCodeGenerator() *CodeGenerator {
 	cg := &CodeGenerator{
-		client: oai,
-		model:  model,
+		client: GlobalClient,
+		model:  GlobalModel,
 	}
 
 	cg.planChain = chain.New(
@@ -52,7 +52,7 @@ func NewCodeGenerator() *CodeGenerator {
 
 		chain.Sequential(
 			chat.Predict(
-				model,
+				GlobalModel,
 				CodeGeneratorPlannerPrompt,
 			),
 		),
@@ -63,7 +63,7 @@ func NewCodeGenerator() *CodeGenerator {
 
 		chain.Sequential(
 			chat.Predict(
-				model,
+				GlobalModel,
 				CodeGeneratorPrompt,
 				chat.WithMaxTokens(4000),
 			),
@@ -75,7 +75,7 @@ func NewCodeGenerator() *CodeGenerator {
 
 		chain.Sequential(
 			chat.Predict(
-				model,
+				GlobalModel,
 				CodeGeneratorPrompt,
 			),
 		),
@@ -258,6 +258,27 @@ func (s *CodeGeneratorContext) sanitizeCodeBlockReply(reply string) string {
 		} else if strings.HasSuffix(reply, pos[len(pos)-1]) {
 			reply = strings.TrimSuffix(reply, pos[len(pos)-1])
 			reply = fmt.Sprintf("```%s\n%s\n```", s.req.Language, reply)
+		}
+	}
+
+	return reply
+}
+
+func SanitizeCodeBlockReply(reply string, expectedLanguage string) string {
+	reply = strings.TrimSpace(reply)
+	reply = strings.TrimSuffix(reply, "\n")
+
+	pos := blockCodeHeaderRegex.FindAllString(reply, -1)
+	count := len(pos)
+	mismatch := count%2 != 0
+
+	if count > 0 && mismatch {
+		if strings.HasPrefix(reply, pos[0]) {
+			reply = strings.TrimPrefix(reply, pos[0])
+			reply = fmt.Sprintf("```%s\n%s\n```", expectedLanguage, reply)
+		} else if strings.HasSuffix(reply, pos[len(pos)-1]) {
+			reply = strings.TrimSuffix(reply, pos[len(pos)-1])
+			reply = fmt.Sprintf("```%s\n%s\n```", expectedLanguage, reply)
 		}
 	}
 

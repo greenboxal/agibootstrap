@@ -4,22 +4,9 @@ import (
 	"context"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
-	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
-
 	// Register the providers.
 	_ "github.com/greenboxal/agibootstrap/pkg/mdutils"
 )
-
-var oai = openai.NewClient()
-var embedder = &openai.Embedder{
-	Client: oai,
-	Model:  openai.AdaEmbeddingV2,
-}
-var model = &openai.ChatLanguageModel{
-	Client:      oai,
-	Model:       "gpt-3.5-turbo-16k",
-	Temperature: 1,
-}
 
 // PrepareContext prepares the context for the given request.
 //

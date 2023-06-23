@@ -47,7 +47,7 @@ var ReviewChain = chain.New(
 
 	chain.Sequential(
 		chat.Predict(
-			model,
+			GlobalModel,
 			ReviewPrompt,
 		),
 	),

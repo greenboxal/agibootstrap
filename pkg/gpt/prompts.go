@@ -101,7 +101,7 @@ Read the plan above and modify the document as necessary. Focus on the items abo
 
 		chain.Sequential(
 			chat.Predict(
-				model,
+				GlobalModel,
 				CodeGeneratorPrompt,
 				chat.WithMaxTokens(4000),
 			),
