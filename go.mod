@@ -16,6 +16,8 @@ require (
 	github.com/greenboxal/aip/aip-controller v0.0.0-20230613210128-ceee04e39305
 	github.com/greenboxal/aip/aip-langchain v0.0.0-20230613210128-ceee04e39305
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/invopop/jsonschema v0.7.0
+	github.com/jaswdr/faker v1.17.0
 	github.com/jbenet/goprocess v0.1.4
 	github.com/pkg/errors v0.9.1
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
@@ -29,6 +31,8 @@ require (
 
 require (
 	fyne.io/systray v1.10.1-0.20230602210930-b6a2d6ca2a7b // indirect
+	git.mills.io/prologic/bitcask v1.0.2 // indirect
+	github.com/abcum/lcp v0.0.0-20201209214815-7a3f3840be81 // indirect
 	github.com/antonmedv/expr v1.12.5 // indirect
 	github.com/arl/statsviz v0.5.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -55,6 +59,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-text/typesetting v0.0.0-20230405155246-bf9c697c6e16 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/gofrs/flock v0.8.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/goki/freetype v0.0.0-20220119013949-7a161fd3728c // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
@@ -66,6 +71,7 @@ require (
 	github.com/greenboxal/aip/aip-forddb v0.0.0-20230613210128-ceee04e39305 // indirect
 	github.com/greenboxal/aip/aip-sdk v0.0.0-20230613210128-ceee04e39305 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfs/go-cid v0.4.1 // indirect
 	github.com/ipld/go-ipld-prime v0.20.0 // indirect
@@ -84,6 +90,7 @@ require (
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.3 // indirect
+	github.com/plar/go-adaptive-radix-tree v1.0.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/polydawn/refmt v0.89.0 // indirect
 	github.com/prometheus/client_golang v1.16.0 // indirect
@@ -94,6 +101,7 @@ require (
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v2 v2.2.0 // indirect
 	github.com/sashabaranov/go-openai v1.11.3-0.20230617135729-e49d771fff3b // indirect
+	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/srwiley/oksvg v0.0.0-20220731023508-a61f04f16b76 // indirect
