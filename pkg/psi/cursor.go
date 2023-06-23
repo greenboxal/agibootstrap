@@ -6,6 +6,8 @@ func NewCursor() Cursor {
 
 // Cursor is a stateful tree traversal interface.
 type Cursor interface {
+	Depth() int
+
 	// Current returns the current node.
 	Node() Node
 	// SetCurrent sets the current node.
@@ -36,6 +38,8 @@ type Cursor interface {
 }
 
 type cursorState struct {
+	depth int
+
 	current  Node
 	iterator NodeIterator
 
@@ -63,24 +67,15 @@ func (c *cursor) pop() cursorState {
 	return old
 }
 
-func (c *cursor) Node() Node {
-	return c.state.current
-}
+func (c *cursor) Node() Node    { return c.state.current }
+func (c *cursor) Depth() int    { return c.state.depth }
+func (c *cursor) WalkChildren() { c.state.walkChildren = true }
+func (c *cursor) SkipChildren() { c.state.walkChildren = false }
+func (c *cursor) WalkEdges()    { c.state.walkEdges = true }
+func (c *cursor) SkipEdges()    { c.state.walkEdges = false }
 
-func (c *cursor) WalkChildren() {
-	c.state.walkChildren = true
-}
-
-func (c *cursor) SkipChildren() {
-	c.state.walkChildren = false
-}
-
-func (c *cursor) WalkEdges() {
-	c.state.walkEdges = true
-}
-
-func (c *cursor) SkipEdges() {
-	c.state.walkEdges = false
+func (c *cursor) SetCurrent(node Node) {
+	c.state.current = node
 }
 
 func (c *cursor) Enqueue(it NodeIterator) {
@@ -91,10 +86,6 @@ func (c *cursor) Enqueue(it NodeIterator) {
 			iterators: []NodeIterator{c.state.iterator, it},
 		}
 	}
-}
-
-func (c *cursor) SetCurrent(node Node) {
-	c.state.current = node
 }
 
 func (c *cursor) InsertBefore(newNode Node) {
@@ -172,6 +163,7 @@ func (c *cursor) Walk(n Node, walkFn WalkFunc) (err error) {
 
 			if c.state.walkChildren {
 				st := cursorState{
+					depth:    c.state.depth + 1,
 					iterator: c.state.current.ChildrenIterator(),
 
 					walkChildren: c.walkChildren,

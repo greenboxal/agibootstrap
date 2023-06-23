@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/greenboxal/agibootstrap/pkg/project"
+	"github.com/greenboxal/agibootstrap/pkg/tasks"
 )
 
 type Context struct {
@@ -63,8 +64,10 @@ func (bctx *Context) runBuild(ctx context.Context) error {
 				break
 			}
 
+			var result StepResult
+
 			// Wrap the build step execution in a recover function
-			processWrapped := func() (result StepResult, err error) {
+			task := bctx.project.TaskManager().SpawnTask(ctx, func(progress tasks.TaskProgress) (err error) {
 				defer func() {
 					if r := recover(); r != nil {
 						if e, ok := r.(error); ok {
@@ -76,12 +79,12 @@ func (bctx *Context) runBuild(ctx context.Context) error {
 				}()
 
 				// Execute the build step and return the result
-				return step.Process(ctx, bctx)
-			}
+				result, err = step.Process(ctx, bctx)
 
-			// Execute the build step and handle any errors
-			result, err := processWrapped()
-			if err != nil {
+				return
+			})
+
+			if err := task.Error(); err != nil {
 				return err
 			}
 

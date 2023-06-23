@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -136,12 +137,21 @@ func (p *Project) Sync() error {
 	}
 
 	task := p.tm.SpawnTask(context.Background(), func(progress tasks.TaskProgress) error {
-		count := 1
+		maxDepth := 0
+		count := 0
+
+		defer progress.Update(maxDepth*maxDepth+count+1, maxDepth*maxDepth+count+1)
 
 		return psi.Walk(p.rootNode, func(cursor psi.Cursor, entering bool) error {
-			progress.Update(count, count)
+			if cursor.Depth() > maxDepth {
+				maxDepth = cursor.Depth()
+			}
+
+			progress.Update(cursor.Depth()*cursor.Depth()+count, maxDepth*maxDepth+count+1)
 
 			n := cursor.Node()
+
+			time.Sleep(time.Millisecond * 100)
 
 			if n, ok := n.(*vfs.DirectoryNode); ok && entering {
 				count++
