@@ -1,4 +1,4 @@
-package golang
+package pylang
 
 import (
 	"context"
@@ -8,9 +8,9 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/build/codegen"
 	"github.com/greenboxal/agibootstrap/pkg/codex"
-	"github.com/greenboxal/agibootstrap/pkg/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
 
 type testEnv struct {
@@ -18,46 +18,39 @@ type testEnv struct {
 	Language *Language
 }
 
-var testCodeSimple = `package main
+var testCodeSimple = `
 
-func doHello() {
+def doHello():
 	println("Hello")
-}
 
-func main() {
+def main():
 	doHello()
 	doWorld()
-}
 
-func doWorld() {
+def doWorld():
 	println(" world\n")
-}
 `
 
-var testCodeMerge = `package main
+var testCodeMerge = `
+# Case: Keep
 
-// Case: Keep
-func doHello() {
+def doHello(self):
 	println("Hello")
-}
 
-// Case: Replace existing declaration
-func main() {
-	doHello()
-	doWorld()
+# Case: Replace existing declaration
+def main(self):
+	doHello(self)
+	doWorld(self)
 
-	newHelloFn()
-}
+	newHelloFn(self)
 
-// Case: Keep
-func doWorld() {
+# Case: Keep
+def doWorld(self):
 	println(" world\n")
-}
 
-// Case: New named declaration is inserted at the end
-func newHelloFn() {
+# Case: New named declaration is inserted at the end
+def newHelloFn(self):
 	println("Again!\n")
-}
 `
 
 func setupTestProject(t *testing.T) testEnv {
@@ -74,7 +67,7 @@ func setupTestProject(t *testing.T) testEnv {
 func TestSourceParse(t *testing.T) {
 	env := setupTestProject(t)
 
-	src := NewSourceFile(env.Language, "test.go", repofs.String(testCodeSimple))
+	src := NewSourceFile(env.Language, "test.py", repofs.String(testCodeSimple))
 
 	require.NoError(t, src.Load())
 	require.NotNil(t, src)
@@ -83,7 +76,7 @@ func TestSourceParse(t *testing.T) {
 func TestSourcePrint(t *testing.T) {
 	env := setupTestProject(t)
 
-	src := NewSourceFile(env.Language, "test.go", repofs.String(testCodeSimple))
+	src := NewSourceFile(env.Language, "test.py", repofs.String(testCodeSimple))
 
 	require.NoError(t, src.Load())
 	require.NotNil(t, src)
@@ -91,16 +84,16 @@ func TestSourcePrint(t *testing.T) {
 	code, err := src.ToCode(src.Root())
 
 	require.NoError(t, err)
-	require.Equal(t, "go", code.Language)
-	require.Equal(t, "test.go", code.Filename)
+	require.Equal(t, "python", code.Language)
+	require.Equal(t, "test.py", code.Filename)
 	require.Equal(t, testCodeSimple, code.Code)
 }
 
 func TestSourceMerge(t *testing.T) {
 	env := setupTestProject(t)
 
-	src1 := NewSourceFile(env.Language, "test.go", repofs.String(testCodeSimple))
-	src2 := NewSourceFile(env.Language, "merge.go", repofs.String(testCodeMerge))
+	src1 := NewSourceFile(env.Language, "test.py", repofs.String(testCodeSimple))
+	src2 := NewSourceFile(env.Language, "merge.py", repofs.String(testCodeMerge))
 
 	require.NotNil(t, src1)
 	require.NotNil(t, src2)
@@ -125,7 +118,7 @@ func TestSourceMerge(t *testing.T) {
 	code, err := src1.ToCode(src1.Root())
 
 	require.NoError(t, err)
-	require.Equal(t, "go", code.Language)
-	require.Equal(t, "test.go", code.Filename)
+	require.Equal(t, "python", code.Language)
+	require.Equal(t, "test.py", code.Filename)
 	require.Equal(t, testCodeMerge, code.Code)
 }

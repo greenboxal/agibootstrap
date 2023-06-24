@@ -4,7 +4,7 @@ import (
 	"go/types"
 	"sync"
 
-	"github.com/greenboxal/agibootstrap/pkg/vts"
+	"github.com/greenboxal/agibootstrap/pkg/codex/vts"
 )
 
 type TypeSystemProvider struct {

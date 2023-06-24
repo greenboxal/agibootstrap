@@ -3,7 +3,7 @@ package build
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 )
 
 type Builder struct {

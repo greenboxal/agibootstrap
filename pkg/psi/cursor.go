@@ -12,6 +12,7 @@ type Cursor interface {
 	Node() Node
 	// SetCurrent sets the current node.
 	SetCurrent(node Node)
+	SetNext(node Node)
 
 	// WalkChildren walks the children of the current node.
 	WalkChildren()
@@ -78,7 +79,15 @@ func (c *cursor) SetCurrent(node Node) {
 	c.state.current = node
 }
 
+func (c *cursor) SetNext(node Node) {
+	it := (&nodeSliceIterator{items: []Node{node}}).Append(c.state.iterator)
+
+	c.state.iterator = it
+}
+
 func (c *cursor) Enqueue(it NodeIterator) {
+
+	c.state.iterator = it
 	if c.state.iterator == nil {
 		c.state.iterator = it
 	} else {

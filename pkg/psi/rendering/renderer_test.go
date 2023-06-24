@@ -9,10 +9,11 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/greenboxal/agibootstrap/pkg/codex"
 	"github.com/greenboxal/agibootstrap/pkg/langs/golang"
+
+	"github.com/greenboxal/agibootstrap/pkg/codex"
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
 
 func TestPruningRenderer(t *testing.T) {

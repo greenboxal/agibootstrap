@@ -9,7 +9,7 @@ import (
 	"github.com/dave/dst"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
-	"github.com/greenboxal/agibootstrap/pkg/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 

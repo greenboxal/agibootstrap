@@ -11,10 +11,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/langs/pylang/pyparser"
-	"github.com/greenboxal/agibootstrap/pkg/mdutils"
+
+	"github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
-	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
 
 type SourceFile struct {

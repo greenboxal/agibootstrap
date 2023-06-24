@@ -15,7 +15,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/agents"
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
-	"github.com/greenboxal/agibootstrap/pkg/mdutils"
+	mdutils2 "github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 )
 
 type ReflectOptions struct {
@@ -150,8 +150,8 @@ func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ cha
 
 	reply := chain.Output(cctx, chat.ChatReplyContextKey)
 	sanitized := gpt.SanitizeCodeBlockReply(reply.Entries[0].Text, "json")
-	replyRoot := mdutils.ParseMarkdown([]byte(sanitized))
-	blocks := mdutils.ExtractCodeBlocks(replyRoot)
+	replyRoot := mdutils2.ParseMarkdown([]byte(sanitized))
+	blocks := mdutils2.ExtractCodeBlocks(replyRoot)
 
 	var jsonBlock []byte
 

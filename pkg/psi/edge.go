@@ -20,9 +20,9 @@ type EdgeReference interface {
 }
 
 type EdgeKey struct {
-	Kind  EdgeKind
-	Name  string
-	Index int64
+	Kind  EdgeKind `json:"Kind"`
+	Name  string   `json:"Name"`
+	Index int64    `json:"Index"`
 }
 
 func (k EdgeKey) GetKind() EdgeKind { return k.Kind }
@@ -32,9 +32,9 @@ func (k EdgeKey) GetKey() EdgeKey   { return k }
 func (k EdgeKey) String() string    { return fmt.Sprintf("%s=%d:%s", k.Kind, k.Index, k.Name) }
 
 type TypedEdgeKey[T Node] struct {
-	Kind  TypedEdgeKind[T]
-	Name  string
-	Index int64
+	Kind  TypedEdgeKind[T] `json:"Kind"`
+	Name  string           `json:"Name"`
+	Index int64            `json:"Index"`
 }
 
 func (k TypedEdgeKey[T]) GetKind() EdgeKind { return EdgeKind(k.Kind) }

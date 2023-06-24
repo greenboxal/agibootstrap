@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/greenboxal/agibootstrap/pkg/fti"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
 )
 
 var UpdateCmd = &cobra.Command{

@@ -11,14 +11,15 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/fti"
 	"github.com/greenboxal/agibootstrap/pkg/indexing"
-	"github.com/greenboxal/agibootstrap/pkg/project"
+
+	"github.com/greenboxal/agibootstrap/pkg/codex/vts"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
+	"github.com/greenboxal/agibootstrap/pkg/platform/project"
+	tasks2 "github.com/greenboxal/agibootstrap/pkg/platform/tasks"
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/repofs"
-	"github.com/greenboxal/agibootstrap/pkg/tasks"
-	"github.com/greenboxal/agibootstrap/pkg/vfs"
-	"github.com/greenboxal/agibootstrap/pkg/vts"
 )
 
 const SourceFileEdge psi.TypedEdgeKind[psi.SourceFile] = "SourceFile"
@@ -48,7 +49,7 @@ type Project struct {
 	fsRootNode *vfs.DirectoryNode
 
 	repo *fti.Repository
-	tm   *tasks.Manager
+	tm   *tasks2.Manager
 
 	rootPath string
 	rootNode *vfs.DirectoryNode
@@ -59,7 +60,7 @@ type Project struct {
 	fset *token.FileSet
 
 	currentSyncTaskMutex sync.Mutex
-	currentSyncTask      tasks.Task
+	currentSyncTask      tasks2.Task
 }
 
 // NewProject creates a new codex project with the given root path.
@@ -86,17 +87,20 @@ func NewProject(rootPath string) (*Project, error) {
 
 		fset: token.NewFileSet(),
 		vts:  vts.NewScope(),
-		tm:   tasks.NewManager(),
 	}
 
-	p.g = indexing.NewIndexedGraph(p)
-	p.langRegistry = project.NewRegistry(p)
-
 	p.Init(p, "")
-	p.g.Add(p)
+
+	p.langRegistry = project.NewRegistry(p)
 
 	p.rootNode = vfs.NewDirectoryNode(p.fs, p.rootPath, "srcs")
 	p.rootNode.SetParent(p)
+
+	p.tm = tasks2.NewManager()
+	p.tm.PsiNode().SetParent(p)
+
+	p.g = indexing.NewIndexedGraph(p)
+	p.g.Add(p)
 
 	if err := p.Sync(); err != nil {
 		return nil, err
@@ -105,7 +109,7 @@ func NewProject(rootPath string) (*Project, error) {
 	return p, nil
 }
 
-func (p *Project) TaskManager() *tasks.Manager { return p.tm }
+func (p *Project) TaskManager() *tasks2.Manager { return p.tm }
 
 // RootPath returns the root path of the project.
 func (p *Project) RootPath() string   { return p.rootPath }
@@ -136,7 +140,7 @@ func (p *Project) Sync() error {
 		return nil
 	}
 
-	task := p.tm.SpawnTask(context.Background(), func(progress tasks.TaskProgress) error {
+	task := p.tm.SpawnTask(context.Background(), func(progress tasks2.TaskProgress) error {
 		maxDepth := 0
 		count := 0
 

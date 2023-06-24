@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/greenboxal/agibootstrap/pkg/agents"
-	"github.com/greenboxal/agibootstrap/pkg/mdutils"
+	"github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 )
 
 type Library struct {

@@ -12,7 +12,7 @@ import (
 	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/packages"
 
-	"github.com/greenboxal/agibootstrap/pkg/vts"
+	"github.com/greenboxal/agibootstrap/pkg/codex/vts"
 )
 
 type AnalysisBuildStep struct{}

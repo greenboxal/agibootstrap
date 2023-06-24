@@ -3,10 +3,10 @@ package project
 import (
 	"go/token"
 
-	"github.com/greenboxal/agibootstrap/pkg/fti"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
+	"github.com/greenboxal/agibootstrap/pkg/platform/tasks"
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/repofs"
-	"github.com/greenboxal/agibootstrap/pkg/tasks"
 )
 
 type Project interface {

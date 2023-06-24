@@ -1,10 +1,10 @@
 package antlrbridge
 
 import (
-	"github.com/greenboxal/agibootstrap/pkg/mdutils"
-	"github.com/greenboxal/agibootstrap/pkg/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
+	"github.com/greenboxal/agibootstrap/pkg/platform/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
 
 type Language struct {

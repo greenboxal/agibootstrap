@@ -610,6 +610,14 @@ func (n *nodeSliceIterator) Next() bool {
 	return true
 }
 
+func (n *nodeSliceIterator) Prepend(iterator NodeIterator) NodeIterator {
+	return &nestedNodeIterator{iterators: []NodeIterator{iterator, n}}
+}
+
+func (n *nodeSliceIterator) Append(iterator NodeIterator) NodeIterator {
+	return &nestedNodeIterator{iterators: []NodeIterator{n, iterator}}
+}
+
 type nodeChildrenIterator struct {
 	parent  *NodeBase
 	current Node
@@ -629,6 +637,14 @@ func (n *nodeChildrenIterator) Next() bool {
 	n.index++
 
 	return true
+}
+
+func (n *nodeChildrenIterator) Prepend(iterator NodeIterator) NodeIterator {
+	return &nestedNodeIterator{iterators: []NodeIterator{iterator, n}}
+}
+
+func (n *nodeChildrenIterator) Append(iterator NodeIterator) NodeIterator {
+	return &nestedNodeIterator{iterators: []NodeIterator{n, iterator}}
 }
 
 type nestedNodeIterator struct {
@@ -655,4 +671,16 @@ func (n *nestedNodeIterator) Next() bool {
 	}
 
 	return true
+}
+
+func (n *nestedNodeIterator) Prepend(iterator NodeIterator) NodeIterator {
+	return &nestedNodeIterator{iterators: []NodeIterator{iterator, n}}
+}
+
+func (n *nestedNodeIterator) Append(iterator NodeIterator) NodeIterator {
+	return &nestedNodeIterator{iterators: []NodeIterator{n, iterator}}
+}
+
+func AppendNodeIterator(iterators ...NodeIterator) NodeIterator {
+	return &nestedNodeIterator{iterators: iterators}
 }

@@ -42,6 +42,32 @@ type Path struct {
 	components []PathElement
 }
 
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("\"%s\"", p.String())), nil
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p *Path) UnmarshalJSON(data []byte) error {
+	str := string(data)
+
+	if str == "null" {
+		return nil
+	}
+
+	str = strings.Trim(str, "\"")
+	parsed, err := ParsePath(str)
+
+	if err != nil {
+		return err
+	}
+
+	p.root = parsed.root
+	p.components = parsed.components
+
+	return nil
+}
+
 func ParsePathComponent(str string) (e PathElement, err error) {
 	state := '#'
 	acc := ""

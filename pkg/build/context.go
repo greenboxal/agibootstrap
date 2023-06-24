@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/greenboxal/agibootstrap/pkg/project"
-	"github.com/greenboxal/agibootstrap/pkg/tasks"
+	"github.com/greenboxal/agibootstrap/pkg/platform/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/tasks"
 )
 
 type Context struct {

@@ -1,4 +1,4 @@
-package mdlang
+package clang
 
 import (
 	"bytes"
@@ -6,23 +6,23 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/mdutils"
-	"github.com/greenboxal/agibootstrap/pkg/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
+	project2 "github.com/greenboxal/agibootstrap/pkg/platform/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/repofs"
 )
 
-const LanguageID psi.LanguageID = "markdown"
+const LanguageID psi.LanguageID = "c"
 
 func init() {
-	project.RegisterLanguage(LanguageID, NewLanguage)
+	project2.RegisterLanguage(LanguageID, NewLanguage)
 }
 
 type Language struct {
-	project project.Project
+	project project2.Project
 }
 
-func NewLanguage(p project.Project) psi.Language {
+func NewLanguage(p project2.Project) psi.Language {
 	return &Language{
 		project: p,
 	}
@@ -33,7 +33,7 @@ func (l *Language) Name() psi.LanguageID {
 }
 
 func (l *Language) Extensions() []string {
-	return []string{".md"}
+	return []string{".c", ".h"}
 }
 
 func (l *Language) CreateSourceFile(fileName string, fileHandle repofs.FileHandle) psi.SourceFile {

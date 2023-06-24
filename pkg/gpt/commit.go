@@ -8,7 +8,7 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 	"github.com/greenboxal/aip/aip-langchain/pkg/memory"
 
-	"github.com/greenboxal/agibootstrap/pkg/mdutils"
+	"github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 )
 
 var CommitMessagePrompt = chat.ComposeTemplate(

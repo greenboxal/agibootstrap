@@ -16,9 +16,9 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/build"
 	"github.com/greenboxal/agibootstrap/pkg/build/codegen"
 	"github.com/greenboxal/agibootstrap/pkg/build/fiximports"
-	"github.com/greenboxal/agibootstrap/pkg/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/tasks"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/tasks"
 )
 
 type Visor struct {
@@ -93,8 +93,6 @@ func NewVisor(p project.Project) *Visor {
 			return
 		}
 
-		_ = taskTree.SelectedItem.Set(task)
-
 		selectedTaskId.Set(task.UUID())
 		selectedTaskName.Set(task.Name())
 		selectedTaskDesc.Set(task.Description())
@@ -103,8 +101,6 @@ func NewVisor(p project.Project) *Visor {
 
 	go func() {
 		for range time.Tick(500 * time.Millisecond) {
-			taskTree.Refresh()
-
 			updateSelectedTask()
 		}
 	}()
@@ -125,9 +121,12 @@ func NewVisor(p project.Project) *Visor {
 	tasksPanel := container.NewBorder(
 		tasksPanelToolbar,
 		nil,
-		taskTree,
 		nil,
-		taskDetails,
+		nil,
+		container.NewHSplit(
+			taskTree,
+			taskDetails,
+		),
 	)
 
 	v.tabs = container.NewDocTabs()

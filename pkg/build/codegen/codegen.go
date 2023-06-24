@@ -8,10 +8,10 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/build"
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
-	"github.com/greenboxal/agibootstrap/pkg/mdutils"
-	"github.com/greenboxal/agibootstrap/pkg/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
+	"github.com/greenboxal/agibootstrap/pkg/platform/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/vfs"
 )
 
 type BuildStep struct{}
