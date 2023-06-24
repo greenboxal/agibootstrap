@@ -14,7 +14,7 @@ import (
 var taskCtxKey = struct{ name string }{name: "TaskCtxKey"}
 
 type Manager struct {
-	psi.NodeLikeBase
+	psi.NodeBase
 
 	mu    sync.RWMutex
 	tasks map[string]Task
@@ -29,6 +29,8 @@ func NewManager() *Manager {
 
 	return m
 }
+
+func (m *Manager) PsiNodeName() string { return "TaskManager" }
 
 func (m *Manager) SpawnTask(ctx context.Context, taskFn TaskFunc) Task {
 	parentTaskValue := ctx.Value(taskCtxKey)
