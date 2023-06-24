@@ -55,9 +55,8 @@ func NewChatLog(name string) (*ChatLog, error) {
 	}, nil
 }
 
-func (cl *ChatLog) Messages() []Message {
-	return cl.messages
-}
+func (cl *ChatLog) Name() string        { return cl.name }
+func (cl *ChatLog) Messages() []Message { return cl.messages }
 
 func (cl *ChatLog) AddListener(l ChatLogListener) {
 	cl.mu.Lock()

@@ -13,6 +13,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/samber/lo"
 
+	"github.com/greenboxal/agibootstrap/pkg/agents"
 	"github.com/greenboxal/agibootstrap/pkg/build"
 	"github.com/greenboxal/agibootstrap/pkg/build/codegen"
 	"github.com/greenboxal/agibootstrap/pkg/build/fiximports"
@@ -129,6 +130,73 @@ func NewVisor(p project.Project) *Visor {
 		),
 	)
 
+	chatLogsToolbar := container.NewHBox()
+
+	chatLogsBinding := binding.NewUntypedList()
+	chatMessagesBinding := binding.NewUntypedList()
+	chatReplyBinding := binding.NewString()
+
+	chatLogList := widget.NewListWithData(
+		chatLogsBinding,
+		func() fyne.CanvasObject {
+			return widget.NewLabel("")
+		},
+		func(item binding.DataItem, object fyne.CanvasObject) {
+			v, err := item.(binding.Untyped).Get()
+
+			if err != nil {
+				return
+			}
+
+			chatLog, ok := v.(*agents.ChatLog)
+
+			if !ok {
+				return
+			}
+
+			object.(*widget.Label).SetText(chatLog.Name())
+		},
+	)
+
+	chatLogDetailsContent := container.NewBorder(
+		nil,
+		container.NewBorder(
+			nil,
+			nil,
+			nil,
+			widget.NewButton("Send", func() {
+
+			}),
+			widget.NewEntryWithData(chatReplyBinding),
+		),
+		nil,
+		nil,
+		widget.NewListWithData(
+			chatMessagesBinding,
+
+			func() fyne.CanvasObject {
+				return widget.NewLabel("")
+			},
+
+			func(item binding.DataItem, object fyne.CanvasObject) {
+
+			},
+		),
+	)
+
+	chatLogDetails := widget.NewCard("Chat Log", "Chat Log details", chatLogDetailsContent)
+
+	chatLogsPanel := container.NewBorder(
+		chatLogsToolbar,
+		nil,
+		nil,
+		nil,
+		container.NewHSplit(
+			chatLogList,
+			chatLogDetails,
+		),
+	)
+
 	v.tabs = container.NewDocTabs()
 
 	leftDrawer := container.NewAppTabs(
@@ -139,18 +207,17 @@ func NewVisor(p project.Project) *Visor {
 
 	bottomDrawer := container.NewAppTabs(
 		container.NewTabItem("Tasks", tasksPanel),
+		container.NewTabItem("Chats", chatLogsPanel),
 	)
 
-	hsplit := container.NewHSplit(
-		leftDrawer,
+	contentRoot := container.NewVSplit(
 		container.NewHSplit(
-			v.tabs,
-			rightDrawer,
+			leftDrawer,
+			container.NewHSplit(
+				v.tabs,
+				rightDrawer,
+			),
 		),
-	)
-
-	vsplit := container.NewVSplit(
-		hsplit,
 		bottomDrawer,
 	)
 
@@ -159,7 +226,7 @@ func NewVisor(p project.Project) *Visor {
 		nil,
 		nil,
 		nil,
-		vsplit,
+		contentRoot,
 	)
 
 	v.w.SetContent(border)
