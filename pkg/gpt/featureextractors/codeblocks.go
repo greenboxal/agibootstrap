@@ -3,8 +3,8 @@ package featureextractors
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/agents"
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 	mdutils2 "github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 )
 
@@ -12,7 +12,7 @@ type CodeBocks struct {
 	Blocks []mdutils2.CodeBlock
 }
 
-func ExtractCodeBlocks(ctx context.Context, expectedLanguage string, history ...agents.Message) (CodeBocks, error) {
+func ExtractCodeBlocks(ctx context.Context, expectedLanguage string, history ...thoughtstream.Thought) (CodeBocks, error) {
 	var blocks []mdutils2.CodeBlock
 
 	for _, msg := range history {

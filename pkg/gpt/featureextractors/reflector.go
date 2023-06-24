@@ -15,11 +15,12 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/agents"
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 	mdutils2 "github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 )
 
 type ReflectOptions struct {
-	History []agents.Message
+	History []thoughtstream.Thought
 	Query   string
 
 	ExampleInput  any
@@ -79,10 +80,10 @@ func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ cha
 		historyText += fmt.Sprintf("[%s]:\n%s\n", msg.From.Name, msg.Text)
 	}
 
-	msgs := make([]agents.Message, 0, len(req.History)+3)
+	msgs := make([]thoughtstream.Thought, 0, len(req.History)+3)
 
-	msgs = append(msgs, agents.Message{
-		From: agents.CommHandle{
+	msgs = append(msgs, thoughtstream.Thought{
+		From: thoughtstream.CommHandle{
 			Role: msn.RoleSystem,
 		},
 
@@ -100,8 +101,8 @@ func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ cha
 
 	msgs = append(msgs, req.History...)
 
-	msgs = append(msgs, agents.Message{
-		From: agents.CommHandle{
+	msgs = append(msgs, thoughtstream.Thought{
+		From: thoughtstream.CommHandle{
 			Name: "User",
 			Role: msn.RoleUser,
 		},
@@ -117,8 +118,8 @@ func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ cha
 		),
 	})
 
-	msgs = append(msgs, agents.Message{
-		From: agents.CommHandle{
+	msgs = append(msgs, thoughtstream.Thought{
+		From: thoughtstream.CommHandle{
 			Name: "Assistant",
 			Role: msn.RoleAI,
 		},

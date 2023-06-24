@@ -8,16 +8,16 @@ import (
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/stretchr/testify/require"
 
-	"github.com/greenboxal/agibootstrap/pkg/agents"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 )
 
 func TestReflector(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	history := []agents.Message{
+	history := []thoughtstream.Thought{
 		{
-			From: agents.CommHandle{
+			From: thoughtstream.CommHandle{
 				Name: "Singularity",
 				Role: msn.RoleAI,
 			},
@@ -53,9 +53,9 @@ func TestQueryPlan(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	history := []agents.Message{
+	history := []thoughtstream.Thought{
 		{
-			From: agents.CommHandle{
+			From: thoughtstream.CommHandle{
 				Name: "Singularity",
 				Role: msn.RoleAI,
 			},
@@ -87,9 +87,9 @@ func TestSentiment(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	history := []agents.Message{
+	history := []thoughtstream.Thought{
 		{
-			From: agents.CommHandle{
+			From: thoughtstream.CommHandle{
 				Name: "Singularity",
 				Role: msn.RoleAI,
 			},
@@ -121,9 +121,9 @@ func TestGoalCompletion(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	history := []agents.Message{
+	history := []thoughtstream.Thought{
 		{
-			From: agents.CommHandle{
+			From: thoughtstream.CommHandle{
 				Name: "Singularity",
 				Role: msn.RoleAI,
 			},

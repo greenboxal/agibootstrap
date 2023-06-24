@@ -3,7 +3,7 @@ package featureextractors
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/agents"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 )
 
 type TimelineStep struct {
@@ -17,7 +17,7 @@ type Timeline struct {
 	Steps []TimelineStep `json:"steps" jsonschema:"title=Steps,description=Steps of the timeline."`
 }
 
-func QueryTimeline(ctx context.Context, history ...agents.Message) (Timeline, error) {
+func QueryTimeline(ctx context.Context, history ...thoughtstream.Thought) (Timeline, error) {
 	res, _, err := Reflect[Timeline](ctx, ReflectOptions{
 		History: history,
 

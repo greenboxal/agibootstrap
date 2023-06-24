@@ -3,14 +3,14 @@ package featureextractors
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/agents"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 )
 
 type Routing struct {
 	Recipients map[string][]string `json:"recipients" jsonschema:"title=Parties,description=Key: Name of the user/agent/subject/recipient. Value: List of relevant details of the message for the given key."`
 }
 
-func QueryMessageRouting(ctx context.Context, history []agents.Message) (Routing, error) {
+func QueryMessageRouting(ctx context.Context, history []thoughtstream.Thought) (Routing, error) {
 	res, _, err := Reflect[Routing](ctx, ReflectOptions{
 		History: history,
 

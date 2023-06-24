@@ -3,7 +3,7 @@ package featureextractors
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/agents"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 )
 
 type GoalCompletion struct {
@@ -15,7 +15,7 @@ type GoalCompletion struct {
 	Feedback               string `json:"feedback" jsonschema:"title=Feedback,description=Feedback for the completion."`
 }
 
-func QueryGoalCompletion(ctx context.Context, history []agents.Message) (GoalCompletion, error) {
+func QueryGoalCompletion(ctx context.Context, history []thoughtstream.Thought) (GoalCompletion, error) {
 	res, _, err := Reflect[GoalCompletion](ctx, ReflectOptions{
 		History: history,
 

@@ -3,7 +3,7 @@ package featureextractors
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/agents"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 )
 
 type SentimentScore struct {
@@ -16,7 +16,7 @@ type SentimentScore struct {
 	Tentative float64 `json:"tentative"`
 }
 
-func QuerySentimentScore(ctx context.Context, history []agents.Message) (SentimentScore, error) {
+func QuerySentimentScore(ctx context.Context, history []thoughtstream.Thought) (SentimentScore, error) {
 	res, _, err := Reflect[SentimentScore](ctx, ReflectOptions{
 		History: history,
 

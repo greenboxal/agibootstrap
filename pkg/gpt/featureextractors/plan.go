@@ -3,7 +3,7 @@ package featureextractors
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/agents"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 )
 
 type PlanStep struct {
@@ -16,7 +16,7 @@ type Plan struct {
 	Steps []PlanStep `json:"steps" jsonschema:"title=Steps,description=List of steps in the plan."`
 }
 
-func QueryPlan(ctx context.Context, history []agents.Message) (Plan, error) {
+func QueryPlan(ctx context.Context, history []thoughtstream.Thought) (Plan, error) {
 	res, _, err := Reflect[Plan](ctx, ReflectOptions{
 		History: history,
 
