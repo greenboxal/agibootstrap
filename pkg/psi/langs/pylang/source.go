@@ -10,7 +10,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/langs/pylang/pyparser"
+	"github.com/greenboxal/agibootstrap/pkg/psi/langs/pylang/pyparser"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"

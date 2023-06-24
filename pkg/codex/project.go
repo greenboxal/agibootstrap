@@ -11,7 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/indexing"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/indexing"
 
 	"github.com/greenboxal/agibootstrap/pkg/codex/vts"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"

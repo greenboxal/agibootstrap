@@ -14,10 +14,10 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/visor"
 
 	// Register languages
-	_ "github.com/greenboxal/agibootstrap/pkg/langs/clang"
-	_ "github.com/greenboxal/agibootstrap/pkg/langs/golang"
-	_ "github.com/greenboxal/agibootstrap/pkg/langs/mdlang"
-	_ "github.com/greenboxal/agibootstrap/pkg/langs/pylang"
+	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/clang"
+	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/golang"
+	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/mdlang"
+	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/pylang"
 )
 
 func main() {
