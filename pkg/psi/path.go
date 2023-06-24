@@ -18,7 +18,7 @@ type PathElement struct {
 func (p PathElement) String() string {
 	str := ""
 
-	if p.Kind != "" && p.Kind != ChildEdgeKind {
+	if p.Kind != "" && p.Kind != EdgeKindChild {
 		str += fmt.Sprintf(":%s", p.Kind)
 	}
 
@@ -72,7 +72,7 @@ func ParsePathComponent(str string) (e PathElement, err error) {
 	state := '#'
 	acc := ""
 
-	e.Kind = ChildEdgeKind
+	e.Kind = EdgeKindChild
 
 	endState := func() {
 		if acc == "" {
@@ -255,7 +255,7 @@ func ResolvePath(root Node, path Path) (Node, error) {
 			}
 		}
 
-		if component.Kind == ChildEdgeKind && component.Index == 0 {
+		if component.Kind == EdgeKindChild && component.Index == 0 {
 			if component.Name == "/" {
 				result = root
 			} else if component.Name == "." {

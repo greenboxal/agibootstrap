@@ -53,6 +53,6 @@ func (g *BaseGraph) Replace(old, new Node) {
 	parent := old.Parent()
 
 	if parent != nil {
-		parent.replaceChildNode(old, new)
+		parent.ReplaceChildNode(old, new)
 	}
 }

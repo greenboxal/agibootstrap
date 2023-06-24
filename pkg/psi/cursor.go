@@ -105,7 +105,7 @@ func (c *cursor) InsertBefore(newNode Node) {
 		panic("cannot insert after root node")
 	}
 
-	p.insertChildNodeBefore(n, newNode)
+	p.InsertChildBefore(n, newNode)
 }
 
 func (c *cursor) InsertAfter(newNode Node) {
@@ -116,7 +116,7 @@ func (c *cursor) InsertAfter(newNode Node) {
 		panic("cannot insert after root node")
 	}
 
-	p.insertChildNodeAfter(n, newNode)
+	p.InsertChildAfter(n, newNode)
 }
 
 func (c *cursor) Replace(newNode Node) {
@@ -124,7 +124,7 @@ func (c *cursor) Replace(newNode Node) {
 	p := n.Parent()
 
 	if p != nil {
-		p.replaceChildNode(n, newNode)
+		p.ReplaceChildNode(n, newNode)
 	}
 
 	c.SetCurrent(newNode)

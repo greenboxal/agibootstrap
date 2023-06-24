@@ -21,8 +21,8 @@ package psi
 //	attachToGraph(g *Graph)
 //	detachFromGraph(g *Graph)
 //	SetParent(parent Node)
-//	addChildNode(node Node)
-//	removeChildNode(node Node)
+//	AddChildNode(node Node)
+//	RemoveChildNode(node Node)
 //}
 
 // Retriever is an interface that can be used to retrieve nodes from a graph

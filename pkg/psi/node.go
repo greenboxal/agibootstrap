@@ -8,7 +8,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-var ChildEdgeKind = EdgeKind("child")
+var EdgeKindChild = EdgeKind("child")
 
 type NodeID = string
 
@@ -83,11 +83,12 @@ type Node interface {
 	attachToGraph(g Graph)
 	detachFromGraph(g Graph)
 
-	addChildNode(node Node)
-	removeChildNode(node Node)
-	replaceChildNode(old Node, node Node)
-	insertChildNodeBefore(anchor Node, node Node)
-	insertChildNodeAfter(anchor Node, node Node)
+	AddChildNode(node Node)
+	RemoveChildNode(node Node)
+	ReplaceChildNode(old Node, node Node)
+	InsertChildrenAt(idx int, child Node)
+	InsertChildBefore(anchor Node, node Node)
+	InsertChildAfter(anchor Node, node Node)
 
 	String() string
 }
@@ -146,7 +147,7 @@ func (n *NodeBase) Children() []Node               { return n.children }
 func (n *NodeBase) ChildrenIterator() NodeIterator { return &nodeChildrenIterator{parent: n} }
 
 func (n *NodeBase) ResolveChild(component PathElement) Node {
-	if component.Kind == "" || component.Kind == ChildEdgeKind {
+	if component.Kind == "" || component.Kind == EdgeKindChild {
 		if component.Name == "" {
 			if component.Index < int64(len(n.children)) {
 				return n.children[component.Index]
@@ -243,7 +244,7 @@ func (n *NodeBase) updatePath() {
 	var self PathElement
 
 	if n.parent == nil {
-		self.Kind = ChildEdgeKind
+		self.Kind = EdgeKindChild
 		self.Name = n.UUID()
 		n.path = PathFromComponents(self)
 		return
@@ -253,14 +254,14 @@ func (n *NodeBase) updatePath() {
 
 	if named, ok := n.self.(NamedNode); ok {
 		self = PathElement{
-			Kind: ChildEdgeKind,
+			Kind: EdgeKindChild,
 			Name: named.PsiNodeName(),
 		}
 	} else {
 		index := n.parent.PsiNodeBase().IndexOfChild(n.self)
 
 		self = PathElement{
-			Kind:  ChildEdgeKind,
+			Kind:  EdgeKindChild,
 			Index: int64(index),
 		}
 	}
@@ -312,14 +313,14 @@ func (n *NodeBase) SetParent(parent Node) {
 	}
 
 	if n.parent != nil {
-		n.parent.removeChildNode(n.self)
+		n.parent.RemoveChildNode(n.self)
 		n.parent = nil
 	}
 
 	n.parent = parent
 
 	if n.parent != nil {
-		n.parent.addChildNode(n.self)
+		n.parent.AddChildNode(n.self)
 	} else {
 		n.detachFromGraph(nil)
 	}
@@ -334,8 +335,8 @@ func (n *NodeBase) SetParent(parent Node) {
 //
 // Parameters:
 // - child: The child node to be added.
-func (n *NodeBase) addChildNode(child Node) {
-	n.insertChildrenAt(len(n.children), child)
+func (n *NodeBase) AddChildNode(child Node) {
+	n.InsertChildrenAt(len(n.children), child)
 }
 
 // removeChildNode removes the child node from the current node.
@@ -343,7 +344,7 @@ func (n *NodeBase) addChildNode(child Node) {
 //
 // Parameters:
 // - child: The child node to be removed.
-func (n *NodeBase) removeChildNode(child Node) {
+func (n *NodeBase) RemoveChildNode(child Node) {
 	idx := slices.Index(n.children, child)
 
 	if idx == -1 {
@@ -355,7 +356,7 @@ func (n *NodeBase) removeChildNode(child Node) {
 	n.Invalidate()
 }
 
-func (n *NodeBase) insertChildrenAt(idx int, child Node) {
+func (n *NodeBase) InsertChildrenAt(idx int, child Node) {
 	if child == n || child == n.self {
 		panic("invalid child")
 	}
@@ -384,27 +385,27 @@ func (n *NodeBase) insertChildrenAt(idx int, child Node) {
 	n.Invalidate()
 }
 
-func (n *NodeBase) insertChildNodeBefore(anchor, node Node) {
+func (n *NodeBase) InsertChildBefore(anchor, node Node) {
 	idx := slices.Index(n.children, anchor)
 
 	if idx == -1 {
 		return
 	}
 
-	n.insertChildrenAt(idx, node)
+	n.InsertChildrenAt(idx, node)
 }
 
-func (n *NodeBase) insertChildNodeAfter(anchor, node Node) {
+func (n *NodeBase) InsertChildAfter(anchor, node Node) {
 	idx := slices.Index(n.children, anchor)
 
 	if idx == -1 {
 		return
 	}
 
-	n.insertChildrenAt(idx+1, node)
+	n.InsertChildrenAt(idx+1, node)
 }
 
-// replaceChildNode replaces an old child node with a new child node in the current node.
+// ReplaceChildNode replaces an old child node with a new child node in the current node.
 // If the old child node is not a child of the current node, no action is taken.
 // The old child node is first removed from its parent node and detached from the graph.
 // Then, the new child node is set as the replacement at the same index in the list of children nodes of the current node.
@@ -414,7 +415,7 @@ func (n *NodeBase) insertChildNodeAfter(anchor, node Node) {
 // Parameters:
 // - old: The old child node to be replaced.
 // - new: The new child node to replace the old child node.
-func (n *NodeBase) replaceChildNode(old, new Node) {
+func (n *NodeBase) ReplaceChildNode(old, new Node) {
 	changed := false
 	idx := slices.Index(n.children, old)
 
