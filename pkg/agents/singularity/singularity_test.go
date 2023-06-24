@@ -9,18 +9,22 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/greenboxal/agibootstrap/pkg/agents"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 )
 
 func TestSingularity(t *testing.T) {
-	s := NewSingularity()
+	lm := thoughtstream.NewManager("/tmp/agib-test-log")
+	defer lm.Close()
+
+	s := NewSingularity(lm)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s.ReceiveIncomingMessage(agents.Message{
+	s.ReceiveIncomingMessage(thoughtstream.Thought{
 		Timestamp: time.Now(),
 
-		From: agents.CommHandle{
+		From: thoughtstream.CommHandle{
 			Name: "Human",
 			Role: msn.RoleUser,
 		},

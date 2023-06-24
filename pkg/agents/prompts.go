@@ -4,10 +4,12 @@ import (
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
+
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 )
 
 type SimplePromptTemplate struct {
-	Messages []Message
+	Messages []thoughtstream.Thought
 }
 
 func (a *SimplePromptTemplate) AsPrompt() chain.Prompt { panic("implement me") }
@@ -31,7 +33,7 @@ func (a *SimplePromptTemplate) Build(ctx chain.ChainContext) (chat.Message, erro
 type AgentPromptTemplate struct {
 	Profile        Profile
 	SystemMessages []chat.Message
-	Messages       []Message
+	Messages       []thoughtstream.Thought
 }
 
 func (a *AgentPromptTemplate) AsPrompt() chain.Prompt { panic("implement me") }

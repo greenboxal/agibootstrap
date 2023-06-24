@@ -1,12 +1,12 @@
 package singularity
 
-func newWorldState() *worldState {
-	return &worldState{
+func NewWorldState() *WorldState {
+	return &WorldState{
 		KV: map[string]any{},
 	}
 }
 
-type worldState struct {
+type WorldState struct {
 	KV map[string]any
 
 	Epoch int64
@@ -14,10 +14,10 @@ type worldState struct {
 	Step  int64
 }
 
-func (w *worldState) Get(key string) any {
+func (w *WorldState) Get(key string) any {
 	return w.KV[key]
 }
 
-func (w *worldState) Set(key string, value any) {
+func (w *WorldState) Set(key string, value any) {
 	w.KV[key] = value
 }

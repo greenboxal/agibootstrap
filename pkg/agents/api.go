@@ -2,15 +2,18 @@ package agents
 
 import (
 	"context"
-	"time"
 
-	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
+
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type PostStepHook func(ctx context.Context, a Agent, msg chat.Message, state WorldState) error
 
 type Profile struct {
+	psi.NodeBase
+
 	Name        string
 	Description any
 
@@ -23,20 +26,6 @@ type Profile struct {
 	Requires []string
 
 	PostStep PostStepHook
-}
-
-type CommHandle struct {
-	ID   string
-	Name string
-	Role msn.Role
-}
-
-type Message struct {
-	Timestamp time.Time
-	From      CommHandle
-	Text      string
-
-	ReplyTo *CommHandle
 }
 
 type WorldStateKey[T any] string
@@ -65,8 +54,8 @@ func SetState[T any](state WorldState, k WorldStateKey[T], v T) {
 }
 
 type AnalysisSession interface {
-	History() []Message
-	Introspect(ctx context.Context, extra ...Message) (chat.Message, error)
+	History() []thoughtstream.Thought
+	Introspect(ctx context.Context, extra ...thoughtstream.Thought) (chat.Message, error)
 }
 
 type Agent interface {
@@ -78,7 +67,7 @@ type Agent interface {
 }
 
 type Router interface {
-	RouteMessage(ctx context.Context, msg Message) error
+	RouteMessage(ctx context.Context, msg thoughtstream.Thought) error
 }
 
 type Scheduler interface {

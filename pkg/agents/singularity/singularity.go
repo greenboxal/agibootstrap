@@ -14,23 +14,24 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 
 	agents "github.com/greenboxal/agibootstrap/pkg/agents"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 )
 
 type Singularity struct {
 	mu   sync.RWMutex
 	self *Agent
-	log  *agents.AgentLog
+	log  *thoughtstream.AgentLog
 
 	sharedSystemMessages []chat.Message
 
-	incomingMessages chan agents.Message
-	outgoingMessages []agents.Message
+	incomingMessages chan thoughtstream.Thought
+	outgoingMessages []thoughtstream.Thought
 
 	agents        []*Agent
 	agentMap      map[string]*Agent
 	agentStateMap map[string]*AgentState
 
-	worldState *worldState
+	worldState *WorldState
 }
 
 type AgentState struct {
@@ -50,20 +51,20 @@ func (as *AgentState) AttentionScore() float64 {
 	return 1.0 / inv
 }
 
-func NewSingularity() *Singularity {
+func NewSingularity(lm *thoughtstream.Manager) *Singularity {
 	s := &Singularity{
 		agentMap:      map[string]*Agent{},
 		agentStateMap: map[string]*AgentState{},
 
-		incomingMessages: make(chan agents.Message, 32),
+		incomingMessages: make(chan thoughtstream.Thought, 32),
 
-		log: agents.NewAgentLog("GLOBAL"),
+		log: thoughtstream.NewAgentLog("GLOBAL"),
 
-		worldState: newWorldState(),
+		worldState: NewWorldState(),
 	}
 
 	for _, profile := range AgentProfiles {
-		a, err := NewAgent(profile)
+		a, err := NewAgent(lm, profile)
 
 		if err != nil {
 			panic(err)
@@ -115,7 +116,7 @@ func (s *Singularity) RegisterAgent(agent *Agent) {
 	s.agents = append(s.agents, agent)
 }
 
-func (s *Singularity) Step(ctx context.Context) ([]agents.Message, error) {
+func (s *Singularity) Step(ctx context.Context) ([]thoughtstream.Thought, error) {
 	s.worldState.Cycle++
 
 	s.outgoingMessages = nil
@@ -203,7 +204,7 @@ func (s *Singularity) Step(ctx context.Context) ([]agents.Message, error) {
 	return s.outgoingMessages, nil
 }
 
-func (s *Singularity) ReceiveIncomingMessage(msg agents.Message) {
+func (s *Singularity) ReceiveIncomingMessage(msg thoughtstream.Thought) {
 	s.incomingMessages <- msg
 }
 
@@ -222,7 +223,7 @@ func (s *Singularity) RouteIncomingMessages(ctx context.Context) error {
 	}
 }
 
-func (s *Singularity) routeIncomingMessage(msg agents.Message) error {
+func (s *Singularity) routeIncomingMessage(msg thoughtstream.Thought) error {
 	s.log.Message(msg)
 
 	if msg.ReplyTo != nil {
@@ -250,6 +251,6 @@ func (s *Singularity) routeIncomingMessage(msg agents.Message) error {
 	return nil
 }
 
-func (s *Singularity) routeAgentMessage(sender *Agent, msg agents.Message) error {
+func (s *Singularity) routeAgentMessage(sender *Agent, msg thoughtstream.Thought) error {
 	return s.routeIncomingMessage(msg)
 }

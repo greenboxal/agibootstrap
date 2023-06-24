@@ -11,13 +11,14 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/agents"
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/featureextractors"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 )
 
 type Agent struct {
 	profile agents.Profile
 
 	s   *Singularity
-	log *agents.ChatLog
+	log *thoughtstream.ThoughtLog
 
 	lastSummary featureextractors.Summary
 }
@@ -30,8 +31,8 @@ func (a *Agent) ForkSession() agents.AnalysisSession {
 	}
 }
 
-func NewAgent(profile agents.Profile) (*Agent, error) {
-	log, err := agents.NewChatLog(profile.Name)
+func NewAgent(lm *thoughtstream.Manager, profile agents.Profile) (*Agent, error) {
+	log, err := lm.GetOrCreateStream(profile.Name)
 
 	if err != nil {
 		return nil, err
@@ -45,14 +46,14 @@ func NewAgent(profile agents.Profile) (*Agent, error) {
 	return a, nil
 }
 
-func (a *Agent) Profile() agents.Profile   { return a.profile }
-func (a *Agent) History() []agents.Message { return a.log.Messages() }
+func (a *Agent) Profile() agents.Profile          { return a.profile }
+func (a *Agent) History() []thoughtstream.Thought { return a.log.Messages() }
 
 func (a *Agent) AttachTo(s *Singularity) {
 	a.s = s
 }
 
-func (a *Agent) ReceiveMessage(msg agents.Message) error {
+func (a *Agent) ReceiveMessage(msg thoughtstream.Thought) error {
 	if err := a.log.Push(msg); err != nil {
 		return err
 	}
@@ -60,7 +61,7 @@ func (a *Agent) ReceiveMessage(msg agents.Message) error {
 	return nil
 }
 
-func (a *Agent) EmitMessage(msg agents.Message) error {
+func (a *Agent) EmitMessage(msg thoughtstream.Thought) error {
 	msg.Timestamp = time.Now()
 
 	if msg.From.Name == "" && msg.From.Role == msn.RoleAI {
@@ -82,8 +83,8 @@ func (a *Agent) Step(ctx context.Context) error {
 	}
 
 	for _, entry := range reply.Entries {
-		msg := agents.Message{
-			From: agents.CommHandle{
+		msg := thoughtstream.Thought{
+			From: thoughtstream.CommHandle{
 				Name: entry.Name,
 				Role: entry.Role,
 			},
@@ -105,11 +106,11 @@ func (a *Agent) Step(ctx context.Context) error {
 	return nil
 }
 
-func (a *Agent) Introspect(ctx context.Context, extra ...agents.Message) (chat.Message, error) {
+func (a *Agent) Introspect(ctx context.Context, extra ...thoughtstream.Thought) (chat.Message, error) {
 	logMessages := a.log.Messages()
 
 	if len(extra) > 0 {
-		msgs := make([]agents.Message, 0, len(logMessages))
+		msgs := make([]thoughtstream.Thought, 0, len(logMessages))
 		msgs = append(msgs, logMessages...)
 		msgs = append(msgs, extra...)
 		logMessages = msgs
