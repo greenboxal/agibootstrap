@@ -7,16 +7,16 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/indexing"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 
 	"github.com/greenboxal/agibootstrap/pkg/codex/vts"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
-	tasks2 "github.com/greenboxal/agibootstrap/pkg/platform/tasks"
+	tasks "github.com/greenboxal/agibootstrap/pkg/platform/tasks"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -49,7 +49,8 @@ type Project struct {
 	fsRootNode *vfs.DirectoryNode
 
 	repo *fti.Repository
-	tm   *tasks2.Manager
+	tm   *tasks.Manager
+	lm   *thoughtstream.Manager
 
 	rootPath string
 	rootNode *vfs.DirectoryNode
@@ -60,7 +61,7 @@ type Project struct {
 	fset *token.FileSet
 
 	currentSyncTaskMutex sync.Mutex
-	currentSyncTask      tasks2.Task
+	currentSyncTask      tasks.Task
 }
 
 // NewProject creates a new codex project with the given root path.
@@ -96,8 +97,11 @@ func NewProject(rootPath string) (*Project, error) {
 	p.rootNode = vfs.NewDirectoryNode(p.fs, p.rootPath, "srcs")
 	p.rootNode.SetParent(p)
 
-	p.tm = tasks2.NewManager()
+	p.tm = tasks.NewManager()
 	p.tm.PsiNode().SetParent(p)
+
+	p.lm = thoughtstream.NewManager("/tmp/agib-test-log")
+	p.lm.PsiNode().SetParent(p)
 
 	p.g = indexing.NewIndexedGraph(p)
 	p.g.Add(p)
@@ -109,7 +113,8 @@ func NewProject(rootPath string) (*Project, error) {
 	return p, nil
 }
 
-func (p *Project) TaskManager() *tasks2.Manager { return p.tm }
+func (p *Project) TaskManager() *tasks.Manager        { return p.tm }
+func (p *Project) LogManager() *thoughtstream.Manager { return p.lm }
 
 // RootPath returns the root path of the project.
 func (p *Project) RootPath() string   { return p.rootPath }
@@ -140,7 +145,7 @@ func (p *Project) Sync() error {
 		return nil
 	}
 
-	task := p.tm.SpawnTask(context.Background(), func(progress tasks2.TaskProgress) error {
+	task := p.tm.SpawnTask(context.Background(), func(progress tasks.TaskProgress) error {
 		maxDepth := 0
 		count := 0
 
@@ -154,8 +159,6 @@ func (p *Project) Sync() error {
 			progress.Update(cursor.Depth()*cursor.Depth()+count, maxDepth*maxDepth+count+1)
 
 			n := cursor.Node()
-
-			time.Sleep(time.Millisecond * 100)
 
 			if n, ok := n.(*vfs.DirectoryNode); ok && entering {
 				count++
