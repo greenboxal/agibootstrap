@@ -9,7 +9,7 @@ import (
 )
 
 type SimplePromptTemplate struct {
-	Messages []thoughtstream.Thought
+	Messages []*thoughtstream.Thought
 }
 
 func (a *SimplePromptTemplate) AsPrompt() chain.Prompt { panic("implement me") }
@@ -33,7 +33,7 @@ func (a *SimplePromptTemplate) Build(ctx chain.ChainContext) (chat.Message, erro
 type AgentPromptTemplate struct {
 	Profile        Profile
 	SystemMessages []chat.Message
-	Messages       []thoughtstream.Thought
+	Messages       []*thoughtstream.Thought
 }
 
 func (a *AgentPromptTemplate) AsPrompt() chain.Prompt { panic("implement me") }

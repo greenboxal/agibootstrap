@@ -36,14 +36,14 @@ type Colab struct {
 	agents  map[string]agents.Agent
 }
 
-func (c *Colab) Members() []agents.Profile        { return c.members }
-func (c *Colab) Router() *Router                  { return c.router }
-func (c *Colab) Profile() agents.Profile          { return c.members[0] }
-func (c *Colab) Log() *thoughtstream.ThoughtLog   { return c.log }
-func (c *Colab) WorldState() agents.WorldState    { return c.state }
-func (c *Colab) History() []thoughtstream.Thought { return c.log.Messages() }
+func (c *Colab) Members() []agents.Profile         { return c.members }
+func (c *Colab) Router() *Router                   { return c.router }
+func (c *Colab) Profile() agents.Profile           { return c.members[0] }
+func (c *Colab) Log() *thoughtstream.ThoughtLog    { return c.log }
+func (c *Colab) WorldState() agents.WorldState     { return c.state }
+func (c *Colab) History() []*thoughtstream.Thought { return c.log.Messages() }
 
-func (c *Colab) Introspect(ctx context.Context, extra ...thoughtstream.Thought) (chat.Message, error) {
+func (c *Colab) Introspect(ctx context.Context, extra ...*thoughtstream.Thought) (chat.Message, error) {
 	next, err := c.nextSpeaker(ctx)
 
 	if err != nil {
@@ -53,7 +53,7 @@ func (c *Colab) Introspect(ctx context.Context, extra ...thoughtstream.Thought) 
 	return next.Introspect(ctx, extra...)
 }
 
-func (c *Colab) IntrospectWith(ctx context.Context, profileName string, extra ...thoughtstream.Thought) (chat.Message, error) {
+func (c *Colab) IntrospectWith(ctx context.Context, profileName string, extra ...*thoughtstream.Thought) (chat.Message, error) {
 	next := c.agents[profileName]
 
 	if next == nil {
@@ -97,14 +97,15 @@ func NewColab(state *WorldState, log *thoughtstream.ThoughtLog, scheduler Schedu
 		scheduler: scheduler,
 		members:   append([]agents.Profile{leader}, members...),
 		agents:    map[string]agents.Agent{},
-		router:    NewRouter(),
 		state:     state,
 	}
 
 	c.Init(c, "")
 
-	for _, member := range members {
-		agent, err := NewAgent(member, c.log, c.state)
+	c.router = NewRouter(c.log)
+
+	for _, member := range c.members {
+		agent, err := NewAgent(member, c.log.ForkTemporary(), c.state)
 
 		if err != nil {
 			return nil, err

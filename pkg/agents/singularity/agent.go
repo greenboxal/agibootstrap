@@ -55,16 +55,16 @@ func NewAgent(
 	return a, nil
 }
 
-func (a *Agent) Log() *thoughtstream.ThoughtLog   { return a.log }
-func (a *Agent) WorldState() agents.WorldState    { return a.worldState }
-func (a *Agent) Profile() agents.Profile          { return a.profile }
-func (a *Agent) History() []thoughtstream.Thought { return a.log.Messages() }
+func (a *Agent) Log() *thoughtstream.ThoughtLog    { return a.log }
+func (a *Agent) WorldState() agents.WorldState     { return a.worldState }
+func (a *Agent) Profile() agents.Profile           { return a.profile }
+func (a *Agent) History() []*thoughtstream.Thought { return a.log.Messages() }
 
 func (a *Agent) AttachTo(router *Router) {
 	a.router = router
 }
 
-func (a *Agent) ReceiveMessage(msg thoughtstream.Thought) error {
+func (a *Agent) ReceiveMessage(msg *thoughtstream.Thought) error {
 	if err := a.log.Push(msg); err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (a *Agent) ForkSession() (agents.AnalysisSession, error) {
 	return NewAgent(a.profile, a.log.ForkTemporary(), a.worldState)
 }
 
-func (a *Agent) EmitMessage(msg thoughtstream.Thought) error {
+func (a *Agent) EmitMessage(msg *thoughtstream.Thought) error {
 	msg.Timestamp = time.Now()
 
 	if msg.From.Name == "" && msg.From.Role == msn.RoleAI {
@@ -98,14 +98,14 @@ func (a *Agent) Step(ctx context.Context) error {
 	}
 
 	for _, entry := range reply.Entries {
-		msg := thoughtstream.Thought{
-			From: thoughtstream.CommHandle{
-				Name: entry.Name,
-				Role: entry.Role,
-			},
+		msg := thoughtstream.NewThought()
 
-			Text: entry.Text,
+		msg.From = thoughtstream.CommHandle{
+			Name: entry.Name,
+			Role: entry.Role,
 		}
+
+		msg.Text = entry.Text
 
 		if err := a.EmitMessage(msg); err != nil {
 			return err
@@ -121,11 +121,11 @@ func (a *Agent) Step(ctx context.Context) error {
 	return nil
 }
 
-func (a *Agent) Introspect(ctx context.Context, extra ...thoughtstream.Thought) (chat.Message, error) {
+func (a *Agent) Introspect(ctx context.Context, extra ...*thoughtstream.Thought) (chat.Message, error) {
 	logMessages := a.log.Messages()
 
 	if len(extra) > 0 {
-		msgs := make([]thoughtstream.Thought, 0, len(logMessages))
+		msgs := make([]*thoughtstream.Thought, 0, len(logMessages))
 		msgs = append(msgs, logMessages...)
 		msgs = append(msgs, extra...)
 		logMessages = msgs

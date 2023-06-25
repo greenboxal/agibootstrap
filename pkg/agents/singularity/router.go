@@ -12,24 +12,27 @@ import (
 type Router struct {
 	mu sync.RWMutex
 
-	incomingMessages chan thoughtstream.Thought
-	outgoingMessages []thoughtstream.Thought
+	incomingMessages chan *thoughtstream.Thought
+	outgoingMessages []*thoughtstream.Thought
 
 	agentMap map[string]*Agent
+
+	log *thoughtstream.ThoughtLog
 }
 
-func NewRouter() *Router {
+func NewRouter(log *thoughtstream.ThoughtLog) *Router {
 	return &Router{
+		log:              log,
 		agentMap:         map[string]*Agent{},
-		incomingMessages: make(chan thoughtstream.Thought, 32),
+		incomingMessages: make(chan *thoughtstream.Thought, 32),
 	}
 }
 
-func (r *Router) RouteMessage(ctx context.Context, msg thoughtstream.Thought) error {
+func (r *Router) RouteMessage(ctx context.Context, msg *thoughtstream.Thought) error {
 	return r.routeMessage(msg)
 }
 
-func (r *Router) OutgoingMessages() []thoughtstream.Thought {
+func (r *Router) OutgoingMessages() []*thoughtstream.Thought {
 	return r.outgoingMessages
 }
 
@@ -42,7 +45,7 @@ func (r *Router) RegisterAgent(agent *Agent) {
 	agent.AttachTo(r)
 }
 
-func (r *Router) ReceiveIncomingMessage(msg thoughtstream.Thought) {
+func (r *Router) ReceiveIncomingMessage(msg *thoughtstream.Thought) {
 	r.incomingMessages <- msg
 }
 
@@ -61,7 +64,13 @@ func (r *Router) RouteIncomingMessages(ctx context.Context) error {
 	}
 }
 
-func (r *Router) routeMessage(msg thoughtstream.Thought) error {
+func (r *Router) routeMessage(msg *thoughtstream.Thought) error {
+	if r.log != nil {
+		if err := r.log.Push(msg); err != nil {
+			return err
+		}
+	}
+
 	if msg.ReplyTo != nil {
 		if msg.ReplyTo.Role == msn.RoleUser {
 			r.outgoingMessages = append(r.outgoingMessages, msg)

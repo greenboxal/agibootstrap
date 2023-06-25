@@ -64,6 +64,7 @@ providing a comprehensive overview of the task and its critical milestones.
 			return err
 		}
 
+		plan.SetParent(ctx.Log())
 		agents.SetState(ctx.WorldState(), CtxDirectorPlan, plan)
 
 		return nil
@@ -89,6 +90,7 @@ critical to maintaining the system'router synergy and productivity.
 			return err
 		}
 
+		plan.SetParent(ctx.Log())
 		agents.SetState(ctx.WorldState(), CtxManagerPlan, plan)
 
 		return nil
@@ -113,6 +115,8 @@ in quick and effective problem-solving.
 		if err != nil {
 			return err
 		}
+
+		library.SetParent(ctx.Log())
 
 		existing := agents.GetState(ctx.WorldState(), CtxLibrarianResearch)
 
@@ -142,6 +146,8 @@ plan of action to reach the intended outcome.
 		if err != nil {
 			return err
 		}
+
+		plan.SetParent(ctx.Log())
 
 		agents.SetState(ctx.WorldState(), CtxPlannerPlan, plan)
 
@@ -177,6 +183,8 @@ code goes here
 		if err != nil {
 			return err
 		}
+
+		blocks.SetParent(ctx.Log())
 
 		existing := agents.GetState(ctx.WorldState(), CtxCodeBlocks)
 
@@ -217,6 +225,8 @@ code goes here
 			return err
 		}
 
+		blocks.SetParent(ctx.Log())
+
 		existing := agents.GetState(ctx.WorldState(), CtxCodeBlocks)
 
 		existing.Blocks = append(existing.Blocks, blocks.Blocks...)
@@ -246,6 +256,7 @@ ensure the functionality and integrity of the code before it'router finalized.
 			return err
 		}
 
+		goal.SetParent(ctx.Log())
 		agents.SetState(ctx.WorldState(), CtxGoalStatus, goal)
 
 		return nil
@@ -271,6 +282,7 @@ transparency and traceability.
 			return err
 		}
 
+		timeline.SetParent(ctx.Log())
 		agents.SetState(ctx.WorldState(), CtxTimeline, timeline)
 
 		return nil

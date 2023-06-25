@@ -62,8 +62,8 @@ func SetState[T any](state WorldState, k WorldStateKey[T], v T) {
 }
 
 type AnalysisSession interface {
-	History() []thoughtstream.Thought
-	Introspect(ctx context.Context, extra ...thoughtstream.Thought) (chat.Message, error)
+	History() []*thoughtstream.Thought
+	Introspect(ctx context.Context, extra ...*thoughtstream.Thought) (chat.Message, error)
 }
 
 type Agent interface {
@@ -79,7 +79,7 @@ type Agent interface {
 }
 
 type Router interface {
-	RouteMessage(ctx context.Context, msg thoughtstream.Thought) error
+	RouteMessage(ctx context.Context, msg *thoughtstream.Thought) error
 }
 
 type Scheduler interface {

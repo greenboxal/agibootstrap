@@ -46,21 +46,32 @@ func NewSingularity(lm *thoughtstream.Manager) (*Singularity, error) {
 		return nil, err
 	}
 
+	s.world.SetParent(s)
+
 	return s, nil
 }
 
 func (s *Singularity) Router() *Router               { return s.world.Router() }
 func (s *Singularity) WorldState() agents.WorldState { return s.worldState }
 
-func (s *Singularity) Step(ctx context.Context) ([]thoughtstream.Thought, error) {
+func (s *Singularity) Step(ctx context.Context) ([]*thoughtstream.Thought, error) {
 	s.worldState.Cycle++
 
 	s.Router().ResetOutbox()
 
 	plan := agents.GetState(s.worldState, CtxPlannerPlan)
 
-	if plan.Name == "" {
-		if err := s.runSteps(ctx, PairProfile.Name, SingularityProfile.Name, DirectorProfile.Name, ManagerProfile.Name, PlannerProfile.Name); err != nil {
+	if len(plan.Steps) == 0 {
+		if err := s.runSteps(
+			ctx,
+			PairProfile.Name,
+			SingularityProfile.Name,
+			DirectorProfile.Name,
+			ManagerProfile.Name,
+			PlannerProfile.Name,
+			LibrarianProfile.Name,
+			JournalistProfile.Name,
+		); err != nil {
 			return s.Router().OutgoingMessages(), err
 		}
 	}
@@ -74,20 +85,13 @@ func (s *Singularity) Step(ctx context.Context) ([]thoughtstream.Thought, error)
 	agents.SetState(s.worldState, CtxGlobalObjective, obj)
 
 	for {
-		plan := agents.GetState(s.worldState, CtxPlannerPlan)
 		progress := agents.GetState(s.worldState, CtxGoalStatus)
 
 		if progress.Completed {
 			break
 		}
 
-		nextAgent, err := featureextractors.PredictNextSpeaker(ctx, plan, s.self.log.Messages()...)
-
-		if err != nil {
-			return s.Router().OutgoingMessages(), err
-		}
-
-		if err := s.runSteps(ctx, nextAgent.NextSpeaker); err != nil {
+		if err := s.world.Step(ctx); err != nil {
 			return s.Router().OutgoingMessages(), err
 		}
 	}
