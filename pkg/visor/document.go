@@ -38,8 +38,14 @@ type DocumentManager struct {
 }
 
 func (m *DocumentManager) AddDocument(doc *Document) {
-	m.documents[doc.ID] = doc
-	m.area.Append(doc.tabItem)
+	if m.documents[doc.ID] == nil {
+		m.documents[doc.ID] = doc
+
+		m.area.Append(doc.tabItem)
+		m.area.Refresh()
+	}
+
+	m.area.Select(doc.tabItem)
 }
 
 func (m *DocumentManager) CloseDocument(d *Document) {

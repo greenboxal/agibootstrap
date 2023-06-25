@@ -1,8 +1,6 @@
 package visor
 
 import (
-	"time"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
@@ -10,6 +8,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/tasks"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type TasksToolWindow struct {
@@ -17,6 +16,8 @@ type TasksToolWindow struct {
 }
 
 func NewTasksToolWindow(p project.Project) *TasksToolWindow {
+	var selectedTask tasks.Task
+
 	tasksPanelToolbar := container.NewHBox()
 
 	selectedTaskId := binding.NewString()
@@ -24,9 +25,23 @@ func NewTasksToolWindow(p project.Project) *TasksToolWindow {
 	selectedTaskDesc := binding.NewString()
 	selectedTaskProgress := binding.NewFloat()
 
-	taskTree := NewPsiTreeWidget(p.TaskManager().PsiNode())
+	taskTree := NewPsiTreeWidget(p)
+	taskTree.Root = p.TaskManager().PsiNode().CanonicalPath().String()
 
 	updateSelectedTask := func() {
+		if selectedTask != nil {
+			selectedTaskId.Set(selectedTask.UUID())
+			selectedTaskName.Set(selectedTask.Name())
+			selectedTaskDesc.Set(selectedTask.Description())
+			selectedTaskProgress.Set(selectedTask.Progress())
+		}
+	}
+
+	invalidationListener := psi.InvalidationListenerFunc(func(n psi.Node) {
+		updateSelectedTask()
+	})
+
+	taskTree.SelectedItem.AddListener(binding.NewDataListener(func() {
 		v, err := taskTree.SelectedItem.Get()
 
 		if err != nil {
@@ -39,19 +54,20 @@ func NewTasksToolWindow(p project.Project) *TasksToolWindow {
 			return
 		}
 
-		selectedTaskId.Set(task.UUID())
-		selectedTaskName.Set(task.Name())
-		selectedTaskDesc.Set(task.Description())
-		selectedTaskProgress.Set(task.Progress())
-	}
-
-	go func() {
-		for range time.Tick(500 * time.Millisecond) {
-			updateSelectedTask()
+		if selectedTask == task {
+			return
 		}
-	}()
 
-	taskTree.SelectedItem.AddListener(binding.NewDataListener(func() {
+		if selectedTask != nil {
+			selectedTask.RemoveInvalidationListener(invalidationListener)
+		}
+
+		selectedTask = task
+
+		if selectedTask != nil {
+			selectedTask.AddInvalidationListener(invalidationListener)
+		}
+
 		updateSelectedTask()
 	}))
 

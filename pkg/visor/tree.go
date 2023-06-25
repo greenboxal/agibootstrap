@@ -1,6 +1,8 @@
 package visor
 
 import (
+	"time"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
@@ -16,8 +18,7 @@ type PsiTreeWidget struct {
 
 	root psi.Node
 
-	pathCache  map[string]psi.Node
-	childCache map[widget.TreeNodeID][]widget.TreeNodeID
+	pathCache map[string]*psiTreeNodeState
 
 	SelectedItem binding.Untyped
 }
@@ -37,81 +38,109 @@ func (w *PsiTreeWidget) resolveCached(id string) (psi.Node, error) {
 		panic("empty id")
 	}
 
-	if n := w.pathCache[id]; n != nil {
-		return n, nil
+	existing := w.pathCache[id]
+
+	if existing == nil {
+		existing = &psiTreeNodeState{}
+
+		w.pathCache[id] = existing
 	}
 
-	p := psi.MustParsePath(id)
+	if existing.node == nil {
+		p := psi.MustParsePath(id)
 
-	n, err := psi.ResolvePath(w.root, p)
+		n, err := psi.ResolvePath(w.root, p)
 
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+
+		existing.node = n
 	}
 
-	w.pathCache[id] = n
-
-	return n, nil
+	return existing.node, nil
 }
 
 func (w *PsiTreeWidget) refreshNode(id widget.TreeNodeID) {
 	delete(w.pathCache, id)
-	delete(w.childCache, id)
 
 	w.Tree.Refresh()
 }
 
+type psiTreeNodeState struct {
+	ts       time.Time
+	node     psi.Node
+	children []widget.TreeNodeID
+	valid    bool
+}
+
 func NewPsiTreeWidget(root psi.Node) *PsiTreeWidget {
 	ptw := &PsiTreeWidget{
-		root:       root,
-		pathCache:  map[string]psi.Node{},
-		childCache: map[widget.TreeNodeID][]widget.TreeNodeID{},
+		root:      root,
+		pathCache: map[string]*psiTreeNodeState{},
 
 		SelectedItem: binding.NewUntyped(),
 	}
 
+	invalidationListener := psi.InvalidationListenerFunc(func(n psi.Node) {
+		entry := ptw.pathCache[n.CanonicalPath().String()]
+
+		if entry != nil {
+			entry.valid = false
+		}
+
+		ptw.Tree.Refresh()
+	})
+
 	ptw.Tree = &widget.Tree{
 		ChildUIDs: func(id widget.TreeNodeID) []widget.TreeNodeID {
-			if id == "" {
-				return []widget.TreeNodeID{"/"}
+			existing := ptw.pathCache[id]
+
+			if existing == nil {
+				existing = &psiTreeNodeState{}
+
+				ptw.pathCache[id] = existing
 			}
 
-			if existing, ok := ptw.childCache[id]; ok {
-				return existing
-			}
+			if existing.node == nil {
+				resolved, err := ptw.resolveCached(id)
 
-			resolved, err := ptw.resolveCached(id)
-
-			if err != nil {
-				return nil
-			}
-
-			ids := lo.Map(resolved.Children(), func(child psi.Node, _ int) widget.TreeNodeID {
-				p := child.CanonicalPath()
-
-				if p.IsEmpty() {
-					panic("empty path")
+				if err != nil {
+					return nil
 				}
 
-				ps := p.String()
+				existing.node = resolved
+			}
 
-				if ps == "" {
-					panic("empty path")
-				}
+			if !existing.valid {
+				go func() {
+					ids := lo.Map(existing.node.Children(), func(child psi.Node, _ int) widget.TreeNodeID {
+						p := child.CanonicalPath()
 
-				return ps
-			})
+						if p.IsEmpty() {
+							panic("empty path")
+						}
 
-			ptw.childCache[id] = ids
+						ps := p.String()
 
-			return ids
+						if ps == "" {
+							panic("empty path")
+						}
+
+						return ps
+					})
+
+					existing.children = ids
+					existing.valid = true
+
+					ptw.Tree.Refresh()
+				}()
+			}
+
+			return existing.children
 		},
 
 		IsBranch: func(id widget.TreeNodeID) bool {
-			if id == "" {
-				return true
-			}
-
 			n, err := ptw.resolveCached(id)
 
 			if err != nil {
@@ -126,10 +155,6 @@ func NewPsiTreeWidget(root psi.Node) *PsiTreeWidget {
 		},
 
 		UpdateNode: func(id widget.TreeNodeID, branch bool, o fyne.CanvasObject) {
-			if id == "" {
-				return
-			}
-
 			n, err := ptw.resolveCached(id)
 
 			if err != nil {
@@ -152,16 +177,40 @@ func NewPsiTreeWidget(root psi.Node) *PsiTreeWidget {
 	}
 
 	ptw.Tree.OnBranchOpened = func(id widget.TreeNodeID) {
-		ptw.refreshNode(id)
+		entry := ptw.pathCache[id]
+
+		if entry != nil && entry.node != nil {
+			entry.node.AddInvalidationListener(invalidationListener)
+		}
+
+		go ptw.Tree.Refresh()
+	}
+
+	ptw.Tree.OnBranchClosed = func(id widget.TreeNodeID) {
+		entry := ptw.pathCache[id]
+
+		if entry != nil {
+			if entry.node != nil {
+				entry.node.RemoveInvalidationListener(invalidationListener)
+			}
+
+			entry.valid = false
+		}
 	}
 
 	ptw.Tree.OnSelected = func(id widget.TreeNodeID) {
-		ptw.refreshNode(id)
+		entry := ptw.pathCache[id]
+
+		if entry != nil {
+			entry.valid = false
+		}
 
 		if err := ptw.SelectedItem.Set(ptw.Node(id)); err != nil {
 			panic(err)
 		}
 	}
+
+	ptw.Tree.Root = ptw.root.CanonicalPath().String()
 
 	ptw.Tree.ExtendBaseWidget(ptw.Tree)
 

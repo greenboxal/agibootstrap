@@ -67,9 +67,15 @@ func NewVisor(p project.Project) *Visor {
 
 		widget.NewButton("Boot", func() {
 			v.p.TaskManager().SpawnTask(context.Background(), func(tctx tasks.TaskProgress) error {
-				s := singularity.NewSingularity(p.LogManager())
+				s, err := singularity.NewSingularity(p.LogManager())
 
-				s.ReceiveIncomingMessage(thoughtstream.Thought{
+				if err != nil {
+					return err
+				}
+
+				s.SetParent(v.p)
+
+				s.Router().ReceiveIncomingMessage(thoughtstream.Thought{
 					Timestamp: time.Now(),
 
 					From: thoughtstream.CommHandle{
@@ -78,7 +84,7 @@ func NewVisor(p project.Project) *Visor {
 					},
 
 					Text: `
-Create a Pytorch model based on the human brain cytoarchitecture.
+Create a landing page for a pharmaceutical company in NextJS.
 `,
 				})
 
@@ -106,7 +112,7 @@ Create a Pytorch model based on the human brain cytoarchitecture.
 
 	documentArea := NewDocumentArea(v.dm)
 
-	projectExplorer := NewProjectExplorer(p)
+	projectExplorer := NewProjectExplorer(p, v.dm)
 	chatExplorer := NewChatExplorer(p, v.dm)
 	tasksToolWindow := NewTasksToolWindow(p)
 	propertyInspector := NewPropertyInspector()

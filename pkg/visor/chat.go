@@ -94,8 +94,7 @@ type ThoughtLogEditor struct {
 	elementPath psi.Path
 	element     *thoughtstream.ThoughtLog
 
-	root            fyne.CanvasObject
-	chatMessageList *widget.List
+	root fyne.CanvasObject
 }
 
 func (t *ThoughtLogEditor) Project() project.Project { return t.project }
@@ -113,41 +112,60 @@ func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.No
 	chatMessagesBinding := binding.NewUntypedList()
 	chatReplyBinding := binding.NewString()
 
-	tle.chatMessageList = widget.NewList(
-		chatMessagesBinding.Length,
+	listItems := container.NewVBox()
+	listContainer := container.NewMax(container.NewVScroll(listItems))
 
-		func() fyne.CanvasObject {
-			return container.NewVBox(widget.NewRichTextFromMarkdown("Message Here"))
-		},
+	createItem := func() fyne.CanvasObject {
+		rt := widget.NewRichTextFromMarkdown("Message Here")
 
-		func(i widget.ListItemID, o fyne.CanvasObject) {
-			item, err := chatMessagesBinding.GetItem(i)
+		rt.Wrapping = fyne.TextWrapWord
+		rt.Scroll = container.ScrollNone
 
-			if err != nil {
-				fyne.LogError(fmt.Sprintf("Error getting data item %d", i), err)
-				return
+		return rt
+	}
+
+	updateItem := func(i widget.ListItemID, o fyne.CanvasObject) {
+		item, err := chatMessagesBinding.GetItem(i)
+
+		if err != nil {
+			fyne.LogError(fmt.Sprintf("Error getting data item %d", i), err)
+			return
+		}
+
+		v, err := item.(binding.Untyped).Get()
+
+		if err != nil {
+			return
+		}
+
+		msg, ok := v.(*thoughtstream.Thought)
+
+		if !ok {
+			return
+		}
+
+		el := o.(*widget.RichText)
+
+		el.ParseMarkdown(fmt.Sprintf("# **[%s]:**\n%s", msg.From.Name, msg.Text))
+	}
+
+	updateItems := func() {
+		count := chatMessagesBinding.Length()
+
+		for i := 0; i < count; i++ {
+			if i >= len(listItems.Objects) {
+				listItems.Add(createItem())
 			}
 
-			v, err := item.(binding.Untyped).Get()
+			updateItem(i, listItems.Objects[i])
+		}
 
-			if err != nil {
-				return
-			}
+		for i := count; i < len(listItems.Objects); i++ {
+			listItems.Remove(listItems.Objects[count])
+		}
+	}
 
-			msg, ok := v.(*thoughtstream.Thought)
-
-			if !ok {
-				return
-			}
-
-			el := o.(*fyne.Container).Objects[0].(*widget.RichText)
-
-			el.Wrapping = fyne.TextWrapWord
-			el.Scroll = container.ScrollBoth
-			el.ParseMarkdown(fmt.Sprintf("# **[%s]:**\n%s", msg.From.Name, msg.Text))
-		})
-
-	chatMessagesBinding.AddListener(binding.NewDataListener(tle.chatMessageList.Refresh))
+	chatMessagesBinding.AddListener(binding.NewDataListener(updateItems))
 
 	go func() {
 		for range time.Tick(500 * time.Millisecond) {
@@ -176,7 +194,7 @@ func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.No
 		),
 		nil,
 		nil,
-		container.NewMax(tle.chatMessageList),
+		listContainer,
 	)
 
 	tle.root = widget.NewCard("Chat Log", "Chat Log details", chatLogDetailsContent)
