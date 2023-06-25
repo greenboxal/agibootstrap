@@ -2,7 +2,6 @@ package visor
 
 import (
 	"fmt"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -23,34 +22,13 @@ func NewChatExplorer(p project.Project, dm *DocumentManager) *ChatExplorer {
 
 	chatLogsToolbar := container.NewHBox()
 
-	chatLogsBinding := binding.NewUntypedList()
+	chatLogTree := NewPsiTreeWidget(p)
+	chatLogTree.Root = p.LogManager().PsiNode().CanonicalPath().String()
 
-	chatLogList := widget.NewListWithData(
-		chatLogsBinding,
-		func() fyne.CanvasObject {
-			return widget.NewLabel("")
-		},
-		func(item binding.DataItem, object fyne.CanvasObject) {
-			v, err := item.(binding.Untyped).Get()
+	chatLogTree.OnSelected = func(uid widget.TreeNodeID) {
+		v := chatLogTree.Node(uid)
 
-			if err != nil {
-				return
-			}
-
-			chatLog, ok := v.(*thoughtstream.ThoughtLog)
-
-			if !ok {
-				return
-			}
-
-			object.(*widget.Label).SetText(chatLog.Name())
-		},
-	)
-
-	chatLogList.OnSelected = func(id int) {
-		v, err := chatLogsBinding.GetValue(id)
-
-		if err != nil {
+		if v == nil {
 			return
 		}
 
@@ -63,25 +41,12 @@ func NewChatExplorer(p project.Project, dm *DocumentManager) *ChatExplorer {
 		dm.OpenDocument(chatLog.CanonicalPath(), chatLog)
 	}
 
-	go func() {
-		for range time.Tick(500 * time.Millisecond) {
-			c := p.LogManager().PsiNode().Children()
-			l := make([]interface{}, len(c))
-
-			for i, v := range c {
-				l[i] = v
-			}
-
-			chatLogsBinding.Set(l)
-		}
-	}()
-
 	chatLogsPanel := container.NewBorder(
 		chatLogsToolbar,
 		nil,
 		nil,
 		nil,
-		chatLogList,
+		chatLogTree,
 	)
 
 	ce.CanvasObject = chatLogsPanel
@@ -167,19 +132,23 @@ func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.No
 
 	chatMessagesBinding.AddListener(binding.NewDataListener(updateItems))
 
-	go func() {
-		for range time.Tick(500 * time.Millisecond) {
-			c := tle.element.Messages()
-			l := make([]interface{}, len(c))
+	updateAllItems := func() {
+		c := tle.element.Messages()
+		l := make([]interface{}, len(c))
 
-			for i, v := range c {
-				n := v
-				l[i] = &n
-			}
-
-			chatMessagesBinding.Set(l)
+		for i, v := range c {
+			n := v
+			l[i] = &n
 		}
-	}()
+
+		chatMessagesBinding.Set(l)
+	}
+
+	element.AddInvalidationListener(psi.InvalidationListenerFunc(func(n psi.Node) {
+		updateAllItems()
+	}))
+
+	updateAllItems()
 
 	chatLogDetailsContent := container.NewBorder(
 		nil,

@@ -75,7 +75,7 @@ func NewVisor(p project.Project) *Visor {
 
 				s.SetParent(v.p)
 
-				s.Router().ReceiveIncomingMessage(thoughtstream.Thought{
+				s.Router().ReceiveIncomingMessage(&thoughtstream.Thought{
 					Timestamp: time.Now(),
 
 					From: thoughtstream.CommHandle{
@@ -126,9 +126,8 @@ Create a landing page for a pharmaceutical company in NextJS.
 		container.NewTabItem("Properties", propertyInspector.CanvasObject),
 	)
 
-	bottomDrawer := container.NewAppTabs(
-		container.NewTabItem("Tasks", tasksToolWindow.CanvasObject),
-	)
+	bottomDrawer := container.NewAppTabs()
+	container.NewTabItem("Tasks", tasksToolWindow.CanvasObject)
 
 	bottomDrawer.SetTabLocation(container.TabLocationBottom)
 
