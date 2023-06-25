@@ -12,7 +12,7 @@ type SpeakerPrediction struct {
 	NextSpeaker string `json:"NextSpeaker" jsonschema:"description=The next speaker"`
 }
 
-func PredictNextSpeaker(ctx context.Context, plan Plan, history ...thoughtstream.Thought) (SpeakerPrediction, error) {
+func PredictNextSpeaker(ctx context.Context, plan Plan, history ...*thoughtstream.Thought) (SpeakerPrediction, error) {
 	planJson, err := json.Marshal(plan)
 
 	if err != nil {

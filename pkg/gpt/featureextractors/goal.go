@@ -4,9 +4,12 @@ import (
 	"context"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type Objective struct {
+	psi.NodeBase
+
 	Name        string   `json:"Name" jsonschema:"title=Name,description=Name of the objective."`
 	Description string   `json:"Description" jsonschema:"title=Description,description=Description of the objective."`
 	Keywords    []string `json:"Keywords" jsonschema:"title=Keywords,description=Keywords of the objective."`
@@ -18,7 +21,7 @@ type Objective struct {
 	Status GoalCompletion `json:"Status" jsonschema:"title=Status,description=Status of the goal."`
 }
 
-func QueryObjective(ctx context.Context, history []thoughtstream.Thought) (Objective, error) {
+func QueryObjective(ctx context.Context, history []*thoughtstream.Thought) (Objective, error) {
 	res, _, err := Reflect[Objective](ctx, ReflectOptions{
 		History: history,
 
@@ -31,6 +34,8 @@ func QueryObjective(ctx context.Context, history []thoughtstream.Thought) (Objec
 }
 
 type GoalCompletion struct {
+	psi.NodeBase
+
 	Goal                   string `json:"goal" jsonschema:"title=Goal,description=Description of the goal."`
 	Completed              bool   `json:"completed" jsonschema:"title=Completed,description=Whether the goal is completed."`
 	CompletionStepsCurrent int    `json:"completionStepsCurrent" jsonschema:"title=Completion steps current,description=Number of steps completed."`
@@ -39,7 +44,7 @@ type GoalCompletion struct {
 	Feedback               string `json:"feedback" jsonschema:"title=Feedback,description=Feedback for the completion."`
 }
 
-func QueryGoalCompletion(ctx context.Context, history []thoughtstream.Thought) (GoalCompletion, error) {
+func QueryGoalCompletion(ctx context.Context, history []*thoughtstream.Thought) (GoalCompletion, error) {
 	res, _, err := Reflect[GoalCompletion](ctx, ReflectOptions{
 		History: history,
 

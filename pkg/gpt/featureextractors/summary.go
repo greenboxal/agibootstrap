@@ -11,7 +11,7 @@ type Summary struct {
 	Summary string `json:"summary" jsonschema:"title=Summary,description=Summary of the message."`
 }
 
-func QuerySummary(ctx context.Context, history []thoughtstream.Thought) (Summary, error) {
+func QuerySummary(ctx context.Context, history []*thoughtstream.Thought) (Summary, error) {
 	res, _, err := Reflect[Summary](ctx, ReflectOptions{
 		History: history,
 

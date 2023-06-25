@@ -16,7 +16,7 @@ type SentimentScore struct {
 	Tentative float64 `json:"tentative"`
 }
 
-func QuerySentimentScore(ctx context.Context, history []thoughtstream.Thought) (SentimentScore, error) {
+func QuerySentimentScore(ctx context.Context, history []*thoughtstream.Thought) (SentimentScore, error) {
 	res, _, err := Reflect[SentimentScore](ctx, ReflectOptions{
 		History: history,
 

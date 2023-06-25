@@ -17,10 +17,11 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 	mdutils2 "github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type ReflectOptions struct {
-	History []thoughtstream.Thought
+	History []*thoughtstream.Thought
 	Query   string
 
 	ExampleInput  any
@@ -37,6 +38,12 @@ func getSchemaForType[T any]() *jsonschema.Schema {
 	typ := reflect.TypeOf((*T)(nil)).Elem()
 
 	return globalReflector.ReflectFromType(typ)
+}
+
+type initializerIface interface {
+	psi.Node
+
+	Init(self psi.Node, uuid string)
 }
 
 func Reflect[T any](ctx context.Context, req ReflectOptions) (def T, _ chat.Message, _ error) {
@@ -80,9 +87,9 @@ func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ cha
 		historyText += fmt.Sprintf("[%s]:\n%s\n", msg.From.Name, msg.Text)
 	}
 
-	msgs := make([]thoughtstream.Thought, 0, len(req.History)+3)
+	msgs := make([]*thoughtstream.Thought, 0, len(req.History)+3)
 
-	msgs = append(msgs, thoughtstream.Thought{
+	msgs = append(msgs, &thoughtstream.Thought{
 		From: thoughtstream.CommHandle{
 			Role: msn.RoleSystem,
 		},
@@ -101,7 +108,7 @@ func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ cha
 
 	msgs = append(msgs, req.History...)
 
-	msgs = append(msgs, thoughtstream.Thought{
+	msgs = append(msgs, &thoughtstream.Thought{
 		From: thoughtstream.CommHandle{
 			Name: "User",
 			Role: msn.RoleUser,
@@ -118,7 +125,7 @@ func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ cha
 		),
 	})
 
-	msgs = append(msgs, thoughtstream.Thought{
+	msgs = append(msgs, &thoughtstream.Thought{
 		From: thoughtstream.CommHandle{
 			Name: "Assistant",
 			Role: msn.RoleAI,
@@ -164,6 +171,10 @@ func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ cha
 
 	if err := json.Unmarshal(jsonBlock, &def); err != nil {
 		return def, chat.Message{}, err
+	}
+
+	if init, ok := any(def).(initializerIface); ok {
+		init.Init(init, "")
 	}
 
 	return def, reply, nil

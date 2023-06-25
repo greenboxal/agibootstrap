@@ -4,19 +4,39 @@ import (
 	"context"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type PlanStep struct {
+	psi.NodeBase
+
 	Name        string `json:"name" jsonschema:"title=Name,description=Name of the step."`
 	Description string `json:"description" jsonschema:"title=Description,description=Description of the step."`
 }
 
+type PlanStepStatus struct {
+	psi.NodeBase
+
+	Step   *PlanStep       `json:"Step" jsonschema:"title=Step,description=Step that was completed."`
+	Status *GoalCompletion `json:"Status" jsonschema:"title=Status,description=Status of the step."`
+}
+
 type Plan struct {
+	psi.NodeBase
+
 	Name  string     `json:"name" jsonschema:"title=Name,description=Name of the plan."`
 	Steps []PlanStep `json:"steps" jsonschema:"title=Steps,description=List of steps in the plan."`
 }
 
-func QueryPlan(ctx context.Context, history []thoughtstream.Thought) (Plan, error) {
+type PlanStatus struct {
+	psi.NodeBase
+
+	Plan       *Plan             `json:"Plan" jsonschema:"title=Plan,description=Plan that was completed."`
+	StepStatus []*PlanStepStatus `json:"StepStatus" jsonschema:"title=StepStatus,description=Status of each step in the plan."`
+	Status     *GoalCompletion   `json:"Status" jsonschema:"title=Status,description=Status of the plan."`
+}
+
+func QueryPlan(ctx context.Context, history []*thoughtstream.Thought) (Plan, error) {
 	res, _, err := Reflect[Plan](ctx, ReflectOptions{
 		History: history,
 
