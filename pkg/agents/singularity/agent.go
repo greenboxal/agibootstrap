@@ -12,45 +12,56 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/featureextractors"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
+type agentContext struct {
+	agent *Agent
+	ctx   context.Context
+}
+
+func (c agentContext) Context() context.Context       { return c.ctx }
+func (c agentContext) Profile() agents.Profile        { return c.agent.profile }
+func (c agentContext) Agent() agents.Agent            { return c.agent }
+func (c agentContext) Log() *thoughtstream.ThoughtLog { return c.agent.log }
+func (c agentContext) Router() agents.Router          { return c.agent.router }
+func (c agentContext) WorldState() agents.WorldState  { return c.agent.worldState }
+
 type Agent struct {
+	psi.NodeBase
+
 	profile agents.Profile
 
-	s   *Singularity
-	log *thoughtstream.ThoughtLog
+	router     *Router
+	log        *thoughtstream.ThoughtLog
+	worldState *WorldState
 
 	lastSummary featureextractors.Summary
 }
 
-func (a *Agent) ForkSession() agents.AnalysisSession {
-	return &Agent{
-		profile: a.profile,
-		log:     a.log.ForkTemporary(),
-		s:       a.s,
-	}
-}
-
-func NewAgent(lm *thoughtstream.Manager, profile agents.Profile) (*Agent, error) {
-	log, err := lm.GetOrCreateStream(profile.Name)
-
-	if err != nil {
-		return nil, err
-	}
-
+func NewAgent(
+	profile agents.Profile,
+	log *thoughtstream.ThoughtLog,
+	worldState *WorldState,
+) (*Agent, error) {
 	a := &Agent{
-		profile: profile,
-		log:     log,
+		profile:    profile,
+		log:        log,
+		worldState: worldState,
 	}
+
+	a.Init(a, "")
 
 	return a, nil
 }
 
+func (a *Agent) Log() *thoughtstream.ThoughtLog   { return a.log }
+func (a *Agent) WorldState() agents.WorldState    { return a.worldState }
 func (a *Agent) Profile() agents.Profile          { return a.profile }
 func (a *Agent) History() []thoughtstream.Thought { return a.log.Messages() }
 
-func (a *Agent) AttachTo(s *Singularity) {
-	a.s = s
+func (a *Agent) AttachTo(router *Router) {
+	a.router = router
 }
 
 func (a *Agent) ReceiveMessage(msg thoughtstream.Thought) error {
@@ -59,6 +70,10 @@ func (a *Agent) ReceiveMessage(msg thoughtstream.Thought) error {
 	}
 
 	return nil
+}
+
+func (a *Agent) ForkSession() (agents.AnalysisSession, error) {
+	return NewAgent(a.profile, a.log.ForkTemporary(), a.worldState)
 }
 
 func (a *Agent) EmitMessage(msg thoughtstream.Thought) error {
@@ -72,7 +87,7 @@ func (a *Agent) EmitMessage(msg thoughtstream.Thought) error {
 		return err
 	}
 
-	return a.s.routeAgentMessage(a, msg)
+	return a.router.routeMessage(msg)
 }
 
 func (a *Agent) Step(ctx context.Context) error {
@@ -98,7 +113,7 @@ func (a *Agent) Step(ctx context.Context) error {
 	}
 
 	if a.profile.PostStep != nil {
-		if err := a.profile.PostStep(ctx, a, reply, a.s.worldState); err != nil {
+		if err := a.profile.PostStep(agentContext{agent: a, ctx: ctx}, reply); err != nil {
 			return err
 		}
 	}
@@ -118,8 +133,9 @@ func (a *Agent) Introspect(ctx context.Context, extra ...thoughtstream.Thought) 
 
 	prompt := &agents.AgentPromptTemplate{
 		Profile:        a.profile,
-		SystemMessages: a.s.sharedSystemMessages,
-		Messages:       logMessages,
+		SystemMessages: a.worldState.SystemMessages,
+
+		Messages: logMessages,
 	}
 
 	cctx := chain.NewChainContext(ctx)
@@ -144,13 +160,14 @@ func (a *Agent) Introspect(ctx context.Context, extra ...thoughtstream.Thought) 
 }
 
 func (a *Agent) RunPostCycleHooks(ctx context.Context) error {
-	summary, err := featureextractors.QuerySummary(ctx, a.log.Messages())
+	/*summary, err := featureextractors.QuerySummary(ctx, a.log.Messages())
 
 	if err != nil {
 		return err
 	}
 
-	a.lastSummary = summary
+	a.lastSummary = summary*/
+
 	a.log.EpochBarrier()
 
 	return nil

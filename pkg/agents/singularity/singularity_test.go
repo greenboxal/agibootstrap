@@ -16,7 +16,8 @@ func TestSingularity(t *testing.T) {
 	lm := thoughtstream.NewManager("/tmp/agib-test-log")
 	defer lm.Close()
 
-	s := NewSingularity(lm)
+	s, err := NewSingularity(lm)
+	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -9,7 +9,15 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
-type PostStepHook func(ctx context.Context, a Agent, msg chat.Message, state WorldState) error
+type AgentContext interface {
+	Context() context.Context
+	Profile() Profile
+	Agent() Agent
+	Log() *thoughtstream.ThoughtLog
+	WorldState() WorldState
+}
+
+type PostStepHook func(ctx AgentContext, msg chat.Message) error
 
 type Profile struct {
 	psi.NodeBase
@@ -61,9 +69,13 @@ type AnalysisSession interface {
 type Agent interface {
 	AnalysisSession
 
+	Profile() Profile
+	Log() *thoughtstream.ThoughtLog
+	WorldState() WorldState
+
 	Step(ctx context.Context) error
 
-	ForkSession() AnalysisSession
+	ForkSession() (AnalysisSession, error)
 }
 
 type Router interface {

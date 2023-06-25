@@ -1,8 +1,6 @@
 package singularity
 
 import (
-	"context"
-
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 
 	"github.com/greenboxal/agibootstrap/pkg/agents"
@@ -11,6 +9,7 @@ import (
 
 var CtxPairMeditation agents.WorldStateKey[string] = "pair_meditation"
 var CtxGoalStatus agents.WorldStateKey[featureextractors.GoalCompletion] = "goal_status"
+var CtxGlobalObjective agents.WorldStateKey[featureextractors.Objective] = "global_objective"
 var CtxDirectorPlan agents.WorldStateKey[featureextractors.Plan] = "director_plan"
 var CtxPlannerPlan agents.WorldStateKey[featureextractors.Plan] = "planner_plan"
 var CtxManagerPlan agents.WorldStateKey[featureextractors.Plan] = "manager_plan"
@@ -46,22 +45,9 @@ func WithRequires[T any](requires ...agents.WorldStateKey[T]) ProfileOption {
 	}
 }
 
-var SingularityProfile = BuildProfile(agents.Profile{
-	Name:        "Singularity",
-	Description: "Routes messages to other agents based on the task's needs and the system's state.",
-
-	BaselineSystemPrompt: `
-As the Singularity Agent, you are tasked with orchestrating the dialogue flow between all other agents, deciding who will contribute next based on the task's needs and the system's
-state. Additionally, provide real-time feedback to each agent to promote continuous learning and improvement.
-`,
-
-	Rank:     1.0,
-	Priority: 0,
-})
-
 var DirectorProfile = BuildProfile(agents.Profile{
 	Name:        "Director",
-	Description: "Establishes the task's overarching goal and key objectives.",
+	Description: "Establishes the task'router overarching goal and key objectives.",
 
 	BaselineSystemPrompt: `
 As the Director Agent, your role is to strategically assess the given task, determine the overarching goal, and establish key objectives that will lead to its completion. Begin by
@@ -71,14 +57,14 @@ providing a comprehensive overview of the task and its critical milestones.
 	Rank:     1.0 / 2.0,
 	Priority: 1,
 
-	PostStep: func(ctx context.Context, a agents.Agent, msg chat.Message, state agents.WorldState) error {
-		plan, err := featureextractors.QueryPlan(ctx, a.History())
+	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+		plan, err := featureextractors.QueryPlan(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
 			return err
 		}
 
-		agents.SetState(state, CtxDirectorPlan, plan)
+		agents.SetState(ctx.WorldState(), CtxDirectorPlan, plan)
 
 		return nil
 	},
@@ -86,24 +72,24 @@ providing a comprehensive overview of the task and its critical milestones.
 
 var ManagerProfile = BuildProfile(agents.Profile{
 	Name:        "Manager",
-	Description: "Ensures the smooth transition of tasks between agents, effectively manages resources, and facilitates harmonious communication among all agents.",
+	Description: "Ensures the smooth transition of tasks between profiles, effectively manages resources, and facilitates harmonious communication among all profiles.",
 
 	BaselineSystemPrompt: `
-As the Manager Agent, ensure the smooth transition of tasks between the agents, effectively manage resources, and facilitate harmonious communication among all agents. Your role is
-critical to maintaining the system's synergy and productivity.
+As the Manager Agent, ensure the smooth transition of tasks between the profiles, effectively manage resources, and facilitate harmonious communication among all profiles. Your role is
+critical to maintaining the system'router synergy and productivity.
 `,
 
 	Rank:     1.0 / 3.0,
 	Priority: 1,
 
-	PostStep: func(ctx context.Context, a agents.Agent, msg chat.Message, state agents.WorldState) error {
-		plan, err := featureextractors.QueryPlan(ctx, a.History())
+	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+		plan, err := featureextractors.QueryPlan(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
 			return err
 		}
 
-		agents.SetState(state, CtxManagerPlan, plan)
+		agents.SetState(ctx.WorldState(), CtxManagerPlan, plan)
 
 		return nil
 	},
@@ -111,28 +97,28 @@ critical to maintaining the system's synergy and productivity.
 
 var LibrarianProfile = BuildProfile(agents.Profile{
 	Name:        "Librarian",
-	Description: "Taps into the system's stored knowledge and experiences to provide necessary context and recall relevant information for the present task. This will assist in quick and effective problem-solving.",
+	Description: "Taps into the system'router stored knowledge and experiences to provide necessary context and recall relevant information for the present task. This will assist in quick and effective problem-solving.",
 
 	BaselineSystemPrompt: `
-As the Librarian Agent, tap into the system's stored knowledge and experiences to provide necessary context and recall relevant information for the present task. This will assist
+As the Librarian Agent, tap into the system'router stored knowledge and experiences to provide necessary context and recall relevant information for the present task. This will assist
 in quick and effective problem-solving.
 `,
 
 	Rank:     1.0 / 3.0,
 	Priority: 1.0 / 3.0,
 
-	PostStep: func(ctx context.Context, a agents.Agent, msg chat.Message, state agents.WorldState) error {
-		library, err := featureextractors.QueryLibrary(ctx, a.History())
+	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+		library, err := featureextractors.QueryLibrary(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
 			return err
 		}
 
-		existing := agents.GetState(state, CtxLibrarianResearch)
+		existing := agents.GetState(ctx.WorldState(), CtxLibrarianResearch)
 
 		existing.Books = append(existing.Books, library.Books...)
 
-		agents.SetState(state, CtxLibrarianResearch, existing)
+		agents.SetState(ctx.WorldState(), CtxLibrarianResearch, existing)
 
 		return nil
 	},
@@ -150,14 +136,14 @@ plan of action to reach the intended outcome.
 	Rank:     1.0 / 3.0,
 	Priority: 1.0 / 2.0,
 
-	PostStep: func(ctx context.Context, a agents.Agent, msg chat.Message, state agents.WorldState) error {
-		plan, err := featureextractors.QueryPlan(ctx, a.History())
+	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+		plan, err := featureextractors.QueryPlan(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
 			return err
 		}
 
-		agents.SetState(state, CtxPlannerPlan, plan)
+		agents.SetState(ctx.WorldState(), CtxPlannerPlan, plan)
 
 		return nil
 	},
@@ -165,10 +151,10 @@ plan of action to reach the intended outcome.
 
 var CoderTopDownProfile = BuildProfile(agents.Profile{
 	Name:        "TopDownCoder",
-	Description: "Translates the strategy into practical code, utilizing either a Bottom Up or Top Down coding strategy depending on the problem's complexity.",
+	Description: "Translates the strategy into practical code, utilizing either a Bottom Up or Top Down coding strategy depending on the problem'router complexity.",
 
 	BaselineSystemPrompt: `
-As the Coder Agent, it's your responsibility to translate the strategy into practical code. Depending on the problem's complexity, utilize either a Bottom Up or Top Down coding
+As the Coder Agent, it'router your responsibility to translate the strategy into practical code. Depending on the problem'router complexity, utilize either a Bottom Up or Top Down coding
 strategy. Begin by writing code for the first component of the task.
 
 The Coder Agent has initiated the Top Down Strategy. With a clear picture of the solution in view, it is systematically breaking it down into smaller, manageable parts, working
@@ -185,18 +171,18 @@ code goes here
 	Rank:     1.0 / 4.0,
 	Priority: 1,
 
-	PostStep: func(ctx context.Context, a agents.Agent, msg chat.Message, state agents.WorldState) error {
-		blocks, err := featureextractors.ExtractCodeBlocks(ctx, "", a.History()...)
+	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+		blocks, err := featureextractors.ExtractCodeBlocks(ctx.Context(), "", ctx.Agent().History()...)
 
 		if err != nil {
 			return err
 		}
 
-		existing := agents.GetState(state, CtxCodeBlocks)
+		existing := agents.GetState(ctx.WorldState(), CtxCodeBlocks)
 
 		existing.Blocks = append(existing.Blocks, blocks.Blocks...)
 
-		agents.SetState(state, CtxCodeBlocks, existing)
+		agents.SetState(ctx.WorldState(), CtxCodeBlocks, existing)
 
 		return nil
 	},
@@ -204,13 +190,13 @@ code goes here
 
 var BottomUpCoderProfile = BuildProfile(agents.Profile{
 	Name:        "BottomsUpCoder",
-	Description: "Translates the strategy into practical code, utilizing either a Bottom Up or Top Down coding strategy depending on the problem's complexity.",
+	Description: "Translates the strategy into practical code, utilizing either a Bottom Up or Top Down coding strategy depending on the problem'router complexity.",
 
 	BaselineSystemPrompt: `
-As the Coder Agent, it's your responsibility to translate the strategy into practical code. Depending on the problem's complexity, utilize either a Bottom Up or Top Down coding
+As the Coder Agent, it'router your responsibility to translate the strategy into practical code. Depending on the problem'router complexity, utilize either a Bottom Up or Top Down coding
 strategy. Begin by writing code for the first component of the task.
 
-The Coder Agent is currently employing the Bottom Up Strategy. It's constructing the solution starting from the smallest components, gradually piecing together the elements to form
+The Coder Agent is currently employing the Bottom Up Strategy. It'router constructing the solution starting from the smallest components, gradually piecing together the elements to form
 the complete solution. Please stand by.
 
 When writing code, always include the name of the file, for example:
@@ -224,18 +210,18 @@ code goes here
 	Rank:     1.0 / 4.0,
 	Priority: 1.0 / 2.0,
 
-	PostStep: func(ctx context.Context, a agents.Agent, msg chat.Message, state agents.WorldState) error {
-		blocks, err := featureextractors.ExtractCodeBlocks(ctx, "", a.History()...)
+	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+		blocks, err := featureextractors.ExtractCodeBlocks(ctx.Context(), "", ctx.Agent().History()...)
 
 		if err != nil {
 			return err
 		}
 
-		existing := agents.GetState(state, CtxCodeBlocks)
+		existing := agents.GetState(ctx.WorldState(), CtxCodeBlocks)
 
 		existing.Blocks = append(existing.Blocks, blocks.Blocks...)
 
-		agents.SetState(state, CtxCodeBlocks, existing)
+		agents.SetState(ctx.WorldState(), CtxCodeBlocks, existing)
 
 		return nil
 	},
@@ -246,21 +232,21 @@ var QualityAssuranceProfile = BuildProfile(agents.Profile{
 	Description: "Scrutinizes the generated code meticulously for any errors or deviations from the accepted standards.",
 
 	BaselineSystemPrompt: `
-As the Quality Assurance Agent, it's your duty to scrutinize the generated code meticulously for any errors or deviations from the accepted standards. Apply rigorous tests to
-ensure the functionality and integrity of the code before it's finalized.
+As the Quality Assurance Agent, it'router your duty to scrutinize the generated code meticulously for any errors or deviations from the accepted standards. Apply rigorous tests to
+ensure the functionality and integrity of the code before it'router finalized.
 `,
 
 	Rank:     1.0 / 5.0,
 	Priority: 1,
 
-	PostStep: func(ctx context.Context, a agents.Agent, msg chat.Message, state agents.WorldState) error {
-		goal, err := featureextractors.QueryGoalCompletion(ctx, a.History())
+	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+		goal, err := featureextractors.QueryGoalCompletion(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
 			return err
 		}
 
-		agents.SetState(state, CtxGoalStatus, goal)
+		agents.SetState(ctx.WorldState(), CtxGoalStatus, goal)
 
 		return nil
 	},
@@ -278,14 +264,14 @@ transparency and traceability.
 	Rank:     1.0 / 3.0,
 	Priority: 1.0 / 4.0,
 
-	PostStep: func(ctx context.Context, a agents.Agent, msg chat.Message, state agents.WorldState) error {
-		timeline, err := featureextractors.QueryTimeline(ctx, a.History()...)
+	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+		timeline, err := featureextractors.QueryTimeline(ctx.Context(), ctx.Agent().History()...)
 
 		if err != nil {
 			return err
 		}
 
-		agents.SetState(state, CtxTimeline, timeline)
+		agents.SetState(ctx.WorldState(), CtxTimeline, timeline)
 
 		return nil
 	},
@@ -293,24 +279,37 @@ transparency and traceability.
 
 var PairProfile = BuildProfile(agents.Profile{
 	Name:        "PAIR",
-	Description: "Provides strategic support to other agents, helping them overcome hurdles and enhance their performance.",
+	Description: "Provides strategic support to other profiles, helping them overcome hurdles and enhance their performance.",
 
 	BaselineSystemPrompt: `
-As the PAIR Agent, your role is to provide strategic support to other agents, helping them overcome hurdles and enhance their performance. Use your introspective ability to offer
-guidance and motivate the other agents when they seem stuck or hesitant.
+As the PAIR Agent, your role is to provide strategic support to other profiles, helping them overcome hurdles and enhance their performance. Use your introspective ability to offer
+guidance and motivate the other profiles when they seem stuck or hesitant.
 `,
 
 	Rank:     -1.0,
 	Priority: -1,
 
-	PostStep: func(ctx context.Context, a agents.Agent, msg chat.Message, state agents.WorldState) error {
-		agents.SetState(state, CtxPairMeditation, msg.Entries[0].Text)
+	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+		agents.SetState(ctx.WorldState(), CtxPairMeditation, msg.Entries[0].Text)
 
 		return nil
 	},
 }, WithProvides(CtxPairMeditation))
 
-var AgentProfiles = []agents.Profile{
+var SingularityProfile = BuildProfile(agents.Profile{
+	Name:        "Singularity",
+	Description: "Routes messages to other profiles based on the task'router needs and the system'router state.",
+
+	BaselineSystemPrompt: `
+As the Singularity Agent, you are tasked with orchestrating the dialogue flow between all other profiles, deciding who will contribute next based on the task'router needs and the system'router
+state. Additionally, provide real-time feedback to each agent to promote continuous learning and improvement.
+`,
+
+	Rank:     1.0,
+	Priority: 0,
+})
+
+var MajorArcanas = []agents.Profile{
 	PlannerProfile,
 	BottomUpCoderProfile,
 	CoderTopDownProfile,
@@ -320,5 +319,4 @@ var AgentProfiles = []agents.Profile{
 	LibrarianProfile,
 	ManagerProfile,
 	DirectorProfile,
-	SingularityProfile,
 }
