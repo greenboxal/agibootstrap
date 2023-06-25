@@ -12,6 +12,18 @@ var EdgeKindChild = EdgeKind("child")
 
 type NodeID = string
 
+type InvalidationListener interface {
+	OnInvalidated(n Node)
+}
+
+type invalidationListenerFunc struct{ f func(n Node) }
+
+func InvalidationListenerFunc(f func(n Node)) InvalidationListener {
+	return &invalidationListenerFunc{f: f}
+}
+
+func (f *invalidationListenerFunc) OnInvalidated(n Node) { f.f(n) }
+
 type NodeLike interface {
 	PsiNode() Node
 	PsiNodeBase() *NodeBase
@@ -80,6 +92,9 @@ type Node interface {
 	Invalidate()
 	Update()
 
+	AddInvalidationListener(listener InvalidationListener)
+	RemoveInvalidationListener(listener InvalidationListener)
+
 	attachToGraph(g Graph)
 	detachFromGraph(g Graph)
 
@@ -115,8 +130,9 @@ type NodeBase struct {
 	edges      map[EdgeKey]Edge
 	attributes map[string]any
 
-	valid    bool
-	inUpdate bool
+	valid                 bool
+	inUpdate              bool
+	invalidationListeners []InvalidationListener
 }
 
 // Init initializes the NodeBase struct with the given self node and uid string.
@@ -140,11 +156,107 @@ func (n *NodeBase) PsiNodeBase() *NodeBase { return n }
 
 func (n *NodeBase) ID() int64          { return n.id }
 func (n *NodeBase) UUID() string       { return n.uuid }
+func (n *NodeBase) IsContainer() bool  { return true }
+func (n *NodeBase) IsLeaf() bool       { return false }
+func (n *NodeBase) IsValid() bool      { return n.valid }
 func (n *NodeBase) Comments() []string { return nil }
 
+func (n *NodeBase) CanonicalPath() (res Path)      { return n.path }
 func (n *NodeBase) Parent() Node                   { return n.parent }
 func (n *NodeBase) Children() []Node               { return n.children }
 func (n *NodeBase) ChildrenIterator() NodeIterator { return &nodeChildrenIterator{parent: n} }
+
+func (n *NodeBase) String() string {
+	return fmt.Sprintf("Node(%T, %d, %s)", n.self, n.id, n.uuid)
+}
+
+func (n *NodeBase) AddInvalidationListener(listener InvalidationListener) {
+	if slices.Index(n.invalidationListeners, listener) != -1 {
+		return
+	}
+
+	n.invalidationListeners = append(n.invalidationListeners, listener)
+}
+
+func (n *NodeBase) RemoveInvalidationListener(listener InvalidationListener) {
+	for i, l := range n.invalidationListeners {
+		if l == listener {
+			n.invalidationListeners = append(n.invalidationListeners[:i], n.invalidationListeners[i+1:]...)
+			return
+		}
+	}
+}
+
+func (n *NodeBase) Invalidate() {
+	if !n.valid {
+		n.valid = false
+
+		if n.parent != nil {
+			n.parent.Invalidate()
+		}
+	}
+}
+
+func (n *NodeBase) Update() {
+	if !n.inUpdate {
+		n.doUpdate(false)
+	}
+}
+
+func (n *NodeBase) doUpdate(skipValidation bool) {
+	if n.valid && !skipValidation {
+		return
+	}
+
+	n.inUpdate = true
+
+	defer func() {
+		n.inUpdate = false
+	}()
+
+	n.updatePath()
+
+	for _, child := range n.children {
+		child.PsiNodeBase().doUpdate(skipValidation)
+	}
+
+	n.Update()
+
+	n.valid = true
+
+	for _, listener := range n.invalidationListeners {
+		listener.OnInvalidated(n)
+	}
+}
+
+func (n *NodeBase) updatePath() {
+	var self PathElement
+
+	if n.parent == nil {
+		self.Kind = EdgeKindChild
+		self.Name = n.UUID()
+		n.path = PathFromComponents(self)
+		return
+	}
+
+	parentPath := n.parent.CanonicalPath()
+
+	if named, ok := n.self.(NamedNode); ok {
+		self = PathElement{
+			Kind: EdgeKindChild,
+			Name: named.PsiNodeName(),
+		}
+	} else {
+		index := n.parent.PsiNodeBase().IndexOfChild(n.self)
+
+		self = PathElement{
+			Kind:  EdgeKindChild,
+			Index: int64(index),
+		}
+	}
+
+	n.path = parentPath.Child(self)
+}
 
 func (n *NodeBase) ResolveChild(component PathElement) Node {
 	if component.Kind == "" || component.Kind == EdgeKindChild {
@@ -219,83 +331,6 @@ func (n *NodeBase) NextSibling() Node {
 	return p.children[idx+1]
 }
 
-func (n *NodeBase) IsContainer() bool { return true }
-func (n *NodeBase) IsLeaf() bool      { return false }
-
-func (n *NodeBase) String() string {
-	return fmt.Sprintf("Node(%T, %d, %s)", n.self, n.id, n.uuid)
-}
-
-func (n *NodeBase) IsValid() bool { return n.valid }
-
-func (n *NodeBase) Invalidate() {
-	if !n.valid {
-		n.valid = false
-
-		if n.parent != nil {
-			n.parent.Invalidate()
-		}
-	}
-}
-
-func (n *NodeBase) CanonicalPath() (res Path) { return n.path }
-
-func (n *NodeBase) updatePath() {
-	var self PathElement
-
-	if n.parent == nil {
-		self.Kind = EdgeKindChild
-		self.Name = n.UUID()
-		n.path = PathFromComponents(self)
-		return
-	}
-
-	parentPath := n.parent.CanonicalPath()
-
-	if named, ok := n.self.(NamedNode); ok {
-		self = PathElement{
-			Kind: EdgeKindChild,
-			Name: named.PsiNodeName(),
-		}
-	} else {
-		index := n.parent.PsiNodeBase().IndexOfChild(n.self)
-
-		self = PathElement{
-			Kind:  EdgeKindChild,
-			Index: int64(index),
-		}
-	}
-
-	n.path = parentPath.Child(self)
-}
-
-func (n *NodeBase) Update() {
-	if !n.inUpdate {
-		n.doUpdate(false)
-	}
-}
-
-func (n *NodeBase) doUpdate(skipValidation bool) {
-	if n.valid && !skipValidation {
-		return
-	}
-
-	n.inUpdate = true
-	defer func() {
-		n.inUpdate = false
-	}()
-
-	n.updatePath()
-
-	for _, child := range n.children {
-		child.PsiNodeBase().doUpdate(skipValidation)
-	}
-
-	n.Update()
-
-	n.valid = true
-}
-
 func (n *NodeBase) Edges() EdgeIterator {
 	return &edgeIterator{
 		n:    n,
@@ -328,7 +363,7 @@ func (n *NodeBase) SetParent(parent Node) {
 	n.doUpdate(true)
 }
 
-// addChildNode adds a child node to the current node.
+// AddChildNode adds a child node to the current node.
 // If the child node is already a child of the current node, no action is taken.
 // The child node is appended to the list of children nodes of the current node.
 // Then, the child node is attached to the same graph as the parent node.
@@ -339,7 +374,7 @@ func (n *NodeBase) AddChildNode(child Node) {
 	n.InsertChildrenAt(len(n.children), child)
 }
 
-// removeChildNode removes the child node from the current node.
+// RemoveChildNode removes the child node from the current node.
 // If the child node is not a child of the current node, no action is taken.
 //
 // Parameters:

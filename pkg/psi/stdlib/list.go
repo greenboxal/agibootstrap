@@ -22,12 +22,8 @@ type Iterator[T any] interface {
 	Value() T
 }
 
-func (c *NodeCollection[T]) PsiNodeName() string { return c.name }
-
 type NodeCollection[T psi.Node] struct {
 	psi.NodeBase
-
-	name string
 }
 
 func (c *NodeCollection[T]) Add(value T) int {
@@ -107,14 +103,4 @@ func NewDirectChildrenListIterator[T psi.Node](c *NodeCollection[T]) Iterator[T]
 	return &directChildrenListIterator[T]{
 		c: c,
 	}
-}
-
-func NewNodeCollection[T psi.Node](name string) *NodeCollection[T] {
-	col := &NodeCollection[T]{
-		name: name,
-	}
-
-	col.Init(col, "")
-
-	return col
 }

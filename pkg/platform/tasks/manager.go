@@ -45,6 +45,8 @@ func (m *Manager) SpawnTask(ctx context.Context, taskFn TaskFunc) Task {
 		description: "",
 	}
 
+	tc.t = t
+
 	t.Init()
 
 	tc.ctx, tc.cancel = context.WithCancel(ctx)

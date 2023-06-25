@@ -6,6 +6,10 @@ type EdgeID int64
 
 type EdgeKind string
 
+func (k EdgeKind) String() string {
+	return string(k)
+}
+
 type TypedEdgeKind[T Node] EdgeKind
 
 func (f TypedEdgeKind[T]) Singleton() TypedEdgeKey[T] {

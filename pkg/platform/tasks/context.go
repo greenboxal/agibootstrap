@@ -9,6 +9,7 @@ import (
 
 type taskContext struct {
 	mu             sync.Mutex
+	t              *task
 	ctx            context.Context
 	cancel         context.CancelFunc
 	proc           goprocess.Process
@@ -29,6 +30,9 @@ func (t *taskContext) Update(current, total int) {
 
 	t.current = current
 	t.total = total
+
+	t.t.Invalidate()
+	t.t.Update()
 }
 
 func (t *taskContext) Err() error {
@@ -73,4 +77,6 @@ func (t *taskContext) onComplete() {
 	t.cancel = nil
 	t.ctx = nil
 	t.complete = true
+
+	t.t.Update()
 }
