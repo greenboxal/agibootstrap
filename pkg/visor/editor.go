@@ -8,6 +8,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -20,28 +21,57 @@ type Editor interface {
 
 type EditorFactory func(p project.Project, elementPath psi.Path, element psi.Node) Editor
 
-type PsiNodeType struct {
-	Name string
-	Icon fyne.Resource
+type PsiNodeDescription struct {
+	Name        string
+	Description string
+	Icon        fyne.Resource
 }
 
-func GetPsiNodeType(v psi.Node) PsiNodeType {
-	switch v.(type) {
+func GetPsiNodeDescription(v psi.Node) PsiNodeDescription {
+	switch v := v.(type) {
 	case *thoughtstream.ThoughtLog:
-		return PsiNodeType{
-			Name: "Thought Log",
-			Icon: theme.AccountIcon(),
+		return PsiNodeDescription{
+			Name:        v.PsiNodeName(),
+			Description: "Thought Log",
+			Icon:        theme.AccountIcon(),
+		}
+
+	case *vfs.DirectoryNode:
+		return PsiNodeDescription{
+			Name:        v.PsiNodeName(),
+			Description: v.String(),
+			Icon:        theme.FolderIcon(),
+		}
+
+	case *vfs.FileNode:
+		return PsiNodeDescription{
+			Name:        v.PsiNodeName(),
+			Description: v.String(),
+			Icon:        theme.FileIcon(),
 		}
 
 	case psi.SourceFile:
-		return PsiNodeType{
-			Name: "Source File",
-			Icon: theme.DocumentIcon(),
+		return PsiNodeDescription{
+			Name:        fmt.Sprintf("Source File (%s)", v.Language().Name()),
+			Description: v.String(),
+			Icon:        theme.FileTextIcon(),
+		}
+
+	case psi.NamedNode:
+		return PsiNodeDescription{
+			Name:        v.PsiNodeName(),
+			Description: v.String(),
+			Icon:        theme.InfoIcon(),
 		}
 	}
 
-	return PsiNodeType{
-		Name: fmt.Sprintf("%T", v),
+	components := v.CanonicalPath().Components()
+	baseName := components[len(components)-1]
+
+	return PsiNodeDescription{
+		Name:        baseName.String(),
+		Description: v.String(),
+		Icon:        theme.QuestionIcon(),
 	}
 }
 

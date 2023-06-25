@@ -91,11 +91,7 @@ func NewPsiTreeWidget(root psi.Node) *PsiTreeWidget {
 			existing := ptw.getNodeState(id, true)
 
 			if !existing.hasChildrenCached {
-				go func() {
-					if existing.loadChildren() {
-						ptw.Refresh()
-					}
-				}()
+				existing.loadChildren()
 			}
 
 			return existing.children
@@ -112,10 +108,7 @@ func NewPsiTreeWidget(root psi.Node) *PsiTreeWidget {
 		},
 
 		CreateNode: func(branch bool) fyne.CanvasObject {
-			icon := widget.NewIcon(theme.DocumentIcon())
-			label := widget.NewLabel("Template Object")
-
-			return container.NewHBox(icon, label)
+			return NewPsiTreeItem().Container
 		},
 
 		UpdateNode: func(id widget.TreeNodeID, branch bool, o fyne.CanvasObject) {
@@ -125,18 +118,11 @@ func NewPsiTreeWidget(root psi.Node) *PsiTreeWidget {
 				return
 			}
 
-			text := ""
+			info := GetPsiNodeDescription(n)
 
-			if named, ok := n.(psi.NamedNode); ok {
-				text = named.PsiNodeName()
-			} else {
-				text = n.String()
-			}
-
-			info := GetPsiNodeType(n)
-
-			o.(*fyne.Container).Objects[0].(*widget.Icon).SetResource(info.Icon)
-			o.(*fyne.Container).Objects[1].(*widget.Label).SetText(text)
+			labelContainer := o.(*fyne.Container)
+			labelContainer.Objects[0].(*widget.Icon).SetResource(info.Icon)
+			labelContainer.Objects[1].(*widget.Label).SetText(info.Name)
 		},
 	}
 
@@ -316,4 +302,22 @@ func (s *psiTreeNodeState) Close() {
 	s.node = nil
 	s.children = nil
 	s.hasChildrenCached = false
+}
+
+type PsiTreeItem struct {
+	Container *fyne.Container
+
+	Icon  *widget.Icon
+	Label *widget.Label
+}
+
+func NewPsiTreeItem() *PsiTreeItem {
+	ti := &PsiTreeItem{}
+
+	ti.Icon = widget.NewIcon(theme.DocumentIcon())
+	ti.Label = widget.NewLabel("Template Object")
+
+	ti.Container = container.NewHBox(ti.Icon, ti.Label)
+
+	return ti
 }
