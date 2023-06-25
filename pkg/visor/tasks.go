@@ -41,14 +41,8 @@ func NewTasksToolWindow(p project.Project) *TasksToolWindow {
 		updateSelectedTask()
 	})
 
-	taskTree.SelectedItem.AddListener(binding.NewDataListener(func() {
-		v, err := taskTree.SelectedItem.Get()
-
-		if err != nil {
-			return
-		}
-
-		task, ok := v.(tasks.Task)
+	taskTree.OnNodeSelected = func(n psi.Node) {
+		task, ok := n.(tasks.Task)
 
 		if !ok {
 			return
@@ -69,7 +63,7 @@ func NewTasksToolWindow(p project.Project) *TasksToolWindow {
 		}
 
 		updateSelectedTask()
-	}))
+	}
 
 	taskDetailsContent := container.NewVBox(
 		widget.NewLabelWithData(selectedTaskId),

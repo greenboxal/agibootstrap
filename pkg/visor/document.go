@@ -1,6 +1,8 @@
 package visor
 
 import (
+	"sync"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 
@@ -15,6 +17,7 @@ type Document struct {
 
 	manager *DocumentManager
 	tabItem *container.TabItem
+	isOpen  bool
 }
 
 func (d *Document) Close() {
@@ -32,36 +35,43 @@ func NewDocument(id, name string, content fyne.CanvasObject) *Document {
 }
 
 type DocumentManager struct {
+	mu        sync.Mutex
 	p         project.Project
 	area      *DocumentArea
 	documents map[string]*Document
 }
 
 func (m *DocumentManager) AddDocument(doc *Document) {
-	if m.documents[doc.ID] == nil {
-		m.documents[doc.ID] = doc
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
-		m.area.Append(doc.tabItem)
-		m.area.Refresh()
+	if m.documents[doc.ID] != nil {
+		return
 	}
 
-	m.area.Select(doc.tabItem)
+	m.documents[doc.ID] = doc
+
+	if !doc.isOpen {
+		m.area.Append(doc.tabItem)
+
+		m.area.Refresh()
+
+		doc.isOpen = true
+	}
 }
 
 func (m *DocumentManager) CloseDocument(d *Document) {
-	delete(m.documents, d.ID)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	d.isOpen = false
 
 	m.area.Remove(d.tabItem)
+	m.area.Refresh()
 }
 
 func (m *DocumentManager) OpenDocument(path psi.Path, node psi.Node) {
 	key := path.String()
-	existing := m.documents[key]
-
-	if existing != nil {
-		m.area.Select(existing.tabItem)
-		return
-	}
 
 	if node == nil {
 		n, err := psi.ResolvePath(m.p, path)
@@ -73,15 +83,25 @@ func (m *DocumentManager) OpenDocument(path psi.Path, node psi.Node) {
 		node = n
 	}
 
-	factory := FactoryForNode(node)
+	existing := m.documents[key]
 
-	if factory == nil {
-		return
+	if existing == nil {
+		factory := FactoryForNode(node)
+
+		if factory == nil {
+			return
+		}
+
+		editor := factory(m.p, path, node)
+
+		existing = NewDocument(path.String(), path.String(), editor.Root())
 	}
 
-	editor := factory(m.p, path, node)
+	if !existing.isOpen {
+		m.AddDocument(existing)
+	}
 
-	m.AddDocument(NewDocument(path.String(), path.String(), editor.Root()))
+	m.area.Select(existing.tabItem)
 }
 
 func NewDocumentManager(p project.Project) *DocumentManager {
@@ -109,6 +129,18 @@ func NewDocumentArea(m *DocumentManager) *DocumentArea {
 		DocTabs: container.NewDocTabs(),
 
 		manager: m,
+	}
+
+	da.DocTabs.OnClosed = func(tab *container.TabItem) {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+
+		for _, doc := range m.documents {
+			if doc.tabItem == tab {
+				da.manager.CloseDocument(doc)
+				return
+			}
+		}
 	}
 
 	m.area = da

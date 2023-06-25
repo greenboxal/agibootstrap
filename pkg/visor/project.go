@@ -6,6 +6,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type ProjectExplorer struct {
@@ -14,6 +15,10 @@ type ProjectExplorer struct {
 
 func NewProjectExplorer(p project.Project, dm *DocumentManager) *ProjectExplorer {
 	projectTree := NewPsiTreeWidget(p)
+
+	projectTree.OnNodeSelected = func(n psi.Node) {
+		dm.OpenDocument(n.CanonicalPath(), n)
+	}
 
 	projectToolbar := container.NewHBox(
 		widget.NewButton("Refresh", func() {

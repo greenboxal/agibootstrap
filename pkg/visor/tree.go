@@ -1,6 +1,7 @@
 package visor
 
 import (
+	"sync"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -18,13 +19,15 @@ type PsiTreeWidget struct {
 
 	root psi.Node
 
+	mu        sync.RWMutex
 	pathCache map[string]*psiTreeNodeState
 
-	SelectedItem binding.Untyped
+	SelectedItem   binding.Untyped
+	OnNodeSelected func(n psi.Node)
 }
 
-func (w *PsiTreeWidget) Node(id widget.TreeNodeID) psi.Node {
-	n, err := w.resolveCached(id)
+func (ptw *PsiTreeWidget) Node(id widget.TreeNodeID) psi.Node {
+	n, err := ptw.resolveCached(id)
 
 	if err != nil {
 		return nil
@@ -33,45 +36,46 @@ func (w *PsiTreeWidget) Node(id widget.TreeNodeID) psi.Node {
 	return n
 }
 
-func (w *PsiTreeWidget) resolveCached(id string) (psi.Node, error) {
+func (ptw *PsiTreeWidget) getNodeState(id widget.TreeNodeID, create bool) *psiTreeNodeState {
 	if id == "" {
-		panic("empty id")
+		return nil
 	}
 
-	existing := w.pathCache[id]
-
-	if existing == nil {
-		existing = &psiTreeNodeState{}
-
-		w.pathCache[id] = existing
+	if state := ptw.pathCache[id]; state != nil {
+		return state
 	}
 
-	if existing.node == nil {
-		p := psi.MustParsePath(id)
+	ptw.mu.Lock()
+	defer ptw.mu.Unlock()
 
-		n, err := psi.ResolvePath(w.root, p)
+	state := ptw.pathCache[id]
+
+	if state == nil && create {
+		p, err := psi.ParsePath(id)
 
 		if err != nil {
-			return nil, err
+			return nil
 		}
 
-		existing.node = n
+		state = &psiTreeNodeState{
+			tree: ptw,
+			path: p,
+		}
+
+		ptw.pathCache[id] = state
 	}
 
-	return existing.node, nil
+	return state
 }
 
-func (w *PsiTreeWidget) refreshNode(id widget.TreeNodeID) {
-	delete(w.pathCache, id)
+func (ptw *PsiTreeWidget) resolveCached(id string) (psi.Node, error) {
+	state := ptw.getNodeState(id, true)
 
-	w.Tree.Refresh()
-}
+	if state.node == nil {
+		state.loadNode()
+	}
 
-type psiTreeNodeState struct {
-	ts       time.Time
-	node     psi.Node
-	children []widget.TreeNodeID
-	valid    bool
+	return state.node, nil
 }
 
 func NewPsiTreeWidget(root psi.Node) *PsiTreeWidget {
@@ -82,58 +86,15 @@ func NewPsiTreeWidget(root psi.Node) *PsiTreeWidget {
 		SelectedItem: binding.NewUntyped(),
 	}
 
-	invalidationListener := psi.InvalidationListenerFunc(func(n psi.Node) {
-		entry := ptw.pathCache[n.CanonicalPath().String()]
-
-		if entry != nil {
-			entry.valid = false
-		}
-
-		ptw.Tree.Refresh()
-	})
-
 	ptw.Tree = &widget.Tree{
 		ChildUIDs: func(id widget.TreeNodeID) []widget.TreeNodeID {
-			existing := ptw.pathCache[id]
+			existing := ptw.getNodeState(id, true)
 
-			if existing == nil {
-				existing = &psiTreeNodeState{}
-
-				ptw.pathCache[id] = existing
-			}
-
-			if existing.node == nil {
-				resolved, err := ptw.resolveCached(id)
-
-				if err != nil {
-					return nil
-				}
-
-				existing.node = resolved
-			}
-
-			if !existing.valid {
+			if !existing.hasChildrenCached {
 				go func() {
-					ids := lo.Map(existing.node.Children(), func(child psi.Node, _ int) widget.TreeNodeID {
-						p := child.CanonicalPath()
-
-						if p.IsEmpty() {
-							panic("empty path")
-						}
-
-						ps := p.String()
-
-						if ps == "" {
-							panic("empty path")
-						}
-
-						return ps
-					})
-
-					existing.children = ids
-					existing.valid = true
-
-					ptw.Tree.Refresh()
+					if existing.loadChildren() {
+						ptw.Refresh()
+					}
 				}()
 			}
 
@@ -179,22 +140,20 @@ func NewPsiTreeWidget(root psi.Node) *PsiTreeWidget {
 	ptw.Tree.OnBranchOpened = func(id widget.TreeNodeID) {
 		entry := ptw.pathCache[id]
 
-		if entry != nil && entry.node != nil {
-			entry.node.AddInvalidationListener(invalidationListener)
-		}
+		if entry != nil {
+			entry.invalidateChildren()
 
-		go ptw.Tree.Refresh()
+			ptw.Tree.Refresh()
+		}
 	}
 
 	ptw.Tree.OnBranchClosed = func(id widget.TreeNodeID) {
 		entry := ptw.pathCache[id]
 
 		if entry != nil {
-			if entry.node != nil {
-				entry.node.RemoveInvalidationListener(invalidationListener)
-			}
+			entry.invalidateChildren()
 
-			entry.valid = false
+			ptw.Tree.Refresh()
 		}
 	}
 
@@ -202,10 +161,16 @@ func NewPsiTreeWidget(root psi.Node) *PsiTreeWidget {
 		entry := ptw.pathCache[id]
 
 		if entry != nil {
-			entry.valid = false
+			entry.invalidateChildren()
+
+			ptw.Tree.Refresh()
 		}
 
-		if err := ptw.SelectedItem.Set(ptw.Node(id)); err != nil {
+		if ptw.OnNodeSelected != nil {
+			ptw.OnNodeSelected(entry.node)
+		}
+
+		if err := ptw.SelectedItem.Set(entry.node); err != nil {
 			panic(err)
 		}
 	}
@@ -215,4 +180,137 @@ func NewPsiTreeWidget(root psi.Node) *PsiTreeWidget {
 	ptw.Tree.ExtendBaseWidget(ptw.Tree)
 
 	return ptw
+}
+
+type psiTreeNodeState struct {
+	mu sync.RWMutex
+
+	tree *PsiTreeWidget
+	path psi.Path
+
+	lastUpdate time.Time
+	lastError  error
+
+	node          psi.Node
+	isNodeLoading bool
+
+	children          []widget.TreeNodeID
+	hasChildrenCached bool
+	isChildrenLoading bool
+}
+
+func (s *psiTreeNodeState) loadNode() {
+	if s.isNodeLoading {
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.isNodeLoading {
+		return
+	}
+
+	s.isNodeLoading = true
+	defer func() {
+		s.isNodeLoading = false
+	}()
+
+	n, err := psi.ResolvePath(s.tree.root, s.path)
+
+	if err != nil {
+		return
+	}
+
+	if s.node != nil {
+		s.node.RemoveInvalidationListener(s)
+	}
+
+	s.node = n
+
+	if s.node != nil {
+		s.node.AddInvalidationListener(s)
+	}
+
+	s.hasChildrenCached = false
+	s.children = nil
+}
+
+func (s *psiTreeNodeState) loadChildren() bool {
+	if s.isChildrenLoading {
+		return false
+	}
+
+	if s.node == nil {
+		s.loadNode()
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.isChildrenLoading {
+		return false
+	}
+
+	s.isChildrenLoading = true
+	defer func() {
+		s.isChildrenLoading = false
+	}()
+
+	if s.node == nil {
+		return false
+	}
+
+	ids := lo.Map(s.node.Children(), func(child psi.Node, _ int) widget.TreeNodeID {
+		p := child.CanonicalPath()
+
+		if p.IsEmpty() {
+			panic("empty path")
+		}
+
+		ps := p.String()
+
+		if ps == "" {
+			panic("empty path")
+		}
+
+		return ps
+	})
+
+	s.children = ids
+	s.hasChildrenCached = true
+
+	return true
+}
+
+func (s *psiTreeNodeState) invalidateChildren() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.hasChildrenCached = false
+}
+
+func (s *psiTreeNodeState) OnInvalidated(n psi.Node) {
+	go func() {
+		defer s.tree.Refresh()
+		defer s.invalidateChildren()
+
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		s.node = n
+	}()
+}
+
+func (s *psiTreeNodeState) Close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.node != nil {
+		s.node.RemoveInvalidationListener(s)
+	}
+
+	s.node = nil
+	s.children = nil
+	s.hasChildrenCached = false
 }

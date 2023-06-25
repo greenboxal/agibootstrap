@@ -25,14 +25,8 @@ func NewChatExplorer(p project.Project, dm *DocumentManager) *ChatExplorer {
 	chatLogTree := NewPsiTreeWidget(p)
 	chatLogTree.Root = p.LogManager().PsiNode().CanonicalPath().String()
 
-	chatLogTree.OnSelected = func(uid widget.TreeNodeID) {
-		v := chatLogTree.Node(uid)
-
-		if v == nil {
-			return
-		}
-
-		chatLog, ok := v.(*thoughtstream.ThoughtLog)
+	chatLogTree.OnNodeSelected = func(n psi.Node) {
+		chatLog, ok := n.(*thoughtstream.ThoughtLog)
 
 		if !ok {
 			return

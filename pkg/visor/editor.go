@@ -49,6 +49,8 @@ func FactoryForNode(element psi.Node) EditorFactory {
 	switch element.(type) {
 	case *thoughtstream.ThoughtLog:
 		return NewThoughtLogEditor
+	case psi.SourceFile:
+		return NewSourceFileEditor
 	}
 
 	return nil
