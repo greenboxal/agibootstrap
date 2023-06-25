@@ -15,7 +15,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
-type ThoughLogListener func(msg Thought)
+type ThoughLogListener func(msg *Thought)
 
 type ThoughtLog struct {
 	psi.NodeBase
@@ -25,14 +25,16 @@ type ThoughtLog struct {
 	name      string
 	listeners []ThoughLogListener
 
-	messages      []Thought
+	messages      []*Thought
 	lastMessageTs time.Time
 
 	f   *os.File
 	log *bitcask.Bitcask
+
+	manager *Manager
 }
 
-func NewThoughtLog(name string, basePath string) (*ThoughtLog, error) {
+func NewThoughtLog(manager *Manager, name string, basePath string) (*ThoughtLog, error) {
 	if err := os.MkdirAll(basePath, 0755); err != nil {
 		return nil, err
 	}
@@ -54,8 +56,9 @@ func NewThoughtLog(name string, basePath string) (*ThoughtLog, error) {
 	tl := &ThoughtLog{
 		name: name,
 
-		f:   f,
-		log: log,
+		manager: manager,
+		f:       f,
+		log:     log,
 	}
 
 	tl.Init(tl, "")
@@ -63,9 +66,9 @@ func NewThoughtLog(name string, basePath string) (*ThoughtLog, error) {
 	return tl, nil
 }
 
-func (cl *ThoughtLog) PsiNodeName() string { return cl.name }
-func (cl *ThoughtLog) Name() string        { return cl.name }
-func (cl *ThoughtLog) Messages() []Thought { return cl.messages }
+func (cl *ThoughtLog) PsiNodeName() string  { return cl.name }
+func (cl *ThoughtLog) Name() string         { return cl.name }
+func (cl *ThoughtLog) Messages() []*Thought { return cl.messages }
 
 func (cl *ThoughtLog) AddListener(l ThoughLogListener) {
 	cl.mu.Lock()
@@ -74,7 +77,7 @@ func (cl *ThoughtLog) AddListener(l ThoughLogListener) {
 	cl.listeners = append(cl.listeners, l)
 }
 
-func (cl *ThoughtLog) Push(m Thought) error {
+func (cl *ThoughtLog) Push(m *Thought) error {
 	var key [8]byte
 
 	binary.BigEndian.PutUint64(key[:], uint64(m.Timestamp.UnixNano()))
@@ -123,6 +126,9 @@ func (cl *ThoughtLog) Push(m Thought) error {
 		l(m)
 	}
 
+	cl.Invalidate()
+	cl.Update()
+
 	return nil
 }
 
@@ -135,17 +141,22 @@ func (cl *ThoughtLog) Close() error {
 }
 
 func (cl *ThoughtLog) ForkTemporary() *ThoughtLog {
-	cl.mu.RLock()
-	defer cl.mu.RUnlock()
+	name := fmt.Sprintf("%s-%d", cl.name, time.Now().UnixNano())
+	fork, err := NewThoughtLog(cl.manager, name, cl.f.Name()+".forktree")
 
-	messages := make([]Thought, len(cl.messages))
-	copy(messages, cl.messages)
-
-	return &ThoughtLog{
-		name:          cl.name,
-		messages:      messages,
-		lastMessageTs: cl.lastMessageTs,
+	if err != nil {
+		panic(err)
 	}
+
+	for _, t := range cl.messages {
+		if err := fork.Push(t); err != nil {
+			panic(err)
+		}
+	}
+
+	fork.SetParent(cl)
+
+	return fork
 }
 
 func (cl *ThoughtLog) GC() error {

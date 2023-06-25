@@ -33,7 +33,7 @@ func (m *Manager) GetOrCreateStream(name string) (log *ThoughtLog, err error) {
 	log = psi.ResolveEdge(m.PsiNode(), key)
 
 	if log == nil {
-		log, err = NewThoughtLog(name, m.basePath)
+		log, err = NewThoughtLog(m, name, m.basePath)
 
 		if err != nil {
 			return nil, err

@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"log"
 	"sync"
 
 	"github.com/go-errors/errors"
@@ -82,6 +83,8 @@ func (m *Manager) SpawnTask(ctx context.Context, taskFn TaskFunc) Task {
 				} else {
 					tc.err = errors.Wrap(e, 1)
 				}
+
+				log.Printf("Task %s failed: %s", t.CanonicalPath(), tc.err.Error())
 			}
 		}()
 

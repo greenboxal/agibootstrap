@@ -24,6 +24,14 @@ type Thought struct {
 	ReplyTo *CommHandle
 }
 
+func NewThought() *Thought {
+	t := &Thought{}
+
+	t.Init(t, "")
+
+	return t
+}
+
 func (t *Thought) PreviousThought() *Thought {
 	return t.PreviousSibling().(*Thought)
 }
