@@ -112,7 +112,10 @@ func NewPsiTreeWidget(root psi.Node) *PsiTreeWidget {
 		},
 
 		CreateNode: func(branch bool) fyne.CanvasObject {
-			return container.NewHBox(widget.NewIcon(theme.DocumentIcon()), widget.NewLabel("Template Object"))
+			icon := widget.NewIcon(theme.DocumentIcon())
+			label := widget.NewLabel("Template Object")
+
+			return container.NewHBox(icon, label)
 		},
 
 		UpdateNode: func(id widget.TreeNodeID, branch bool, o fyne.CanvasObject) {
