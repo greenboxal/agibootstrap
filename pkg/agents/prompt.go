@@ -5,7 +5,7 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
-	"github.com/greenboxal/agibootstrap/pkg/psi/stdlib"
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 )
 
 type AgentPrompt interface {
@@ -40,7 +40,7 @@ func LogHistory() AgentPromptFunc {
 	return func(ctx AgentContext) (chat.Message, error) {
 		thoughts := ctx.Log().MessagesIterator()
 
-		msgs := stdlib.Map(thoughts, func(thought *thoughtstream.Thought) chat.Message {
+		msgs := iterators.Map(thoughts, func(thought *thoughtstream.Thought) chat.Message {
 			return chat.Compose(
 				chat.MessageEntry{
 					Role: thought.From.Role,
@@ -50,7 +50,7 @@ func LogHistory() AgentPromptFunc {
 			)
 		})
 
-		return chat.Merge(stdlib.ToSlice(msgs)...), nil
+		return chat.Merge(iterators.ToSlice(msgs)...), nil
 	}
 }
 
