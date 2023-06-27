@@ -26,7 +26,7 @@ func NewTasksToolWindow(p project.Project) *TasksToolWindow {
 	selectedTaskProgress := binding.NewFloat()
 
 	taskTree := NewPsiTreeWidget(p)
-	taskTree.Root = p.TaskManager().PsiNode().CanonicalPath().String()
+	taskTree.SetRootItem(p.TaskManager().CanonicalPath())
 
 	updateSelectedTask := func() {
 		if selectedTask != nil {

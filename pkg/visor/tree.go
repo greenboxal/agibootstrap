@@ -6,24 +6,83 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/samber/lo"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/obsfx"
+	"github.com/greenboxal/agibootstrap/pkg/platform/obsfx/collectionsfx"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type PsiTreeWidget struct {
 	*widget.Tree
 
-	root psi.Node
+	resolutionRoot psi.Node
 
 	mu        sync.RWMutex
 	pathCache map[string]*psiTreeNodeState
+	refresher *debouncer
 
-	SelectedItem   binding.Untyped
 	OnNodeSelected func(n psi.Node)
+}
+
+func NewPsiTreeWidget(resolutionRoot psi.Node) *PsiTreeWidget {
+	ptw := &PsiTreeWidget{
+		resolutionRoot: resolutionRoot,
+		pathCache:      map[string]*psiTreeNodeState{},
+	}
+
+	ptw.Tree = &widget.Tree{
+		ChildUIDs: func(id widget.TreeNodeID) []widget.TreeNodeID {
+			existing := ptw.getNodeState(id, true)
+
+			if existing.node == nil {
+				existing.loadNode()
+			}
+
+			return existing.childrenIds.Slice()
+		},
+
+		IsBranch: func(id widget.TreeNodeID) bool {
+			return true
+		},
+
+		CreateNode: func(branch bool) fyne.CanvasObject {
+			return NewPsiTreeItem().Container
+		},
+
+		UpdateNode: func(id widget.TreeNodeID, branch bool, o fyne.CanvasObject) {
+			n, err := ptw.resolveCached(id)
+
+			if err != nil {
+				return
+			}
+
+			info := GetPsiNodeDescription(n)
+
+			labelContainer := o.(*fyne.Container)
+			labelContainer.Objects[0].(*widget.Icon).SetResource(info.Icon)
+			labelContainer.Objects[1].(*widget.Label).SetText(info.Name)
+		},
+	}
+
+	ptw.Tree.OnSelected = func(id widget.TreeNodeID) {
+		entry := ptw.pathCache[id]
+
+		if ptw.OnNodeSelected != nil {
+			ptw.OnNodeSelected(entry.node)
+		}
+	}
+
+	ptw.Tree.ExtendBaseWidget(ptw.Tree)
+
+	ptw.refresher = newDebouncer(500*time.Millisecond, func() {
+		ptw.Tree.Refresh()
+	})
+
+	ptw.SetRootItem(resolutionRoot.CanonicalPath())
+
+	return ptw
 }
 
 func (ptw *PsiTreeWidget) Node(id widget.TreeNodeID) psi.Node {
@@ -57,10 +116,7 @@ func (ptw *PsiTreeWidget) getNodeState(id widget.TreeNodeID, create bool) *psiTr
 			return nil
 		}
 
-		state = &psiTreeNodeState{
-			tree: ptw,
-			path: p,
-		}
+		state = newPsiTreeNodeState(ptw, p)
 
 		ptw.pathCache[id] = state
 	}
@@ -78,97 +134,18 @@ func (ptw *PsiTreeWidget) resolveCached(id string) (psi.Node, error) {
 	return state.node, nil
 }
 
-func NewPsiTreeWidget(root psi.Node) *PsiTreeWidget {
-	ptw := &PsiTreeWidget{
-		root:      root,
-		pathCache: map[string]*psiTreeNodeState{},
+func (ptw *PsiTreeWidget) SetRootItem(path psi.Path) {
+	state := ptw.getNodeState(path.String(), true)
 
-		SelectedItem: binding.NewUntyped(),
+	if state.node == nil {
+		state.loadNode()
 	}
 
-	ptw.Tree = &widget.Tree{
-		ChildUIDs: func(id widget.TreeNodeID) []widget.TreeNodeID {
-			existing := ptw.getNodeState(id, true)
+	ptw.Tree.Root = path.String()
+}
 
-			if !existing.hasChildrenCached {
-				existing.loadChildren()
-			}
-
-			return existing.children
-		},
-
-		IsBranch: func(id widget.TreeNodeID) bool {
-			n, err := ptw.resolveCached(id)
-
-			if err != nil {
-				return false
-			}
-
-			return n.IsContainer()
-		},
-
-		CreateNode: func(branch bool) fyne.CanvasObject {
-			return NewPsiTreeItem().Container
-		},
-
-		UpdateNode: func(id widget.TreeNodeID, branch bool, o fyne.CanvasObject) {
-			n, err := ptw.resolveCached(id)
-
-			if err != nil {
-				return
-			}
-
-			info := GetPsiNodeDescription(n)
-
-			labelContainer := o.(*fyne.Container)
-			labelContainer.Objects[0].(*widget.Icon).SetResource(info.Icon)
-			labelContainer.Objects[1].(*widget.Label).SetText(info.Name)
-		},
-	}
-
-	ptw.Tree.OnBranchOpened = func(id widget.TreeNodeID) {
-		entry := ptw.pathCache[id]
-
-		if entry != nil {
-			entry.invalidateChildren()
-
-			ptw.Tree.Refresh()
-		}
-	}
-
-	ptw.Tree.OnBranchClosed = func(id widget.TreeNodeID) {
-		entry := ptw.pathCache[id]
-
-		if entry != nil {
-			entry.invalidateChildren()
-
-			ptw.Tree.Refresh()
-		}
-	}
-
-	ptw.Tree.OnSelected = func(id widget.TreeNodeID) {
-		entry := ptw.pathCache[id]
-
-		if entry != nil {
-			entry.invalidateChildren()
-
-			ptw.Tree.Refresh()
-		}
-
-		if ptw.OnNodeSelected != nil {
-			ptw.OnNodeSelected(entry.node)
-		}
-
-		if err := ptw.SelectedItem.Set(entry.node); err != nil {
-			panic(err)
-		}
-	}
-
-	ptw.Tree.Root = ptw.root.CanonicalPath().String()
-
-	ptw.Tree.ExtendBaseWidget(ptw.Tree)
-
-	return ptw
+func (ptw *PsiTreeWidget) refreshTree() {
+	ptw.refresher.Request()
 }
 
 type psiTreeNodeState struct {
@@ -183,9 +160,57 @@ type psiTreeNodeState struct {
 	node          psi.Node
 	isNodeLoading bool
 
-	children          []widget.TreeNodeID
-	hasChildrenCached bool
-	isChildrenLoading bool
+	childrenIds collectionsfx.MutableSlice[widget.TreeNodeID]
+}
+
+func newPsiTreeNodeState(ptw *PsiTreeWidget, p psi.Path) *psiTreeNodeState {
+	st := &psiTreeNodeState{
+		tree: ptw,
+		path: p,
+	}
+
+	st.childrenIds.AddListener(obsfx.OnInvalidatedFunc(func(o obsfx.Observable) {
+		ptw.refreshTree()
+	}))
+
+	return st
+}
+
+type debouncer struct {
+	mu      sync.Mutex
+	f       func()
+	size    time.Duration
+	last    time.Time
+	waiting bool
+}
+
+func newDebouncer(windowSize time.Duration, f func()) *debouncer {
+	return &debouncer{size: windowSize, f: f}
+}
+
+func (d *debouncer) Request() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.waiting {
+		return
+	}
+
+	d.waiting = true
+	defer func() {
+		d.waiting = false
+	}()
+
+	go func() {
+		time.Sleep(d.size)
+
+		d.mu.Lock()
+		defer d.mu.Unlock()
+
+		if d.waiting {
+			d.f()
+		}
+	}()
 }
 
 func (s *psiTreeNodeState) loadNode() {
@@ -205,103 +230,35 @@ func (s *psiTreeNodeState) loadNode() {
 		s.isNodeLoading = false
 	}()
 
-	n, err := psi.ResolvePath(s.tree.root, s.path)
+	n, err := psi.ResolvePath(s.tree.resolutionRoot, s.path)
 
 	if err != nil {
 		return
 	}
 
-	if s.node != nil {
-		s.node.RemoveInvalidationListener(s)
-	}
+	if s.node != n {
+		s.childrenIds.Clear()
 
-	s.node = n
-
-	if s.node != nil {
-		s.node.AddInvalidationListener(s)
-	}
-
-	s.hasChildrenCached = false
-	s.children = nil
-}
-
-func (s *psiTreeNodeState) loadChildren() bool {
-	if s.isChildrenLoading {
-		return false
-	}
-
-	if s.node == nil {
-		s.loadNode()
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.isChildrenLoading {
-		return false
-	}
-
-	s.isChildrenLoading = true
-	defer func() {
-		s.isChildrenLoading = false
-	}()
-
-	if s.node == nil {
-		return false
-	}
-
-	ids := lo.Map(s.node.Children(), func(child psi.Node, _ int) widget.TreeNodeID {
-		p := child.CanonicalPath()
-
-		if p.IsEmpty() {
-			panic("empty path")
+		if s.node != nil {
+			s.childrenIds.Unbind()
 		}
-
-		ps := p.String()
-
-		if ps == "" {
-			panic("empty path")
-		}
-
-		return ps
-	})
-
-	s.children = ids
-	s.hasChildrenCached = true
-
-	return true
-}
-
-func (s *psiTreeNodeState) invalidateChildren() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.hasChildrenCached = false
-}
-
-func (s *psiTreeNodeState) OnInvalidated(n psi.Node) {
-	go func() {
-		defer s.tree.Refresh()
-		defer s.invalidateChildren()
-
-		s.mu.Lock()
-		defer s.mu.Unlock()
 
 		s.node = n
-	}()
+
+		if s.node != nil {
+			collectionsfx.BindList(&s.childrenIds, s.node.ChildrenList(), func(v psi.Node) widget.TreeNodeID {
+				return v.CanonicalPath().String()
+			})
+		}
+	}
 }
 
 func (s *psiTreeNodeState) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.node != nil {
-		s.node.RemoveInvalidationListener(s)
-	}
-
+	s.childrenIds.Unbind()
 	s.node = nil
-	s.children = nil
-	s.hasChildrenCached = false
 }
 
 type PsiTreeItem struct {

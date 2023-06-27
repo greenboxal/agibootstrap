@@ -3,7 +3,6 @@ package visor
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/widget"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -20,12 +19,7 @@ func NewProjectExplorer(p project.Project, dm *DocumentManager) *ProjectExplorer
 		dm.OpenDocument(n.CanonicalPath(), n)
 	}
 
-	projectToolbar := container.NewHBox(
-		widget.NewButton("Refresh", func() {
-			projectTree.pathCache = map[string]*psiTreeNodeState{}
-			projectTree.Refresh()
-		}),
-	)
+	projectToolbar := container.NewHBox()
 
 	projectPanel := container.NewBorder(
 		projectToolbar,

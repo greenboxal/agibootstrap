@@ -9,6 +9,8 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/obsfx"
+	"github.com/greenboxal/agibootstrap/pkg/platform/obsfx/collectionsfx"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -23,7 +25,7 @@ func NewChatExplorer(p project.Project, dm *DocumentManager) *ChatExplorer {
 	chatLogsToolbar := container.NewHBox()
 
 	chatLogTree := NewPsiTreeWidget(p)
-	chatLogTree.Root = p.LogManager().PsiNode().CanonicalPath().String()
+	chatLogTree.SetRootItem(p.LogManager().CanonicalPath())
 
 	chatLogTree.OnNodeSelected = func(n psi.Node) {
 		chatLog, ok := n.(*thoughtstream.ThoughtLog)
@@ -68,74 +70,38 @@ func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.No
 		element:     element.(*thoughtstream.ThoughtLog),
 	}
 
-	chatMessagesBinding := binding.NewUntypedList()
 	chatReplyBinding := binding.NewString()
 
-	listItems := container.NewVBox()
-	listContainer := container.NewMax(container.NewVScroll(listItems))
+	listItemParent := container.NewVBox()
+	listContainer := container.NewMax(container.NewVScroll(listItemParent))
 
-	createItem := func() fyne.CanvasObject {
-		rt := widget.NewRichTextFromMarkdown("Message Here")
+	thoughtList := collectionsfx.MutableSlice[*thoughtstream.Thought]{}
+	listItems := collectionsfx.MutableSlice[*ThoughtView]{}
 
-		rt.Wrapping = fyne.TextWrapWord
-		rt.Scroll = container.ScrollNone
-
-		return rt
-	}
-
-	updateItem := func(i widget.ListItemID, o fyne.CanvasObject) {
-		item, err := chatMessagesBinding.GetItem(i)
-
-		if err != nil {
-			fyne.LogError(fmt.Sprintf("Error getting data item %d", i), err)
-			return
-		}
-
-		v, err := item.(binding.Untyped).Get()
-
-		if err != nil {
-			return
-		}
-
-		msg, ok := v.(*thoughtstream.Thought)
-
-		if !ok {
-			return
-		}
-
-		el := o.(*widget.RichText)
-
-		el.ParseMarkdown(fmt.Sprintf("# **[%s]:**\n%s", msg.From.Name, msg.Text))
-	}
-
-	updateItems := func() {
-		count := chatMessagesBinding.Length()
-
-		for i := 0; i < count; i++ {
-			if i >= len(listItems.Objects) {
-				listItems.Add(createItem())
+	collectionsfx.ObserveList(&listItems, func(ev collectionsfx.ListChangeEvent[*ThoughtView]) {
+		for ev.Next() {
+			if ev.WasRemoved() {
+				for _, removed := range ev.RemovedSlice() {
+					listItemParent.Remove(removed.View)
+				}
+			} else {
+				for _, added := range ev.AddedSlice() {
+					listItemParent.Add(added.View)
+				}
 			}
-
-			updateItem(i, listItems.Objects[i])
 		}
+	})
 
-		for i := count; i < len(listItems.Objects); i++ {
-			listItems.Remove(listItems.Objects[count])
-		}
-	}
+	collectionsfx.BindList(&listItems, &thoughtList, func(v *thoughtstream.Thought) *ThoughtView {
+		tv := NewThoughtView()
 
-	chatMessagesBinding.AddListener(binding.NewDataListener(updateItems))
+		tv.Thought.SetValue(v)
+
+		return tv
+	})
 
 	updateAllItems := func() {
-		c := tle.element.Messages()
-		l := make([]interface{}, len(c))
-
-		for i, v := range c {
-			n := v
-			l[i] = &n
-		}
-
-		chatMessagesBinding.Set(l)
+		thoughtList.ReplaceAll(tle.element.Messages()...)
 	}
 
 	element.AddInvalidationListener(psi.InvalidationListenerFunc(func(n psi.Node) {
@@ -163,4 +129,59 @@ func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.No
 	tle.root = widget.NewCard("Chat Log", "Chat Log details", chatLogDetailsContent)
 
 	return tle
+}
+
+type ThoughtView struct {
+	View fyne.CanvasObject
+
+	Thought      obsfx.SimpleProperty[*thoughtstream.Thought]
+	TextProperty obsfx.StringProperty
+
+	rt *widget.RichText
+}
+
+func NewThoughtView() *ThoughtView {
+	tv := &ThoughtView{}
+
+	tv.rt = widget.NewRichText()
+	tv.rt.Wrapping = fyne.TextWrapWord
+	tv.rt.Scroll = container.ScrollNone
+
+	tv.View = tv.rt
+
+	obsfx.BindFunc(func(v string) {
+		msg := tv.Thought.Value()
+
+		if msg == nil {
+			return
+		}
+
+		tv.rt.ParseMarkdown(fmt.Sprintf("# **[%s]:**\n%s", msg.From.Name, v))
+	}, &tv.TextProperty)
+
+	obsfx.ObserveChange(&tv.Thought, func(old, new *thoughtstream.Thought) {
+		if old != nil {
+			old.RemoveInvalidationListener(tv)
+		}
+
+		if new != nil {
+			new.AddInvalidationListener(tv)
+		}
+
+		tv.OnInvalidated(new)
+	})
+
+	tv.OnInvalidated(tv.Thought.Value())
+
+	return tv
+}
+
+func (tv *ThoughtView) OnInvalidated(n psi.Node) {
+	t := tv.Thought.Value()
+
+	if t != nil {
+		tv.TextProperty.SetValue(t.Text)
+	} else {
+		tv.TextProperty.SetValue("")
+	}
 }

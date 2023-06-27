@@ -75,7 +75,7 @@ func NewVisor(p project.Project) *Visor {
 
 				s.SetParent(v.p)
 
-				s.Router().ReceiveIncomingMessage(&thoughtstream.Thought{
+				initial := &thoughtstream.Thought{
 					Timestamp: time.Now(),
 
 					From: thoughtstream.CommHandle{
@@ -86,7 +86,11 @@ func NewVisor(p project.Project) *Visor {
 					Text: `
 Create a landing page for a pharmaceutical company in NextJS.
 `,
-				})
+				}
+
+				initial.Init(initial, "")
+
+				s.Router().ReceiveIncomingMessage(initial)
 
 				st := s.WorldState().(*singularity.WorldState)
 
