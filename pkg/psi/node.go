@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
+
+	"github.com/greenboxal/agibootstrap/pkg/platform/obsfx/collectionsfx"
 )
 
 var EdgeKindChild = EdgeKind("child")
@@ -30,6 +31,7 @@ type NodeLike interface {
 }
 
 type NodeIterator interface {
+	Value() Node
 	Node() Node
 	Next() bool
 }
@@ -61,6 +63,7 @@ type Node interface {
 	SetParent(parent Node)
 
 	Children() []Node
+	ChildrenList() collectionsfx.ObservableList[Node]
 	ChildrenIterator() NodeIterator
 	Edges() EdgeIterator
 	Comments() []string
@@ -126,9 +129,9 @@ type NodeBase struct {
 	self   Node
 	path   Path
 
-	children   []Node
-	edges      map[EdgeKey]Edge
-	attributes map[string]any
+	children   collectionsfx.MutableSlice[Node]
+	edges      collectionsfx.MutableMap[EdgeKey, Edge]
+	attributes collectionsfx.MutableMap[string, any]
 
 	valid                 bool
 	inUpdate              bool
@@ -161,10 +164,11 @@ func (n *NodeBase) IsLeaf() bool       { return false }
 func (n *NodeBase) IsValid() bool      { return n.valid }
 func (n *NodeBase) Comments() []string { return nil }
 
-func (n *NodeBase) CanonicalPath() (res Path)      { return n.path }
-func (n *NodeBase) Parent() Node                   { return n.parent }
-func (n *NodeBase) Children() []Node               { return n.children }
-func (n *NodeBase) ChildrenIterator() NodeIterator { return &nodeChildrenIterator{parent: n} }
+func (n *NodeBase) CanonicalPath() (res Path)                        { return n.path }
+func (n *NodeBase) Parent() Node                                     { return n.parent }
+func (n *NodeBase) Children() []Node                                 { return n.children.Slice() }
+func (n *NodeBase) ChildrenList() collectionsfx.ObservableList[Node] { return &n.children }
+func (n *NodeBase) ChildrenIterator() NodeIterator                   { return &nodeChildrenIterator{parent: n} }
 
 func (n *NodeBase) String() string {
 	return fmt.Sprintf("Node(%T, %d, %s)", n.self, n.id, n.uuid)
@@ -216,19 +220,22 @@ func (n *NodeBase) doUpdate(skipValidation bool) {
 
 	n.updatePath()
 
-	for _, child := range n.children {
-		child.PsiNodeBase().doUpdate(skipValidation)
+	for it := n.children.Iterator(); it.Next(); {
+		it.Item().PsiNodeBase().doUpdate(skipValidation)
 	}
 
 	n.Update()
 
 	n.valid = true
 
+	n.fireInvalidationListeners()
+}
+
+func (n *NodeBase) fireInvalidationListeners() {
 	for _, listener := range n.invalidationListeners {
 		listener.OnInvalidated(n)
 	}
 }
-
 func (n *NodeBase) updatePath() {
 	var self PathElement
 
@@ -261,11 +268,12 @@ func (n *NodeBase) updatePath() {
 func (n *NodeBase) ResolveChild(component PathElement) Node {
 	if component.Kind == "" || component.Kind == EdgeKindChild {
 		if component.Name == "" {
-			if component.Index < int64(len(n.children)) {
-				return n.children[component.Index]
+			if component.Index < int64(n.children.Len()) {
+				return n.children.Get(int(component.Index))
 			}
 		} else {
-			for _, child := range n.children {
+			for it := n.children.Iterator(); it.Next(); {
+				child := it.Item()
 				cn := child.PsiNodeBase()
 
 				if named, ok := child.(NamedNode); ok {
@@ -280,8 +288,9 @@ func (n *NodeBase) ResolveChild(component PathElement) Node {
 			}
 		}
 	} else {
-		for _, e := range n.edges {
-			k := e.Key()
+		for it := n.edges.Iterator(); it.Next(); {
+			kv := it.Item()
+			k := kv.Key
 
 			if k.GetKind() != component.Kind {
 				continue
@@ -295,7 +304,7 @@ func (n *NodeBase) ResolveChild(component PathElement) Node {
 				continue
 			}
 
-			return e.To()
+			return kv.Value.To()
 		}
 	}
 
@@ -307,13 +316,13 @@ func (n *NodeBase) PreviousSibling() Node {
 	}
 
 	p := n.Parent().PsiNodeBase()
-	idx := slices.Index(p.children, n.self)
+	idx := p.children.IndexOf(n.self)
 
 	if idx <= 0 {
 		return nil
 	}
 
-	return p.children[idx-1]
+	return p.children.Get(idx - 1)
 }
 
 func (n *NodeBase) NextSibling() Node {
@@ -322,19 +331,19 @@ func (n *NodeBase) NextSibling() Node {
 	}
 
 	p := n.Parent().PsiNodeBase()
-	idx := slices.Index(p.children, n.self)
+	idx := p.children.IndexOf(n.self)
 
-	if idx == -1 || idx >= len(p.children)-1 {
+	if idx == -1 || idx >= p.children.Len()-1 {
 		return nil
 	}
 
-	return p.children[idx+1]
+	return p.children.Get(idx + 1)
 }
 
 func (n *NodeBase) Edges() EdgeIterator {
 	return &edgeIterator{
 		n:    n,
-		keys: maps.Keys(n.edges),
+		keys: n.edges.Keys(),
 	}
 }
 
@@ -371,7 +380,7 @@ func (n *NodeBase) SetParent(parent Node) {
 // Parameters:
 // - child: The child node to be added.
 func (n *NodeBase) AddChildNode(child Node) {
-	n.InsertChildrenAt(len(n.children), child)
+	n.InsertChildrenAt(n.children.Len(), child)
 }
 
 // RemoveChildNode removes the child node from the current node.
@@ -380,15 +389,16 @@ func (n *NodeBase) AddChildNode(child Node) {
 // Parameters:
 // - child: The child node to be removed.
 func (n *NodeBase) RemoveChildNode(child Node) {
-	idx := slices.Index(n.children, child)
+	idx := n.children.IndexOf(child)
 
 	if idx == -1 {
 		return
 	}
 
-	n.children = slices.Delete(n.children, idx, idx+1)
+	n.children.RemoveAt(idx)
 
 	n.Invalidate()
+	n.fireInvalidationListeners()
 }
 
 func (n *NodeBase) InsertChildrenAt(idx int, child Node) {
@@ -398,30 +408,31 @@ func (n *NodeBase) InsertChildrenAt(idx int, child Node) {
 
 	cn := child.PsiNodeBase()
 
-	existingIdx := slices.Index(n.children, child)
+	existingIdx := n.children.IndexOf(child)
 
 	if existingIdx != -1 && idx == existingIdx {
 		return
 	}
 
 	cn.parent = n
-	n.children = slices.Insert(n.children, idx, child)
+	n.children.InsertAt(idx, child)
 
 	if existingIdx != -1 {
 		if existingIdx >= idx {
 			existingIdx++
 		}
 
-		n.children = slices.Delete(n.children, existingIdx, existingIdx+1)
+		n.children.RemoveAt(existingIdx)
 	}
 
 	child.attachToGraph(n.g)
 
 	n.Invalidate()
+	n.fireInvalidationListeners()
 }
 
 func (n *NodeBase) InsertChildBefore(anchor, node Node) {
-	idx := slices.Index(n.children, anchor)
+	idx := n.children.IndexOf(anchor)
 
 	if idx == -1 {
 		return
@@ -431,7 +442,7 @@ func (n *NodeBase) InsertChildBefore(anchor, node Node) {
 }
 
 func (n *NodeBase) InsertChildAfter(anchor, node Node) {
-	idx := slices.Index(n.children, anchor)
+	idx := n.children.IndexOf(anchor)
 
 	if idx == -1 {
 		return
@@ -452,24 +463,27 @@ func (n *NodeBase) InsertChildAfter(anchor, node Node) {
 // - new: The new child node to replace the old child node.
 func (n *NodeBase) ReplaceChildNode(old, new Node) {
 	changed := false
-	idx := slices.Index(n.children, old)
+	idx := n.children.IndexOf(old)
 
 	if idx != -1 {
-		n.children[idx] = new
+		n.children.Set(idx, new)
 		old.SetParent(nil)
 		new.SetParent(n.self)
 
 		changed = true
 	}
 
-	for i, e := range n.edges {
+	for it := n.edges.Iterator(); it.Next(); {
+		kv := it.Item()
+		e := kv.Value
+
 		if e.To() == old {
 			e = e.ReplaceTo(new)
 		} else {
 			continue
 		}
 
-		n.edges[i] = e
+		n.edges.Set(kv.Key, e)
 
 		changed = true
 	}
@@ -506,12 +520,12 @@ func (n *NodeBase) attachToGraph(g Graph) {
 		n.g.Add(n.self)
 	}
 
-	for _, e := range n.children {
-		e.attachToGraph(g)
+	for it := n.children.Iterator(); it.Next(); {
+		it.Item().attachToGraph(g)
 	}
 
-	for _, e := range n.edges {
-		e.attachToGraph(g)
+	for it := n.edges.Iterator(); it.Next(); {
+		it.Item().Value.attachToGraph(g)
 	}
 
 	n.Invalidate()
@@ -534,8 +548,8 @@ func (n *NodeBase) detachFromGraph(g Graph) {
 		return
 	}
 
-	for _, e := range n.children {
-		e.detachFromGraph(n.g)
+	for it := n.children.Iterator(); it.Next(); {
+		it.Item().detachFromGraph(n.g)
 	}
 
 	oldGraph := n.g
@@ -548,33 +562,23 @@ func (n *NodeBase) detachFromGraph(g Graph) {
 }
 
 func (n *NodeBase) SetAttribute(key string, value any) {
-	if n.attributes == nil {
-		n.attributes = make(map[string]any)
-	}
-
-	n.attributes[key] = value
+	n.attributes.Set(key, value)
 
 	n.Invalidate()
 }
 
 func (n *NodeBase) GetAttribute(key string) (value any, ok bool) {
-	if n.attributes == nil {
-		return nil, false
-	}
-
-	value, ok = n.attributes[key]
-
-	return
+	return n.attributes.Get(key)
 }
 
 func (n *NodeBase) RemoveAttribute(key string) (value any, ok bool) {
-	if n.attributes == nil {
-		return nil, false
+	value, ok = n.attributes.Get(key)
+
+	if !ok {
+		return value, false
 	}
 
-	value, ok = n.attributes[key]
-
-	delete(n.attributes, key)
+	n.attributes.Remove(key)
 
 	if ok {
 		n.Invalidate()
@@ -584,52 +588,46 @@ func (n *NodeBase) RemoveAttribute(key string) (value any, ok bool) {
 }
 
 func (n *NodeBase) SetEdge(key EdgeReference, to Node) {
-	if n.edges == nil {
-		n.edges = make(map[EdgeKey]Edge)
-	}
-
 	e := &EdgeBase{
 		from: n.self,
 		to:   to,
 		key:  key,
 	}
 
-	n.edges[e.key.GetKey()] = e
+	n.edges.Set(e.key.GetKey(), e)
 
 	n.doUpdate(true)
 }
 
 func (n *NodeBase) UnsetEdge(key EdgeReference) {
-	if n.edges == nil {
-		return
-	}
-
 	k := key.GetKey()
 
-	_, ok := n.edges[k]
+	_, ok := n.edges.Get(k)
 
-	delete(n.edges, k)
+	if !ok {
+		return
+	}
 
 	if ok {
 		n.Invalidate()
 	}
 }
 func (n *NodeBase) GetEdge(key EdgeReference) Edge {
-	if n.edges == nil {
-		return nil
-	}
+	v, _ := n.edges.Get(key.GetKey())
 
-	return n.edges[key.GetKey()]
+	return v
 }
 
 func (n *NodeBase) IndexOfChild(node Node) int {
-	return slices.Index(n.children, node)
+	return n.children.IndexOf(node)
 }
 
 type nodeSliceIterator struct {
 	current Node
 	items   []Node
 }
+
+func (n *nodeSliceIterator) Value() Node { return n.Node() }
 
 func (n *nodeSliceIterator) Node() Node {
 	return n.current
@@ -660,16 +658,18 @@ type nodeChildrenIterator struct {
 	index   int
 }
 
+func (n *nodeChildrenIterator) Value() Node { return n.Node() }
+
 func (n *nodeChildrenIterator) Node() Node {
 	return n.current
 }
 
 func (n *nodeChildrenIterator) Next() bool {
-	if n.index >= len(n.parent.children) {
+	if n.index >= n.parent.children.Len() {
 		return false
 	}
 
-	n.current = n.parent.children[n.index]
+	n.current = n.parent.children.Get(n.index)
 	n.index++
 
 	return true
@@ -687,6 +687,8 @@ type nestedNodeIterator struct {
 	current   NodeIterator
 	iterators []NodeIterator
 }
+
+func (n *nestedNodeIterator) Value() Node { return n.Node() }
 
 func (n *nestedNodeIterator) Node() Node {
 	if n.current == nil {

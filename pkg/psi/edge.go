@@ -121,7 +121,7 @@ func (e edgeIterator) Next() bool {
 	}
 
 	k := e.keys[e.index]
-	e.current = e.n.edges[k]
+	e.current, _ = e.n.edges.Get(k)
 
 	e.index++
 

@@ -4,22 +4,10 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
-type ICollection[T any] interface {
-	Add(value T) int
-	Get(index int) T
-	InsertAt(index int, value T)
-	Remove(value T) bool
-	RemoveAt(index int) T
-	IndexOf(value T) int
-	Contains(value T) bool
-	Length() int
+type List[T any] interface {
+	Collection[T]
 
-	Iterator() Iterator[T]
-}
 
-type Iterator[T any] interface {
-	Next() bool
-	Value() T
 }
 
 type NodeCollection[T psi.Node] struct {
