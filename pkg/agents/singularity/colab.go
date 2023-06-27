@@ -3,7 +3,6 @@ package singularity
 import (
 	"context"
 
-	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
@@ -43,24 +42,24 @@ func (c *Colab) Log() *thoughtstream.ThoughtLog    { return c.log }
 func (c *Colab) WorldState() agents.WorldState     { return c.state }
 func (c *Colab) History() []*thoughtstream.Thought { return c.log.Messages() }
 
-func (c *Colab) Introspect(ctx context.Context, extra ...*thoughtstream.Thought) (chat.Message, error) {
+func (c *Colab) Introspect(ctx context.Context, prompt agents.AgentPrompt) (*thoughtstream.Thought, error) {
 	next, err := c.nextSpeaker(ctx)
 
 	if err != nil {
-		return chat.Message{}, err
+		return nil, err
 	}
 
-	return next.Introspect(ctx, extra...)
+	return next.Introspect(ctx, prompt)
 }
 
-func (c *Colab) IntrospectWith(ctx context.Context, profileName string, extra ...*thoughtstream.Thought) (chat.Message, error) {
+func (c *Colab) IntrospectWith(ctx context.Context, profileName string, prompt agents.AgentPrompt) (*thoughtstream.Thought, error) {
 	next := c.agents[profileName]
 
 	if next == nil {
-		return chat.Message{}, errors.New("no such agent")
+		return nil, errors.New("no such agent")
 	}
 
-	return next.Introspect(ctx, extra...)
+	return next.Introspect(ctx, prompt)
 }
 
 func (c *Colab) StepWith(ctx context.Context, profileName string) error {
@@ -74,6 +73,10 @@ func (c *Colab) StepWith(ctx context.Context, profileName string) error {
 }
 
 func (c *Colab) Step(ctx context.Context) error {
+	if err := c.router.RouteIncomingMessages(ctx); err != nil {
+		return err
+	}
+
 	next, err := c.nextSpeaker(ctx)
 
 	if err != nil {

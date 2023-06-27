@@ -1,6 +1,8 @@
 package singularity
 
 import (
+	"time"
+
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -14,6 +16,7 @@ type WorldState struct {
 	Epoch int64
 	Cycle int64
 	Step  int64
+	Time  time.Time
 
 	SystemMessages []chat.Message
 }

@@ -3,8 +3,6 @@ package agents
 import (
 	"context"
 
-	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
-
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -17,7 +15,7 @@ type AgentContext interface {
 	WorldState() WorldState
 }
 
-type PostStepHook func(ctx AgentContext, msg chat.Message) error
+type PostStepHook func(ctx AgentContext, thought *thoughtstream.Thought) error
 
 type Profile struct {
 	psi.NodeBase
@@ -63,7 +61,7 @@ func SetState[T any](state WorldState, k WorldStateKey[T], v T) {
 
 type AnalysisSession interface {
 	History() []*thoughtstream.Thought
-	Introspect(ctx context.Context, extra ...*thoughtstream.Thought) (chat.Message, error)
+	Introspect(ctx context.Context, prompt AgentPrompt) (*thoughtstream.Thought, error)
 }
 
 type Agent interface {

@@ -59,6 +59,10 @@ func (s *Singularity) Step(ctx context.Context) ([]*thoughtstream.Thought, error
 
 	s.Router().ResetOutbox()
 
+	if err := s.Router().RouteIncomingMessages(ctx); err != nil {
+		return nil, err
+	}
+
 	plan := agents.GetState(s.worldState, CtxPlannerPlan)
 
 	if len(plan.Steps) == 0 {
@@ -111,6 +115,7 @@ func (s *Singularity) runSteps(ctx context.Context, steps ...string) error {
 
 func (s *Singularity) doStep(ctx context.Context, profileName string) error {
 	s.worldState.Step++
+	s.worldState.Time = time.Now()
 
 	kvJson, err := json.Marshal(s.worldState.KV)
 
@@ -134,7 +139,7 @@ func (s *Singularity) doStep(ctx context.Context, profileName string) error {
 %s
 `+"```"+`
 ===
-`, s.worldState.Epoch, s.worldState.Cycle, s.worldState.Step, time.Now().Format("2006/01/02 - 15:04:05"), kvJson))),
+`, s.worldState.Epoch, s.worldState.Cycle, s.worldState.Step, s.worldState.Time.Format("2006/01/02 - 15:04:05"), kvJson))),
 
 		chat.Compose(chat.Entry(msn.RoleSystem, availableMsg)),
 	}

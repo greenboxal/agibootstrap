@@ -1,10 +1,9 @@
 package singularity
 
 import (
-	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
-
 	"github.com/greenboxal/agibootstrap/pkg/agents"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/featureextractors"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 )
 
 var CtxPairMeditation agents.WorldStateKey[string] = "pair_meditation"
@@ -47,7 +46,7 @@ func WithRequires[T any](requires ...agents.WorldStateKey[T]) ProfileOption {
 
 var DirectorProfile = BuildProfile(agents.Profile{
 	Name:        "Director",
-	Description: "Establishes the task'router overarching goal and key objectives.",
+	Description: "Establishes the task's overarching goal and key objectives.",
 
 	BaselineSystemPrompt: `
 As the Director Agent, your role is to strategically assess the given task, determine the overarching goal, and establish key objectives that will lead to its completion. Begin by
@@ -57,7 +56,7 @@ providing a comprehensive overview of the task and its critical milestones.
 	Rank:     1.0 / 2.0,
 	Priority: 1,
 
-	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
 		plan, err := featureextractors.QueryPlan(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
@@ -77,13 +76,13 @@ var ManagerProfile = BuildProfile(agents.Profile{
 
 	BaselineSystemPrompt: `
 As the Manager Agent, ensure the smooth transition of tasks between the profiles, effectively manage resources, and facilitate harmonious communication among all profiles. Your role is
-critical to maintaining the system'router synergy and productivity.
+critical to maintaining the system's synergy and productivity.
 `,
 
 	Rank:     1.0 / 3.0,
 	Priority: 1,
 
-	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
 		plan, err := featureextractors.QueryPlan(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
@@ -99,17 +98,17 @@ critical to maintaining the system'router synergy and productivity.
 
 var LibrarianProfile = BuildProfile(agents.Profile{
 	Name:        "Librarian",
-	Description: "Taps into the system'router stored knowledge and experiences to provide necessary context and recall relevant information for the present task. This will assist in quick and effective problem-solving.",
+	Description: "Taps into the system's stored knowledge and experiences to provide necessary context and recall relevant information for the present task. This will assist in quick and effective problem-solving.",
 
 	BaselineSystemPrompt: `
-As the Librarian Agent, tap into the system'router stored knowledge and experiences to provide necessary context and recall relevant information for the present task. This will assist
+As the Librarian Agent, tap into the system's stored knowledge and experiences to provide necessary context and recall relevant information for the present task. This will assist
 in quick and effective problem-solving.
 `,
 
 	Rank:     1.0 / 3.0,
 	Priority: 1.0 / 3.0,
 
-	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
 		library, err := featureextractors.QueryLibrary(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
@@ -140,7 +139,7 @@ plan of action to reach the intended outcome.
 	Rank:     1.0 / 3.0,
 	Priority: 1.0 / 2.0,
 
-	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
 		plan, err := featureextractors.QueryPlan(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
@@ -157,10 +156,10 @@ plan of action to reach the intended outcome.
 
 var CoderTopDownProfile = BuildProfile(agents.Profile{
 	Name:        "TopDownCoder",
-	Description: "Translates the strategy into practical code, utilizing either a Bottom Up or Top Down coding strategy depending on the problem'router complexity.",
+	Description: "Translates the strategy into practical code, utilizing either a Bottom Up or Top Down coding strategy depending on the problem's complexity.",
 
 	BaselineSystemPrompt: `
-As the Coder Agent, it'router your responsibility to translate the strategy into practical code. Depending on the problem'router complexity, utilize either a Bottom Up or Top Down coding
+As the Coder Agent, it's your responsibility to translate the strategy into practical code. Depending on the problem's complexity, utilize either a Bottom Up or Top Down coding
 strategy. Begin by writing code for the first component of the task.
 
 The Coder Agent has initiated the Top Down Strategy. With a clear picture of the solution in view, it is systematically breaking it down into smaller, manageable parts, working
@@ -177,7 +176,7 @@ code goes here
 	Rank:     1.0 / 4.0,
 	Priority: 1,
 
-	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
 		blocks, err := featureextractors.ExtractCodeBlocks(ctx.Context(), "", ctx.Agent().History()...)
 
 		if err != nil {
@@ -198,13 +197,13 @@ code goes here
 
 var BottomUpCoderProfile = BuildProfile(agents.Profile{
 	Name:        "BottomsUpCoder",
-	Description: "Translates the strategy into practical code, utilizing either a Bottom Up or Top Down coding strategy depending on the problem'router complexity.",
+	Description: "Translates the strategy into practical code, utilizing either a Bottom Up or Top Down coding strategy depending on the problem's complexity.",
 
 	BaselineSystemPrompt: `
-As the Coder Agent, it'router your responsibility to translate the strategy into practical code. Depending on the problem'router complexity, utilize either a Bottom Up or Top Down coding
+As the Coder Agent, it's your responsibility to translate the strategy into practical code. Depending on the problem's complexity, utilize either a Bottom Up or Top Down coding
 strategy. Begin by writing code for the first component of the task.
 
-The Coder Agent is currently employing the Bottom Up Strategy. It'router constructing the solution starting from the smallest components, gradually piecing together the elements to form
+The Coder Agent is currently employing the Bottom Up Strategy. It's constructing the solution starting from the smallest components, gradually piecing together the elements to form
 the complete solution. Please stand by.
 
 When writing code, always include the name of the file, for example:
@@ -218,7 +217,7 @@ code goes here
 	Rank:     1.0 / 4.0,
 	Priority: 1.0 / 2.0,
 
-	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
 		blocks, err := featureextractors.ExtractCodeBlocks(ctx.Context(), "", ctx.Agent().History()...)
 
 		if err != nil {
@@ -242,14 +241,14 @@ var QualityAssuranceProfile = BuildProfile(agents.Profile{
 	Description: "Scrutinizes the generated code meticulously for any errors or deviations from the accepted standards.",
 
 	BaselineSystemPrompt: `
-As the Quality Assurance Agent, it'router your duty to scrutinize the generated code meticulously for any errors or deviations from the accepted standards. Apply rigorous tests to
-ensure the functionality and integrity of the code before it'router finalized.
+As the Quality Assurance Agent, it's your duty to scrutinize the generated code meticulously for any errors or deviations from the accepted standards. Apply rigorous tests to
+ensure the functionality and integrity of the code before it's finalized.
 `,
 
 	Rank:     1.0 / 5.0,
 	Priority: 1,
 
-	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
 		goal, err := featureextractors.QueryGoalCompletion(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
@@ -275,7 +274,7 @@ transparency and traceability.
 	Rank:     1.0 / 3.0,
 	Priority: 1.0 / 4.0,
 
-	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
 		timeline, err := featureextractors.QueryTimeline(ctx.Context(), ctx.Agent().History()...)
 
 		if err != nil {
@@ -301,8 +300,8 @@ guidance and motivate the other profiles when they seem stuck or hesitant.
 	Rank:     -1.0,
 	Priority: -1,
 
-	PostStep: func(ctx agents.AgentContext, msg chat.Message) error {
-		agents.SetState(ctx.WorldState(), CtxPairMeditation, msg.Entries[0].Text)
+	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
+		agents.SetState(ctx.WorldState(), CtxPairMeditation, msg.Text)
 
 		return nil
 	},
@@ -310,10 +309,10 @@ guidance and motivate the other profiles when they seem stuck or hesitant.
 
 var SingularityProfile = BuildProfile(agents.Profile{
 	Name:        "Singularity",
-	Description: "Routes messages to other profiles based on the task'router needs and the system'router state.",
+	Description: "Routes messages to other profiles based on the task's needs and the system's state.",
 
 	BaselineSystemPrompt: `
-As the Singularity Agent, you are tasked with orchestrating the dialogue flow between all other profiles, deciding who will contribute next based on the task'router needs and the system'router
+As the Singularity Agent, you are tasked with orchestrating the dialogue flow between all other profiles, deciding who will contribute next based on the task's needs and the system's
 state. Additionally, provide real-time feedback to each agent to promote continuous learning and improvement.
 `,
 

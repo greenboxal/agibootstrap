@@ -2,11 +2,13 @@ package singularity
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
-	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
+	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
+	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/agents"
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
@@ -91,25 +93,24 @@ func (a *Agent) EmitMessage(msg *thoughtstream.Thought) error {
 }
 
 func (a *Agent) Step(ctx context.Context) error {
-	reply, err := a.Introspect(ctx)
+	prompt := agents.ComposePrompt(
+		agents.MapToPrompt(a.worldState.SystemMessages, func(c chat.Message) agents.AgentPrompt {
+			return agents.MessageToPrompt(c)
+		}),
+
+		agents.LogHistory(),
+
+		agents.AgentMessage(a.profile.Name, " "),
+	)
+
+	reply, err := a.Introspect(ctx, prompt)
 
 	if err != nil {
 		return err
 	}
 
-	for _, entry := range reply.Entries {
-		msg := thoughtstream.NewThought()
-
-		msg.From = thoughtstream.CommHandle{
-			Name: entry.Name,
-			Role: entry.Role,
-		}
-
-		msg.Text = entry.Text
-
-		if err := a.EmitMessage(msg); err != nil {
-			return err
-		}
+	if err := a.EmitMessage(reply); err != nil {
+		return err
 	}
 
 	if a.profile.PostStep != nil {
@@ -121,42 +122,43 @@ func (a *Agent) Step(ctx context.Context) error {
 	return nil
 }
 
-func (a *Agent) Introspect(ctx context.Context, extra ...*thoughtstream.Thought) (chat.Message, error) {
-	logMessages := a.log.Messages()
+func (a *Agent) Introspect(ctx context.Context, prompt agents.AgentPrompt) (reply *thoughtstream.Thought, err error) {
+	var options []llm.PredictOption
 
-	if len(extra) > 0 {
-		msgs := make([]*thoughtstream.Thought, 0, len(logMessages))
-		msgs = append(msgs, logMessages...)
-		msgs = append(msgs, extra...)
-		logMessages = msgs
+	msg, err := prompt.Render(agentContext{agent: a, ctx: ctx})
+
+	if err != nil {
+		return nil, err
 	}
 
-	prompt := &agents.AgentPromptTemplate{
-		Profile:        a.profile,
-		SystemMessages: a.worldState.SystemMessages,
+	stream, err := gpt.GlobalModel.PredictChatStream(ctx, msg, options...)
 
-		Messages: logMessages,
+	if err != nil {
+		return nil, err
 	}
 
-	cctx := chain.NewChainContext(ctx)
+	reply = a.log.BeginNext()
+	reply.From.Name = a.profile.Name
+	reply.From.Role = msn.RoleAI
 
-	stepChain := chain.New(
-		chain.WithName("AgentStep"),
+	for {
+		frag, err := stream.Recv()
 
-		chain.Sequential(
-			chat.Predict(
-				gpt.GlobalModel,
-				prompt,
-				chat.WithMaxTokens(int(2048*(1-a.Profile().Rank))),
-			),
-		),
-	)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
 
-	if err := stepChain.Run(cctx); err != nil {
-		return chat.Message{}, err
+			return reply, err
+		}
+
+		reply.Text += frag.Delta
+
+		reply.Invalidate()
+		reply.Update()
 	}
 
-	return chain.Output(cctx, chat.ChatReplyContextKey), nil
+	return reply, nil
 }
 
 func (a *Agent) RunPostCycleHooks(ctx context.Context) error {
