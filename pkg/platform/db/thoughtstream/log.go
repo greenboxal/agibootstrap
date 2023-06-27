@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/stdlib"
 )
 
 type ThoughLogListener func(msg *Thought)
@@ -22,8 +23,7 @@ type ThoughtLog struct {
 
 	mu sync.RWMutex
 
-	name      string
-	listeners []ThoughLogListener
+	name string
 
 	messages      []*Thought
 	lastMessageTs time.Time
@@ -70,13 +70,6 @@ func (cl *ThoughtLog) PsiNodeName() string  { return cl.name }
 func (cl *ThoughtLog) Name() string         { return cl.name }
 func (cl *ThoughtLog) Messages() []*Thought { return cl.messages }
 
-func (cl *ThoughtLog) AddListener(l ThoughLogListener) {
-	cl.mu.Lock()
-	defer cl.mu.Unlock()
-
-	cl.listeners = append(cl.listeners, l)
-}
-
 func (cl *ThoughtLog) Push(m *Thought) error {
 	var key [8]byte
 
@@ -112,6 +105,8 @@ func (cl *ThoughtLog) Push(m *Thought) error {
 			}
 		}
 
+		m.SetParent(cl)
+
 		cl.messages = append(cl.messages, m)
 		cl.lastMessageTs = m.Timestamp
 
@@ -121,13 +116,6 @@ func (cl *ThoughtLog) Push(m *Thought) error {
 	if err := doPush(); err != nil {
 		return err
 	}
-
-	for _, l := range cl.listeners {
-		l(m)
-	}
-
-	cl.Invalidate()
-	cl.Update()
 
 	return nil
 }
@@ -154,8 +142,6 @@ func (cl *ThoughtLog) ForkTemporary() *ThoughtLog {
 		}
 	}
 
-	fork.SetParent(cl)
-
 	return fork
 }
 
@@ -174,4 +160,16 @@ func (cl *ThoughtLog) EpochBarrier() {
 	defer cl.mu.Unlock()
 
 	cl.messages = cl.messages[0:0]
+}
+
+func (cl *ThoughtLog) MessagesIterator() stdlib.Iterator[*Thought] {
+	return stdlib.FromSlice(cl.messages)
+}
+
+func (cl *ThoughtLog) BeginNext() *Thought {
+	t := NewThought()
+
+	t.SetParent(cl)
+
+	return t
 }

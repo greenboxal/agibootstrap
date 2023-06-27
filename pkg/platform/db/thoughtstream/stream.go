@@ -1,34 +1,61 @@
 package thoughtstream
 
-import "github.com/greenboxal/agibootstrap/pkg/psi"
+import (
+	"time"
 
-type Cursor interface {
-	psi.Cursor
+	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/stdlib"
+)
 
-	Thought() *Thought
+type ThoughtAddress = psi.Path
+
+type Pointer struct {
+	Parent    ThoughtAddress
+	Level     int
+	Clock     int
+	Timestamp time.Time
 }
 
 type Stream interface {
-	Cursor
+	stdlib.Iterator[Thought]
 
-	Append(t *Thought) error
+	Pointer() Pointer
+	Thought() *Thought
+
+	Seek(p Pointer) error
 }
 
-type cursor struct {
-	psi.Cursor
+type Thread interface {
+	Stream
+
+	Append(t *Thought)
+
+	Fork(options ...ForkOption) Thread
+	Merge(t Thread, options ...MergeOption)
 }
 
-func (s *cursor) Thought() *Thought {
-	return s.Node().(*Thought)
+type ForkOptions struct {
 }
 
-type stream struct {
-	cursor
+type ForkOption func(*ForkOptions)
+
+func NewForkOptions(opts ...ForkOption) ForkOptions {
+	var fo ForkOptions
+	for _, opt := range opts {
+		opt(&fo)
+	}
+	return fo
 }
 
-func (s *stream) Append(t *Thought) error {
-	s.InsertAfter(t)
-	s.SetNext(t)
+type MergeOptions struct {
+}
 
-	return nil
+type MergeOption func(*MergeOptions)
+
+func NewMergeOptions(opts ...MergeOption) MergeOptions {
+	var mo MergeOptions
+	for _, opt := range opts {
+		opt(&mo)
+	}
+	return mo
 }
