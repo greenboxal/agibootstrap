@@ -9,9 +9,9 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
-	"github.com/greenboxal/agibootstrap/pkg/platform/obsfx"
-	"github.com/greenboxal/agibootstrap/pkg/platform/obsfx/collectionsfx"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
+	obsfx2 "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
+	collectionsfx2 "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -75,10 +75,10 @@ func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.No
 	listItemParent := container.NewVBox()
 	listContainer := container.NewMax(container.NewVScroll(listItemParent))
 
-	thoughtList := collectionsfx.MutableSlice[*thoughtstream.Thought]{}
-	listItems := collectionsfx.MutableSlice[*ThoughtView]{}
+	thoughtList := collectionsfx2.MutableSlice[*thoughtstream.Thought]{}
+	listItems := collectionsfx2.MutableSlice[*ThoughtView]{}
 
-	collectionsfx.ObserveList(&listItems, func(ev collectionsfx.ListChangeEvent[*ThoughtView]) {
+	collectionsfx2.ObserveList(&listItems, func(ev collectionsfx2.ListChangeEvent[*ThoughtView]) {
 		for ev.Next() {
 			if ev.WasRemoved() {
 				for _, removed := range ev.RemovedSlice() {
@@ -92,7 +92,7 @@ func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.No
 		}
 	})
 
-	collectionsfx.BindList(&listItems, &thoughtList, func(v *thoughtstream.Thought) *ThoughtView {
+	collectionsfx2.BindList(&listItems, &thoughtList, func(v *thoughtstream.Thought) *ThoughtView {
 		tv := NewThoughtView()
 
 		tv.Thought.SetValue(v)
@@ -134,8 +134,8 @@ func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.No
 type ThoughtView struct {
 	View fyne.CanvasObject
 
-	Thought      obsfx.SimpleProperty[*thoughtstream.Thought]
-	TextProperty obsfx.StringProperty
+	Thought      obsfx2.SimpleProperty[*thoughtstream.Thought]
+	TextProperty obsfx2.StringProperty
 
 	rt *widget.RichText
 }
@@ -149,7 +149,7 @@ func NewThoughtView() *ThoughtView {
 
 	tv.View = tv.rt
 
-	obsfx.BindFunc(func(v string) {
+	obsfx2.BindFunc(func(v string) {
 		msg := tv.Thought.Value()
 
 		if msg == nil {
@@ -159,7 +159,7 @@ func NewThoughtView() *ThoughtView {
 		tv.rt.ParseMarkdown(fmt.Sprintf("# **[%s]:**\n%s", msg.From.Name, v))
 	}, &tv.TextProperty)
 
-	obsfx.ObserveChange(&tv.Thought, func(old, new *thoughtstream.Thought) {
+	obsfx2.ObserveChange(&tv.Thought, func(old, new *thoughtstream.Thought) {
 		if old != nil {
 			old.RemoveInvalidationListener(tv)
 		}

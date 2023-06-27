@@ -13,6 +13,7 @@ import (
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 
 	"github.com/greenboxal/agibootstrap/pkg/agents"
+	"github.com/greenboxal/agibootstrap/pkg/agents/profiles"
 	"github.com/greenboxal/agibootstrap/pkg/agents/singularity"
 	"github.com/greenboxal/agibootstrap/pkg/build"
 	"github.com/greenboxal/agibootstrap/pkg/build/codegen"
@@ -102,7 +103,7 @@ Create a landing page for a pharmaceutical company in NextJS.
 						return err
 					}
 
-					progress := agents.GetState(st, singularity.CtxGoalStatus)
+					progress := agents.GetState(st, profiles.CtxGoalStatus)
 
 					if progress.Completed {
 						break

@@ -9,8 +9,8 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/obsfx"
-	"github.com/greenboxal/agibootstrap/pkg/platform/obsfx/collectionsfx"
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
+	collectionsfx2 "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -160,7 +160,7 @@ type psiTreeNodeState struct {
 	node          psi.Node
 	isNodeLoading bool
 
-	childrenIds collectionsfx.MutableSlice[widget.TreeNodeID]
+	childrenIds collectionsfx2.MutableSlice[widget.TreeNodeID]
 }
 
 func newPsiTreeNodeState(ptw *PsiTreeWidget, p psi.Path) *psiTreeNodeState {
@@ -246,7 +246,7 @@ func (s *psiTreeNodeState) loadNode() {
 		s.node = n
 
 		if s.node != nil {
-			collectionsfx.BindList(&s.childrenIds, s.node.ChildrenList(), func(v psi.Node) widget.TreeNodeID {
+			collectionsfx2.BindList(&s.childrenIds, s.node.ChildrenList(), func(v psi.Node) widget.TreeNodeID {
 				return v.CanonicalPath().String()
 			})
 		}
