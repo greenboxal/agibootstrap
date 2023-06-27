@@ -13,7 +13,6 @@ import (
 	"github.com/invopop/jsonschema"
 	"github.com/jaswdr/faker"
 
-	"github.com/greenboxal/agibootstrap/pkg/agents"
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 	mdutils2 "github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
@@ -134,7 +133,7 @@ func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ cha
 		Text: "```json\n",
 	})
 
-	prompt := &agents.SimplePromptTemplate{
+	prompt := &SimplePromptTemplate{
 		Messages: msgs,
 	}
 
