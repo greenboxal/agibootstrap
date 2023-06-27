@@ -1,37 +1,33 @@
 package thoughtstream
 
 import (
-	"time"
-
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/psi/stdlib"
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 )
 
-type ThoughtAddress = psi.Path
-
-type Pointer struct {
-	Parent    ThoughtAddress
-	Level     int
-	Clock     int
-	Timestamp time.Time
-}
+type Iterator = iterators.Iterator[*Thought]
 
 type Stream interface {
-	stdlib.Iterator[Thought]
+	Iterator
+
+	Previous() bool
 
 	Pointer() Pointer
 	Thought() *Thought
 
+	LA(n int) *Thought
+	Peek() *Thought
 	Seek(p Pointer) error
+	Slice(from, to Pointer) Stream
+
+	Fork(options ...ForkOption) MutableStream
 }
 
-type Thread interface {
+type MutableStream interface {
 	Stream
 
 	Append(t *Thought)
 
-	Fork(options ...ForkOption) Thread
-	Merge(t Thread, options ...MergeOption)
+	Merge(t Stream, options ...MergeOption)
 }
 
 type ForkOptions struct {

@@ -1,8 +1,6 @@
 package thoughtstream
 
 import (
-	"time"
-
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -17,9 +15,9 @@ type CommHandle struct {
 type Thought struct {
 	psi.NodeBase
 
-	Timestamp time.Time
-	From      CommHandle
-	Text      string
+	Pointer Pointer
+	From    CommHandle
+	Text    string
 
 	ReplyTo *CommHandle
 }

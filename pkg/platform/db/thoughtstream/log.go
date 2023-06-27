@@ -12,8 +12,8 @@ import (
 	"git.mills.io/prologic/bitcask"
 	"github.com/pkg/errors"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/psi/stdlib"
 )
 
 type ThoughLogListener func(msg *Thought)
@@ -73,7 +73,7 @@ func (cl *ThoughtLog) Messages() []*Thought { return cl.messages }
 func (cl *ThoughtLog) Push(m *Thought) error {
 	var key [8]byte
 
-	binary.BigEndian.PutUint64(key[:], uint64(m.Timestamp.UnixNano()))
+	binary.BigEndian.PutUint64(key[:], uint64(m.Pointer.Timestamp.UnixNano()))
 
 	data, err := json.Marshal(m)
 
@@ -85,7 +85,7 @@ func (cl *ThoughtLog) Push(m *Thought) error {
 		cl.mu.Lock()
 		defer cl.mu.Unlock()
 
-		if m.Timestamp.Before(cl.lastMessageTs) {
+		if m.Pointer.Timestamp.Before(cl.lastMessageTs) {
 			return errors.New("message is older than last message")
 		}
 
@@ -108,7 +108,7 @@ func (cl *ThoughtLog) Push(m *Thought) error {
 		m.SetParent(cl)
 
 		cl.messages = append(cl.messages, m)
-		cl.lastMessageTs = m.Timestamp
+		cl.lastMessageTs = m.Pointer.Timestamp
 
 		return nil
 	}
@@ -162,8 +162,8 @@ func (cl *ThoughtLog) EpochBarrier() {
 	cl.messages = cl.messages[0:0]
 }
 
-func (cl *ThoughtLog) MessagesIterator() stdlib.Iterator[*Thought] {
-	return stdlib.FromSlice(cl.messages)
+func (cl *ThoughtLog) MessagesIterator() iterators.Iterator[*Thought] {
+	return iterators.FromSlice(cl.messages)
 }
 
 func (cl *ThoughtLog) BeginNext() *Thought {
