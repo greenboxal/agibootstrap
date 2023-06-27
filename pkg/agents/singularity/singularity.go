@@ -11,6 +11,7 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 
 	agents "github.com/greenboxal/agibootstrap/pkg/agents"
+	"github.com/greenboxal/agibootstrap/pkg/agents/profiles"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/featureextractors"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -19,11 +20,11 @@ import (
 type Singularity struct {
 	psi.NodeBase
 
-	self *Agent
+	self agents.Agent
 
-	world      *Colab
+	world      *agents.Colab
 	worldState *WorldState
-	scheduler  *RoundRobinScheduler
+	scheduler  *agents.RoundRobinScheduler
 }
 
 func NewSingularity(lm *thoughtstream.Manager) (*Singularity, error) {
@@ -35,12 +36,12 @@ func NewSingularity(lm *thoughtstream.Manager) (*Singularity, error) {
 
 	s := &Singularity{
 		worldState: NewWorldState(),
-		scheduler:  &RoundRobinScheduler{},
+		scheduler:  &agents.RoundRobinScheduler{},
 	}
 
 	s.Init(s, "")
 
-	s.world, err = NewColab(s.worldState, globalLog, s.scheduler, SingularityProfile, MajorArcanas...)
+	s.world, err = agents.NewColab(s.worldState, globalLog, s.scheduler, profiles.SingularityProfile, profiles.MajorArcanas...)
 
 	if err != nil {
 		return nil, err
@@ -51,7 +52,7 @@ func NewSingularity(lm *thoughtstream.Manager) (*Singularity, error) {
 	return s, nil
 }
 
-func (s *Singularity) Router() *Router               { return s.world.Router() }
+func (s *Singularity) Router() agents.Router         { return s.world.Router() }
 func (s *Singularity) WorldState() agents.WorldState { return s.worldState }
 
 func (s *Singularity) Step(ctx context.Context) ([]*thoughtstream.Thought, error) {
@@ -63,33 +64,33 @@ func (s *Singularity) Step(ctx context.Context) ([]*thoughtstream.Thought, error
 		return nil, err
 	}
 
-	plan := agents.GetState(s.worldState, CtxPlannerPlan)
+	plan := agents.GetState(s.worldState, profiles.CtxPlannerPlan)
 
 	if len(plan.Steps) == 0 {
 		if err := s.runSteps(
 			ctx,
-			PairProfile.Name,
-			SingularityProfile.Name,
-			DirectorProfile.Name,
-			ManagerProfile.Name,
-			PlannerProfile.Name,
-			LibrarianProfile.Name,
-			JournalistProfile.Name,
+			profiles.PairProfile.Name,
+			profiles.SingularityProfile.Name,
+			profiles.DirectorProfile.Name,
+			profiles.ManagerProfile.Name,
+			profiles.PlannerProfile.Name,
+			profiles.LibrarianProfile.Name,
+			profiles.JournalistProfile.Name,
 		); err != nil {
 			return s.Router().OutgoingMessages(), err
 		}
 	}
 
-	obj, err := featureextractors.QueryObjective(ctx, s.self.log.Messages())
+	obj, err := featureextractors.QueryObjective(ctx, s.self.Log().Messages())
 
 	if err != nil {
 		return s.Router().OutgoingMessages(), err
 	}
 
-	agents.SetState(s.worldState, CtxGlobalObjective, obj)
+	agents.SetState(s.worldState, profiles.CtxGlobalObjective, obj)
 
 	for {
-		progress := agents.GetState(s.worldState, CtxGoalStatus)
+		progress := agents.GetState(s.worldState, profiles.CtxGoalStatus)
 
 		if progress.Completed {
 			break
@@ -126,7 +127,9 @@ func (s *Singularity) doStep(ctx context.Context, profileName string) error {
 	availableMsg := "Available profiles:\n"
 
 	for _, a := range s.world.Members() {
-		availableMsg += fmt.Sprintf("  - **%s:** %s\n", a.Name, a.Description)
+		p := a.Profile()
+
+		availableMsg += fmt.Sprintf("  - **%s:** %s\n", p.Name, p.Description)
 	}
 
 	s.worldState.SystemMessages = []chat.Message{

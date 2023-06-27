@@ -1,4 +1,4 @@
-package singularity
+package profiles
 
 import (
 	"github.com/greenboxal/agibootstrap/pkg/agents"

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/greenboxal/agibootstrap/pkg/agents"
+	"github.com/greenboxal/agibootstrap/pkg/agents/profiles"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 )
 
@@ -47,7 +48,7 @@ Create a Pytorch model based on the human brain cytoarchitecture.
 			t.Logf("Singularity: %d messages", len(msgs))
 		}
 
-		progress := agents.GetState(st, CtxGoalStatus)
+		progress := agents.GetState(st, profiles.CtxGoalStatus)
 
 		if progress.Completed {
 			break
