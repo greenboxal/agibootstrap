@@ -16,6 +16,8 @@ func (f TypedEdgeKind[T]) Singleton() TypedEdgeKey[T] {
 	return TypedEdgeKey[T]{Kind: f}
 }
 
+var EdgeKindChild = EdgeKind("child")
+
 type EdgeReference interface {
 	GetKind() EdgeKind
 	GetName() string

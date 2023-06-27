@@ -6,34 +6,15 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/exp/slices"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/obsfx/collectionsfx"
+	collectionsfx2 "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 )
-
-var EdgeKindChild = EdgeKind("child")
 
 type NodeID = string
 
-type InvalidationListener interface {
-	OnInvalidated(n Node)
-}
-
-type invalidationListenerFunc struct{ f func(n Node) }
-
-func InvalidationListenerFunc(f func(n Node)) InvalidationListener {
-	return &invalidationListenerFunc{f: f}
-}
-
-func (f *invalidationListenerFunc) OnInvalidated(n Node) { f.f(n) }
-
 type NodeLike interface {
 	PsiNode() Node
+	PsiNodeType() NodeType
 	PsiNodeBase() *NodeBase
-}
-
-type NodeIterator interface {
-	Value() Node
-	Node() Node
-	Next() bool
 }
 
 type NamedNode interface {
@@ -63,7 +44,7 @@ type Node interface {
 	SetParent(parent Node)
 
 	Children() []Node
-	ChildrenList() collectionsfx.ObservableList[Node]
+	ChildrenList() collectionsfx2.ObservableList[Node]
 	ChildrenIterator() NodeIterator
 	Edges() EdgeIterator
 	Comments() []string
@@ -123,15 +104,16 @@ type NodeBase struct {
 
 	id      int64
 	uuid    string
+	typ     NodeType
 	version int64
 
 	parent Node
 	self   Node
 	path   Path
 
-	children   collectionsfx.MutableSlice[Node]
-	edges      collectionsfx.MutableMap[EdgeKey, Edge]
-	attributes collectionsfx.MutableMap[string, any]
+	children   collectionsfx2.MutableSlice[Node]
+	edges      collectionsfx2.MutableMap[EdgeKey, Edge]
+	attributes collectionsfx2.MutableMap[string, any]
 
 	valid                 bool
 	inUpdate              bool
@@ -156,6 +138,7 @@ func (n *NodeBase) Init(self Node, uid string) {
 
 func (n *NodeBase) PsiNode() Node          { return n.self }
 func (n *NodeBase) PsiNodeBase() *NodeBase { return n }
+func (n *NodeBase) PsiNodeType() NodeType  { return n.typ }
 
 func (n *NodeBase) ID() int64          { return n.id }
 func (n *NodeBase) UUID() string       { return n.uuid }
@@ -164,105 +147,14 @@ func (n *NodeBase) IsLeaf() bool       { return false }
 func (n *NodeBase) IsValid() bool      { return n.valid }
 func (n *NodeBase) Comments() []string { return nil }
 
-func (n *NodeBase) CanonicalPath() (res Path)                        { return n.path }
-func (n *NodeBase) Parent() Node                                     { return n.parent }
-func (n *NodeBase) Children() []Node                                 { return n.children.Slice() }
-func (n *NodeBase) ChildrenList() collectionsfx.ObservableList[Node] { return &n.children }
-func (n *NodeBase) ChildrenIterator() NodeIterator                   { return &nodeChildrenIterator{parent: n} }
+func (n *NodeBase) CanonicalPath() (res Path)                         { return n.path }
+func (n *NodeBase) Parent() Node                                      { return n.parent }
+func (n *NodeBase) Children() []Node                                  { return n.children.Slice() }
+func (n *NodeBase) ChildrenList() collectionsfx2.ObservableList[Node] { return &n.children }
+func (n *NodeBase) ChildrenIterator() NodeIterator                    { return &nodeChildrenIterator{parent: n} }
 
 func (n *NodeBase) String() string {
 	return fmt.Sprintf("Node(%T, %d, %s)", n.self, n.id, n.uuid)
-}
-
-func (n *NodeBase) AddInvalidationListener(listener InvalidationListener) {
-	if slices.Index(n.invalidationListeners, listener) != -1 {
-		return
-	}
-
-	n.invalidationListeners = append(n.invalidationListeners, listener)
-}
-
-func (n *NodeBase) RemoveInvalidationListener(listener InvalidationListener) {
-	for i, l := range n.invalidationListeners {
-		if l == listener {
-			n.invalidationListeners = append(n.invalidationListeners[:i], n.invalidationListeners[i+1:]...)
-			return
-		}
-	}
-}
-
-func (n *NodeBase) Invalidate() {
-	if !n.valid {
-		n.valid = false
-
-		if n.parent != nil {
-			n.parent.Invalidate()
-		}
-	}
-}
-
-func (n *NodeBase) Update() {
-	if !n.inUpdate {
-		n.doUpdate(false)
-	}
-}
-
-func (n *NodeBase) doUpdate(skipValidation bool) {
-	if n.valid && !skipValidation {
-		return
-	}
-
-	n.inUpdate = true
-
-	defer func() {
-		n.inUpdate = false
-	}()
-
-	n.updatePath()
-
-	for it := n.children.Iterator(); it.Next(); {
-		it.Item().PsiNodeBase().doUpdate(skipValidation)
-	}
-
-	n.Update()
-
-	n.valid = true
-
-	n.fireInvalidationListeners()
-}
-
-func (n *NodeBase) fireInvalidationListeners() {
-	for _, listener := range n.invalidationListeners {
-		listener.OnInvalidated(n)
-	}
-}
-func (n *NodeBase) updatePath() {
-	var self PathElement
-
-	if n.parent == nil {
-		self.Kind = EdgeKindChild
-		self.Name = n.UUID()
-		n.path = PathFromComponents(self)
-		return
-	}
-
-	parentPath := n.parent.CanonicalPath()
-
-	if named, ok := n.self.(NamedNode); ok {
-		self = PathElement{
-			Kind: EdgeKindChild,
-			Name: named.PsiNodeName(),
-		}
-	} else {
-		index := n.parent.PsiNodeBase().IndexOfChild(n.self)
-
-		self = PathElement{
-			Kind:  EdgeKindChild,
-			Index: int64(index),
-		}
-	}
-
-	n.path = parentPath.Child(self)
 }
 
 func (n *NodeBase) ResolveChild(component PathElement) Node {
@@ -310,6 +202,11 @@ func (n *NodeBase) ResolveChild(component PathElement) Node {
 
 	return nil
 }
+
+func (n *NodeBase) IndexOfChild(node Node) int {
+	return n.children.IndexOf(node)
+}
+
 func (n *NodeBase) PreviousSibling() Node {
 	if n.parent == nil {
 		return nil
@@ -493,6 +390,63 @@ func (n *NodeBase) ReplaceChildNode(old, new Node) {
 	}
 }
 
+func (n *NodeBase) SetAttribute(key string, value any) {
+	n.attributes.Set(key, value)
+
+	n.Invalidate()
+}
+
+func (n *NodeBase) GetAttribute(key string) (value any, ok bool) {
+	return n.attributes.Get(key)
+}
+
+func (n *NodeBase) RemoveAttribute(key string) (value any, ok bool) {
+	value, ok = n.attributes.Get(key)
+
+	if !ok {
+		return value, false
+	}
+
+	n.attributes.Remove(key)
+
+	if ok {
+		n.Invalidate()
+	}
+
+	return
+}
+
+func (n *NodeBase) SetEdge(key EdgeReference, to Node) {
+	e := &EdgeBase{
+		from: n.self,
+		to:   to,
+		key:  key,
+	}
+
+	n.edges.Set(e.key.GetKey(), e)
+
+	n.doUpdate(true)
+}
+
+func (n *NodeBase) UnsetEdge(key EdgeReference) {
+	k := key.GetKey()
+
+	_, ok := n.edges.Get(k)
+
+	if !ok {
+		return
+	}
+
+	if ok {
+		n.Invalidate()
+	}
+}
+func (n *NodeBase) GetEdge(key EdgeReference) Edge {
+	v, _ := n.edges.Get(key.GetKey())
+
+	return v
+}
+
 // attachToGraph attaches the node to the given graph.
 // If the node is already attached to the given graph, no action is taken.
 // If the graph is nil, the node is detached from its current graph.
@@ -561,164 +515,94 @@ func (n *NodeBase) detachFromGraph(g Graph) {
 	n.Invalidate()
 }
 
-func (n *NodeBase) SetAttribute(key string, value any) {
-	n.attributes.Set(key, value)
-
-	n.Invalidate()
-}
-
-func (n *NodeBase) GetAttribute(key string) (value any, ok bool) {
-	return n.attributes.Get(key)
-}
-
-func (n *NodeBase) RemoveAttribute(key string) (value any, ok bool) {
-	value, ok = n.attributes.Get(key)
-
-	if !ok {
-		return value, false
+func (n *NodeBase) Update() {
+	if !n.inUpdate {
+		n.doUpdate(false)
 	}
-
-	n.attributes.Remove(key)
-
-	if ok {
-		n.Invalidate()
-	}
-
-	return
 }
 
-func (n *NodeBase) SetEdge(key EdgeReference, to Node) {
-	e := &EdgeBase{
-		from: n.self,
-		to:   to,
-		key:  key,
-	}
-
-	n.edges.Set(e.key.GetKey(), e)
-
-	n.doUpdate(true)
-}
-
-func (n *NodeBase) UnsetEdge(key EdgeReference) {
-	k := key.GetKey()
-
-	_, ok := n.edges.Get(k)
-
-	if !ok {
+func (n *NodeBase) doUpdate(skipValidation bool) {
+	if n.valid && !skipValidation {
 		return
 	}
 
-	if ok {
-		n.Invalidate()
-	}
-}
-func (n *NodeBase) GetEdge(key EdgeReference) Edge {
-	v, _ := n.edges.Get(key.GetKey())
+	n.inUpdate = true
 
-	return v
-}
+	defer func() {
+		n.inUpdate = false
+	}()
 
-func (n *NodeBase) IndexOfChild(node Node) int {
-	return n.children.IndexOf(node)
-}
+	n.updatePath()
 
-type nodeSliceIterator struct {
-	current Node
-	items   []Node
-}
-
-func (n *nodeSliceIterator) Value() Node { return n.Node() }
-
-func (n *nodeSliceIterator) Node() Node {
-	return n.current
-}
-
-func (n *nodeSliceIterator) Next() bool {
-	if len(n.items) == 0 {
-		return false
+	for it := n.children.Iterator(); it.Next(); {
+		it.Item().PsiNodeBase().doUpdate(skipValidation)
 	}
 
-	n.current = n.items[0]
-	n.items = n.items[1:]
+	n.Update()
 
-	return true
+	n.valid = true
+
+	n.fireInvalidationListeners()
 }
 
-func (n *nodeSliceIterator) Prepend(iterator NodeIterator) NodeIterator {
-	return &nestedNodeIterator{iterators: []NodeIterator{iterator, n}}
-}
+func (n *NodeBase) updatePath() {
+	var self PathElement
 
-func (n *nodeSliceIterator) Append(iterator NodeIterator) NodeIterator {
-	return &nestedNodeIterator{iterators: []NodeIterator{n, iterator}}
-}
-
-type nodeChildrenIterator struct {
-	parent  *NodeBase
-	current Node
-	index   int
-}
-
-func (n *nodeChildrenIterator) Value() Node { return n.Node() }
-
-func (n *nodeChildrenIterator) Node() Node {
-	return n.current
-}
-
-func (n *nodeChildrenIterator) Next() bool {
-	if n.index >= n.parent.children.Len() {
-		return false
+	if n.parent == nil {
+		self.Kind = EdgeKindChild
+		self.Name = n.UUID()
+		n.path = PathFromComponents(self)
+		return
 	}
 
-	n.current = n.parent.children.Get(n.index)
-	n.index++
+	parentPath := n.parent.CanonicalPath()
 
-	return true
-}
-
-func (n *nodeChildrenIterator) Prepend(iterator NodeIterator) NodeIterator {
-	return &nestedNodeIterator{iterators: []NodeIterator{iterator, n}}
-}
-
-func (n *nodeChildrenIterator) Append(iterator NodeIterator) NodeIterator {
-	return &nestedNodeIterator{iterators: []NodeIterator{n, iterator}}
-}
-
-type nestedNodeIterator struct {
-	current   NodeIterator
-	iterators []NodeIterator
-}
-
-func (n *nestedNodeIterator) Value() Node { return n.Node() }
-
-func (n *nestedNodeIterator) Node() Node {
-	if n.current == nil {
-		return nil
-	}
-
-	return n.current.Node()
-}
-
-func (n *nestedNodeIterator) Next() bool {
-	for n.current == nil || !n.current.Next() {
-		if len(n.iterators) == 0 {
-			return false
+	if named, ok := n.self.(NamedNode); ok {
+		self = PathElement{
+			Kind: EdgeKindChild,
+			Name: named.PsiNodeName(),
 		}
+	} else {
+		index := n.parent.PsiNodeBase().IndexOfChild(n.self)
 
-		n.current = n.iterators[0]
-		n.iterators = n.iterators[1:]
+		self = PathElement{
+			Kind:  EdgeKindChild,
+			Index: int64(index),
+		}
 	}
 
-	return true
+	n.path = parentPath.Child(self)
 }
 
-func (n *nestedNodeIterator) Prepend(iterator NodeIterator) NodeIterator {
-	return &nestedNodeIterator{iterators: []NodeIterator{iterator, n}}
+func (n *NodeBase) Invalidate() {
+	if !n.valid {
+		n.valid = false
+
+		if n.parent != nil {
+			n.parent.Invalidate()
+		}
+	}
 }
 
-func (n *nestedNodeIterator) Append(iterator NodeIterator) NodeIterator {
-	return &nestedNodeIterator{iterators: []NodeIterator{n, iterator}}
+func (n *NodeBase) fireInvalidationListeners() {
+	for _, listener := range n.invalidationListeners {
+		listener.OnInvalidated(n)
+	}
 }
 
-func AppendNodeIterator(iterators ...NodeIterator) NodeIterator {
-	return &nestedNodeIterator{iterators: iterators}
+func (n *NodeBase) AddInvalidationListener(listener InvalidationListener) {
+	if slices.Index(n.invalidationListeners, listener) != -1 {
+		return
+	}
+
+	n.invalidationListeners = append(n.invalidationListeners, listener)
+}
+
+func (n *NodeBase) RemoveInvalidationListener(listener InvalidationListener) {
+	for i, l := range n.invalidationListeners {
+		if l == listener {
+			n.invalidationListeners = append(n.invalidationListeners[:i], n.invalidationListeners[i+1:]...)
+			return
+		}
+	}
 }
