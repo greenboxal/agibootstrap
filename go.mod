@@ -42,7 +42,10 @@ require (
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dgraph-io/badger/v4 v4.1.0 // indirect
+	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
+	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eientei/wsgraphql v1.4.2 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fredbi/uri v1.0.0 // indirect
@@ -63,7 +66,11 @@ require (
 	github.com/gofrs/flock v0.8.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/goki/freetype v1.0.1 // indirect
+	github.com/golang/glog v1.1.0 // indirect
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
+	github.com/google/flatbuffers v2.0.8+incompatible // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/graph-gophers/dataloader v5.0.0+incompatible // indirect
@@ -77,6 +84,7 @@ require (
 	github.com/ipfs/go-cid v0.4.1 // indirect
 	github.com/ipld/go-ipld-prime v0.20.0 // indirect
 	github.com/jsummers/gobmp v0.0.0-20151104160322-e2ba15ffa76e // indirect
+	github.com/klauspost/compress v1.16.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -122,6 +130,7 @@ require (
 	github.com/tidwall/wal v1.1.7 // indirect
 	github.com/yuin/goldmark v1.5.4 // indirect
 	go.mongodb.org/mongo-driver v1.11.7 // indirect
+	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib v1.17.0 // indirect
 	go.opentelemetry.io/otel v1.16.0 // indirect
 	go.opentelemetry.io/otel/metric v1.16.0 // indirect
