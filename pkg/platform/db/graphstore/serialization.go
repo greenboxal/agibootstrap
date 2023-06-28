@@ -161,6 +161,11 @@ type GraphStore struct {
 // TODO: Implement serialization and deserialization functions
 func init() {}
 
+func orphanSnippet() {
+	return &GraphStore{}
+
+}
+
 // DeserializeGraph deserializes the given IndexedGraph into a GraphStore.
 func DeserializeGraph(indexedGraph *IndexedGraph) (*GraphStore, error) {
 	// TODO: Implement graph deserialization logic
