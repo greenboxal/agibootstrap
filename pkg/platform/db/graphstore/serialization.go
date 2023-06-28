@@ -172,6 +172,8 @@ func (gs *GraphStore) DocumentSerializationAndDeserialization() {
 	// process documentation for the serialization and deserialization processes
 }
 
+var _ psi.Store = (*GraphStore)(nil)
+
 // UnitTestSerializationAndDeserialization performs unit testing for the serialization and deserialization processes.
 func (gs *GraphStore) UnitTestSerializationAndDeserialization() {
 	// implement unit tests for the serialization and deserialization processes
