@@ -24,6 +24,23 @@ func NewManager(basePath string) *Manager {
 
 func (m *Manager) PsiNodeName() string { return "ThoughtStreamManager" }
 
+func (m *Manager) GetOrCreateBranch(name string) (branch Branch, err error) {
+	key := psi.TypedEdgeKey[Branch]{
+		Kind: psi.TypedEdgeKind[Branch](psi.EdgeKindChild),
+		Name: name,
+	}
+
+	branch = psi.ResolveEdge(m.PsiNode(), key)
+
+	if branch == nil {
+		branch = NewBranchFromSlice(nil, RootPointer())
+
+		branch.SetParent(m.PsiNode())
+	}
+
+	return branch, nil
+}
+
 func (m *Manager) GetOrCreateStream(name string) (log *ThoughtLog, err error) {
 	key := psi.TypedEdgeKey[*ThoughtLog]{
 		Kind: psi.TypedEdgeKind[*ThoughtLog](psi.EdgeKindChild),

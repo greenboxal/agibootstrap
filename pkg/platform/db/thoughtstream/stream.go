@@ -1,6 +1,8 @@
 package thoughtstream
 
 import (
+	"context"
+
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 )
 
@@ -20,6 +22,8 @@ type Stream interface {
 	Slice(from, to Pointer) Stream
 
 	Fork(options ...ForkOption) MutableStream
+
+	AsBranch() Branch
 }
 
 type MutableStream interface {
@@ -27,7 +31,7 @@ type MutableStream interface {
 
 	Append(t *Thought)
 
-	Merge(t Stream, options ...MergeOption)
+	Merge(ctx context.Context, r Resolver, strategy MergeStrategy, branches ...Branch) error
 }
 
 type ForkOptions struct {
@@ -41,17 +45,4 @@ func NewForkOptions(opts ...ForkOption) ForkOptions {
 		opt(&fo)
 	}
 	return fo
-}
-
-type MergeOptions struct {
-}
-
-type MergeOption func(*MergeOptions)
-
-func NewMergeOptions(opts ...MergeOption) MergeOptions {
-	var mo MergeOptions
-	for _, opt := range opts {
-		opt(&mo)
-	}
-	return mo
 }

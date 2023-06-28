@@ -36,9 +36,25 @@ func AgentMessage(name, text string) AgentPromptFunc {
 	}
 }
 
+func ThoughtHistory(iterator thoughtstream.Iterator) AgentPromptFunc {
+	return func(ctx AgentContext) (chat.Message, error) {
+		msgs := iterators.Map(iterator, func(thought *thoughtstream.Thought) chat.Message {
+			return chat.Compose(
+				chat.MessageEntry{
+					Role: thought.From.Role,
+					Name: thought.From.Name,
+					Text: thought.Text,
+				},
+			)
+		})
+
+		return chat.Merge(iterators.ToSlice(msgs)...), nil
+	}
+}
+
 func LogHistory() AgentPromptFunc {
 	return func(ctx AgentContext) (chat.Message, error) {
-		thoughts := ctx.Log().MessagesIterator()
+		thoughts := ctx.Log()
 
 		msgs := iterators.Map(thoughts, func(thought *thoughtstream.Thought) chat.Message {
 			return chat.Compose(

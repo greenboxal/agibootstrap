@@ -11,6 +11,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -20,18 +21,18 @@ type AgentContextBase struct {
 	agent Agent
 }
 
-func (c AgentContextBase) Context() context.Context       { return c.ctx }
-func (c AgentContextBase) Profile() *Profile              { return c.agent.Profile() }
-func (c AgentContextBase) Agent() Agent                   { return c.agent }
-func (c AgentContextBase) Log() *thoughtstream.ThoughtLog { return c.agent.Log() }
-func (c AgentContextBase) WorldState() WorldState         { return c.agent.WorldState() }
+func (c AgentContextBase) Context() context.Context  { return c.ctx }
+func (c AgentContextBase) Profile() *Profile         { return c.agent.Profile() }
+func (c AgentContextBase) Agent() Agent              { return c.agent }
+func (c AgentContextBase) Log() thoughtstream.Branch { return c.agent.Log() }
+func (c AgentContextBase) WorldState() WorldState    { return c.agent.WorldState() }
 
 type AgentBase struct {
 	psi.NodeBase
 
 	profile *Profile
 
-	log        *thoughtstream.ThoughtLog
+	log        thoughtstream.Branch
 	router     Router
 	worldState WorldState
 }
@@ -39,7 +40,7 @@ type AgentBase struct {
 func (a *AgentBase) Init(
 	self Agent,
 	profile *Profile,
-	log *thoughtstream.ThoughtLog,
+	log thoughtstream.Branch,
 	worldState WorldState,
 ) {
 	a.profile = profile
@@ -49,19 +50,20 @@ func (a *AgentBase) Init(
 	a.NodeBase.Init(self, "")
 }
 
-func (a *AgentBase) Log() *thoughtstream.ThoughtLog    { return a.log }
-func (a *AgentBase) WorldState() WorldState            { return a.worldState }
-func (a *AgentBase) Profile() *Profile                 { return a.profile }
-func (a *AgentBase) History() []*thoughtstream.Thought { return a.log.Messages() }
+func (a *AgentBase) Log() thoughtstream.Branch { return a.log }
+func (a *AgentBase) WorldState() WorldState    { return a.worldState }
+func (a *AgentBase) Profile() *Profile         { return a.profile }
+
+func (a *AgentBase) History() []*thoughtstream.Thought {
+	return iterators.ToSlice[*thoughtstream.Thought](a.log.Stream())
+}
 
 func (a *AgentBase) AttachTo(router Router) {
 	a.router = router
 }
 
 func (a *AgentBase) ReceiveMessage(ctx context.Context, msg *thoughtstream.Thought) error {
-	if err := a.log.Push(msg); err != nil {
-		return err
-	}
+	a.log.Mutate().Append(msg)
 
 	return nil
 }
@@ -69,7 +71,7 @@ func (a *AgentBase) ReceiveMessage(ctx context.Context, msg *thoughtstream.Thoug
 func (a *AgentBase) ForkSession() (AnalysisSession, error) {
 	forked := &AgentBase{}
 
-	forked.Init(a, a.profile, a.log.ForkTemporary(), a.worldState)
+	forked.Init(forked, a.profile, a.log.Stream().Fork().AsBranch(), a.worldState)
 
 	return forked, nil
 }
@@ -81,16 +83,14 @@ func (a *AgentBase) EmitMessage(ctx context.Context, msg *thoughtstream.Thought)
 		msg.From.Name = a.profile.Name
 	}
 
-	if err := a.log.Push(msg); err != nil {
-		return err
-	}
+	a.log.Mutate().Append(msg)
 
 	return a.router.RouteMessage(ctx, msg)
 }
 
 func (a *AgentBase) Step(ctx context.Context) error {
 	prompt := ComposePrompt(
-		LogHistory(),
+		ThoughtHistory(a.log.Stream()),
 		AgentMessage(a.profile.Name, " "),
 	)
 
@@ -128,7 +128,7 @@ func (a *AgentBase) Introspect(ctx context.Context, prompt AgentPrompt) (reply *
 		return nil, err
 	}
 
-	reply = a.log.BeginNext()
+	reply = thoughtstream.NewThought()
 	reply.From.Name = a.profile.Name
 	reply.From.Role = msn.RoleAI
 
@@ -153,7 +153,6 @@ func (a *AgentBase) Introspect(ctx context.Context, prompt AgentPrompt) (reply *
 }
 
 func (a *AgentBase) RunPostCycleHooks(ctx context.Context) error {
-	a.log.EpochBarrier()
 
 	return nil
 }

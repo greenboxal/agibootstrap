@@ -17,10 +17,10 @@ type BroadcastRouter struct {
 
 	agentMap map[string]Agent
 
-	log *thoughtstream.ThoughtLog
+	log thoughtstream.Branch
 }
 
-func NewRouter(log *thoughtstream.ThoughtLog) *BroadcastRouter {
+func NewRouter(log thoughtstream.Branch) *BroadcastRouter {
 	return &BroadcastRouter{
 		log:              log,
 		agentMap:         map[string]Agent{},
@@ -64,9 +64,7 @@ func (r *BroadcastRouter) RouteIncomingMessages(ctx context.Context) error {
 
 func (r *BroadcastRouter) routeMessage(ctx context.Context, msg *thoughtstream.Thought) error {
 	if r.log != nil {
-		if err := r.log.Push(msg); err != nil {
-			return err
-		}
+		r.log.Mutate().Append(msg)
 	}
 
 	if msg.ReplyTo != nil {

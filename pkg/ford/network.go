@@ -4,8 +4,8 @@ import (
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/psi/stdlib"
 )
 
 const EdgeKindDependsOn psi.EdgeKind = "depends_on"

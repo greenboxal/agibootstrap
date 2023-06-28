@@ -28,12 +28,6 @@ type Singularity struct {
 }
 
 func NewSingularity(lm *thoughtstream.Manager) (*Singularity, error) {
-	globalLog, err := lm.GetOrCreateStream("GLOBAL")
-
-	if err != nil {
-		panic(err)
-	}
-
 	s := &Singularity{
 		worldState: NewWorldState(),
 		scheduler:  &agents.RoundRobinScheduler{},
@@ -41,7 +35,32 @@ func NewSingularity(lm *thoughtstream.Manager) (*Singularity, error) {
 
 	s.Init(s, "")
 
-	s.world, err = agents.NewColab(s.worldState, globalLog, s.scheduler, profiles.SingularityProfile, profiles.MajorArcanas...)
+	globalLog, err := lm.GetOrCreateBranch("GLOBAL")
+
+	if err != nil {
+		panic(err)
+	}
+
+	allProfiles := []*agents.Profile{profiles.SingularityProfile}
+	allProfiles = append(allProfiles, profiles.MajorArcanas...)
+
+	allAgents := make([]agents.Agent, len(allProfiles))
+
+	for i, profile := range allProfiles {
+		a := &agents.AgentBase{}
+
+		a.Init(a, profile, globalLog, s.worldState)
+
+		allAgents[i] = a
+	}
+
+	s.world, err = agents.NewColab(
+		s.worldState,
+		globalLog,
+		s.scheduler,
+		allAgents[0],
+		allAgents[1:]...,
+	)
 
 	if err != nil {
 		return nil, err

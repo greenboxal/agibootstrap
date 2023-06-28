@@ -10,7 +10,7 @@ type AgentContext interface {
 	Context() context.Context
 	Profile() *Profile
 	Agent() Agent
-	Log() *thoughtstream.ThoughtLog
+	Log() thoughtstream.Branch
 	WorldState() WorldState
 }
 
@@ -18,7 +18,8 @@ type Agent interface {
 	AnalysisSession
 
 	Profile() *Profile
-	Log() *thoughtstream.ThoughtLog
+	Log() thoughtstream.Branch
+	History() []*thoughtstream.Thought
 	WorldState() WorldState
 
 	AttachTo(r Router)

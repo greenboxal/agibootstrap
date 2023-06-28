@@ -18,14 +18,14 @@ var CtxTimeline agents.WorldStateKey[featureextractors.Timeline] = "timeline"
 
 type ProfileOption func(*agents.Profile)
 
-func BuildProfile(base agents.Profile, opts ...ProfileOption) agents.Profile {
+func BuildProfile(base agents.Profile, opts ...ProfileOption) *agents.Profile {
 	p := base
 
 	for _, opt := range opts {
 		opt(&p)
 	}
 
-	return p
+	return &p
 }
 
 func WithProvides[T any](provides ...agents.WorldStateKey[T]) ProfileOption {
@@ -320,7 +320,7 @@ state. Additionally, provide real-time feedback to each agent to promote continu
 	Priority: 0,
 })
 
-var MajorArcanas = []agents.Profile{
+var MajorArcanas = []*agents.Profile{
 	PlannerProfile,
 	BottomUpCoderProfile,
 	CoderTopDownProfile,

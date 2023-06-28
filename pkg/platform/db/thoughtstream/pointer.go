@@ -19,6 +19,14 @@ type Interval struct {
 	End   Pointer
 }
 
+func (i Interval) CompareTo(other Interval) int {
+	if i.Start.CompareTo(other.Start) == 0 {
+		return i.End.CompareTo(other.End)
+	}
+
+	return i.Start.CompareTo(other.Start)
+}
+
 type Pointer struct {
 	Parent    cid.Cid
 	Previous  cid.Cid
@@ -124,10 +132,20 @@ func (p Pointer) Next() Pointer {
 	}
 }
 
-func HEAD() Pointer {
+func Head() Pointer {
 	return Pointer{
 		Level:     -1,
 		Clock:     -1,
 		Timestamp: time.UnixMilli(-1),
+	}
+}
+
+func RootPointer() Pointer {
+	return Pointer{
+		Parent:    cid.Cid{},
+		Previous:  cid.Cid{},
+		Timestamp: time.UnixMilli(0),
+		Level:     0,
+		Clock:     0,
 	}
 }

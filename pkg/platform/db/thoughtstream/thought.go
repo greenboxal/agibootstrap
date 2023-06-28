@@ -37,3 +37,14 @@ func (t *Thought) PreviousThought() *Thought {
 func (t *Thought) NextThought() *Thought {
 	return t.NextSibling().(*Thought)
 }
+
+func (t *Thought) Clone() *Thought {
+	clone := NewThought()
+
+	clone.Pointer = t.Pointer
+	clone.From = t.From
+	clone.Text = t.Text
+	clone.ReplyTo = t.ReplyTo
+
+	return clone
+}

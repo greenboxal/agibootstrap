@@ -5,8 +5,14 @@ import (
 	"reflect"
 )
 
-func Concat[T any](iterators ...Iterator[T]) Iterator[T] {
-	return &concatIterator[T]{iterators: iterators}
+func Concat[IT Iterator[T], T any](iterators ...IT) Iterator[T] {
+	iters := make([]Iterator[T], len(iterators))
+
+	for i, iter := range iterators {
+		iters[i] = iter
+	}
+
+	return &concatIterator[T]{iterators: iters}
 }
 
 func Filter[IT Iterator[T], T any](iter IT, fn func(T) bool) Iterator[T] {

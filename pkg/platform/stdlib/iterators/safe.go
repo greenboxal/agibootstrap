@@ -1,6 +1,10 @@
 package iterators
 
-import "context"
+import (
+	"context"
+
+	"github.com/go-errors/errors"
+)
 
 type Result[T any] struct {
 	Value T
