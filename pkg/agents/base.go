@@ -2,8 +2,8 @@ package agents
 
 import (
 	"context"
+	"fmt"
 	"io"
-	"time"
 
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
@@ -19,13 +19,17 @@ type AgentContextBase struct {
 	ctx context.Context
 
 	agent Agent
+
+	branch thoughtstream.Branch
+	stream thoughtstream.Stream
 }
 
-func (c AgentContextBase) Context() context.Context  { return c.ctx }
-func (c AgentContextBase) Profile() *Profile         { return c.agent.Profile() }
-func (c AgentContextBase) Agent() Agent              { return c.agent }
-func (c AgentContextBase) Log() thoughtstream.Branch { return c.agent.Log() }
-func (c AgentContextBase) WorldState() WorldState    { return c.agent.WorldState() }
+func (c AgentContextBase) Context() context.Context     { return c.ctx }
+func (c AgentContextBase) Profile() *Profile            { return c.agent.Profile() }
+func (c AgentContextBase) Agent() Agent                 { return c.agent }
+func (c AgentContextBase) Branch() thoughtstream.Branch { return c.branch }
+func (c AgentContextBase) Stream() thoughtstream.Stream { return c.stream }
+func (c AgentContextBase) WorldState() WorldState       { return c.agent.WorldState() }
 
 type AgentBase struct {
 	psi.NodeBase
@@ -55,7 +59,7 @@ func (a *AgentBase) WorldState() WorldState    { return a.worldState }
 func (a *AgentBase) Profile() *Profile         { return a.profile }
 
 func (a *AgentBase) History() []*thoughtstream.Thought {
-	return iterators.ToSlice[*thoughtstream.Thought](a.log.Stream())
+	return iterators.ToSlice[*thoughtstream.Thought](a.log.Stream().Reversed())
 }
 
 func (a *AgentBase) AttachTo(router Router) {
@@ -63,6 +67,9 @@ func (a *AgentBase) AttachTo(router Router) {
 }
 
 func (a *AgentBase) ReceiveMessage(ctx context.Context, msg *thoughtstream.Thought) error {
+	msg = msg.Clone()
+	msg.Pointer = thoughtstream.Pointer{}
+
 	a.log.Mutate().Append(msg)
 
 	return nil
@@ -77,35 +84,52 @@ func (a *AgentBase) ForkSession() (AnalysisSession, error) {
 }
 
 func (a *AgentBase) EmitMessage(ctx context.Context, msg *thoughtstream.Thought) error {
-	msg.Pointer.Timestamp = time.Now()
-
 	if msg.From.Name == "" && msg.From.Role == msn.RoleAI {
 		msg.From.Name = a.profile.Name
 	}
 
-	a.log.Mutate().Append(msg)
-
 	return a.router.RouteMessage(ctx, msg)
 }
 
-func (a *AgentBase) Step(ctx context.Context) error {
+func (a *AgentBase) Step(ctx context.Context, options ...StepOption) error {
+	var opts StepOptions
+
+	opts.Base = a.log
+	opts.Head = a.log.HeadPointer()
+
+	if err := opts.Apply(options...); err != nil {
+		return err
+	}
+
+	branchStream := opts.Base.Fork()
+
 	prompt := ComposePrompt(
-		ThoughtHistory(a.log.Stream()),
+		ThoughtHistory(thoughtstream.NewHierarchicalStream(branchStream.AsBranch()).Reversed()),
 		AgentMessage(a.profile.Name, " "),
 	)
 
-	reply, err := a.Introspect(ctx, prompt)
+	options = append(
+		options,
+		WithStream(branchStream),
+		WithHeadPointer(thoughtstream.Pointer{}),
+	)
+
+	reply, err := a.Introspect(ctx, prompt, options...)
 
 	if err != nil {
 		return err
 	}
+
+	branchStream.Append(reply)
 
 	if err := a.EmitMessage(ctx, reply); err != nil {
 		return err
 	}
 
 	if a.profile.PostStep != nil {
-		if err := a.profile.PostStep(AgentContextBase{agent: a, ctx: ctx}, reply); err != nil {
+		actx := a.makeContext(ctx, opts)
+
+		if err := a.profile.PostStep(actx, reply); err != nil {
 			return err
 		}
 	}
@@ -113,16 +137,28 @@ func (a *AgentBase) Step(ctx context.Context) error {
 	return nil
 }
 
-func (a *AgentBase) Introspect(ctx context.Context, prompt AgentPrompt) (reply *thoughtstream.Thought, err error) {
-	var options []llm.PredictOption
+func (a *AgentBase) Introspect(ctx context.Context, prompt AgentPrompt, options ...StepOption) (reply *thoughtstream.Thought, err error) {
+	var opts StepOptions
+	var predictOptions []llm.PredictOption
 
-	msg, err := prompt.Render(AgentContextBase{agent: a, ctx: ctx})
+	opts.Base = a.log
+	opts.Head = a.log.HeadPointer()
+
+	if err := opts.Apply(options...); err != nil {
+		return nil, err
+	}
+
+	actx := a.makeContext(ctx, opts)
+
+	msg, err := prompt.Render(actx)
 
 	if err != nil {
 		return nil, err
 	}
 
-	stream, err := gpt.GlobalModel.PredictChatStream(ctx, msg, options...)
+	fmt.Printf("\n##############\n%s\n", msg.String())
+
+	replyStream, err := gpt.GlobalModel.PredictChatStream(ctx, msg, predictOptions...)
 
 	if err != nil {
 		return nil, err
@@ -133,7 +169,7 @@ func (a *AgentBase) Introspect(ctx context.Context, prompt AgentPrompt) (reply *
 	reply.From.Role = msn.RoleAI
 
 	for {
-		frag, err := stream.Recv()
+		frag, err := replyStream.Recv()
 
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -145,9 +181,13 @@ func (a *AgentBase) Introspect(ctx context.Context, prompt AgentPrompt) (reply *
 
 		reply.Text += frag.Delta
 
+		fmt.Printf("%s", frag.Delta)
+
 		reply.Invalidate()
 		reply.Update()
 	}
+
+	fmt.Printf("\n\n##############\n")
 
 	return reply, nil
 }
@@ -155,4 +195,13 @@ func (a *AgentBase) Introspect(ctx context.Context, prompt AgentPrompt) (reply *
 func (a *AgentBase) RunPostCycleHooks(ctx context.Context) error {
 
 	return nil
+}
+
+func (a *AgentBase) makeContext(ctx context.Context, options StepOptions) AgentContext {
+	return AgentContextBase{
+		ctx:    ctx,
+		agent:  a,
+		branch: options.Base,
+		stream: options.Stream,
+	}
 }

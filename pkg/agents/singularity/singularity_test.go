@@ -3,7 +3,6 @@ package singularity
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/stretchr/testify/require"
@@ -23,18 +22,14 @@ func TestSingularity(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s.ReceiveIncomingMessage(thoughtstream.Thought{
-		Timestamp: time.Now(),
-
-		From: thoughtstream.CommHandle{
-			Name: "Human",
-			Role: msn.RoleUser,
-		},
-
-		Text: `
+	request := thoughtstream.NewThought()
+	request.From.Name = "Human"
+	request.From.Role = msn.RoleUser
+	request.Text = `
 Create a Pytorch model based on the human brain cytoarchitecture.
-`,
-	})
+`
+
+	s.Router().ReceiveIncomingMessage(ctx, request)
 
 	st := s.worldState
 

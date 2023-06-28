@@ -32,7 +32,7 @@ func GetPsiNodeDescription(v psi.Node) PsiNodeDescription {
 	case *thoughtstream.ThoughtLog:
 		return PsiNodeDescription{
 			Name:        v.PsiNodeName(),
-			Description: "Thought Log",
+			Description: "Log Branch",
 			Icon:        theme.AccountIcon(),
 		}
 

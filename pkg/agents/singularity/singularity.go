@@ -100,7 +100,7 @@ func (s *Singularity) Step(ctx context.Context) ([]*thoughtstream.Thought, error
 		}
 	}
 
-	obj, err := featureextractors.QueryObjective(ctx, s.self.Log().Messages())
+	obj, err := featureextractors.QueryObjective(ctx, s.self.History())
 
 	if err != nil {
 		return s.Router().OutgoingMessages(), err

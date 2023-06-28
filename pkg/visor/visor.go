@@ -76,22 +76,15 @@ func NewVisor(p project.Project) *Visor {
 
 				s.SetParent(v.p)
 
-				initial := &thoughtstream.Thought{
-					Timestamp: time.Now(),
+				request := thoughtstream.NewThought()
+				request.Pointer.Timestamp = time.Now()
+				request.From.Name = "Human"
+				request.From.Role = msn.RoleUser
+				request.Text = `
+Create a Pytorch model based on the human brain cytoarchitecture.
+`
 
-					From: thoughtstream.CommHandle{
-						Name: "Human",
-						Role: msn.RoleUser,
-					},
-
-					Text: `
-Create a landing page for a pharmaceutical company in NextJS.
-`,
-				}
-
-				initial.Init(initial, "")
-
-				s.Router().ReceiveIncomingMessage(initial)
+				s.Router().ReceiveIncomingMessage(tctx.Context(), request)
 
 				st := s.WorldState().(*singularity.WorldState)
 

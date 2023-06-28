@@ -10,7 +10,7 @@ import (
 type AnalysisSession interface {
 	psi.Node
 
-	Introspect(ctx context.Context, prompt AgentPrompt) (*thoughtstream.Thought, error)
+	Introspect(ctx context.Context, prompt AgentPrompt, options ...StepOption) (*thoughtstream.Thought, error)
 
 	ReceiveMessage(ctx context.Context, msg *thoughtstream.Thought) error
 }

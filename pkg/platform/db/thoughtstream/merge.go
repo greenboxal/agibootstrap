@@ -9,19 +9,6 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 )
 
-type MergeOptions struct {
-}
-
-type MergeOption func(*MergeOptions)
-
-func NewMergeOptions(opts ...MergeOption) MergeOptions {
-	var mo MergeOptions
-	for _, opt := range opts {
-		opt(&mo)
-	}
-	return mo
-}
-
 type MergeStrategy interface {
 	Apply(ctx context.Context, s MutableStream, streams ...Stream) (Iterator, error)
 }

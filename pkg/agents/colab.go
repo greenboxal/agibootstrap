@@ -16,11 +16,12 @@ type colabAgentContext struct {
 	ctx   context.Context
 }
 
-func (c colabAgentContext) Context() context.Context  { return c.ctx }
-func (c colabAgentContext) Profile() *Profile         { return c.colab.members[0].Profile() }
-func (c colabAgentContext) Agent() Agent              { return c.colab }
-func (c colabAgentContext) Log() thoughtstream.Branch { return c.colab.log }
-func (c colabAgentContext) WorldState() WorldState    { return c.colab.state }
+func (c colabAgentContext) Context() context.Context     { return c.ctx }
+func (c colabAgentContext) Profile() *Profile            { return c.colab.members[0].Profile() }
+func (c colabAgentContext) Agent() Agent                 { return c.colab }
+func (c colabAgentContext) Branch() thoughtstream.Branch { return c.colab.log }
+func (c colabAgentContext) Stream() thoughtstream.Stream { return c.colab.log.Stream() }
+func (c colabAgentContext) WorldState() WorldState       { return c.colab.state }
 
 type Colab struct {
 	psi.NodeBase
@@ -56,37 +57,37 @@ func (c *Colab) ReceiveMessage(ctx context.Context, msg *thoughtstream.Thought) 
 	return nil
 }
 
-func (c *Colab) Introspect(ctx context.Context, prompt AgentPrompt) (*thoughtstream.Thought, error) {
+func (c *Colab) Introspect(ctx context.Context, prompt AgentPrompt, options ...StepOption) (*thoughtstream.Thought, error) {
 	next, err := c.nextSpeaker(ctx)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return next.Introspect(ctx, prompt)
+	return next.Introspect(ctx, prompt, options...)
 }
 
-func (c *Colab) IntrospectWith(ctx context.Context, profileName string, prompt AgentPrompt) (*thoughtstream.Thought, error) {
+func (c *Colab) IntrospectWith(ctx context.Context, profileName string, prompt AgentPrompt, options ...StepOption) (*thoughtstream.Thought, error) {
 	next := c.agents[profileName]
 
 	if next == nil {
 		return nil, errors.New("no such agent")
 	}
 
-	return next.Introspect(ctx, prompt)
+	return next.Introspect(ctx, prompt, options...)
 }
 
-func (c *Colab) StepWith(ctx context.Context, profileName string) error {
+func (c *Colab) StepWith(ctx context.Context, profileName string, options ...StepOption) error {
 	next := c.agents[profileName]
 
 	if next == nil {
 		return errors.New("no such agent")
 	}
 
-	return next.Step(ctx)
+	return next.Step(ctx, options...)
 }
 
-func (c *Colab) Step(ctx context.Context) error {
+func (c *Colab) Step(ctx context.Context, options ...StepOption) error {
 	if err := c.router.RouteIncomingMessages(ctx); err != nil {
 		return err
 	}
@@ -97,7 +98,7 @@ func (c *Colab) Step(ctx context.Context) error {
 		return err
 	}
 
-	return next.Step(ctx)
+	return next.Step(ctx, options...)
 }
 
 func (c *Colab) ForkSession() (AnalysisSession, error) {

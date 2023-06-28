@@ -12,6 +12,7 @@ import (
 type Branch interface {
 	psi.Node
 
+	Iterable
 	ParentBranch() Branch
 	Base() *Thought
 	Head() *Thought
@@ -24,6 +25,8 @@ type Branch interface {
 
 	Stream() Stream
 	Mutate() MutableStream
+
+	Fork(options ...ForkOption) MutableStream
 
 	Len() int
 }
@@ -116,6 +119,14 @@ func (s *branchImpl) Stream() Stream {
 	}
 }
 
+func (s *branchImpl) Iterator() Iterator {
+	return s.Stream()
+}
+
+func (s *branchImpl) Fork(options ...ForkOption) MutableStream {
+	return s.Mutate().Fork()
+}
+
 type branchStreamImpl struct {
 	b       *branchImpl
 	xmin    int
@@ -131,12 +142,16 @@ func (s *branchStreamImpl) Thought() *Thought { return s.current }
 func (s *branchStreamImpl) Pointer() Pointer  { return s.pointer }
 func (s *branchStreamImpl) Branch() Branch    { return s.b }
 
-func (s *branchStreamImpl) Append(t *Thought) {
-	if !t.Pointer.IsZero() {
-		panic("cannot append a thought with a non-zero pointer")
-	}
+func (s *branchStreamImpl) Iterator() Iterator { return s.Clone() }
 
-	if t.Parent() != nil {
+func (s *branchStreamImpl) Reversed() Stream {
+	return reversedIterator{
+		Stream: s.Clone(),
+	}
+}
+
+func (s *branchStreamImpl) Append(t *Thought) {
+	if t.Parent() != nil && t.Parent() != s.b {
 		panic("cannot append a thought with a non-nil parent")
 	}
 
@@ -182,7 +197,7 @@ func (s *branchStreamImpl) Previous() bool {
 	}
 
 	s.offset--
-	s.current = s.b.items[index]
+	s.current = s.b.items[index-1]
 	s.pointer = s.current.Pointer
 
 	return true
@@ -207,6 +222,14 @@ func (s *branchStreamImpl) LA(n int) *Thought {
 }
 
 func (s *branchStreamImpl) Seek(p Pointer) error {
+	if p.IsHead() {
+		s.offset = len(s.b.items)
+		return nil
+	} else if p.IsRoot() {
+		s.offset = 0
+		return nil
+	}
+
 	offset, _ := s.binarySearch(p)
 
 	s.offset = offset
@@ -247,24 +270,6 @@ func (s *branchStreamImpl) AsBranch() Branch {
 	return NewBranchFromSlice(s.b.parent, s.b.parentPtr, s.b.items[min:max]...)
 }
 
-func (s *branchStreamImpl) binarySearch(p Pointer) (int, bool) {
-	min := s.xmin
-
-	if min < 0 {
-		min = 0
-	}
-
-	max := s.xmax
-
-	if max < 0 {
-		max = len(s.b.items)
-	}
-
-	return slices.BinarySearchFunc(s.b.items[min:max], p, func(a *Thought, b Pointer) int {
-		return a.Pointer.CompareTo(b)
-	})
-}
-
 func (s *branchStreamImpl) Fork(options ...ForkOption) MutableStream {
 	basePtr := s.Pointer()
 	basePtr.Level++
@@ -293,4 +298,33 @@ func (s *branchStreamImpl) Merge(ctx context.Context, r Resolver, strategy Merge
 	}
 
 	return nil
+}
+
+func (s *branchStreamImpl) Clone() Stream {
+	return &branchStreamImpl{
+		b:       s.b,
+		xmin:    s.xmin,
+		xmax:    s.xmax,
+		offset:  s.offset,
+		current: s.current,
+		pointer: s.pointer,
+	}
+}
+
+func (s *branchStreamImpl) binarySearch(p Pointer) (int, bool) {
+	min := s.xmin
+
+	if min < 0 {
+		min = 0
+	}
+
+	max := s.xmax
+
+	if max < 0 {
+		max = len(s.b.items)
+	}
+
+	return slices.BinarySearchFunc(s.b.items[min:max], p, func(a *Thought, b Pointer) int {
+		return a.Pointer.CompareTo(b)
+	})
 }

@@ -83,6 +83,14 @@ func (p Pointer) IsSiblingOf(other Pointer) bool {
 }
 
 func (p Pointer) Less(other Pointer) bool {
+	if p.IsHead() {
+		return false
+	}
+
+	if other.IsHead() {
+		return true
+	}
+
 	if p.Level < other.Level {
 		return true
 	}

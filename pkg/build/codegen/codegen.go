@@ -61,7 +61,7 @@ func (bs *BuildStep) Process(ctx context.Context, bctx *build.Context) (result b
 func (bs *BuildStep) processFile(ctx context.Context, bctx *build.Context, fsPath string, opts ...NodeProcessorOption) (int, error) {
 	p := bctx.Project()
 
-	//bctx.Log().Infow("Processing file", "file", fsPath)
+	//bctx.Branch().Infow("Processing file", "file", fsPath)
 
 	sf, err := p.GetSourceFile(fsPath)
 

@@ -43,7 +43,7 @@ func (r *BroadcastRouter) RegisterAgent(agent Agent) {
 	agent.AttachTo(r)
 }
 
-func (r *BroadcastRouter) ReceiveIncomingMessage(msg *thoughtstream.Thought) {
+func (r *BroadcastRouter) ReceiveIncomingMessage(ctx context.Context, msg *thoughtstream.Thought) {
 	r.incomingMessages <- msg
 }
 
@@ -64,6 +64,8 @@ func (r *BroadcastRouter) RouteIncomingMessages(ctx context.Context) error {
 
 func (r *BroadcastRouter) routeMessage(ctx context.Context, msg *thoughtstream.Thought) error {
 	if r.log != nil {
+		msg = msg.Clone()
+		msg.Pointer = thoughtstream.Pointer{}
 		r.log.Mutate().Append(msg)
 	}
 

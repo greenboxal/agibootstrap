@@ -63,7 +63,7 @@ providing a comprehensive overview of the task and its critical milestones.
 			return err
 		}
 
-		plan.SetParent(ctx.Log())
+		plan.SetParent(ctx.Branch())
 		agents.SetState(ctx.WorldState(), CtxDirectorPlan, plan)
 
 		return nil
@@ -89,7 +89,7 @@ critical to maintaining the system's synergy and productivity.
 			return err
 		}
 
-		plan.SetParent(ctx.Log())
+		plan.SetParent(ctx.Branch())
 		agents.SetState(ctx.WorldState(), CtxManagerPlan, plan)
 
 		return nil
@@ -115,7 +115,7 @@ in quick and effective problem-solving.
 			return err
 		}
 
-		library.SetParent(ctx.Log())
+		library.SetParent(ctx.Branch())
 
 		existing := agents.GetState(ctx.WorldState(), CtxLibrarianResearch)
 
@@ -146,7 +146,7 @@ plan of action to reach the intended outcome.
 			return err
 		}
 
-		plan.SetParent(ctx.Log())
+		plan.SetParent(ctx.Branch())
 
 		agents.SetState(ctx.WorldState(), CtxPlannerPlan, plan)
 
@@ -183,7 +183,7 @@ code goes here
 			return err
 		}
 
-		blocks.SetParent(ctx.Log())
+		blocks.SetParent(ctx.Branch())
 
 		existing := agents.GetState(ctx.WorldState(), CtxCodeBlocks)
 
@@ -224,7 +224,7 @@ code goes here
 			return err
 		}
 
-		blocks.SetParent(ctx.Log())
+		blocks.SetParent(ctx.Branch())
 
 		existing := agents.GetState(ctx.WorldState(), CtxCodeBlocks)
 
@@ -255,7 +255,7 @@ ensure the functionality and integrity of the code before it's finalized.
 			return err
 		}
 
-		goal.SetParent(ctx.Log())
+		goal.SetParent(ctx.Branch())
 		agents.SetState(ctx.WorldState(), CtxGoalStatus, goal)
 
 		return nil
@@ -281,7 +281,7 @@ transparency and traceability.
 			return err
 		}
 
-		timeline.SetParent(ctx.Log())
+		timeline.SetParent(ctx.Branch())
 		agents.SetState(ctx.WorldState(), CtxTimeline, timeline)
 
 		return nil
