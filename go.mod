@@ -16,11 +16,17 @@ require (
 	github.com/go-errors/errors v1.4.2
 	github.com/google/uuid v1.3.0
 	github.com/greenboxal/aip/aip-controller v0.0.0-20230613210128-ceee04e39305
+	github.com/greenboxal/aip/aip-forddb v0.0.0-20230613210128-ceee04e39305
 	github.com/greenboxal/aip/aip-langchain v0.0.0-20230613210128-ceee04e39305
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/invopop/jsonschema v0.7.0
+	github.com/ipfs/go-cid v0.4.1
+	github.com/ipfs/go-datastore v0.6.0
+	github.com/ipfs/go-ds-badger v0.3.0
+	github.com/ipld/go-ipld-prime v0.20.0
 	github.com/jaswdr/faker v1.17.0
 	github.com/jbenet/goprocess v0.1.4
+	github.com/multiformats/go-multihash v0.2.3
 	github.com/pkg/errors v0.9.1
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/samber/lo v1.38.1
@@ -33,6 +39,7 @@ require (
 
 require (
 	fyne.io/systray v1.10.1-0.20230602210930-b6a2d6ca2a7b // indirect
+	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
 	github.com/abcum/lcp v0.0.0-20201209214815-7a3f3840be81 // indirect
 	github.com/antonmedv/expr v1.12.5 // indirect
 	github.com/arl/statsviz v0.5.2 // indirect
@@ -42,6 +49,7 @@ require (
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dgraph-io/badger v1.6.2 // indirect
 	github.com/dgraph-io/badger/v4 v4.1.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
@@ -76,25 +84,23 @@ require (
 	github.com/graph-gophers/dataloader v5.0.0+incompatible // indirect
 	github.com/graphql-go/graphql v0.8.1 // indirect
 	github.com/graphql-go/handler v0.2.3 // indirect
-	github.com/greenboxal/aip/aip-forddb v0.0.0-20230613210128-ceee04e39305 // indirect
 	github.com/greenboxal/aip/aip-sdk v0.0.0-20230613210128-ceee04e39305 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/ipfs/go-cid v0.4.1 // indirect
-	github.com/ipld/go-ipld-prime v0.20.0 // indirect
+	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/jsummers/gobmp v0.0.0-20151104160322-e2ba15ffa76e // indirect
 	github.com/klauspost/compress v1.16.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
+	github.com/mattn/go-isatty v0.0.18 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.2.0 // indirect
 	github.com/multiformats/go-multibase v0.2.0 // indirect
-	github.com/multiformats/go-multihash v0.2.3 // indirect
 	github.com/multiformats/go-varint v0.0.7 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
