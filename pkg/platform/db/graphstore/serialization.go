@@ -7,6 +7,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multihash"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -18,7 +19,7 @@ type FrozenGraph struct {
 }
 
 type FrozenNode struct {
-	Cid cid.Cid `json:"cid,omitempty"`
+	Cid cidlink.Link `json:"cid,omitempty"`
 
 	Index   int64 `json:"index"`
 	Version int64 `json:"version"`
@@ -30,7 +31,7 @@ type FrozenNode struct {
 }
 
 type FrozenEdge struct {
-	Cid cid.Cid `json:"cid,omitempty"`
+	Cid cidlink.Link `json:"cid,omitempty"`
 
 	Key psi.EdgeKey `json:"key"`
 
@@ -40,14 +41,21 @@ type FrozenEdge struct {
 	Attributes map[string]interface{} `json:"attr,omitempty"`
 }
 
-type wrapper struct {
+type nodeWrapper struct {
 	Node psi.Node `json:"node"`
 }
 
-var wrapperType = typesystem.TypeOf(wrapper{})
+type edgeWrapper struct {
+	Edge psi.Edge `json:"edge"`
+}
+
+var nodeWrapperType = typesystem.TypeOf(nodeWrapper{})
+var edgeWrapperType = typesystem.TypeOf(edgeWrapper{})
+var frozenNodeType = typesystem.TypeOf(&FrozenNode{})
+var frozenEdgeType = typesystem.TypeOf(&FrozenEdge{})
 
 func SerializeNode(n psi.Node) ([]byte, cid.Cid, error) {
-	wrapped := typesystem.Wrap(wrapper{Node: n})
+	wrapped := typesystem.Wrap(nodeWrapper{Node: n})
 
 	data, err := ipld.Encode(wrapped, dagjson.Encode)
 
@@ -66,14 +74,20 @@ func SerializeNode(n psi.Node) ([]byte, cid.Cid, error) {
 	return data, id, nil
 }
 
-func DeserializeNode(data []byte) (psi.Node, error) {
-	wrapped, err := ipld.DecodeUsingPrototype(data, dagjson.Decode, wrapperType.IpldPrototype())
+func DeserializeNode(uuid psi.NodeID, data []byte) (psi.Node, error) {
+	wrapped, err := ipld.DecodeUsingPrototype(data, dagjson.Decode, nodeWrapperType.IpldPrototype())
 
 	if err != nil {
 		return nil, err
 	}
 
-	return typesystem.Unwrap(wrapped).(wrapper).Node, nil
+	n := typesystem.Unwrap(wrapped).(nodeWrapper).Node
+
+	if n != nil {
+		n.PsiNodeBase().Init(n, uuid)
+	}
+
+	return n, nil
 }
 
 func FreezeGraph(g psi.Graph) (*FrozenGraph, error) {
@@ -89,7 +103,7 @@ func FreezeGraph(g psi.Graph) (*FrozenGraph, error) {
 		}
 
 		fn := &FrozenNode{
-			Cid: contentId,
+			Cid: cidlink.Link{Cid: contentId},
 
 			Index:      n.ID(),
 			UUID:       n.UUID(),

@@ -3,64 +3,20 @@ package graphstore
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 
+	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
-	"github.com/multiformats/go-multihash"
+	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/codec/dagjson"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
-
-type ObjectStore struct {
-	ds datastore.Datastore
-}
-
-func NewObjectStore(ds datastore.Datastore) *ObjectStore {
-	return &ObjectStore{ds: ds}
-}
-
-func (s *ObjectStore) prepareKey(contentId cid.Cid) datastore.Key {
-	return datastore.KeyWithNamespaces([]string{"objects", contentId.String()})
-}
-
-func (s *ObjectStore) Get(ctx context.Context, contentId cid.Cid) (io.ReadCloser, error) {
-	data, err := s.ds.Get(ctx, s.prepareKey(contentId))
-
-	if err != nil {
-		return nil, err
-	}
-
-	return io.NopCloser(bytes.NewReader(data)), nil
-}
-
-func (s *ObjectStore) Put(ctx context.Context, data io.Reader) (cid.Cid, error) {
-	buf := new(bytes.Buffer)
-
-	reader := io.TeeReader(data, buf)
-
-	mh, err := multihash.SumStream(reader, multihash.SHA2_256, -1)
-
-	if err != nil {
-		return cid.Undef, err
-	}
-
-	contentId := cid.NewCidV1(cid.Raw, mh)
-
-	if err := s.ds.Put(ctx, s.prepareKey(contentId), buf.Bytes()); err != nil {
-		return cid.Undef, err
-	}
-
-	return contentId, nil
-}
-
-func (s *ObjectStore) Has(ctx context.Context, contentId cid.Cid) (bool, error) {
-	return s.ds.Has(ctx, s.prepareKey(contentId))
-}
 
 type Store struct {
 	os *ObjectStore
@@ -104,14 +60,14 @@ func (s *Store) batchUpsertNode(ctx context.Context, batch datastore.Batch, n ps
 	}
 
 	fn := &FrozenNode{
-		Cid:        id,
+		Cid:        cidlink.Link{Cid: id},
 		UUID:       n.UUID(),
 		Type:       n.PsiNodeType(),
 		Version:    n.PsiNodeVersion(),
 		Attributes: n.Attributes(),
 	}
 
-	data, err = json.Marshal(fn)
+	data, err = ipld.Encode(typesystem.Wrap(fn), dagjson.Encode)
 
 	if err != nil {
 		return nil, nil, err
@@ -194,32 +150,32 @@ func (s *Store) UpsertEdge(ctx context.Context, edge psi.Edge) (*FrozenEdge, err
 }
 
 func (s *Store) batchUpsertEdge(ctx context.Context, batch datastore.Batch, edge psi.Edge) (*FrozenEdge, cid.Cid, error) {
-	data, err := json.Marshal(edge)
+	data, err := ipld.Encode(typesystem.Wrap(edge), dagjson.Encode)
 
 	if err != nil {
 		return nil, cid.Undef, err
 	}
 
-	id, err := s.os.Put(ctx, bytes.NewReader(data))
+	contentId, err := s.os.Put(ctx, bytes.NewReader(data))
 
 	if err != nil {
 		return nil, cid.Undef, err
 	}
 
 	fe := &FrozenEdge{
-		Cid:  id,
+		Cid:  cidlink.Link{Cid: contentId},
 		Key:  edge.Key().GetKey(),
 		From: edge.From().UUID(),
 		To:   edge.To().UUID(),
 	}
 
-	data, err = json.Marshal(fe)
+	data, err = ipld.Encode(typesystem.Wrap(fe), dagjson.Encode)
 
 	if err != nil {
 		return nil, cid.Undef, err
 	}
 
-	id, err = s.os.Put(ctx, bytes.NewReader(data))
+	contentId, err = s.os.Put(ctx, bytes.NewReader(data))
 
 	if err != nil {
 		return nil, cid.Undef, err
@@ -227,15 +183,15 @@ func (s *Store) batchUpsertEdge(ctx context.Context, batch datastore.Batch, edge
 
 	key := fmt.Sprintf("edges/%s/%s", edge.From().UUID(), edge.Key().GetKey())
 
-	if err := batch.Put(ctx, datastore.NewKey(key), id.Bytes()); err != nil {
+	if err := batch.Put(ctx, datastore.NewKey(key), contentId.Bytes()); err != nil {
 		return nil, cid.Undef, err
 	}
 
-	return fe, id, nil
+	return fe, contentId, nil
 }
 
 func (s *Store) LoadNode(ctx context.Context, fn *FrozenNode) (psi.Node, error) {
-	reader, err := s.os.Get(ctx, fn.Cid)
+	reader, err := s.os.Get(ctx, fn.Cid.Cid)
 
 	if err != nil {
 		return nil, err
@@ -247,7 +203,17 @@ func (s *Store) LoadNode(ctx context.Context, fn *FrozenNode) (psi.Node, error) 
 		return nil, err
 	}
 
-	return DeserializeNode(data)
+	n, err := DeserializeNode(fn.UUID, data)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range fn.Attributes {
+		n.SetAttribute(k, v)
+	}
+
+	return n, err
 }
 
 func (s *Store) GetEdgeByCid(ctx context.Context, id cid.Cid) (*FrozenEdge, error) {
@@ -263,13 +229,13 @@ func (s *Store) GetEdgeByCid(ctx context.Context, id cid.Cid) (*FrozenEdge, erro
 		return nil, err
 	}
 
-	fe := &FrozenEdge{}
+	n, err := ipld.DecodeUsingPrototype(data, dagjson.Decode, frozenEdgeType.IpldPrototype())
 
-	if err := json.Unmarshal(data, fe); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
-	return fe, nil
+	return typesystem.Unwrap(n).(*FrozenEdge), nil
 }
 
 func (s *Store) GetNodeByCid(ctx context.Context, id cid.Cid) (*FrozenNode, error) {
@@ -285,13 +251,13 @@ func (s *Store) GetNodeByCid(ctx context.Context, id cid.Cid) (*FrozenNode, erro
 		return nil, err
 	}
 
-	fn := &FrozenNode{}
+	n, err := ipld.DecodeUsingPrototype(data, dagjson.Decode, frozenNodeType.IpldPrototype())
 
-	if err := json.Unmarshal(data, fn); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	return typesystem.Unwrap(n).(*FrozenNode), nil
 }
 
 func (s *Store) GetNodeByID(ctx context.Context, id psi.NodeID, version int64) (*FrozenNode, error) {
