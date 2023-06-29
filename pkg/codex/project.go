@@ -4,13 +4,17 @@ import (
 	"context"
 	"fmt"
 	"go/token"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
+	"github.com/google/uuid"
+	"github.com/ipfs/go-datastore"
+	badger "github.com/ipfs/go-ds-badger"
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/indexing"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 
 	"github.com/greenboxal/agibootstrap/pkg/codex/vts"
@@ -43,8 +47,9 @@ type BuildStep interface {
 type Project struct {
 	psi.NodeBase
 
-	g *indexing.IndexedGraph
+	g *graphstore.IndexedGraph
 
+	ds         datastore.Batching
 	fs         repofs.FS
 	fsRootNode *vfs.DirectoryNode
 
@@ -67,8 +72,8 @@ type Project struct {
 // NewProject creates a new codex project with the given root path.
 // It initializes the project file system, repository, and other required data structures.
 // It returns a pointer to the created Project object and an error if any.
-func NewProject(rootPath string) (*Project, error) {
-	root, err := repofs.NewFS(rootPath)
+func NewProject(ctx context.Context, rootPath string) (*Project, error) {
+	rootFs, err := repofs.NewFS(rootPath)
 
 	if err != nil {
 		return nil, err
@@ -80,17 +85,58 @@ func NewProject(rootPath string) (*Project, error) {
 		return nil, err
 	}
 
+	debugPath := repo.ResolveDbPath("codex", "debug")
+
+	if err := os.MkdirAll(debugPath, 0755); err != nil {
+		return nil, errors.Wrap(err, "failed to create datastore directory")
+	}
+
+	dsOpts := badger.DefaultOptions
+
+	dsPath := repo.ResolveDbPath("codex", "datastore")
+
+	if err := os.MkdirAll(dsPath, 0755); err != nil {
+		return nil, errors.Wrap(err, "failed to create datastore directory")
+	}
+
+	ds, err := badger.NewDatastore(dsPath, &dsOpts)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create datastore")
+	}
+
 	p := &Project{
 		rootPath: rootPath,
 
-		fs:   root,
+		ds:   ds,
+		fs:   rootFs,
 		repo: repo,
 
 		fset: token.NewFileSet(),
 		vts:  vts.NewScope(),
 	}
 
-	p.Init(p, "")
+	projectUuid, err := ds.Get(ctx, datastore.NewKey("project-uuid"))
+
+	if err != nil {
+		if errors.Is(err, datastore.ErrNotFound) {
+			projectUuid = nil
+		} else {
+			return nil, errors.Wrap(err, "failed to get project uuid")
+		}
+	}
+
+	if len(projectUuid) == 0 {
+		projectUuid = []byte(uuid.New().String())
+
+		err := ds.Put(ctx, datastore.NewKey("project-uuid"), projectUuid)
+
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to put project uuid")
+		}
+	}
+
+	p.Init(p, string(projectUuid))
 
 	p.langRegistry = project.NewRegistry(p)
 
@@ -100,10 +146,10 @@ func NewProject(rootPath string) (*Project, error) {
 	p.tm = tasks.NewManager()
 	p.tm.PsiNode().SetParent(p)
 
-	p.lm = thoughtstream.NewManager("/tmp/agib-test-log")
+	p.lm = thoughtstream.NewManager(debugPath)
 	p.lm.PsiNode().SetParent(p)
 
-	p.g = indexing.NewIndexedGraph(p)
+	p.g = graphstore.NewIndexedGraph(ctx, p.ds, p)
 	p.g.Add(p)
 
 	if err := p.Sync(); err != nil {
@@ -151,7 +197,7 @@ func (p *Project) Sync() error {
 
 		defer progress.Update(maxDepth*maxDepth+count+1, maxDepth*maxDepth+count+1)
 
-		return psi.Walk(p.rootNode, func(cursor psi.Cursor, entering bool) error {
+		err := psi.Walk(p.rootNode, func(cursor psi.Cursor, entering bool) error {
 			if cursor.Depth() > maxDepth {
 				maxDepth = cursor.Depth()
 			}
@@ -174,6 +220,12 @@ func (p *Project) Sync() error {
 
 			return nil
 		})
+
+		if err != nil {
+			return err
+		}
+
+		return nil
 	})
 
 	p.currentSyncTask = task
@@ -256,4 +308,12 @@ func (p *Project) GetSourceFile(filename string) (_ psi.SourceFile, err error) {
 // The function returns an error if any error occurs during the reindexing process.
 func (p *Project) Reindex() error {
 	return nil
+}
+
+func (p *Project) Close() error {
+	if err := p.lm.Close(); err != nil {
+		return err
+	}
+
+	return p.ds.Close()
 }

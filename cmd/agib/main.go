@@ -45,11 +45,13 @@ func main() {
 
 			cmd.SilenceUsage = true
 
-			p, err := codex.NewProject(wd)
+			p, err := codex.NewProject(cmd.Context(), wd)
 
 			if err != nil {
 				return err
 			}
+
+			defer p.Close()
 
 			return p.Reindex()
 		},
@@ -72,11 +74,13 @@ func main() {
 
 			cmd.SilenceUsage = true
 
-			p, err := codex.NewProject(wd)
+			p, err := codex.NewProject(cmd.Context(), wd)
 
 			if err != nil {
 				return err
 			}
+
+			defer p.Close()
 
 			builder := build.NewBuilder(p, build.Configuration{
 				OutputDirectory: p.RootPath(),
@@ -111,11 +115,13 @@ func main() {
 
 			cmd.SilenceUsage = true
 
-			p, err := codex.NewProject(wd)
+			p, err := codex.NewProject(cmd.Context(), wd)
 
 			if err != nil {
 				return err
 			}
+
+			defer p.Close()
 
 			return p.Commit()
 		},
@@ -134,11 +140,13 @@ func main() {
 
 			cmd.SilenceUsage = true
 
-			p, err := codex.NewProject(wd)
+			p, err := codex.NewProject(cmd.Context(), wd)
 
 			if err != nil {
 				return err
 			}
+
+			defer p.Close()
 
 			vis := visor.NewVisor(p)
 
