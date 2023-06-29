@@ -138,6 +138,9 @@ func NewProject(ctx context.Context, rootPath string) (*Project, error) {
 
 	p.Init(p, string(projectUuid))
 
+	p.g = graphstore.NewIndexedGraph(ctx, p.ds, p)
+	p.g.Add(p)
+
 	p.langRegistry = project.NewRegistry(p)
 
 	p.rootNode = vfs.NewDirectoryNode(p.fs, p.rootPath, "srcs")
@@ -148,9 +151,6 @@ func NewProject(ctx context.Context, rootPath string) (*Project, error) {
 
 	p.lm = thoughtstream.NewManager(debugPath)
 	p.lm.PsiNode().SetParent(p)
-
-	p.g = graphstore.NewIndexedGraph(ctx, p.ds, p)
-	p.g.Add(p)
 
 	if err := p.Sync(); err != nil {
 		return nil, err

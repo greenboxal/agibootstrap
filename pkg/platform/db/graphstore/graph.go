@@ -37,8 +37,6 @@ type IndexedGraph struct {
 	root  psi.Node
 
 	nodeCache map[psi.NodeID]*cachedNode
-	nodeMap   map[psi.NodeID]psi.Node
-	pathMap   map[string]psi.Node
 
 	proc            goprocess.Process
 	nodeUpdateQueue chan nodeUpdateRequest
@@ -55,10 +53,8 @@ func NewIndexedGraph(ctx context.Context, ds datastore.Batching, root psi.Node) 
 		store: store,
 
 		nodeCache: map[psi.NodeID]*cachedNode{},
-		nodeMap:   make(map[psi.NodeID]psi.Node),
-		pathMap:   make(map[string]psi.Node),
 
-		nodeUpdateQueue: make(chan nodeUpdateRequest, 100),
+		nodeUpdateQueue: make(chan nodeUpdateRequest, 256),
 	}
 
 	g.Init(g)
@@ -70,11 +66,11 @@ func NewIndexedGraph(ctx context.Context, ds datastore.Batching, root psi.Node) 
 
 func (g *IndexedGraph) getCacheEntry(id psi.NodeID, create bool) *cachedNode {
 	if create {
-		g.mu.RLock()
-		defer g.mu.RUnlock()
-	} else {
 		g.mu.Lock()
 		defer g.mu.Unlock()
+	} else {
+		g.mu.RLock()
+		defer g.mu.RUnlock()
 	}
 
 	entry := g.nodeCache[id]
@@ -91,8 +87,8 @@ func (g *IndexedGraph) getCacheEntry(id psi.NodeID, create bool) *cachedNode {
 }
 
 func (g *IndexedGraph) loadCacheEntry(ctx context.Context, entry *cachedNode) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
 
 	if entry.node != nil {
 		return nil
@@ -122,23 +118,55 @@ func (g *IndexedGraph) loadCacheEntry(ctx context.Context, entry *cachedNode) er
 }
 
 func (g *IndexedGraph) Add(n psi.Node) {
-	if _, ok := g.nodeMap[n.UUID()]; ok {
-		return
+	entry := g.getCacheEntry(n.UUID(), true)
+
+	doAdd := func() bool {
+		entry.mu.Lock()
+		defer entry.mu.Unlock()
+
+		if entry.node == n {
+			return false
+		}
+
+		if entry.node != nil {
+			panic("node already exists in graph")
+		}
+
+		frozen, err := g.store.UpsertNode(context.Background(), n)
+
+		if err != nil {
+			panic(err)
+		}
+
+		entry.frozen = frozen
+		entry.node = n
+
+		return true
 	}
 
-	g.nodeMap[n.UUID()] = n
-
-	g.BaseGraph.Add(n)
-
-	if _, err := g.store.UpsertNode(context.Background(), n); err != nil {
-		panic(err)
+	if doAdd() {
+		g.BaseGraph.Add(n)
 	}
 }
 
 func (g *IndexedGraph) Remove(n psi.Node) {
-	delete(g.nodeMap, n.UUID())
+	entry := g.getCacheEntry(n.UUID(), false)
 
-	g.BaseGraph.Remove(n)
+	if entry == nil {
+		return
+	}
+
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+
+	entry.node = nil
+	entry.frozen = nil
+
+	delete(g.nodeCache, n.UUID())
+
+	if entry.node != nil {
+		g.BaseGraph.Remove(n)
+	}
 
 	if err := g.store.RemoveNode(context.Background(), n.CanonicalPath()); err != nil {
 		panic(err)
