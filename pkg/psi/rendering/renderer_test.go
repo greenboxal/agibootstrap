@@ -2,6 +2,7 @@ package rendering
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
@@ -67,7 +68,7 @@ func TestPruningRenderer(t *testing.T) {
 		},
 	}
 
-	p, err := codex.NewProject(".")
+	p, err := codex.NewProject(context.Background(), ".")
 	require.NoError(t, err)
 	lang := golang.NewLanguage(p)
 	src := golang.NewSourceFile(lang, "test.go", repofs.String("package main\n\nfunc main() {\n\tprintln(\"Hello world\")\n}"))

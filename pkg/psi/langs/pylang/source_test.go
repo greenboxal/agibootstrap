@@ -54,7 +54,7 @@ def newHelloFn(self):
 `
 
 func setupTestProject(t *testing.T) testEnv {
-	p, err := codex.NewProject(".")
+	p, err := codex.NewProject(context.Background(), ".")
 	require.NoError(t, err)
 	lang := NewLanguage(p)
 

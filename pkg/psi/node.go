@@ -15,6 +15,7 @@ type NodeLike interface {
 	PsiNode() Node
 	PsiNodeType() NodeType
 	PsiNodeBase() *NodeBase
+	PsiNodeVersion() int64
 }
 
 type NamedNode interface {
@@ -46,7 +47,6 @@ type Node interface {
 	Children() []Node
 	ChildrenList() collectionsfx2.ObservableList[Node]
 	ChildrenIterator() NodeIterator
-	Edges() EdgeIterator
 	Comments() []string
 
 	IsContainer() bool
@@ -54,22 +54,26 @@ type Node interface {
 
 	ResolveChild(component PathElement) Node
 
-	// SetEdge sets the given edge on the current node.
-	// It checks if the edge is valid by verifying that it originates from the current node.
-	// If an edge with the same key already exists, it replaces the edge's destination node with the current node.
-	// If the edge is not found, it adds the edge to the node's edge map.
-	//
-	// Parameters:
-	// - edge: The edge to be set on the node.
-	//
-	// Panics:
-	// - "invalid edge": If the given edge does not originate from the current node.
+	/* Edges */
+
+	// Edges returns the edges of the current node.
+	Edges() EdgeIterator
+	// SetEdge sets the edge with the given key to the given node.
 	SetEdge(key EdgeReference, to Node)
+	// UnsetEdge removes the edge with the given key.
 	UnsetEdge(key EdgeReference)
+	// GetEdge returns the edge with the given key.
 	GetEdge(key EdgeReference) Edge
 
+	/* Attributes */
+
+	// Attributes returns the attributes of the current node.
+	Attributes() map[string]interface{}
+	// SetAttribute sets the attribute with the given key to the given value.
 	SetAttribute(key string, value any)
+	// GetAttribute returns the attribute with the given key.
 	GetAttribute(key string) (any, bool)
+	// RemoveAttribute removes the attribute with the given key.
 	RemoveAttribute(key string) (any, bool)
 
 	IsValid() bool
@@ -97,7 +101,9 @@ type NodeLikeBase struct {
 }
 
 func (n *NodeLikeBase) PsiNode() Node          { return n.NodeBase.PsiNode() }
+func (n *NodeLikeBase) PsiNodeType() NodeType  { return n.NodeBase.PsiNodeType() }
 func (n *NodeLikeBase) PsiNodeBase() *NodeBase { return n.NodeBase.PsiNodeBase() }
+func (n *NodeLikeBase) PsiNodeVersion() int64  { return n.NodeBase.PsiNodeVersion() }
 
 type NodeBase struct {
 	g Graph
@@ -139,6 +145,7 @@ func (n *NodeBase) Init(self Node, uid string) {
 func (n *NodeBase) PsiNode() Node          { return n.self }
 func (n *NodeBase) PsiNodeBase() *NodeBase { return n }
 func (n *NodeBase) PsiNodeType() NodeType  { return n.typ }
+func (n *NodeBase) PsiNodeVersion() int64  { return n.version }
 
 func (n *NodeBase) ID() int64          { return n.id }
 func (n *NodeBase) UUID() string       { return n.uuid }
@@ -235,13 +242,6 @@ func (n *NodeBase) NextSibling() Node {
 	}
 
 	return p.children.Get(idx + 1)
-}
-
-func (n *NodeBase) Edges() EdgeIterator {
-	return &edgeIterator{
-		n:    n,
-		keys: n.edges.Keys(),
-	}
 }
 
 func (n *NodeBase) SetParent(parent Node) {
@@ -390,6 +390,10 @@ func (n *NodeBase) ReplaceChildNode(old, new Node) {
 	}
 }
 
+func (n *NodeBase) Attributes() map[string]interface{} {
+	return n.attributes.Map()
+}
+
 func (n *NodeBase) SetAttribute(key string, value any) {
 	n.attributes.Set(key, value)
 
@@ -416,14 +420,30 @@ func (n *NodeBase) RemoveAttribute(key string) (value any, ok bool) {
 	return
 }
 
+func (n *NodeBase) Edges() EdgeIterator {
+	return &nodeEdgeIterator{
+		n: n,
+	}
+}
+
 func (n *NodeBase) SetEdge(key EdgeReference, to Node) {
-	e := &EdgeBase{
-		from: n.self,
-		to:   to,
-		key:  key,
+	e, _ := n.edges.Get(key.GetKey())
+
+	if e == nil {
+		e = &EdgeBase{
+			from: n.self,
+			to:   to,
+			key:  key,
+		}
+	} else {
+		e = e.ReplaceTo(to)
 	}
 
-	n.edges.Set(e.key.GetKey(), e)
+	if n.g != nil {
+		e.attachToGraph(n.g)
+	}
+
+	n.edges.Set(e.Key().GetKey(), e)
 
 	n.doUpdate(true)
 }
@@ -431,10 +451,16 @@ func (n *NodeBase) SetEdge(key EdgeReference, to Node) {
 func (n *NodeBase) UnsetEdge(key EdgeReference) {
 	k := key.GetKey()
 
-	_, ok := n.edges.Get(k)
+	e, ok := n.edges.Get(k)
 
 	if !ok {
 		return
+	}
+
+	n.edges.Remove(k)
+
+	if n.g != nil {
+		e.attachToGraph(n.g)
 	}
 
 	if ok {
@@ -468,9 +494,10 @@ func (n *NodeBase) attachToGraph(g Graph) {
 	}
 
 	n.g = g
-	n.id = g.AllocateNodeID()
 
 	if n.g != nil {
+		n.id = g.NextNodeID()
+
 		n.g.Add(n.self)
 	}
 
@@ -578,6 +605,10 @@ func (n *NodeBase) Invalidate() {
 	if !n.valid {
 		n.valid = false
 
+		if n.g != nil {
+			n.g.OnNodeInvalidated(n.self)
+		}
+
 		if n.parent != nil {
 			n.parent.Invalidate()
 		}
@@ -585,6 +616,10 @@ func (n *NodeBase) Invalidate() {
 }
 
 func (n *NodeBase) fireInvalidationListeners() {
+	if n.g != nil {
+		n.g.OnNodeUpdated(n.self)
+	}
+
 	for _, listener := range n.invalidationListeners {
 		listener.OnInvalidated(n)
 	}
