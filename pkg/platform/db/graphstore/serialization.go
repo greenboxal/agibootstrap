@@ -1,8 +1,6 @@
 package graphstore
 
 import (
-	"encoding/json"
-
 	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
@@ -154,16 +152,5 @@ func SerializeGraph(g psi.Graph) ([]byte, error) {
 		return nil, err
 	}
 
-	return json.Marshal(fg)
-}
-
-func DeserializeGraph(data []byte) (*FrozenGraph, error) {
-	var fg FrozenGraph
-
-	err := json.Unmarshal(data, &fg)
-	if err != nil {
-		return nil, err
-	}
-
-	return &fg, nil
+	return ipld.Encode(typesystem.Wrap(fg), dagjson.Encode)
 }
