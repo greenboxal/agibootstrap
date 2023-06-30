@@ -177,7 +177,9 @@ func (bs *BuildStep) ProcessNode(ctx context.Context, bctx *build.Context, sf ps
 		return nil, err
 	}
 
-	result.Update()
+	if err := result.Update(ctx); err != nil {
+		return nil, err
+	}
 
 	return result, nil
 }

@@ -32,7 +32,7 @@ func (t *taskContext) Update(current, total int) {
 	t.total = total
 
 	t.t.Invalidate()
-	t.t.Update()
+	t.t.Update(nil)
 }
 
 func (t *taskContext) Err() error {
@@ -78,5 +78,5 @@ func (t *taskContext) onComplete() {
 	t.ctx = nil
 	t.complete = true
 
-	t.t.Update()
+	t.t.Update(nil)
 }

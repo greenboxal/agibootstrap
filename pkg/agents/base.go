@@ -184,7 +184,7 @@ func (a *AgentBase) Introspect(ctx context.Context, prompt AgentPrompt, options 
 		fmt.Printf("%s", frag.Delta)
 
 		reply.Invalidate()
-		reply.Update()
+		reply.Update(nil)
 	}
 
 	fmt.Printf("\n\n##############\n")
