@@ -3,7 +3,9 @@ package promptml
 import (
 	"context"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
 )
 
 type Node interface {
@@ -62,13 +64,37 @@ type NodeBase struct {
 	effectiveMinLength  int
 	effectiveMaxLength  int
 	effectivePrefLength int
-	currentLength       int
+
+	stage *Stage
+	tb    *rendering.TokenBuffer
 }
 
 func (n *NodeBase) PmlNodeBase() *NodeBase { return n }
 func (n *NodeBase) PmlNode() Node          { return n.PsiNode().(Node) }
-func (n *NodeBase) IsContainer() bool      { return true }
-func (n *NodeBase) IsLeaf() bool           { return false }
+
+func (n *NodeBase) GetStage() *Stage                       { return n.stage }
+func (n *NodeBase) GetTokenBuffer() *rendering.TokenBuffer { return n.tb }
+
+func (n *NodeBase) IsContainer() bool { return true }
+func (n *NodeBase) IsLeaf() bool      { return false }
+
+func (n *NodeBase) Init(self psi.Node, uuid string) {
+	n.NodeBase.Init(self, uuid)
+
+	collectionsfx.ObserveList(n.ChildrenList(), func(ev collectionsfx.ListChangeEvent[psi.Node]) {
+		if ev.WasAdded() {
+			for _, child := range ev.AddedSlice() {
+				cn, ok := child.(Node)
+
+				if !ok {
+					continue
+				}
+
+				cn.PmlNodeBase().setStage(n.stage)
+			}
+		}
+	})
+}
 
 func (n *NodeBase) GetLayoutBounds() Bounds {
 	if n.LayoutBounds == nil {
@@ -148,7 +174,13 @@ func (n *NodeBase) GetEffectiveMaxLength() int  { return n.effectiveMaxLength }
 func (n *NodeBase) GetEffectiveMinLength() int  { return n.effectiveMinLength }
 func (n *NodeBase) GetEffectivePrefLength() int { return n.effectivePrefLength }
 
-func (n *NodeBase) GetTokenLength() int { return n.currentLength }
+func (n *NodeBase) GetTokenLength() int {
+	if n.tb == nil {
+		return 0
+	}
+
+	return n.tb.TokenCount()
+}
 
 func (n *NodeBase) RequestParentLayout() {
 	if n.Parent() == nil {
@@ -165,10 +197,6 @@ func (n *NodeBase) RequestParentLayout() {
 }
 
 func (n *NodeBase) Update(ctx context.Context) error {
-	if err := n.NodeBase.Update(ctx); err != nil {
-		return err
-	}
-
 	n.effectiveMinLength = n.MinLength.GetEffectiveLength(func(f float64) int {
 		p := n.PmlParent()
 
@@ -177,6 +205,14 @@ func (n *NodeBase) Update(ctx context.Context) error {
 		}
 
 		return p.PmlNodeBase().GetEffectiveMinLength()
+	}, func() int {
+		p := n.PmlParent()
+
+		if p == nil {
+			return 0x7fffffff
+		}
+
+		return p.PmlNodeBase().GetEffectiveMaxLength()
 	})
 
 	n.effectiveMaxLength = n.MaxLength.GetEffectiveLength(func(f float64) int {
@@ -187,6 +223,8 @@ func (n *NodeBase) Update(ctx context.Context) error {
 		}
 
 		return p.PmlNodeBase().GetEffectiveMaxLength()
+	}, func() int {
+		return n.effectiveMinLength
 	})
 
 	n.effectivePrefLength = n.PrefLength.GetEffectiveLength(func(f float64) int {
@@ -197,6 +235,8 @@ func (n *NodeBase) Update(ctx context.Context) error {
 		}
 
 		return p.PmlNodeBase().GetEffectivePrefLength()
+	}, func() int {
+		return n.effectiveMaxLength
 	})
 
 	if n.effectiveMaxLength < n.effectiveMinLength {
@@ -209,6 +249,14 @@ func (n *NodeBase) Update(ctx context.Context) error {
 
 	if n.effectivePrefLength > n.effectiveMaxLength {
 		n.effectivePrefLength = n.effectiveMaxLength
+	}
+
+	if n.tb == nil {
+		n.tb = rendering.NewTokenBuffer(n.stage.Tokenizer, n.GetEffectiveMaxLength())
+	}
+
+	if err := n.NodeBase.Update(ctx); err != nil {
+		return err
 	}
 
 	return nil
@@ -226,4 +274,20 @@ func (n *NodeBase) PmlParent() Parent {
 	}
 
 	return p
+}
+
+func (n *NodeBase) setStage(stage *Stage) {
+	n.stage = stage
+
+	for it := n.ChildrenIterator(); it.Next(); {
+		cn, ok := it.Value().(Node)
+
+		if !ok {
+			continue
+		}
+
+		cn.PmlNodeBase().setStage(stage)
+	}
+
+	n.Invalidate()
 }

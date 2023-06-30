@@ -200,6 +200,16 @@ func (w *TokenBuffer) WriteTo(writer io.Writer) (total int64, err error) {
 	return
 }
 
+func (w *TokenBuffer) WriteBuffer(tb *TokenBuffer) (int, error) {
+	n, err := tb.WriteTo(w)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return int(n), nil
+}
+
 func (w *TokenBuffer) Bytes() []byte {
 	buf := bytes.NewBuffer(nil)
 

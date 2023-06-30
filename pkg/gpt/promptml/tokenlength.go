@@ -5,12 +5,12 @@ import "fmt"
 type TokenUnit string
 
 const (
-	TokenUnitInvalid TokenUnit = ""
-	TokenUnitChar    TokenUnit = "c"
-	TokenUnitWord    TokenUnit = "w"
-	TokenUnitLine    TokenUnit = "l"
-	TokenUnitToken   TokenUnit = "t"
-	TokenUnitPercent TokenUnit = "p"
+	TokenUnitUndefined TokenUnit = ""
+	TokenUnitChar      TokenUnit = "c"
+	TokenUnitWord      TokenUnit = "w"
+	TokenUnitLine      TokenUnit = "l"
+	TokenUnitToken     TokenUnit = "t"
+	TokenUnitPercent   TokenUnit = "p"
 )
 
 func NewTokenLength(amount float64, unit TokenUnit) TokenLength {
@@ -29,8 +29,11 @@ func (s TokenLength) String() string {
 	return fmt.Sprintf("%f%s", s.Amount, s.Unit)
 }
 
-func (s TokenLength) GetEffectiveLength(relFn func(float64) int) int {
+func (s TokenLength) GetEffectiveLength(relFn func(float64) int, undefFn func() int) int {
 	switch s.Unit {
+	case TokenUnitUndefined:
+		return undefFn()
+
 	case TokenUnitToken:
 		return int(s.Amount)
 

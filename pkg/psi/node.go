@@ -136,6 +136,10 @@ type NodeBase struct {
 // - self: The self node to be set.
 // - uid: The UUID string to be set.
 func (n *NodeBase) Init(self Node, uid string) {
+	if n.self != nil && (n.self != self || n.uuid != uid) {
+		panic(fmt.Sprintf("node %v already initialized", n.self))
+	}
+
 	n.self = self
 	n.uuid = uid
 
@@ -268,7 +272,9 @@ func (n *NodeBase) SetParent(parent Node) {
 		n.detachFromGraph(nil)
 	}
 
-	n.doUpdate(true)
+	if err := n.doUpdate(context.Background(), true); err != nil {
+		panic(err)
+	}
 }
 
 // AddChildNode adds a child node to the current node.
@@ -438,6 +444,10 @@ func (n *NodeBase) SetEdge(key EdgeReference, to Node) {
 			key:  key,
 		}
 	} else {
+		if e.To() == to {
+			return
+		}
+
 		e = e.ReplaceTo(to)
 	}
 
@@ -447,7 +457,7 @@ func (n *NodeBase) SetEdge(key EdgeReference, to Node) {
 
 	n.edges.Set(e.Key().GetKey(), e)
 
-	n.doUpdate(true)
+	n.Invalidate()
 }
 
 func (n *NodeBase) UnsetEdge(key EdgeReference) {
@@ -544,16 +554,17 @@ func (n *NodeBase) detachFromGraph(g Graph) {
 	n.Invalidate()
 }
 
-func (n *NodeBase) Update(context.Context) error {
-	if !n.inUpdate {
-		n.doUpdate(false)
+func (n *NodeBase) Update(ctx context.Context) error {
+	if n.inUpdate {
+		return nil
 	}
-	return nil
+
+	return n.doUpdate(ctx, false)
 }
 
-func (n *NodeBase) doUpdate(skipValidation bool) {
+func (n *NodeBase) doUpdate(ctx context.Context, skipValidation bool) error {
 	if n.valid && !skipValidation {
-		return
+		return nil
 	}
 
 	n.inUpdate = true
@@ -565,14 +576,20 @@ func (n *NodeBase) doUpdate(skipValidation bool) {
 	n.updatePath()
 
 	for it := n.children.Iterator(); it.Next(); {
-		it.Item().PsiNodeBase().doUpdate(skipValidation)
+		if err := it.Item().PsiNodeBase().doUpdate(ctx, skipValidation); err != nil {
+			return err
+		}
 	}
 
-	n.Update(nil)
+	if err := n.PsiNode().Update(ctx); err != nil {
+		return nil
+	}
 
 	n.valid = true
 
 	n.fireInvalidationListeners()
+
+	return nil
 }
 
 func (n *NodeBase) updatePath() {
@@ -605,7 +622,7 @@ func (n *NodeBase) updatePath() {
 }
 
 func (n *NodeBase) Invalidate() {
-	if !n.valid {
+	if n.valid {
 		n.valid = false
 
 		if n.g != nil {

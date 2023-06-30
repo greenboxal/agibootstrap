@@ -3,8 +3,6 @@ package promptml
 import (
 	"context"
 
-	"github.com/greenboxal/aip/aip-langchain/pkg/tokenizers"
-
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
@@ -14,45 +12,43 @@ type Parent interface {
 	Node
 
 	PmlParent() Parent
-	PmlContainer() *Container
+	PmlContainer() *ContainerBase
 
 	GetTokenBuffer() *rendering.TokenBuffer
 
-	IsNeedLayout() bool
+	NeedsLayout() bool
 	RequestLayout()
 
 	Layout(ctx context.Context) error
 	LayoutChildren(ctx context.Context) error
 }
 
-type Container struct {
+type ContainerBase struct {
 	NodeBase
 
-	tb *rendering.TokenBuffer
+	isFirstLayout bool
 }
 
-func NewContainer(tokenizer tokenizers.BasicTokenizer) *Container {
-	c := &Container{
-		tb: rendering.NewTokenBuffer(tokenizer, 0),
-	}
+func NewContainer() *ContainerBase {
+	c := &ContainerBase{}
 
 	c.Init(c, "")
 
 	return c
 }
 
-func (n *Container) PmlContainer() *Container               { return n }
-func (n *Container) PmlParent() Parent                      { return n.PsiNode().(Parent) }
-func (n *Container) GetTokenBuffer() *rendering.TokenBuffer { return n.tb }
-func (n *Container) NeedsLayout() bool                      { return n.needsLayout }
+func (n *ContainerBase) PmlContainer() *ContainerBase           { return n }
+func (n *ContainerBase) PmlParent() Parent                      { return n.PsiNode().(Parent) }
+func (n *ContainerBase) GetTokenBuffer() *rendering.TokenBuffer { return n.tb }
+func (n *ContainerBase) NeedsLayout() bool                      { return n.needsLayout }
 
-func (n *Container) RequestLayout() {
+func (n *ContainerBase) RequestLayout() {
 	n.needsLayout = true
 
 	n.Invalidate()
 }
 
-func (n *Container) Layout(ctx context.Context) error {
+func (n *ContainerBase) Layout(ctx context.Context) error {
 	n.RequestLayout()
 
 	for !n.IsValid() || n.PmlContainer().NeedsLayout() {
@@ -64,7 +60,7 @@ func (n *Container) Layout(ctx context.Context) error {
 	return nil
 }
 
-func (n *Container) LayoutChildren(ctx context.Context) error {
+func (n *ContainerBase) LayoutChildren(ctx context.Context) error {
 	children := iterators.ToSlice(iterators.FilterIsInstance[psi.Node, Node](n.ChildrenIterator()))
 
 	if len(children) == 0 {
@@ -90,7 +86,7 @@ func (n *Container) LayoutChildren(ctx context.Context) error {
 	totalLength := staticLength + dynamicLength
 	remaining := n.GetEffectiveMaxLength() - totalLength
 
-	if remaining > 0 {
+	if remaining > 0 && !n.isFirstLayout {
 		return nil
 	}
 
@@ -124,14 +120,12 @@ func (n *Container) LayoutChildren(ctx context.Context) error {
 		remainingDynamicTokens -= child.GetTokenLength()
 	}
 
+	n.isFirstLayout = false
+
 	return nil
 }
 
-func (n *Container) Update(ctx context.Context) error {
-	if n.NodeBase.Update(ctx) != nil {
-		return nil
-	}
-
+func (n *ContainerBase) Update(ctx context.Context) error {
 	if n.needsLayout {
 		if err := n.PmlParent().LayoutChildren(ctx); err != nil {
 			return err
@@ -140,21 +134,31 @@ func (n *Container) Update(ctx context.Context) error {
 		n.needsLayout = false
 	}
 
+	if n.NodeBase.Update(ctx) != nil {
+		return nil
+	}
+
 	n.tb.Reset()
 
 	for it := n.ChildrenIterator(); it.Next(); {
-		leaf, isLeaf := it.Value().(Leaf)
+		leaf, isNode := it.Value().(Node)
 
-		if !isLeaf {
+		if !isNode {
 			continue
 		}
 
-		if err := leaf.Render(ctx, n.tb); err != nil {
+		tb := leaf.PmlNodeBase().GetTokenBuffer()
+
+		if tb == nil {
+			continue
+		}
+
+		_, err := n.tb.WriteBuffer(tb)
+
+		if err != nil {
 			return err
 		}
 	}
-
-	n.currentLength = n.tb.TokenCount()
 
 	return nil
 }
