@@ -1,6 +1,7 @@
 package mdlang
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/gomarkdown/markdown/ast"
@@ -37,12 +38,12 @@ func (nb *NodeBase[T]) Initialize(self Node) {
 	nb.NodeBase.Init(self, "")
 }
 
-func (nb *NodeBase[T]) Update() {
+func (nb *NodeBase[T]) Update(context.Context) error {
 	if nb.IsValid() {
-		return
+		return nil
 	}
 
-	nb.NodeBase.Update()
+	nb.NodeBase.Update(nil)
 
 	if c := nb.node.AsContainer(); c != nil {
 		c.SetChildren(lo.Map(nb.Children(), func(n psi.Node, _ int) ast.Node {
@@ -51,6 +52,7 @@ func (nb *NodeBase[T]) Update() {
 			return mdn
 		}))
 	}
+	return nil
 }
 
 func AstToPsi(node ast.Node) (result psi.Node) {

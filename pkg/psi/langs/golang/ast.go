@@ -1,6 +1,7 @@
 package golang
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -36,12 +37,12 @@ func (nb *NodeBase[T]) Initialize(self Node) {
 	nb.NodeBase.Init(self, "")
 }
 
-func (nb *NodeBase[T]) Update() {
+func (nb *NodeBase[T]) Update(context.Context) error {
 	if nb.IsValid() {
-		return
+		return nil
 	}
 
-	nb.NodeBase.Update()
+	nb.NodeBase.Update(nil)
 
 	updated := dstutil.Apply(nb.node, func(cursor *dstutil.Cursor) bool {
 		n := cursor.Node()
@@ -71,6 +72,7 @@ func (nb *NodeBase[T]) Update() {
 
 	nb.node = updated.(T)
 
+	return nil
 }
 
 type Container struct {

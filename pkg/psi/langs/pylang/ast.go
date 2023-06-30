@@ -1,6 +1,7 @@
 package pylang
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -60,12 +61,12 @@ func (nb *NodeBase[T]) Ast() antlr.ParserRuleContext {
 	return nil
 }
 
-func (nb *NodeBase[T]) Update() {
+func (nb *NodeBase[T]) Update(context.Context) error {
 	if nb.IsValid() {
-		return
+		return nil
 	}
 
-	nb.NodeBase.Update()
+	nb.NodeBase.Update(nil)
 
 	if nb.IsContainer() {
 		for i := 0; i < nb.node.GetChildCount(); i++ {
@@ -82,6 +83,7 @@ func (nb *NodeBase[T]) Update() {
 			}
 		}
 	}
+	return nil
 }
 
 func NewNodeFor[T antlr.ParseTree](sf *SourceFile, node T) *NodeBase[T] {

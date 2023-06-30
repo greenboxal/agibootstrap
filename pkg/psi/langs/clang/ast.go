@@ -1,6 +1,7 @@
 package clang
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -36,13 +37,14 @@ func (nb *NodeBase[T]) Initialize(self Node) {
 	nb.NodeBase.Init(self, "")
 }
 
-func (nb *NodeBase[T]) Update() {
+func (nb *NodeBase[T]) Update(context.Context) error {
 	if nb.IsValid() {
-		return
+		return nil
 	}
 
-	nb.NodeBase.Update()
+	nb.NodeBase.Update(nil)
 
+	return nil
 }
 
 func NewNodeFor(node antlr.ParserRuleContext) *NodeBase[antlr.ParserRuleContext] {
