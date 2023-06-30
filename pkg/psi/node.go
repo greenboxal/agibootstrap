@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"golang.org/x/exp/slices"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
 	collectionsfx "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 )
 
@@ -92,9 +92,6 @@ type Node interface {
 	attachToGraph(g Graph)
 	detachFromGraph(g Graph)
 
-	AddInvalidationListener(listener InvalidationListener)
-	RemoveInvalidationListener(listener InvalidationListener)
-
 	String() string
 }
 
@@ -115,17 +112,16 @@ type NodeBase struct {
 	typ     NodeType
 	version int64
 
-	parent Node
 	self   Node
+	parent obsfx.SimpleProperty[Node]
 	path   Path
 
 	children   collectionsfx.MutableSlice[Node]
 	edges      collectionsfx.MutableMap[EdgeKey, Edge]
 	attributes collectionsfx.MutableMap[string, any]
 
-	valid                 bool
-	inUpdate              bool
-	invalidationListeners []InvalidationListener
+	valid    bool
+	inUpdate bool
 }
 
 // Init initializes the NodeBase struct with the given self node and uid string.
@@ -136,16 +132,82 @@ type NodeBase struct {
 // - self: The self node to be set.
 // - uid: The UUID string to be set.
 func (n *NodeBase) Init(self Node, uid string) {
-	if n.self != nil && (n.self != self || n.uuid != uid) {
+	if n.self != nil {
 		panic(fmt.Sprintf("node %v already initialized", n.self))
 	}
 
 	n.self = self
-	n.uuid = uid
+
+	if uid != "" {
+		n.uuid = uid
+	}
 
 	if n.uuid == "" {
 		n.uuid = uuid.New().String()
 	}
+
+	if self == nil {
+		return
+	}
+
+	obsfx.ObserveChange(&n.parent, func(old, new Node) {
+		if old != nil {
+			old.PsiNodeBase().RemoveChildNode(n.self)
+		}
+
+		if new != nil {
+			new.PsiNodeBase().AddChildNode(n.self)
+		}
+
+		n.InvalidateTree()
+
+		if err := n.Update(context.Background()); err != nil {
+			panic(err)
+		}
+	})
+
+	collectionsfx.ObserveList(&n.children, func(ev collectionsfx.ListChangeEvent[Node]) {
+		for ev.Next() {
+			if ev.WasPermutated() {
+				continue
+			}
+
+			if ev.WasAdded() {
+				for _, child := range ev.AddedSlice() {
+					if child == nil || child == n || child == n.self || n == child.PsiNodeBase() {
+						panic("invalid child")
+					}
+
+					if child.Parent() != n.self {
+						child.attachToGraph(n.g)
+						child.SetParent(n.self)
+					}
+				}
+			}
+
+			if ev.WasRemoved() {
+				for _, child := range ev.RemovedSlice() {
+					if child.Parent() == n.self {
+						child.SetParent(nil)
+					}
+				}
+			}
+		}
+
+		n.Invalidate()
+	})
+
+	collectionsfx.ObserveMap(&n.edges, func(ev collectionsfx.MapChangeEvent[EdgeKey, Edge]) {
+		if ev.WasAdded {
+			ev.ValueAdded.attachToGraph(n.g)
+		}
+
+		n.Invalidate()
+	})
+
+	collectionsfx.ObserveMap(&n.attributes, func(ev collectionsfx.MapChangeEvent[string, any]) {
+		n.Invalidate()
+	})
 }
 
 func (n *NodeBase) PsiNode() Node          { return n.self }
@@ -160,8 +222,10 @@ func (n *NodeBase) IsLeaf() bool       { return false }
 func (n *NodeBase) IsValid() bool      { return n.valid }
 func (n *NodeBase) Comments() []string { return nil }
 
-func (n *NodeBase) CanonicalPath() (res Path)                        { return n.path }
-func (n *NodeBase) Parent() Node                                     { return n.parent }
+func (n *NodeBase) CanonicalPath() (res Path)                   { return n.path }
+func (n *NodeBase) Parent() Node                                { return n.parent.Value() }
+func (n *NodeBase) ParentProperty() obsfx.ObservableValue[Node] { return &n.parent }
+
 func (n *NodeBase) Children() []Node                                 { return n.children.Slice() }
 func (n *NodeBase) ChildrenList() collectionsfx.ObservableList[Node] { return &n.children }
 func (n *NodeBase) ChildrenIterator() NodeIterator                   { return &nodeChildrenIterator{parent: n} }
@@ -221,7 +285,7 @@ func (n *NodeBase) IndexOfChild(node Node) int {
 }
 
 func (n *NodeBase) PreviousSibling() Node {
-	if n.parent == nil {
+	if n.Parent() == nil {
 		return nil
 	}
 
@@ -236,7 +300,7 @@ func (n *NodeBase) PreviousSibling() Node {
 }
 
 func (n *NodeBase) NextSibling() Node {
-	if n.parent == nil {
+	if n.Parent() == nil {
 		return nil
 	}
 
@@ -251,30 +315,11 @@ func (n *NodeBase) NextSibling() Node {
 }
 
 func (n *NodeBase) SetParent(parent Node) {
-	if parent == n || parent == n.self {
-		panic("invalid parent")
+	if n == parent || n.self == parent || (parent != nil && n == parent.PsiNodeBase()) {
+		panic("invalid parent (cycle)")
 	}
 
-	if n.parent == parent {
-		return
-	}
-
-	if n.parent != nil {
-		n.parent.RemoveChildNode(n.self)
-		n.parent = nil
-	}
-
-	n.parent = parent
-
-	if n.parent != nil {
-		n.parent.AddChildNode(n.self)
-	} else {
-		n.detachFromGraph(nil)
-	}
-
-	if err := n.doUpdate(context.Background(), true); err != nil {
-		panic(err)
-	}
+	n.parent.SetValue(parent)
 }
 
 // AddChildNode adds a child node to the current node.
@@ -285,7 +330,13 @@ func (n *NodeBase) SetParent(parent Node) {
 // Parameters:
 // - child: The child node to be added.
 func (n *NodeBase) AddChildNode(child Node) {
-	n.InsertChildrenAt(n.children.Len(), child)
+	existingIdx := n.children.IndexOf(child)
+
+	if existingIdx != -1 {
+		return
+	}
+
+	n.children.Add(child)
 }
 
 // RemoveChildNode removes the child node from the current node.
@@ -294,33 +345,15 @@ func (n *NodeBase) AddChildNode(child Node) {
 // Parameters:
 // - child: The child node to be removed.
 func (n *NodeBase) RemoveChildNode(child Node) {
-	idx := n.children.IndexOf(child)
-
-	if idx == -1 {
-		return
-	}
-
-	n.children.RemoveAt(idx)
-
-	n.Invalidate()
-	n.fireInvalidationListeners()
+	n.children.Remove(child)
 }
 
 func (n *NodeBase) InsertChildrenAt(idx int, child Node) {
-	if child == n || child == n.self {
-		panic("invalid child")
-	}
-
-	cn := child.PsiNodeBase()
-
 	existingIdx := n.children.IndexOf(child)
 
 	if existingIdx != -1 && idx == existingIdx {
 		return
 	}
-
-	cn.parent = n
-	n.children.InsertAt(idx, child)
 
 	if existingIdx != -1 {
 		if existingIdx >= idx {
@@ -330,10 +363,7 @@ func (n *NodeBase) InsertChildrenAt(idx int, child Node) {
 		n.children.RemoveAt(existingIdx)
 	}
 
-	child.attachToGraph(n.g)
-
-	n.Invalidate()
-	n.fireInvalidationListeners()
+	n.children.InsertAt(idx, child)
 }
 
 func (n *NodeBase) InsertChildBefore(anchor, node Node) {
@@ -367,15 +397,10 @@ func (n *NodeBase) InsertChildAfter(anchor, node Node) {
 // - old: The old child node to be replaced.
 // - new: The new child node to replace the old child node.
 func (n *NodeBase) ReplaceChildNode(old, new Node) {
-	changed := false
 	idx := n.children.IndexOf(old)
 
 	if idx != -1 {
 		n.children.Set(idx, new)
-		old.SetParent(nil)
-		new.SetParent(n.self)
-
-		changed = true
 	}
 
 	for it := n.edges.Iterator(); it.Next(); {
@@ -389,12 +414,6 @@ func (n *NodeBase) ReplaceChildNode(old, new Node) {
 		}
 
 		n.edges.Set(kv.Key, e)
-
-		changed = true
-	}
-
-	if changed {
-		n.Invalidate()
 	}
 }
 
@@ -404,8 +423,6 @@ func (n *NodeBase) Attributes() map[string]interface{} {
 
 func (n *NodeBase) SetAttribute(key string, value any) {
 	n.attributes.Set(key, value)
-
-	n.Invalidate()
 }
 
 func (n *NodeBase) GetAttribute(key string) (value any, ok bool) {
@@ -420,10 +437,6 @@ func (n *NodeBase) RemoveAttribute(key string) (value any, ok bool) {
 	}
 
 	n.attributes.Remove(key)
-
-	if ok {
-		n.Invalidate()
-	}
 
 	return
 }
@@ -451,33 +464,19 @@ func (n *NodeBase) SetEdge(key EdgeReference, to Node) {
 		e = e.ReplaceTo(to)
 	}
 
-	if n.g != nil {
-		e.attachToGraph(n.g)
-	}
-
 	n.edges.Set(e.Key().GetKey(), e)
-
-	n.Invalidate()
 }
 
 func (n *NodeBase) UnsetEdge(key EdgeReference) {
 	k := key.GetKey()
 
-	e, ok := n.edges.Get(k)
+	_, ok := n.edges.Get(k)
 
 	if !ok {
 		return
 	}
 
 	n.edges.Remove(k)
-
-	if n.g != nil {
-		e.attachToGraph(n.g)
-	}
-
-	if ok {
-		n.Invalidate()
-	}
 }
 func (n *NodeBase) GetEdge(key EdgeReference) Edge {
 	v, _ := n.edges.Get(key.GetKey())
@@ -587,7 +586,9 @@ func (n *NodeBase) doUpdate(ctx context.Context, skipValidation bool) error {
 
 	n.valid = true
 
-	n.fireInvalidationListeners()
+	if n.g != nil {
+		n.g.OnNodeUpdated(n.self)
+	}
 
 	return nil
 }
@@ -595,14 +596,14 @@ func (n *NodeBase) doUpdate(ctx context.Context, skipValidation bool) error {
 func (n *NodeBase) updatePath() {
 	var self PathElement
 
-	if n.parent == nil {
+	if n.Parent() == nil {
 		self.Kind = EdgeKindChild
 		self.Name = n.UUID()
 		n.path = PathFromComponents(self)
 		return
 	}
 
-	parentPath := n.parent.CanonicalPath()
+	parentPath := n.Parent().CanonicalPath()
 
 	if named, ok := n.self.(NamedNode); ok {
 		self = PathElement{
@@ -610,7 +611,7 @@ func (n *NodeBase) updatePath() {
 			Name: named.PsiNodeName(),
 		}
 	} else {
-		index := n.parent.PsiNodeBase().IndexOfChild(n.self)
+		index := n.Parent().PsiNodeBase().IndexOfChild(n.self)
 
 		self = PathElement{
 			Kind:  EdgeKindChild,
@@ -621,6 +622,12 @@ func (n *NodeBase) updatePath() {
 	n.path = parentPath.Child(self)
 }
 
+func (n *NodeBase) InvalidateTree() {
+	for it := n.ChildrenIterator(); it.Next(); {
+		it.Node().PsiNodeBase().InvalidateTree()
+	}
+}
+
 func (n *NodeBase) Invalidate() {
 	if n.valid {
 		n.valid = false
@@ -629,35 +636,8 @@ func (n *NodeBase) Invalidate() {
 			n.g.OnNodeInvalidated(n.self)
 		}
 
-		if n.parent != nil {
-			n.parent.Invalidate()
-		}
-	}
-}
-
-func (n *NodeBase) fireInvalidationListeners() {
-	if n.g != nil {
-		n.g.OnNodeUpdated(n.self)
-	}
-
-	for _, listener := range n.invalidationListeners {
-		listener.OnInvalidated(n)
-	}
-}
-
-func (n *NodeBase) AddInvalidationListener(listener InvalidationListener) {
-	if slices.Index(n.invalidationListeners, listener) != -1 {
-		return
-	}
-
-	n.invalidationListeners = append(n.invalidationListeners, listener)
-}
-
-func (n *NodeBase) RemoveInvalidationListener(listener InvalidationListener) {
-	for i, l := range n.invalidationListeners {
-		if l == listener {
-			n.invalidationListeners = append(n.invalidationListeners[:i], n.invalidationListeners[i+1:]...)
-			return
+		if n.Parent() != nil {
+			n.Parent().Invalidate()
 		}
 	}
 }
