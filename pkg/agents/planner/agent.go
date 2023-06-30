@@ -19,12 +19,13 @@ type WorldState interface {
 
 func NewAgent(
 	profile *agents.Profile,
+	repo thoughtstream.Resolver,
 	log *thoughtstream.ThoughtLog,
 	worldState agents.WorldState,
 ) *Agent {
 	a := &Agent{}
 
-	a.Init(a, profile, log, worldState)
+	a.Init(a, profile, repo, log, worldState)
 
 	return a
 }

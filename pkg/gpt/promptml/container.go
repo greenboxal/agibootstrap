@@ -72,7 +72,7 @@ func (n *ContainerBase) LayoutChildren(ctx context.Context) error {
 
 		if child.IsResizable() {
 			dynamicLength += child.GetTokenLength()
-			treeWeight += child.PmlNodeBase().GetRelevance()
+			treeWeight += child.GetRelevance()
 		} else {
 			staticLength += child.GetTokenLength()
 		}
@@ -88,8 +88,8 @@ func (n *ContainerBase) LayoutChildren(ctx context.Context) error {
 	})
 
 	resizableOrdered = iterators.SortWith(resizableOrdered, func(a, b Node) int {
-		aNorm := a.PmlNodeBase().GetRelevance() / treeWeight
-		bNorm := b.PmlNodeBase().GetRelevance() / treeWeight
+		aNorm := a.GetRelevance() / treeWeight
+		bNorm := b.GetRelevance() / treeWeight
 
 		return int(bNorm - aNorm)
 	})
@@ -99,7 +99,7 @@ func (n *ContainerBase) LayoutChildren(ctx context.Context) error {
 	for it := resizableOrdered; it.Next(); {
 		child := it.Value()
 
-		biasNorm := child.PmlNodeBase().GetRelevance() / treeWeight
+		biasNorm := child.GetRelevance() / treeWeight
 
 		if child.GetMinLength().Unit != TokenUnitPercent {
 			child.SetMinLength(NewTokenLength(float64(remainingDynamicTokens)*biasNorm, TokenUnitToken))

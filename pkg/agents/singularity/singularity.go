@@ -49,7 +49,13 @@ func NewSingularity(lm *thoughtstream.Manager) (*Singularity, error) {
 	for i, profile := range allProfiles {
 		a := &agents.AgentBase{}
 
-		a.Init(a, profile, globalLog, s.worldState)
+		al, err := lm.GetOrCreateBranch(profile.Name)
+
+		if err != nil {
+			return nil, err
+		}
+
+		a.Init(a, profile, nil, al, s.worldState)
 
 		allAgents[i] = a
 	}

@@ -163,8 +163,8 @@ func (s *branchStreamImpl) Append(t *Thought) {
 
 	prev := s.Pointer()
 
-	t.Pointer.Parent = s.b.ParentPointer().Address()
-	t.Pointer.Previous = prev.Address()
+	t.Pointer.Parent = s.b.ParentPointer().Address().String()
+	t.Pointer.Previous = prev.Address().String()
 	t.Pointer.Timestamp = time.Now()
 	t.Pointer.Clock = prev.Clock + 1
 	t.Pointer.Level = prev.Level

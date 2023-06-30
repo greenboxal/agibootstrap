@@ -3,17 +3,21 @@ package thoughtstream
 import (
 	"github.com/hashicorp/go-multierror"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type Manager struct {
 	psi.NodeBase
 
+	g *graphstore.IndexedGraph
+
 	basePath string
 }
 
-func NewManager(basePath string) *Manager {
+func NewManager(g *graphstore.IndexedGraph, basePath string) *Manager {
 	lm := &Manager{
+		g:        g,
 		basePath: basePath,
 	}
 

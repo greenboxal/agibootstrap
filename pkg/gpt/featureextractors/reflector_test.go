@@ -15,7 +15,7 @@ func TestReflector(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	history := []thoughtstream.Thought{
+	history := []*thoughtstream.Thought{
 		{
 			From: thoughtstream.CommHandle{
 				Name: "Singularity",
@@ -53,7 +53,7 @@ func TestQueryPlan(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	history := []thoughtstream.Thought{
+	history := []*thoughtstream.Thought{
 		{
 			From: thoughtstream.CommHandle{
 				Name: "Singularity",
@@ -87,7 +87,7 @@ func TestSentiment(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	history := []thoughtstream.Thought{
+	history := []*thoughtstream.Thought{
 		{
 			From: thoughtstream.CommHandle{
 				Name: "Singularity",
@@ -121,7 +121,7 @@ func TestGoalCompletion(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	history := []thoughtstream.Thought{
+	history := []*thoughtstream.Thought{
 		{
 			From: thoughtstream.CommHandle{
 				Name: "Singularity",

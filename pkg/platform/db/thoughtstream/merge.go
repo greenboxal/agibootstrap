@@ -2,7 +2,6 @@ package thoughtstream
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/ipfs/go-cid"
 
@@ -25,6 +24,12 @@ func FlatTimeMergeStrategy() MergeStrategyFunc {
 
 		it = iterators.SortWith(it, func(a, b *Thought) int {
 			return a.Pointer.CompareTo(b.Pointer)
+		})
+
+		it = iterators.Map(it, func(t *Thought) *Thought {
+			t = t.Clone()
+			t.Pointer = Pointer{}
+			return t
 		})
 
 		return it, nil
@@ -70,7 +75,13 @@ func HierarchicalTimeMergeStrategy(r Resolver) MergeStrategyFunc {
 					continue
 				}
 
-				p, err := r.ResolveBranch(ctx, y.Pointer.Parent)
+				yid, err := cid.Parse(y.Pointer.Parent)
+
+				if err != nil {
+					panic(err)
+				}
+
+				p, err := r.ResolveBranch(ctx, yid)
 
 				if err != nil {
 					panic(err)
@@ -98,10 +109,4 @@ func HierarchicalTimeMergeStrategy(r Resolver) MergeStrategyFunc {
 
 		return it, nil
 	}
-}
-
-func FindCommonAncestor(r Resolver, a, b *Thought) (*Thought, error) {
-	// TODO: implement
-
-	return nil, fmt.Errorf("no common ancestor found")
 }

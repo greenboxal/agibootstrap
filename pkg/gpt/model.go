@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
+	"github.com/greenboxal/aip/aip-langchain/pkg/tokenizers"
 )
 
 var GlobalClient = createNewClient()
@@ -18,6 +19,8 @@ var GlobalModel = &openai.ChatLanguageModel{
 	Model:       "gpt-3.5-turbo-16k",
 	Temperature: 1.0,
 }
+
+var GlobalModelTokenizer = tokenizers.TikTokenForModel(GlobalModel.Model)
 
 func createNewClient() *openai.Client {
 	if os.Getenv("OPENAI_API_KEY") == "" {

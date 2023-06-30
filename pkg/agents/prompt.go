@@ -4,6 +4,8 @@ import (
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 
+	"github.com/greenboxal/agibootstrap/pkg/gpt"
+	"github.com/greenboxal/agibootstrap/pkg/gpt/promptml"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 )
@@ -15,6 +17,44 @@ type AgentPrompt interface {
 type AgentPromptFunc func(ctx AgentContext) (chat.Message, error)
 
 func (a AgentPromptFunc) Render(ctx AgentContext) (chat.Message, error) { return a(ctx) }
+
+func TmlContainer(children ...promptml.Node) AgentPromptFunc {
+	return Tml(func(ctx AgentContext) promptml.Parent {
+		return promptml.Container(children...)
+	})
+}
+
+func Tml(rootBuilder func(ctx AgentContext) promptml.Parent) AgentPromptFunc {
+	return func(ctx AgentContext) (result chat.Message, err error) {
+		root := rootBuilder(ctx)
+		stage := promptml.NewStage(root, gpt.GlobalModelTokenizer)
+		stage.MaxTokens = 10240
+
+		for it := root.ChildrenIterator(); it.Next(); {
+			msg, ok := it.Value().(*promptml.ChatMessage)
+
+			if !ok {
+				continue
+			}
+
+			text, err := stage.RenderToString(ctx.Context())
+
+			if err != nil {
+				return result, err
+			}
+
+			m := chat.MessageEntry{
+				Role: msg.Role.Value(),
+				Name: msg.From.Value(),
+				Text: text,
+			}
+
+			result.Entries = append(result.Entries, m)
+		}
+
+		return
+	}
+}
 
 func SystemMessage(msg string) AgentPromptFunc {
 	return func(ctx AgentContext) (chat.Message, error) {

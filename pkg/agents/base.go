@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
+	"github.com/greenboxal/agibootstrap/pkg/gpt/promptml"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -37,6 +38,7 @@ type AgentBase struct {
 	profile *Profile
 
 	log        thoughtstream.Branch
+	repo       thoughtstream.Resolver
 	router     Router
 	worldState WorldState
 }
@@ -44,19 +46,22 @@ type AgentBase struct {
 func (a *AgentBase) Init(
 	self Agent,
 	profile *Profile,
+	repo thoughtstream.Resolver,
 	log thoughtstream.Branch,
 	worldState WorldState,
 ) {
 	a.profile = profile
 	a.log = log
+	a.repo = repo
 	a.worldState = worldState
 
 	a.NodeBase.Init(self, "")
 }
 
-func (a *AgentBase) Log() thoughtstream.Branch { return a.log }
-func (a *AgentBase) WorldState() WorldState    { return a.worldState }
-func (a *AgentBase) Profile() *Profile         { return a.profile }
+func (a *AgentBase) Repo() thoughtstream.Resolver { return a.repo }
+func (a *AgentBase) Log() thoughtstream.Branch    { return a.log }
+func (a *AgentBase) WorldState() WorldState       { return a.worldState }
+func (a *AgentBase) Profile() *Profile            { return a.profile }
 
 func (a *AgentBase) History() []*thoughtstream.Thought {
 	return iterators.ToSlice[*thoughtstream.Thought](a.log.Stream().Reversed())
@@ -78,7 +83,7 @@ func (a *AgentBase) ReceiveMessage(ctx context.Context, msg *thoughtstream.Thoug
 func (a *AgentBase) ForkSession() (AnalysisSession, error) {
 	forked := &AgentBase{}
 
-	forked.Init(forked, a.profile, a.log.Stream().Fork().AsBranch(), a.worldState)
+	forked.Init(forked, a.profile, a.repo, a.log.Stream().Fork().AsBranch(), a.worldState)
 
 	return forked, nil
 }
@@ -103,9 +108,26 @@ func (a *AgentBase) Step(ctx context.Context, options ...StepOption) error {
 
 	branchStream := opts.Base.Fork()
 
-	prompt := ComposePrompt(
-		ThoughtHistory(thoughtstream.NewHierarchicalStream(branchStream.AsBranch()).Reversed()),
-		AgentMessage(a.profile.Name, " "),
+	prompt := TmlContainer(
+		promptml.Message("", msn.RoleSystem, promptml.Styled(
+			promptml.Text(a.profile.BaselineSystemPrompt),
+			promptml.Fixed(),
+		)),
+
+		promptml.NewDynamicList(func(ctx context.Context) iterators.Iterator[promptml.Node] {
+			src := thoughtstream.NewHierarchicalStream(branchStream.AsBranch()).Reversed()
+
+			return iterators.Map(src, func(thought *thoughtstream.Thought) promptml.Node {
+				return promptml.Message(
+					thought.From.Name,
+					thought.From.Role,
+					promptml.Styled(
+						promptml.Text(thought.Text),
+						promptml.Fixed(),
+					),
+				)
+			})
+		}),
 	)
 
 	options = append(
@@ -134,7 +156,14 @@ func (a *AgentBase) Step(ctx context.Context, options ...StepOption) error {
 		}
 	}
 
-	return nil
+	r := a.Repo()
+
+	return opts.Base.Mutate().Merge(
+		ctx,
+		r,
+		thoughtstream.FlatTimeMergeStrategy(),
+		branchStream.AsBranch(),
+	)
 }
 
 func (a *AgentBase) Introspect(ctx context.Context, prompt AgentPrompt, options ...StepOption) (reply *thoughtstream.Thought, err error) {

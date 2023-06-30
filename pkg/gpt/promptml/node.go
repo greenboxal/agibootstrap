@@ -34,6 +34,7 @@ type Node interface {
 	GetMaxLength() TokenLength
 	SetMaxLength(length TokenLength)
 
+	GetRelevance() float64
 	GetBias() float64
 	SetBias(bias float64)
 
@@ -57,6 +58,7 @@ type NodeBase struct {
 
 	effectiveMinLength obsfx.ObservableValue[int]
 	effectiveMaxLength obsfx.ObservableValue[int]
+	relevance          obsfx.DoubleProperty
 
 	tokenLength obsfx.IntProperty
 
@@ -126,6 +128,10 @@ func (n *NodeBase) Init(self psi.Node, uuid string) {
 	n.Visible.SetValue(true)
 	n.Resizable.SetValue(true)
 	n.Movable.SetValue(true)
+
+	n.relevance.Bind(obsfx.BindExpression(func() float64 {
+		return 1.0 + n.Bias.Value()
+	}, &n.Bias))
 
 	n.NodeBase.Init(self, uuid)
 
@@ -202,19 +208,20 @@ func (n *NodeBase) GetBoundsInParent() Bounds {
 	return *n.boundsInParent
 }
 
-func (n *NodeBase) GetRelevance() float64           { return 1 + n.Bias.Value() }
-func (n *NodeBase) GetBias() float64                { return n.Bias.Value() }
-func (n *NodeBase) SetBias(bias float64)            { n.Bias.SetValue(bias) }
-func (n *NodeBase) IsResizable() bool               { return n.Resizable.Value() }
-func (n *NodeBase) SetResizable(resizable bool)     { n.Resizable.SetValue(resizable) }
-func (n *NodeBase) IsVisible() bool                 { return n.Visible.Value() }
-func (n *NodeBase) SetVisible(visible bool)         { n.Visible.SetValue(visible) }
-func (n *NodeBase) IsMovable() bool                 { return n.Movable.Value() }
-func (n *NodeBase) SetMovable(movable bool)         { n.Movable.SetValue(movable) }
-func (n *NodeBase) GetMinLength() TokenLength       { return n.MinLength.Value() }
-func (n *NodeBase) SetMinLength(length TokenLength) { n.MinLength.SetValue(length) }
-func (n *NodeBase) GetMaxLength() TokenLength       { return n.MaxLength.Value() }
-func (n *NodeBase) SetMaxLength(length TokenLength) { n.MaxLength.SetValue(length) }
+func (n *NodeBase) RelevanceProperty() obsfx.Property[float64] { return &n.relevance }
+func (n *NodeBase) GetRelevance() float64                      { return n.relevance.Value() }
+func (n *NodeBase) GetBias() float64                           { return n.Bias.Value() }
+func (n *NodeBase) SetBias(bias float64)                       { n.Bias.SetValue(bias) }
+func (n *NodeBase) IsResizable() bool                          { return n.Resizable.Value() }
+func (n *NodeBase) SetResizable(resizable bool)                { n.Resizable.SetValue(resizable) }
+func (n *NodeBase) IsVisible() bool                            { return n.Visible.Value() }
+func (n *NodeBase) SetVisible(visible bool)                    { n.Visible.SetValue(visible) }
+func (n *NodeBase) IsMovable() bool                            { return n.Movable.Value() }
+func (n *NodeBase) SetMovable(movable bool)                    { n.Movable.SetValue(movable) }
+func (n *NodeBase) GetMinLength() TokenLength                  { return n.MinLength.Value() }
+func (n *NodeBase) SetMinLength(length TokenLength)            { n.MinLength.SetValue(length) }
+func (n *NodeBase) GetMaxLength() TokenLength                  { return n.MaxLength.Value() }
+func (n *NodeBase) SetMaxLength(length TokenLength)            { n.MaxLength.SetValue(length) }
 
 func (n *NodeBase) RequestParentLayout() {
 	if n.Parent() == nil {

@@ -149,7 +149,7 @@ func NewProject(ctx context.Context, rootPath string) (*Project, error) {
 	p.tm = tasks.NewManager()
 	p.tm.PsiNode().SetParent(p)
 
-	p.lm = thoughtstream.NewManager(debugPath)
+	p.lm = thoughtstream.NewManager(p.g, debugPath)
 	p.lm.PsiNode().SetParent(p)
 
 	if err := p.Sync(); err != nil {

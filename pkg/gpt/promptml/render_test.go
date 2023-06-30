@@ -21,8 +21,8 @@ func TestRenderingSimple(t *testing.T) {
 	defer cancel()
 
 	root := Container(
-		Message("me", "you", msn.RoleUser, Text("Hello!")),
-		Message("you", "me", msn.RoleAI, Text("Hello, world!")),
+		Message("me", msn.RoleUser, Text("Hello!")),
+		Message("you", msn.RoleAI, Text("Hello, world!")),
 	)
 
 	stage := NewStage(root, testTokenizer)
@@ -82,9 +82,9 @@ func TestRenderingDynamicList(t *testing.T) {
 	defer cancel()
 
 	root := Container(
-		Message("System", "AI", msn.RoleSystem, Container(
-			Fixed(Text("Hello!")),
-			Fixed(Text("Available Context:")),
+		Message("System", msn.RoleSystem, Container(
+			MakeFixed(Text("Hello!")),
+			MakeFixed(Text("Available Context:")),
 
 			NewDynamicList(func(ctx context.Context) iterators.Iterator[Node] {
 				return iterators.FromSlice([]Node{
@@ -93,11 +93,11 @@ func TestRenderingDynamicList(t *testing.T) {
 				})
 			}),
 
-			Fixed(Text("End of Available Context.")),
+			MakeFixed(Text("End of Available Context.")),
 		)),
 
-		Message("Human", "AI", msn.RoleUser, Fixed(Text("Say something about the context above."))),
-		Message("AI", "Human", msn.RoleAI, Fixed(Text(" "))),
+		Message("Human", msn.RoleUser, MakeFixed(Text("Say something about the context above."))),
+		Message("AI", msn.RoleAI, MakeFixed(Text(" "))),
 	)
 
 	stage := NewStage(root, testTokenizer)
