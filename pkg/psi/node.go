@@ -1,12 +1,13 @@
 package psi
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/uuid"
 	"golang.org/x/exp/slices"
 
-	collectionsfx2 "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
+	collectionsfx "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 )
 
 type NodeID = string
@@ -30,11 +31,11 @@ type Node interface {
 
 	ID() int64
 	UUID() NodeID
+	CanonicalPath() Path
 
 	Parent() Node
 	PreviousSibling() Node
 	NextSibling() Node
-	CanonicalPath() Path
 
 	// SetParent sets the parent node of the current node.
 	// If the parent node is already set to the given parent, no action is taken.
@@ -45,8 +46,9 @@ type Node interface {
 	SetParent(parent Node)
 
 	Children() []Node
-	ChildrenList() collectionsfx2.ObservableList[Node]
+	ChildrenList() collectionsfx.ObservableList[Node]
 	ChildrenIterator() NodeIterator
+
 	Comments() []string
 
 	IsContainer() bool
@@ -78,13 +80,7 @@ type Node interface {
 
 	IsValid() bool
 	Invalidate()
-	Update()
-
-	AddInvalidationListener(listener InvalidationListener)
-	RemoveInvalidationListener(listener InvalidationListener)
-
-	attachToGraph(g Graph)
-	detachFromGraph(g Graph)
+	Update(context.Context) error
 
 	AddChildNode(node Node)
 	RemoveChildNode(node Node)
@@ -92,6 +88,12 @@ type Node interface {
 	InsertChildrenAt(idx int, child Node)
 	InsertChildBefore(anchor Node, node Node)
 	InsertChildAfter(anchor Node, node Node)
+
+	attachToGraph(g Graph)
+	detachFromGraph(g Graph)
+
+	AddInvalidationListener(listener InvalidationListener)
+	RemoveInvalidationListener(listener InvalidationListener)
 
 	String() string
 }
@@ -117,9 +119,9 @@ type NodeBase struct {
 	self   Node
 	path   Path
 
-	children   collectionsfx2.MutableSlice[Node]
-	edges      collectionsfx2.MutableMap[EdgeKey, Edge]
-	attributes collectionsfx2.MutableMap[string, any]
+	children   collectionsfx.MutableSlice[Node]
+	edges      collectionsfx.MutableMap[EdgeKey, Edge]
+	attributes collectionsfx.MutableMap[string, any]
 
 	valid                 bool
 	inUpdate              bool
@@ -154,11 +156,11 @@ func (n *NodeBase) IsLeaf() bool       { return false }
 func (n *NodeBase) IsValid() bool      { return n.valid }
 func (n *NodeBase) Comments() []string { return nil }
 
-func (n *NodeBase) CanonicalPath() (res Path)                         { return n.path }
-func (n *NodeBase) Parent() Node                                      { return n.parent }
-func (n *NodeBase) Children() []Node                                  { return n.children.Slice() }
-func (n *NodeBase) ChildrenList() collectionsfx2.ObservableList[Node] { return &n.children }
-func (n *NodeBase) ChildrenIterator() NodeIterator                    { return &nodeChildrenIterator{parent: n} }
+func (n *NodeBase) CanonicalPath() (res Path)                        { return n.path }
+func (n *NodeBase) Parent() Node                                     { return n.parent }
+func (n *NodeBase) Children() []Node                                 { return n.children.Slice() }
+func (n *NodeBase) ChildrenList() collectionsfx.ObservableList[Node] { return &n.children }
+func (n *NodeBase) ChildrenIterator() NodeIterator                   { return &nodeChildrenIterator{parent: n} }
 
 func (n *NodeBase) String() string {
 	return fmt.Sprintf("Node(%T, %d, %s)", n.self, n.id, n.uuid)
@@ -542,10 +544,11 @@ func (n *NodeBase) detachFromGraph(g Graph) {
 	n.Invalidate()
 }
 
-func (n *NodeBase) Update() {
+func (n *NodeBase) Update(context.Context) error {
 	if !n.inUpdate {
 		n.doUpdate(false)
 	}
+	return nil
 }
 
 func (n *NodeBase) doUpdate(skipValidation bool) {
@@ -565,7 +568,7 @@ func (n *NodeBase) doUpdate(skipValidation bool) {
 		it.Item().PsiNodeBase().doUpdate(skipValidation)
 	}
 
-	n.Update()
+	n.Update(nil)
 
 	n.valid = true
 
