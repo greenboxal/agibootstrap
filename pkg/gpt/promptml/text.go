@@ -13,12 +13,10 @@ type TextNode struct {
 	Text obsfx.StringProperty `json:"text"`
 }
 
-func (l *TextNode) OnInvalidated(observable obsfx.Observable) { l.Invalidate() }
-
 func (l *TextNode) Init(self psi.Node, uuid string) {
 	l.LeafBase.Init(self, uuid)
 
-	l.Text.AddListener(l)
+	obsfx.ObserveInvalidation(&l.Text, l.InvalidateLayout)
 }
 
 func (l *TextNode) Render(ctx context.Context) error {

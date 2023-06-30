@@ -26,14 +26,9 @@ func NewStage(root Parent, tokenizer tokenizers.BasicTokenizer) *Stage {
 }
 
 func (s *Stage) Render(ctx context.Context, writer io.Writer) error {
-	s.root.SetMaxLength(NewTokenLength(float64(s.MaxTokens), TokenUnitToken))
 
-	if err := s.root.Layout(ctx); err != nil {
-		return err
-	}
-
-	for !s.root.IsValid() {
-		if err := s.root.Update(ctx); err != nil {
+	for !s.root.IsValid() || s.root.NeedsLayout() {
+		if err := s.root.Layout(ctx); err != nil {
 			return err
 		}
 	}
@@ -47,12 +42,6 @@ func (s *Stage) Render(ctx context.Context, writer io.Writer) error {
 	return nil
 }
 
-func (s *Stage) setRoot(root Parent) {
-	s.root = root
-
-	s.root.PmlNodeBase().setStage(s)
-}
-
 func (s *Stage) RenderToString(ctx context.Context) (string, error) {
 	buf := bytes.NewBuffer(nil)
 
@@ -61,4 +50,14 @@ func (s *Stage) RenderToString(ctx context.Context) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+func (s *Stage) setRoot(root Parent) {
+	if s.root == root {
+		return
+	}
+
+	s.root = root
+
+	s.root.PmlNodeBase().setStage(s)
 }

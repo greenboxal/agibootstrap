@@ -3,6 +3,7 @@ package promptml
 import (
 	"context"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
@@ -33,53 +34,133 @@ type Node interface {
 	GetMaxLength() TokenLength
 	SetMaxLength(length TokenLength)
 
-	GetPrefLength() TokenLength
-	SetPrefLength(length TokenLength)
-
 	GetBias() float64
 	SetBias(bias float64)
 
 	GetTokenLength() int
+	GetTokenLengthProperty() obsfx.ObservableValue[int]
 }
 
 type NodeBase struct {
 	psi.NodeBase
 
-	Visible bool `json:"visible,omitempty"`
+	LayoutBounds obsfx.Property[*Bounds] `json:"layout_bounds,omitempty"`
 
-	LayoutBounds *Bounds `json:"layout_bounds,omitempty"`
+	Visible   obsfx.BoolProperty `json:"visible,omitempty"`
+	Resizable obsfx.BoolProperty `json:"resizable"`
+	Movable   obsfx.BoolProperty `json:"movable"`
 
-	Resizable bool `json:"resizable"`
-	Movable   bool `json:"movable"`
+	MinLength obsfx.SimpleProperty[TokenLength] `json:"min_length"`
+	MaxLength obsfx.SimpleProperty[TokenLength] `json:"max_length"`
 
-	MinLength  TokenLength `json:"min_length"`
-	MaxLength  TokenLength `json:"max_length"`
-	PrefLength TokenLength `json:"pref_length"`
+	Bias obsfx.DoubleProperty `json:"bias"`
 
-	Bias float64 `json:"bias"`
+	effectiveMinLength obsfx.ObservableValue[int]
+	effectiveMaxLength obsfx.ObservableValue[int]
 
-	needsLayout    bool
+	tokenLength obsfx.IntProperty
+
+	stage obsfx.SimpleProperty[*Stage]
+
+	tb *rendering.TokenBuffer
+
 	boundsInParent *Bounds
-
-	effectiveMinLength  int
-	effectiveMaxLength  int
-	effectivePrefLength int
-
-	stage *Stage
-	tb    *rendering.TokenBuffer
 }
 
 func (n *NodeBase) PmlNodeBase() *NodeBase { return n }
 func (n *NodeBase) PmlNode() Node          { return n.PsiNode().(Node) }
 
-func (n *NodeBase) GetStage() *Stage                       { return n.stage }
+func (n *NodeBase) GetStage() *Stage {
+	s := n.stage.Value()
+
+	if s == nil {
+		if p := n.PmlParent(); p != nil {
+			return p.PmlNodeBase().GetStage()
+		}
+	}
+
+	return n.stage.Value()
+}
 func (n *NodeBase) GetTokenBuffer() *rendering.TokenBuffer { return n.tb }
+
+func (n *NodeBase) GetTokenLength() int                                { return n.tokenLength.Value() }
+func (n *NodeBase) GetTokenLengthProperty() obsfx.ObservableValue[int] { return &n.tokenLength }
 
 func (n *NodeBase) IsContainer() bool { return true }
 func (n *NodeBase) IsLeaf() bool      { return false }
 
+func (n *NodeBase) GetEffectiveMinLength() int {
+	v := n.MinLength.Value()
+
+	if !v.IsReal() {
+		if p := n.PmlParent(); p != nil {
+			v = v.MulInt(p.PmlNodeBase().GetEffectiveMinLength())
+		} else {
+			return 0
+		}
+	}
+
+	return v.TokenCount()
+}
+
+func (n *NodeBase) GetEffectiveMaxLength() int {
+	v := n.MaxLength.Value()
+
+	if !v.IsReal() {
+		if p := n.PmlParent(); p != nil {
+			pml := p.PmlNodeBase().GetEffectiveMaxLength()
+
+			v = v.MulInt(pml)
+		} else if n.GetStage() != nil {
+			v = v.MulInt(n.GetStage().MaxTokens)
+		}
+	}
+
+	return v.TokenCount()
+}
+
 func (n *NodeBase) Init(self psi.Node, uuid string) {
+	n.MinLength.SetValue(NewTokenLength(0, TokenUnitPercent))
+	n.MaxLength.SetValue(NewTokenLength(1, TokenUnitPercent))
+	n.Bias.SetValue(0.0)
+	n.Visible.SetValue(true)
+	n.Resizable.SetValue(true)
+	n.Movable.SetValue(true)
+
 	n.NodeBase.Init(self, uuid)
+
+	obsfx.ObserveInvalidation(&n.stage, func() {
+		for it := n.ChildrenIterator(); it.Next(); {
+			cn, ok := it.Value().(Node)
+
+			if !ok {
+				continue
+			}
+
+			cn.PmlNodeBase().setStage(n.stage.Value())
+		}
+
+		n.Invalidate()
+	})
+
+	n.effectiveMinLength = obsfx.BindExpression(func() int {
+		return n.GetEffectiveMinLength()
+	}, &n.MaxLength, &n.MinLength, n.ParentProperty(), &n.stage)
+
+	n.effectiveMaxLength = obsfx.BindExpression(func() int {
+		return n.GetEffectiveMaxLength()
+	}, &n.MaxLength, &n.MinLength, n.ParentProperty(), &n.stage)
+
+	obsfx.ObserveInvalidation(n.effectiveMinLength, n.InvalidateLayout)
+	obsfx.ObserveInvalidation(n.effectiveMaxLength, n.InvalidateLayout)
+
+	obsfx.ObserveInvalidation(n.PsiNodeBase().ParentProperty(), n.InvalidateLayout)
+	obsfx.ObserveInvalidation(&n.MinLength, n.InvalidateLayout)
+	obsfx.ObserveInvalidation(&n.MaxLength, n.InvalidateLayout)
+	obsfx.ObserveInvalidation(&n.Bias, n.InvalidateLayout)
+	obsfx.ObserveInvalidation(&n.Visible, n.InvalidateLayout)
+	obsfx.ObserveInvalidation(&n.Resizable, n.InvalidateLayout)
+	obsfx.ObserveInvalidation(&n.Movable, n.InvalidateLayout)
 
 	collectionsfx.ObserveList(n.ChildrenList(), func(ev collectionsfx.ListChangeEvent[psi.Node]) {
 		if ev.WasAdded() {
@@ -90,7 +171,9 @@ func (n *NodeBase) Init(self psi.Node, uuid string) {
 					continue
 				}
 
-				cn.PmlNodeBase().setStage(n.stage)
+				if n.GetStage() != nil {
+					cn.PmlNodeBase().setStage(n.GetStage())
+				}
 			}
 		}
 	})
@@ -101,7 +184,7 @@ func (n *NodeBase) GetLayoutBounds() Bounds {
 		return n.GetBoundsInLocal()
 	}
 
-	return *n.LayoutBounds
+	return *n.LayoutBounds.Value()
 }
 
 func (n *NodeBase) GetBoundsInLocal() Bounds {
@@ -119,68 +202,19 @@ func (n *NodeBase) GetBoundsInParent() Bounds {
 	return *n.boundsInParent
 }
 
-func (n *NodeBase) GetRelevance() float64 { return 1 + n.Bias }
-func (n *NodeBase) GetBias() float64      { return n.Bias }
-func (n *NodeBase) SetBias(bias float64) {
-	n.Bias = bias
-
-	n.Invalidate()
-	n.RequestParentLayout()
-}
-
-func (n *NodeBase) IsResizable() bool { return n.Resizable }
-func (n *NodeBase) SetResizable(resizable bool) {
-	n.Resizable = resizable
-	n.Invalidate()
-}
-
-func (n *NodeBase) IsVisible() bool { return n.Visible }
-func (n *NodeBase) SetVisible(visible bool) {
-	n.Visible = visible
-	n.Invalidate()
-	n.RequestParentLayout()
-}
-
-func (n *NodeBase) IsMovable() bool { return n.Movable }
-func (n *NodeBase) SetMovable(movable bool) {
-	n.Movable = movable
-	n.Invalidate()
-	n.RequestParentLayout()
-}
-
-func (n *NodeBase) GetMinLength() TokenLength { return n.MinLength }
-func (n *NodeBase) SetMinLength(length TokenLength) {
-	n.MinLength = length
-	n.Invalidate()
-	n.RequestParentLayout()
-}
-
-func (n *NodeBase) GetMaxLength() TokenLength { return n.MaxLength }
-func (n *NodeBase) SetMaxLength(length TokenLength) {
-	n.MaxLength = length
-	n.Invalidate()
-	n.RequestParentLayout()
-	n.PmlNodeBase().RequestParentLayout()
-}
-
-func (n *NodeBase) GetPrefLength() TokenLength { return n.PrefLength }
-func (n *NodeBase) SetPrefLength(length TokenLength) {
-	n.PrefLength = length
-	n.Invalidate()
-	n.RequestParentLayout()
-}
-
-func (n *NodeBase) GetEffectiveMaxLength() int  { return n.effectiveMaxLength }
-func (n *NodeBase) GetEffectiveMinLength() int  { return n.effectiveMinLength }
-func (n *NodeBase) GetEffectivePrefLength() int { return n.effectivePrefLength }
-
-func (n *NodeBase) GetTokenLength() int {
-	if n.tb == nil {
-		return 0
-	}
-
-	return n.tb.TokenCount()
-}
+func (n *NodeBase) GetRelevance() float64           { return 1 + n.Bias.Value() }
+func (n *NodeBase) GetBias() float64                { return n.Bias.Value() }
+func (n *NodeBase) SetBias(bias float64)            { n.Bias.SetValue(bias) }
+func (n *NodeBase) IsResizable() bool               { return n.Resizable.Value() }
+func (n *NodeBase) SetResizable(resizable bool)     { n.Resizable.SetValue(resizable) }
+func (n *NodeBase) IsVisible() bool                 { return n.Visible.Value() }
+func (n *NodeBase) SetVisible(visible bool)         { n.Visible.SetValue(visible) }
+func (n *NodeBase) IsMovable() bool                 { return n.Movable.Value() }
+func (n *NodeBase) SetMovable(movable bool)         { n.Movable.SetValue(movable) }
+func (n *NodeBase) GetMinLength() TokenLength       { return n.MinLength.Value() }
+func (n *NodeBase) SetMinLength(length TokenLength) { n.MinLength.SetValue(length) }
+func (n *NodeBase) GetMaxLength() TokenLength       { return n.MaxLength.Value() }
+func (n *NodeBase) SetMaxLength(length TokenLength) { n.MaxLength.SetValue(length) }
 
 func (n *NodeBase) RequestParentLayout() {
 	if n.Parent() == nil {
@@ -196,64 +230,26 @@ func (n *NodeBase) RequestParentLayout() {
 	p.RequestLayout()
 }
 
+func (n *NodeBase) updateDimensions() {
+	if n.GetStage() != nil {
+		if n.tb == nil {
+			n.tb = rendering.NewTokenBuffer(n.GetStage().Tokenizer, n.GetEffectiveMaxLength())
+		} else {
+			n.tb.SetTokenLimit(n.GetEffectiveMaxLength())
+		}
+	}
+}
+
 func (n *NodeBase) Update(ctx context.Context) error {
-	n.effectiveMinLength = n.MinLength.GetEffectiveLength(func(f float64) int {
-		p := n.PmlParent()
+	if p := n.PmlParent(); p != nil {
+		ps := p.PmlNodeBase().GetStage()
 
-		if p == nil {
-			return -1
+		if ps != nil && n.GetStage() != ps {
+			n.setStage(ps)
 		}
-
-		return p.PmlNodeBase().GetEffectiveMinLength()
-	}, func() int {
-		p := n.PmlParent()
-
-		if p == nil {
-			return 0x7fffffff
-		}
-
-		return p.PmlNodeBase().GetEffectiveMaxLength()
-	})
-
-	n.effectiveMaxLength = n.MaxLength.GetEffectiveLength(func(f float64) int {
-		p := n.PmlParent()
-
-		if p == nil {
-			return -1
-		}
-
-		return p.PmlNodeBase().GetEffectiveMaxLength()
-	}, func() int {
-		return n.effectiveMinLength
-	})
-
-	n.effectivePrefLength = n.PrefLength.GetEffectiveLength(func(f float64) int {
-		p := n.PmlParent()
-
-		if p == nil {
-			return -1
-		}
-
-		return p.PmlNodeBase().GetEffectivePrefLength()
-	}, func() int {
-		return n.effectiveMaxLength
-	})
-
-	if n.effectiveMaxLength < n.effectiveMinLength {
-		n.effectiveMaxLength = n.effectiveMinLength
 	}
 
-	if n.effectivePrefLength < n.effectiveMinLength {
-		n.effectivePrefLength = n.effectiveMinLength
-	}
-
-	if n.effectivePrefLength > n.effectiveMaxLength {
-		n.effectivePrefLength = n.effectiveMaxLength
-	}
-
-	if n.tb == nil {
-		n.tb = rendering.NewTokenBuffer(n.stage.Tokenizer, n.GetEffectiveMaxLength())
-	}
+	n.updateDimensions()
 
 	if err := n.NodeBase.Update(ctx); err != nil {
 		return err
@@ -277,17 +273,10 @@ func (n *NodeBase) PmlParent() Parent {
 }
 
 func (n *NodeBase) setStage(stage *Stage) {
-	n.stage = stage
+	n.stage.SetValue(stage)
+}
 
-	for it := n.ChildrenIterator(); it.Next(); {
-		cn, ok := it.Value().(Node)
-
-		if !ok {
-			continue
-		}
-
-		cn.PmlNodeBase().setStage(stage)
-	}
-
+func (n *NodeBase) InvalidateLayout() {
 	n.Invalidate()
+	n.RequestParentLayout()
 }

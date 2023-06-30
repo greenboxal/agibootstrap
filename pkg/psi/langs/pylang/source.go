@@ -8,6 +8,7 @@ import (
 	"io"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/greenboxal/aip/aip-langchain/pkg/tokenizers"
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi/langs/pylang/pyparser"
@@ -147,6 +148,11 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 }
 
 type CharTokenizer struct {
+}
+
+func (c CharTokenizer) GetTokens(bytes []byte) (tokenizers.Tokens, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (c CharTokenizer) Count(text string) (int, error) {

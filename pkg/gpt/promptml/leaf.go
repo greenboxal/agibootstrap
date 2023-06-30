@@ -3,6 +3,7 @@ package promptml
 import (
 	"context"
 
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
 )
 
@@ -18,6 +19,10 @@ type LeafBase struct {
 	NodeBase
 }
 
+func (l *LeafBase) Init(self psi.Node, uuid string) {
+	l.NodeBase.Init(self, uuid)
+}
+
 func (l *LeafBase) PmlLeaf() Leaf { return l.PsiNode().(Leaf) }
 
 func (l *LeafBase) Update(ctx context.Context) error {
@@ -25,13 +30,23 @@ func (l *LeafBase) Update(ctx context.Context) error {
 		return err
 	}
 
-	l.tb.Reset()
+	if l.tb != nil {
+		l.tb.Reset()
 
-	if err := l.PmlLeaf().Render(ctx); err != nil {
-		return err
+		if err := l.PmlLeaf().Render(ctx); err != nil {
+			return err
+		}
+
+		l.RequestParentLayout()
+
+		l.tokenLength.SetValue(l.tb.TokenCount())
+
+		/*if l.GetTokenLength() > l.GetEffectiveMaxLength() && l.PmlNode().IsResizable() {
+			l.SetVisible(false)
+		} else {
+			l.SetVisible(true)
+		}*/
 	}
-
-	l.RequestParentLayout()
 
 	return nil
 }

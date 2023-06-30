@@ -26,7 +26,7 @@ type Parent interface {
 type ContainerBase struct {
 	NodeBase
 
-	isFirstLayout bool
+	isLayoutValid bool
 }
 
 func NewContainer() *ContainerBase {
@@ -38,12 +38,12 @@ func NewContainer() *ContainerBase {
 }
 
 func (n *ContainerBase) PmlContainer() *ContainerBase           { return n }
-func (n *ContainerBase) PmlParent() Parent                      { return n.PsiNode().(Parent) }
+func (n *ContainerBase) AsPmlParent() Parent                    { return n.PsiNode().(Parent) }
 func (n *ContainerBase) GetTokenBuffer() *rendering.TokenBuffer { return n.tb }
-func (n *ContainerBase) NeedsLayout() bool                      { return n.needsLayout }
+func (n *ContainerBase) NeedsLayout() bool                      { return !n.isLayoutValid }
 
 func (n *ContainerBase) RequestLayout() {
-	n.needsLayout = true
+	n.isLayoutValid = false
 
 	n.Invalidate()
 }
@@ -51,13 +51,7 @@ func (n *ContainerBase) RequestLayout() {
 func (n *ContainerBase) Layout(ctx context.Context) error {
 	n.RequestLayout()
 
-	for !n.IsValid() || n.PmlContainer().NeedsLayout() {
-		if err := n.Update(ctx); err != nil {
-			return nil
-		}
-	}
-
-	return nil
+	return n.Update(ctx)
 }
 
 func (n *ContainerBase) LayoutChildren(ctx context.Context) error {
@@ -69,28 +63,23 @@ func (n *ContainerBase) LayoutChildren(ctx context.Context) error {
 
 	staticLength := 0
 	dynamicLength := 0
-	minLength := 0
 	treeWeight := 0.0
 
 	for _, child := range children {
+		if err := child.Update(ctx); err != nil {
+			return err
+		}
+
 		if child.IsResizable() {
 			dynamicLength += child.GetTokenLength()
+			treeWeight += child.PmlNodeBase().GetRelevance()
 		} else {
 			staticLength += child.GetTokenLength()
 		}
-
-		minLength += child.PmlNodeBase().GetEffectiveMinLength()
-		treeWeight += child.GetBias()
 	}
 
-	totalLength := staticLength + dynamicLength
-	remaining := n.GetEffectiveMaxLength() - totalLength
-
-	if remaining > 0 && !n.isFirstLayout {
-		return nil
-	}
-
-	remainingDynamicTokens := n.GetEffectiveMaxLength() - staticLength
+	maxDynamicTokens := n.GetEffectiveMaxLength() - staticLength
+	remainingDynamicTokens := maxDynamicTokens
 
 	resizableOrdered := iterators.FilterIsInstance[psi.Node, Node](n.ChildrenIterator())
 
@@ -99,65 +88,105 @@ func (n *ContainerBase) LayoutChildren(ctx context.Context) error {
 	})
 
 	resizableOrdered = iterators.SortWith(resizableOrdered, func(a, b Node) int {
-		aNorm := a.GetBias() / treeWeight
-		bNorm := b.GetBias() / treeWeight
+		aNorm := a.PmlNodeBase().GetRelevance() / treeWeight
+		bNorm := b.PmlNodeBase().GetRelevance() / treeWeight
 
-		return int(aNorm - bNorm)
+		return int(bNorm - aNorm)
 	})
+
+	tempBuffer := rendering.NewTokenBuffer(n.GetStage().Tokenizer, remainingDynamicTokens)
 
 	for it := resizableOrdered; it.Next(); {
 		child := it.Value()
 
-		biasNorm := child.GetBias() / treeWeight
+		biasNorm := child.PmlNodeBase().GetRelevance() / treeWeight
 
-		child.SetMaxLength(NewTokenLength(float64(remainingDynamicTokens), TokenUnitToken))
-		child.SetPrefLength(NewTokenLength(float64(remainingDynamicTokens)*biasNorm, TokenUnitToken))
+		if child.GetMinLength().Unit != TokenUnitPercent {
+			child.SetMinLength(NewTokenLength(float64(remainingDynamicTokens)*biasNorm, TokenUnitToken))
+		}
+
+		if child.GetMaxLength().Unit != TokenUnitPercent {
+			child.SetMaxLength(NewTokenLength(float64(remainingDynamicTokens), TokenUnitToken))
+		}
 
 		if err := child.Update(ctx); err != nil {
 			return err
 		}
 
-		remainingDynamicTokens -= child.GetTokenLength()
-	}
+		childTb := child.PmlNodeBase().GetTokenBuffer()
 
-	n.isFirstLayout = false
+		if childTb != nil {
+			if _, err := childTb.WriteTo(tempBuffer); err != nil {
+				return err
+			}
+
+			remainingDynamicTokens = maxDynamicTokens - tempBuffer.TokenCount()
+		}
+	}
 
 	return nil
 }
 
 func (n *ContainerBase) Update(ctx context.Context) error {
-	if n.needsLayout {
-		if err := n.PmlParent().LayoutChildren(ctx); err != nil {
-			return err
-		}
-
-		n.needsLayout = false
-	}
-
-	if n.NodeBase.Update(ctx) != nil {
+	if n.GetStage() == nil {
 		return nil
 	}
 
-	n.tb.Reset()
+	if err := n.NodeBase.Update(ctx); err != nil {
+		return err
+	}
 
+	if !n.isLayoutValid {
+		if err := n.AsPmlParent().LayoutChildren(ctx); err != nil {
+			return err
+		}
+
+		for it := n.ChildrenIterator(); it.Next(); {
+			if err := it.Node().Update(ctx); err != nil {
+				return err
+			}
+		}
+
+		n.isLayoutValid = true
+	}
+
+	if n.tb != nil {
+		n.tb.Reset()
+
+		if err := n.render(ctx, n.tb); err != nil {
+			return err
+		}
+
+		n.tokenLength.SetValue(n.tb.TokenCount())
+	}
+
+	return nil
+}
+
+func (n *ContainerBase) render(ctx context.Context, tb *rendering.TokenBuffer) error {
 	for it := n.ChildrenIterator(); it.Next(); {
-		leaf, isNode := it.Value().(Node)
+		cn, isNode := it.Value().(Node)
 
 		if !isNode {
 			continue
 		}
 
-		tb := leaf.PmlNodeBase().GetTokenBuffer()
-
-		if tb == nil {
+		if !cn.IsVisible() {
 			continue
 		}
 
-		_, err := n.tb.WriteBuffer(tb)
+		childTb := cn.PmlNodeBase().GetTokenBuffer()
+
+		if childTb == nil {
+			continue
+		}
+
+		_, err := childTb.WriteTo(tb)
 
 		if err != nil {
 			return err
 		}
+
 	}
 
 	return nil

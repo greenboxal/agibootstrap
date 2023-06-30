@@ -37,10 +37,6 @@ func NewTasksToolWindow(p project.Project) *TasksToolWindow {
 		}
 	}
 
-	invalidationListener := psi.InvalidationListenerFunc(func(n psi.Node) {
-		updateSelectedTask()
-	})
-
 	taskTree.OnNodeSelected = func(n psi.Node) {
 		task, ok := n.(tasks.Task)
 
@@ -53,13 +49,13 @@ func NewTasksToolWindow(p project.Project) *TasksToolWindow {
 		}
 
 		if selectedTask != nil {
-			selectedTask.RemoveInvalidationListener(invalidationListener)
+			//selectedTask.ChildrenList(invalidationListener)
 		}
 
 		selectedTask = task
 
 		if selectedTask != nil {
-			selectedTask.AddInvalidationListener(invalidationListener)
+			//selectedTask.AddInvalidationListener(invalidationListener)
 		}
 
 		updateSelectedTask()

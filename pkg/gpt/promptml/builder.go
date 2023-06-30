@@ -9,3 +9,9 @@ func Container(children ...Node) Parent {
 
 	return c
 }
+
+func Fixed[T Node](t T) T {
+	t.SetResizable(false)
+
+	return t
+}

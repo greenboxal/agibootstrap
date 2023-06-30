@@ -7,10 +7,14 @@ import (
 
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/tokenizers"
+	"github.com/sashabaranov/go-openai"
 	"github.com/stretchr/testify/require"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
 )
+
+var testTokenizer = tokenizers.TikTokenForModel(openai.GPT4)
 
 func TestRenderingSimple(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -21,8 +25,8 @@ func TestRenderingSimple(t *testing.T) {
 		Message("you", "me", msn.RoleAI, Text("Hello, world!")),
 	)
 
-	tokenizer := tokenizers.TikTokenForModel("gpt-3.5-turbo")
-	stage := NewStage(root, tokenizer)
+	stage := NewStage(root, testTokenizer)
+	stage.MaxTokens = 10
 
 	buf := bytes.NewBuffer(nil)
 
@@ -54,8 +58,8 @@ func TestRenderingBinding(t *testing.T) {
 		MessageWithData(you, me, roleAI, TextWithData(&text2)),
 	)
 
-	tokenizer := tokenizers.TikTokenForModel("gpt-3.5-turbo")
-	stage := NewStage(root, tokenizer)
+	stage := NewStage(root, testTokenizer)
+	stage.MaxTokens = 15
 
 	str1, err := stage.RenderToString(ctx)
 
@@ -71,4 +75,36 @@ func TestRenderingBinding(t *testing.T) {
 	require.NotEmpty(t, str2)
 
 	require.NotEqual(t, str1, str2)
+}
+
+func TestRenderingDynamicList(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	root := Container(
+		Message("System", "AI", msn.RoleSystem, Container(
+			Fixed(Text("Hello!")),
+			Fixed(Text("Available Context:")),
+
+			NewDynamicList(func(ctx context.Context) iterators.Iterator[Node] {
+				return iterators.FromSlice([]Node{
+					Text("Hello"),
+					Text("World"),
+				})
+			}),
+
+			Fixed(Text("End of Available Context.")),
+		)),
+
+		Message("Human", "AI", msn.RoleUser, Fixed(Text("Say something about the context above."))),
+		Message("AI", "Human", msn.RoleAI, Fixed(Text(" "))),
+	)
+
+	stage := NewStage(root, testTokenizer)
+	stage.MaxTokens = 7
+
+	str1, err := stage.RenderToString(ctx)
+
+	require.NoError(t, err)
+	require.Equal(t, "Hello!Available Context:HelloWorldEnd of Available Context.Say something about the context above. ", str1)
 }

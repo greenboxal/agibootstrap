@@ -10,7 +10,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
-	obsfx2 "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
+	obsfx "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
 	collectionsfx2 "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -104,9 +104,7 @@ func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.No
 		thoughtList.ReplaceAll(tle.element.Messages()...)
 	}
 
-	element.AddInvalidationListener(psi.InvalidationListenerFunc(func(n psi.Node) {
-		updateAllItems()
-	}))
+	obsfx.ObserveInvalidation(element.ChildrenList(), updateAllItems)
 
 	updateAllItems()
 
@@ -134,8 +132,8 @@ func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.No
 type ThoughtView struct {
 	View fyne.CanvasObject
 
-	Thought      obsfx2.SimpleProperty[*thoughtstream.Thought]
-	TextProperty obsfx2.StringProperty
+	Thought      obsfx.SimpleProperty[*thoughtstream.Thought]
+	TextProperty obsfx.StringProperty
 
 	rt *widget.RichText
 }
@@ -149,7 +147,7 @@ func NewThoughtView() *ThoughtView {
 
 	tv.View = tv.rt
 
-	obsfx2.BindFunc(func(v string) {
+	obsfx.BindFunc(func(v string) {
 		msg := tv.Thought.Value()
 
 		if msg == nil {
@@ -159,24 +157,24 @@ func NewThoughtView() *ThoughtView {
 		tv.rt.ParseMarkdown(fmt.Sprintf("# **[%s]:**\n%s", msg.From.Name, v))
 	}, &tv.TextProperty)
 
-	obsfx2.ObserveChange(&tv.Thought, func(old, new *thoughtstream.Thought) {
+	obsfx.ObserveChange(&tv.Thought, func(old, new *thoughtstream.Thought) {
 		if old != nil {
-			old.RemoveInvalidationListener(tv)
+			old.ChildrenList().RemoveListener(tv)
 		}
 
 		if new != nil {
-			new.AddInvalidationListener(tv)
+			new.ChildrenList().AddListener(tv)
 		}
 
-		tv.OnInvalidated(new)
+		tv.OnInvalidated(nil)
 	})
 
-	tv.OnInvalidated(tv.Thought.Value())
+	tv.OnInvalidated(nil)
 
 	return tv
 }
 
-func (tv *ThoughtView) OnInvalidated(n psi.Node) {
+func (tv *ThoughtView) OnInvalidated(o obsfx.Observable) {
 	t := tv.Thought.Value()
 
 	if t != nil {

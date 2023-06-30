@@ -110,7 +110,7 @@ func NewTokenBuffer(tokenizer tokenizers.BasicTokenizer, limit int) *TokenBuffer
 	return tb
 }
 
-func (w *TokenBuffer) TokenLimit() int { return w.tokenCount }
+func (w *TokenBuffer) TokenLimit() int { return w.tokenLimit }
 func (w *TokenBuffer) TokenCount() int { return w.tokenCount }
 
 func (w *TokenBuffer) SetTokenLimit(limit int) { w.tokenLimit = limit }
@@ -232,4 +232,21 @@ func (w *TokenBuffer) String() string {
 	}
 
 	return buf.String()
+}
+
+func (w *TokenBuffer) WriteToTruncated(writer io.Writer) (total int64, err error) {
+	tokens, err := w.tokenizer.GetTokens(w.Bytes())
+
+	if err != nil {
+		panic(err)
+	}
+
+	tokens = tokens.Truncate(w.tokenLimit)
+	str := tokens.String()
+
+	n, err := writer.Write([]byte(str))
+
+	total += int64(n)
+
+	return
 }
