@@ -3,15 +3,15 @@ package agents
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 )
 
 type AgentContext interface {
 	Context() context.Context
 	Profile() *Profile
 	Agent() Agent
-	Branch() thoughtstream.Branch
-	Stream() thoughtstream.Stream
+	Branch() thoughtdb.Branch
+	Stream() thoughtdb.Cursor
 	WorldState() WorldState
 }
 
@@ -19,8 +19,8 @@ type Agent interface {
 	AnalysisSession
 
 	Profile() *Profile
-	Log() thoughtstream.Branch
-	History() []*thoughtstream.Thought
+	Log() thoughtdb.Branch
+	History() []*thoughtdb.Thought
 	WorldState() WorldState
 
 	AttachTo(r Router)
@@ -30,9 +30,9 @@ type Agent interface {
 }
 
 type StepOptions struct {
-	Base   thoughtstream.Branch
-	Head   thoughtstream.Pointer
-	Stream thoughtstream.Stream
+	Base   thoughtdb.Branch
+	Head   thoughtdb.Pointer
+	Stream thoughtdb.Cursor
 }
 
 func (opts *StepOptions) Apply(options ...StepOption) error {
@@ -43,11 +43,11 @@ func (opts *StepOptions) Apply(options ...StepOption) error {
 	}
 
 	if opts.Stream == nil {
-		opts.Stream = opts.Base.Stream()
+		opts.Stream = opts.Base.Cursor()
 	}
 
 	if !opts.Head.IsZero() {
-		if err := opts.Stream.Seek(opts.Head); err != nil {
+		if err := opts.Stream.PushPointer(opts.Head); err != nil {
 			return err
 		}
 	}
@@ -65,7 +65,7 @@ func NewStepOptions(options ...StepOption) (opts StepOptions, err error) {
 	return
 }
 
-func WithStream(stream thoughtstream.Stream) StepOption {
+func WithStream(stream thoughtdb.Cursor) StepOption {
 	return func(opts *StepOptions) error {
 		opts.Stream = stream
 
@@ -73,7 +73,7 @@ func WithStream(stream thoughtstream.Stream) StepOption {
 	}
 }
 
-func WithBranch(branch thoughtstream.Branch) StepOption {
+func WithBranch(branch thoughtdb.Branch) StepOption {
 	return func(opts *StepOptions) error {
 		opts.Base = branch
 
@@ -81,7 +81,7 @@ func WithBranch(branch thoughtstream.Branch) StepOption {
 	}
 }
 
-func WithHeadPointer(head thoughtstream.Pointer) StepOption {
+func WithHeadPointer(head thoughtdb.Pointer) StepOption {
 	return func(opts *StepOptions) error {
 		opts.Head = head
 

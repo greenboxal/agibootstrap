@@ -251,7 +251,7 @@ func (sf *SourceFile) MergeDeclarations(cursor psi.Cursor, node psi.Node) bool {
 		if previous == nil {
 			sf.InsertDeclarationAt(cursor, name, node)
 		} else {
-			if cursor.Node().(Node).Ast() == previous.To().(Node).Ast() {
+			if cursor.Value().(Node).Ast() == previous.To().(Node).Ast() {
 				cursor.Replace(node)
 			}
 

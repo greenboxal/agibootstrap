@@ -92,7 +92,7 @@ func FreezeGraph(g psi.Graph) (*FrozenGraph, error) {
 	var fg FrozenGraph
 
 	for it := g.Nodes(); it.Next(); {
-		n := it.Node()
+		n := it.Value()
 
 		_, contentId, err := SerializeNode(n)
 
@@ -114,7 +114,7 @@ func FreezeGraph(g psi.Graph) (*FrozenGraph, error) {
 		childrenIndex := int64(0)
 
 		for it := n.ChildrenIterator(); it.Next(); childrenIndex++ {
-			cn := it.Node()
+			cn := it.Value()
 
 			fe := &FrozenEdge{
 				Key: psi.EdgeKey{

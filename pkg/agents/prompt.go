@@ -6,7 +6,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/promptml"
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 )
 
@@ -76,9 +76,9 @@ func AgentMessage(name, text string) AgentPromptFunc {
 	}
 }
 
-func ThoughtHistory(iterator thoughtstream.Iterable) AgentPromptFunc {
+func ThoughtHistory(iterator thoughtdb.Cursor) AgentPromptFunc {
 	return func(ctx AgentContext) (chat.Message, error) {
-		msgs := iterators.Map(iterator.Iterator(), func(thought *thoughtstream.Thought) chat.Message {
+		msgs := iterators.Map(iterator.IterateParents(), func(thought *thoughtdb.Thought) chat.Message {
 			return chat.Compose(
 				chat.MessageEntry{
 					Role: thought.From.Role,
@@ -94,7 +94,7 @@ func ThoughtHistory(iterator thoughtstream.Iterable) AgentPromptFunc {
 
 func LogHistory() AgentPromptFunc {
 	return func(ctx AgentContext) (chat.Message, error) {
-		return ThoughtHistory(ctx.Branch())(ctx)
+		return ThoughtHistory(ctx.Branch().Cursor())(ctx)
 	}
 }
 

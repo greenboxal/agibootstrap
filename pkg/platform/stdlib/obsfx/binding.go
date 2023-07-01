@@ -64,7 +64,7 @@ func BindAny[V any](src RawObservableValue, mapper func(any) V) Binding[V] {
 	return b
 }
 
-func Select[Src ObservableValue[V], V, Result ObservableValue[T], T any](src Src, mapper func(V) Result) Binding[T] {
+func Select[V any, T any](src ObservableValue[V], mapper func(V) ObservableValue[T]) Binding[T] {
 	var step SelectStep
 
 	existing, isSelect := reflect.ValueOf(src).Interface().(*SelectBinding[V])

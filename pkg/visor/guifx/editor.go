@@ -1,4 +1,4 @@
-package visor
+package guifx
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -29,9 +29,9 @@ type PsiNodeDescription struct {
 
 func GetPsiNodeDescription(v psi.Node) PsiNodeDescription {
 	switch v := v.(type) {
-	case *thoughtstream.ThoughtLog:
+	case thoughtdb.Branch:
 		return PsiNodeDescription{
-			Name:        v.PsiNodeName(),
+			Name:        v.UUID(),
 			Description: "Log Branch",
 			Icon:        theme.AccountIcon(),
 		}
@@ -73,15 +73,4 @@ func GetPsiNodeDescription(v psi.Node) PsiNodeDescription {
 		Description: v.String(),
 		Icon:        theme.QuestionIcon(),
 	}
-}
-
-func FactoryForNode(element psi.Node) EditorFactory {
-	switch element.(type) {
-	case *thoughtstream.ThoughtLog:
-		return NewThoughtLogEditor
-	case psi.SourceFile:
-		return NewSourceFileEditor
-	}
-
-	return nil
 }

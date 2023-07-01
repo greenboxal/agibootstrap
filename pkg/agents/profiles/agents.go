@@ -3,7 +3,7 @@ package profiles
 import (
 	"github.com/greenboxal/agibootstrap/pkg/agents"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/featureextractors"
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 )
 
 var CtxPairMeditation agents.WorldStateKey[string] = "pair_meditation"
@@ -56,7 +56,7 @@ providing a comprehensive overview of the task and its critical milestones.
 	Rank:     1.0 / 2.0,
 	Priority: 1,
 
-	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtdb.Thought) error {
 		plan, err := featureextractors.QueryPlan(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
@@ -82,7 +82,7 @@ critical to maintaining the system's synergy and productivity.
 	Rank:     1.0 / 3.0,
 	Priority: 1,
 
-	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtdb.Thought) error {
 		plan, err := featureextractors.QueryPlan(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
@@ -108,7 +108,7 @@ in quick and effective problem-solving.
 	Rank:     1.0 / 3.0,
 	Priority: 1.0 / 3.0,
 
-	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtdb.Thought) error {
 		library, err := featureextractors.QueryLibrary(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
@@ -139,7 +139,7 @@ plan of action to reach the intended outcome.
 	Rank:     1.0 / 3.0,
 	Priority: 1.0 / 2.0,
 
-	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtdb.Thought) error {
 		plan, err := featureextractors.QueryPlan(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
@@ -176,7 +176,7 @@ code goes here
 	Rank:     1.0 / 4.0,
 	Priority: 1,
 
-	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtdb.Thought) error {
 		blocks, err := featureextractors.ExtractCodeBlocks(ctx.Context(), "", ctx.Agent().History()...)
 
 		if err != nil {
@@ -217,7 +217,7 @@ code goes here
 	Rank:     1.0 / 4.0,
 	Priority: 1.0 / 2.0,
 
-	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtdb.Thought) error {
 		blocks, err := featureextractors.ExtractCodeBlocks(ctx.Context(), "", ctx.Agent().History()...)
 
 		if err != nil {
@@ -248,7 +248,7 @@ ensure the functionality and integrity of the code before it's finalized.
 	Rank:     1.0 / 5.0,
 	Priority: 1,
 
-	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtdb.Thought) error {
 		goal, err := featureextractors.QueryGoalCompletion(ctx.Context(), ctx.Agent().History())
 
 		if err != nil {
@@ -274,7 +274,7 @@ transparency and traceability.
 	Rank:     1.0 / 3.0,
 	Priority: 1.0 / 4.0,
 
-	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtdb.Thought) error {
 		timeline, err := featureextractors.QueryTimeline(ctx.Context(), ctx.Agent().History()...)
 
 		if err != nil {
@@ -300,7 +300,7 @@ guidance and motivate the other profiles when they seem stuck or hesitant.
 	Rank:     -1.0,
 	Priority: -1,
 
-	PostStep: func(ctx agents.AgentContext, msg *thoughtstream.Thought) error {
+	PostStep: func(ctx agents.AgentContext, msg *thoughtdb.Thought) error {
 		agents.SetState(ctx.WorldState(), CtxPairMeditation, msg.Text)
 
 		return nil

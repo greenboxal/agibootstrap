@@ -1,5 +1,7 @@
 package psi
 
+import "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
+
 func NewCursor() Cursor {
 	return &cursor{}
 }
@@ -8,11 +10,25 @@ func NewCursor() Cursor {
 type Cursor interface {
 	Depth() int
 
+	// Next advances the cursor to the next node.
+	Next() bool
+
 	// Current returns the current node.
-	Node() Node
+	Value() Node
 	// SetCurrent sets the current node.
 	SetCurrent(node Node)
+	// SetNext sets the next node.
 	SetNext(node Node)
+	// Enqueue enqueues the given node iterator.
+	Enqueue(it iterators.Iterator[Node])
+	// Push pushes the given node iterator.
+	Push(it iterators.Iterator[Node])
+	// Pop pops the current node iterator.
+	Pop() bool
+	// PushChildren pushes the children of the current node.
+	PushChildren()
+	// PushEdges pushes the edges of the current node.
+	PushEdges()
 
 	// WalkChildren walks the children of the current node.
 	WalkChildren()
@@ -68,7 +84,7 @@ func (c *cursor) pop() cursorState {
 	return old
 }
 
-func (c *cursor) Node() Node    { return c.state.current }
+func (c *cursor) Value() Node   { return c.state.current }
 func (c *cursor) Depth() int    { return c.state.depth }
 func (c *cursor) WalkChildren() { c.state.walkChildren = true }
 func (c *cursor) SkipChildren() { c.state.walkChildren = false }
@@ -85,9 +101,9 @@ func (c *cursor) SetNext(node Node) {
 	c.state.iterator = it
 }
 
-func (c *cursor) Enqueue(it NodeIterator) {
-
+func (c *cursor) Enqueue(it iterators.Iterator[Node]) {
 	c.state.iterator = it
+
 	if c.state.iterator == nil {
 		c.state.iterator = it
 	} else {
@@ -98,7 +114,7 @@ func (c *cursor) Enqueue(it NodeIterator) {
 }
 
 func (c *cursor) InsertBefore(newNode Node) {
-	n := c.Node()
+	n := c.Value()
 	p := n.Parent()
 
 	if p == nil {
@@ -109,7 +125,7 @@ func (c *cursor) InsertBefore(newNode Node) {
 }
 
 func (c *cursor) InsertAfter(newNode Node) {
-	n := c.Node()
+	n := c.Value()
 	p := n.Parent()
 
 	if p == nil {
@@ -120,7 +136,7 @@ func (c *cursor) InsertAfter(newNode Node) {
 }
 
 func (c *cursor) Replace(newNode Node) {
-	n := c.Node()
+	n := c.Value()
 	p := n.Parent()
 
 	if p != nil {
@@ -135,9 +151,44 @@ func (c *cursor) Next() bool {
 		return false
 	}
 
-	c.state.current = c.state.iterator.Node()
+	c.state.current = c.state.iterator.Value()
 
 	return true
+}
+
+func (c *cursor) EnqueueChildren() {
+	c.Enqueue(c.state.current.ChildrenIterator())
+}
+
+func (c *cursor) PushEdges() {
+	//c.Push(c.state.depth+1, c.state.current.EdgesIterator())
+	panic("not implemented")
+}
+
+func (c *cursor) Push(it iterators.Iterator[Node]) {
+	st := cursorState{
+		depth:    c.state.depth + 1,
+		iterator: it,
+
+		walkChildren: c.walkChildren,
+		walkEdges:    c.walkEdges,
+	}
+
+	c.push(st)
+}
+
+func (c *cursor) Pop() bool {
+	if len(c.stack) == 0 {
+		return false
+	}
+
+	c.pop()
+
+	return true
+}
+
+func (c *cursor) PushChildren() {
+	c.Push(c.state.current.ChildrenIterator())
 }
 
 func (c *cursor) Walk(n Node, walkFn WalkFunc) (err error) {
@@ -167,19 +218,11 @@ func (c *cursor) Walk(n Node, walkFn WalkFunc) (err error) {
 			}
 
 			if c.state.walkEdges {
-				panic("not implemented")
+				c.PushEdges()
 			}
 
 			if c.state.walkChildren {
-				st := cursorState{
-					depth:    c.state.depth + 1,
-					iterator: c.state.current.ChildrenIterator(),
-
-					walkChildren: c.walkChildren,
-					walkEdges:    c.walkEdges,
-				}
-
-				c.push(st)
+				c.PushChildren()
 			}
 		} else {
 			if len(c.stack) == 0 {

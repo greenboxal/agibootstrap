@@ -42,6 +42,7 @@ func (g *genericInvalidationListExpressionHelper[T]) OnListChanged(ev ListChange
 	})
 
 	g.listListeners.ForEachListener(func(l ListListener[T]) bool {
+		ev.Reset()
 		l.OnListChanged(ev)
 
 		return true
@@ -109,6 +110,7 @@ type singleListListenerExpressionHelper[T any] struct {
 }
 
 func (s *singleListListenerExpressionHelper[T]) OnListChanged(ev ListChangeEvent[T]) {
+	ev.Reset()
 	s.listener.OnListChanged(ev)
 }
 

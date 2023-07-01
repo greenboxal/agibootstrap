@@ -9,6 +9,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/tasks"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/visor/guifx"
 )
 
 type TasksToolWindow struct {
@@ -25,7 +26,7 @@ func NewTasksToolWindow(p project.Project) *TasksToolWindow {
 	selectedTaskDesc := binding.NewString()
 	selectedTaskProgress := binding.NewFloat()
 
-	taskTree := NewPsiTreeWidget(p)
+	taskTree := guifx.NewPsiTreeWidget(p)
 	taskTree.SetRootItem(p.TaskManager().CanonicalPath())
 
 	updateSelectedTask := func() {

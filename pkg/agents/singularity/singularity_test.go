@@ -9,11 +9,11 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/agents"
 	"github.com/greenboxal/agibootstrap/pkg/agents/profiles"
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 )
 
 func TestSingularity(t *testing.T) {
-	lm := thoughtstream.NewManager("/tmp/agib-test-log")
+	lm := thoughtdb.NewManager("/tmp/agib-test-log")
 	defer lm.Close()
 
 	s, err := NewSingularity(lm)
@@ -22,7 +22,7 @@ func TestSingularity(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	request := thoughtstream.NewThought()
+	request := thoughtdb.NewThought()
 	request.From.Name = "Human"
 	request.From.Role = msn.RoleUser
 	request.Text = `

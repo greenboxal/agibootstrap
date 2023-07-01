@@ -9,6 +9,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/visor/guifx"
 )
 
 type SourceFileEditor struct {
@@ -24,7 +25,7 @@ func (t *SourceFileEditor) ElementPath() psi.Path    { return t.elementPath }
 func (t *SourceFileEditor) Element() psi.Node        { return t.element }
 func (t *SourceFileEditor) Root() fyne.CanvasObject  { return t.root }
 
-func NewSourceFileEditor(p project.Project, elementPath psi.Path, element psi.Node) Editor {
+func NewSourceFileEditor(p project.Project, elementPath psi.Path, element psi.Node) guifx.Editor {
 	tle := &SourceFileEditor{
 		project:     p,
 		elementPath: elementPath,

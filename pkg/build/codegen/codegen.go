@@ -20,7 +20,7 @@ func (bs *BuildStep) Process(ctx context.Context, bctx *build.Context) (result b
 	langRegistry := bctx.Project().LanguageProvider()
 
 	err = psi.Walk(bctx.Project(), func(cursor psi.Cursor, entering bool) error {
-		n := cursor.Node()
+		n := cursor.Value()
 
 		if entering {
 			switch n := n.(type) {

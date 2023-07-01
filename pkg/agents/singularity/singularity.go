@@ -13,7 +13,7 @@ import (
 	agents "github.com/greenboxal/agibootstrap/pkg/agents"
 	"github.com/greenboxal/agibootstrap/pkg/agents/profiles"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/featureextractors"
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -27,7 +27,9 @@ type Singularity struct {
 	scheduler  *agents.RoundRobinScheduler
 }
 
-func NewSingularity(lm *thoughtstream.Manager) (*Singularity, error) {
+func NewSingularity(lm *thoughtdb.Repo) (*Singularity, error) {
+	var err error
+
 	s := &Singularity{
 		worldState: NewWorldState(),
 		scheduler:  &agents.RoundRobinScheduler{},
@@ -35,11 +37,7 @@ func NewSingularity(lm *thoughtstream.Manager) (*Singularity, error) {
 
 	s.Init(s, "")
 
-	globalLog, err := lm.GetOrCreateBranch("GLOBAL")
-
-	if err != nil {
-		panic(err)
-	}
+	globalLog := lm.CreateBranch()
 
 	allProfiles := []*agents.Profile{profiles.SingularityProfile}
 	allProfiles = append(allProfiles, profiles.MajorArcanas...)
@@ -49,11 +47,7 @@ func NewSingularity(lm *thoughtstream.Manager) (*Singularity, error) {
 	for i, profile := range allProfiles {
 		a := &agents.AgentBase{}
 
-		al, err := lm.GetOrCreateBranch(profile.Name)
-
-		if err != nil {
-			return nil, err
-		}
+		al := lm.CreateBranch()
 
 		a.Init(a, profile, nil, al, s.worldState)
 
@@ -80,7 +74,7 @@ func NewSingularity(lm *thoughtstream.Manager) (*Singularity, error) {
 func (s *Singularity) Router() agents.Router         { return s.world.Router() }
 func (s *Singularity) WorldState() agents.WorldState { return s.worldState }
 
-func (s *Singularity) Step(ctx context.Context) ([]*thoughtstream.Thought, error) {
+func (s *Singularity) Step(ctx context.Context) ([]*thoughtdb.Thought, error) {
 	s.worldState.Cycle++
 
 	s.Router().ResetOutbox()

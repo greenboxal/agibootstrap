@@ -19,6 +19,7 @@ type BasicListChangeEvent interface {
 	WasPermutated() bool
 
 	Next() bool
+	Reset()
 }
 
 type ListChangeEvent[T any] interface {
@@ -35,6 +36,14 @@ type listChangeIterator[T any] struct {
 
 	events []*listChangeEvent[T]
 	index  int
+}
+
+func (l *listChangeIterator[T]) Reset() {
+	l.index = 0
+
+	if len(l.events) > 0 {
+		l.ListChangeEvent = l.events[0]
+	}
 }
 
 func (l *listChangeIterator[T]) Next() bool {
@@ -62,6 +71,10 @@ type listChangeEvent[T any] struct {
 	updated      bool
 	consumed     bool
 	perm         []int
+}
+
+func (l *listChangeEvent[T]) Reset() {
+	l.consumed = false
 }
 
 func (l *listChangeEvent[T]) Next() bool {

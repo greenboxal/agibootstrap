@@ -6,6 +6,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/visor/guifx"
 )
 
 type ProjectExplorer struct {
@@ -13,7 +14,7 @@ type ProjectExplorer struct {
 }
 
 func NewProjectExplorer(p project.Project, dm *DocumentManager) *ProjectExplorer {
-	projectTree := NewPsiTreeWidget(p)
+	projectTree := guifx.NewPsiTreeWidget(p)
 
 	projectTree.OnNodeSelected = func(n psi.Node) {
 		dm.OpenDocument(n.CanonicalPath(), n)

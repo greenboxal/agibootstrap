@@ -14,13 +14,13 @@ import (
 	"github.com/jaswdr/faker"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	mdutils2 "github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type ReflectOptions struct {
-	History []*thoughtstream.Thought
+	History []*thoughtdb.Thought
 	Query   string
 
 	ExampleInput  any
@@ -86,10 +86,10 @@ func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ cha
 		historyText += fmt.Sprintf("[%s]:\n%s\n", msg.From.Name, msg.Text)
 	}
 
-	msgs := make([]*thoughtstream.Thought, 0, len(req.History)+3)
+	msgs := make([]*thoughtdb.Thought, 0, len(req.History)+3)
 
-	msgs = append(msgs, &thoughtstream.Thought{
-		From: thoughtstream.CommHandle{
+	msgs = append(msgs, &thoughtdb.Thought{
+		From: thoughtdb.CommHandle{
 			Role: msn.RoleSystem,
 		},
 
@@ -107,8 +107,8 @@ func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ cha
 
 	msgs = append(msgs, req.History...)
 
-	msgs = append(msgs, &thoughtstream.Thought{
-		From: thoughtstream.CommHandle{
+	msgs = append(msgs, &thoughtdb.Thought{
+		From: thoughtdb.CommHandle{
 			Name: "User",
 			Role: msn.RoleUser,
 		},
@@ -124,8 +124,8 @@ func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ cha
 		),
 	})
 
-	msgs = append(msgs, &thoughtstream.Thought{
-		From: thoughtstream.CommHandle{
+	msgs = append(msgs, &thoughtdb.Thought{
+		From: thoughtdb.CommHandle{
 			Name: "Assistant",
 			Role: msn.RoleAI,
 		},

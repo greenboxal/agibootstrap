@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 )
 
 type SpeakerPrediction struct {
 	NextSpeaker string `json:"NextSpeaker" jsonschema:"description=The next speaker"`
 }
 
-func PredictNextSpeaker(ctx context.Context, plan Plan, history ...*thoughtstream.Thought) (SpeakerPrediction, error) {
+func PredictNextSpeaker(ctx context.Context, plan Plan, history ...*thoughtdb.Thought) (SpeakerPrediction, error) {
 	planJson, err := json.Marshal(plan)
 
 	if err != nil {

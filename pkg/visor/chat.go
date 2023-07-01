@@ -8,11 +8,13 @@ import (
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/widget"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	obsfx "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
 	collectionsfx2 "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/visor/guifx"
 )
 
 type ChatExplorer struct {
@@ -24,11 +26,11 @@ func NewChatExplorer(p project.Project, dm *DocumentManager) *ChatExplorer {
 
 	chatLogsToolbar := container.NewHBox()
 
-	chatLogTree := NewPsiTreeWidget(p)
+	chatLogTree := guifx.NewPsiTreeWidget(p)
 	chatLogTree.SetRootItem(p.LogManager().CanonicalPath())
 
 	chatLogTree.OnNodeSelected = func(n psi.Node) {
-		chatLog, ok := n.(*thoughtstream.ThoughtLog)
+		chatLog, ok := n.(thoughtdb.Branch)
 
 		if !ok {
 			return
@@ -53,7 +55,7 @@ func NewChatExplorer(p project.Project, dm *DocumentManager) *ChatExplorer {
 type ThoughtLogEditor struct {
 	project     project.Project
 	elementPath psi.Path
-	element     *thoughtstream.ThoughtLog
+	element     thoughtdb.Branch
 
 	root fyne.CanvasObject
 }
@@ -63,11 +65,11 @@ func (t *ThoughtLogEditor) ElementPath() psi.Path    { return t.elementPath }
 func (t *ThoughtLogEditor) Element() psi.Node        { return t.element }
 func (t *ThoughtLogEditor) Root() fyne.CanvasObject  { return t.root }
 
-func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.Node) Editor {
+func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.Node) guifx.Editor {
 	tle := &ThoughtLogEditor{
 		project:     p,
 		elementPath: elementPath,
-		element:     element.(*thoughtstream.ThoughtLog),
+		element:     element.(thoughtdb.Branch),
 	}
 
 	chatReplyBinding := binding.NewString()
@@ -75,7 +77,7 @@ func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.No
 	listItemParent := container.NewVBox()
 	listContainer := container.NewMax(container.NewVScroll(listItemParent))
 
-	thoughtList := collectionsfx2.MutableSlice[*thoughtstream.Thought]{}
+	thoughtList := collectionsfx2.MutableSlice[*thoughtdb.Thought]{}
 	listItems := collectionsfx2.MutableSlice[*ThoughtView]{}
 
 	collectionsfx2.ObserveList(&listItems, func(ev collectionsfx2.ListChangeEvent[*ThoughtView]) {
@@ -92,7 +94,7 @@ func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.No
 		}
 	})
 
-	collectionsfx2.BindList(&listItems, &thoughtList, func(v *thoughtstream.Thought) *ThoughtView {
+	collectionsfx2.BindList(&listItems, &thoughtList, func(v *thoughtdb.Thought) *ThoughtView {
 		tv := NewThoughtView()
 
 		tv.Thought.SetValue(v)
@@ -101,7 +103,9 @@ func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.No
 	})
 
 	updateAllItems := func() {
-		thoughtList.ReplaceAll(tle.element.Messages()...)
+		children := iterators.ToSlice(iterators.FilterIsInstance[psi.Node, *thoughtdb.Thought](tle.element.ChildrenIterator()))
+
+		thoughtList.ReplaceAll(children...)
 	}
 
 	obsfx.ObserveInvalidation(element.ChildrenList(), updateAllItems)
@@ -132,7 +136,7 @@ func NewThoughtLogEditor(p project.Project, elementPath psi.Path, element psi.No
 type ThoughtView struct {
 	View fyne.CanvasObject
 
-	Thought      obsfx.SimpleProperty[*thoughtstream.Thought]
+	Thought      obsfx.SimpleProperty[*thoughtdb.Thought]
 	TextProperty obsfx.StringProperty
 
 	rt *widget.RichText
@@ -157,7 +161,7 @@ func NewThoughtView() *ThoughtView {
 		tv.rt.ParseMarkdown(fmt.Sprintf("# **[%s]:**\n%s", msg.From.Name, v))
 	}, &tv.TextProperty)
 
-	obsfx.ObserveChange(&tv.Thought, func(old, new *thoughtstream.Thought) {
+	obsfx.ObserveChange(&tv.Thought, func(old, new *thoughtdb.Thought) {
 		if old != nil {
 			old.ChildrenList().RemoveListener(tv)
 		}

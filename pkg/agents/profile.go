@@ -1,11 +1,11 @@
 package agents
 
 import (
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
-type PostStepHook func(ctx AgentContext, thought *thoughtstream.Thought) error
+type PostStepHook func(ctx AgentContext, thought *thoughtdb.Thought) error
 
 type Profile struct {
 	psi.NodeBase

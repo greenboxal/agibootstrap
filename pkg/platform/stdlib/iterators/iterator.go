@@ -59,3 +59,24 @@ func (f *funcIterator[T]) Next() bool {
 func (f *funcIterator[T]) Value() T {
 	return f.current
 }
+
+type single[T any] struct {
+	value    T
+	consumed bool
+}
+
+func Single[T any](value T) Iterator[T] {
+	return &single[T]{value: value}
+}
+
+func (s *single[T]) Next() bool {
+	if s.consumed {
+		return false
+	}
+
+	s.consumed = true
+
+	return true
+}
+
+func (s *single[T]) Value() T { return s.value }

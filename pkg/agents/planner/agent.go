@@ -3,7 +3,7 @@ package planner
 import (
 	"github.com/greenboxal/agibootstrap/pkg/agents"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/featureextractors"
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 )
 
 type Agent struct {
@@ -19,8 +19,8 @@ type WorldState interface {
 
 func NewAgent(
 	profile *agents.Profile,
-	repo thoughtstream.Resolver,
-	log *thoughtstream.ThoughtLog,
+	repo thoughtdb.Resolver,
+	log *thoughtdb.ThoughtLog,
 	worldState agents.WorldState,
 ) *Agent {
 	a := &Agent{}

@@ -29,7 +29,7 @@ type RawEdge struct {
 type RawNodeEntry struct {
 	UUID     string   `json:"UUID,omitempty"`
 	PhysAddr PhysAddr `json:"PhysAddr,omitempty"`
-	Node     Node     `json:"Node,omitempty"`
+	Node     Node     `json:"Value,omitempty"`
 }
 
 type RawNode struct {

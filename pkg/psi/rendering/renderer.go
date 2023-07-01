@@ -14,12 +14,12 @@ import (
 ## 1. Introduction
 This document proposes a design for a tree structure (referred to as "Tree T") where each parent node can have multiple ordered children nodes and each leaf node can have an associated string value, which is generated lazily at the time of tree traversal during the rendering operation.
 
-In addition, each Node in Tree T has a weight (W) ranging from 0 to 1, acting as a normalized weight, and a priority (P) that can take any integer number. There's also a Token Limit, which determines the maximum length of the output string during the rendering operation.
+In addition, each Value in Tree T has a weight (W) ranging from 0 to 1, acting as a normalized weight, and a priority (P) that can take any integer number. There's also a Token Limit, which determines the maximum length of the output string during the rendering operation.
 
 ## 2. Design Requirements
 
-### 2.1 Node Structure
-Each Node in Tree T will have the following properties:
+### 2.1 Value Structure
+Each Value in Tree T will have the following properties:
 
 1. **Value Generator**: For leaf nodes, this is a function or a promise that generates the node's value when called/executed. For non-leaf nodes, it could be undefined or have a specific type depending on the implementation.
 
@@ -32,13 +32,13 @@ Each Node in Tree T will have the following properties:
 ### 2.2 Tree Structure
 Tree T should support the following operations:
 
-1. **Add Node**: Add a new Node to Tree T with a given Value Generator, Weight, and Priority. If adding a child node, the parent node should be specified.
+1. **Add Value**: Add a new Value to Tree T with a given Value Generator, Weight, and Priority. If adding a child node, the parent node should be specified.
 
-2. **Remove Node**: Remove a Node from Tree T. If the node has children, those nodes are also removed.
+2. **Remove Value**: Remove a Value from Tree T. If the node has children, those nodes are also removed.
 
-3. **Get Node**: Retrieve a Node from Tree T based on a given identifier.
+3. **Get Value**: Retrieve a Value from Tree T based on a given identifier.
 
-4. **Update Node**: Update the Value Generator, Weight, or Priority of a Node.
+4. **Update Value**: Update the Value Generator, Weight, or Priority of a Value.
 
 5. **Rendering Operation**: Traverse the tree and write all leaf nodes to a single string buffer, with a token limit that caps the maximum length of the final string.
 
@@ -50,15 +50,15 @@ The Rendering Operation is a traversal of Tree T that writes all leaf nodes to a
 ### 3.2 Detailed Procedure
 The Rendering Operation works as follows:
 
-1. **Start at the Root Node**: The operation begins at the root node of Tree T.
+1. **Start at the Root Value**: The operation begins at the root node of Tree T.
 
 2. **Initialize Token Counter**: The counter is set to the predefined Token Limit at the start.
 
-3. **Node Prioritization**: In the event of multiple children at a parent node, children nodes are sorted based on their priority (P). In case of a tie in priority, the weight (W) is considered. Nodes with higher priority are processed first.
+3. **Value Prioritization**: In the event of multiple children at a parent node, children nodes are sorted based on their priority (P). In case of a tie in priority, the weight (W) is considered. Nodes with higher priority are processed first.
 
-4. **Leaf Node Processing**: If the current node is a leaf node, its value generator function is called. If the length of the generated string is less than or equal to the remaining token count, it is appended to the string buffer and the token count is decreased by the length of the string. If the length exceeds the remaining token count, the operation halts or the string is truncated, depending on the specific implementation.
+4. **Leaf Value Processing**: If the current node is a leaf node, its value generator function is called. If the length of the generated string is less than or equal to the remaining token count, it is appended to the string buffer and the token count is decreased by the length of the string. If the length exceeds the remaining token count, the operation halts or the string is truncated, depending on the specific implementation.
 
-5. **Non-leaf Node Processing**: If the current node is a non-leaf node, the Rendering Operation recursively processes its children, continually checking and updating the remaining token count. Content may be appended to the string buffer before, after, or between the processing of child nodes, as
+5. **Non-leaf Value Processing**: If the current node is a non-leaf node, the Rendering Operation recursively processes its children, continually checking and updating the remaining token count. Content may be appended to the string buffer before, after, or between the processing of child nodes, as
 */
 
 const DoNotPrune = -1
@@ -122,7 +122,7 @@ func (r *PruningRenderer) Render(node psi.Node, writer io.Writer) (total int64, 
 	totalWeight := float32(0.0)
 
 	err = psi.Walk(node, func(cursor psi.Cursor, entering bool) error {
-		n := cursor.Node()
+		n := cursor.Value()
 		s := r.getState(n)
 
 		if entering {

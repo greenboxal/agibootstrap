@@ -1,4 +1,4 @@
-package thoughtstream
+package thoughtdb
 
 import (
 	"encoding/binary"

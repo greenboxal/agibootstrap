@@ -42,7 +42,7 @@ func (o *GraphBase[K, N, E]) RemoveGraphListener(listener GraphListener[K, N, E]
 	}
 }
 
-//type mutableGraph[K comparable, N Node, E WeightedEdge] struct {
+//type mutableGraph[K comparable, N Value, E WeightedEdge] struct {
 //	idMap collectionsfx.MutableMap[K, N]
 //	nodes collectionsfx.MutableMap[int64, N]
 //	from  collectionsfx.MutableMap[int64, collectionsfx.ObservableMap[int64, E]]
@@ -56,7 +56,7 @@ func (o *GraphBase[K, N, E]) RemoveGraphListener(listener GraphListener[K, N, E]
 //	helper GraphExpressionHelper[K, N, E]
 //}
 //
-//func NewMutableWeightedDirected[K comparable, N Node, E WeightedEdge](self, absent float64) MutableWeightedDirectedGraph[K, N, E] {
+//func NewMutableWeightedDirected[K comparable, N Value, E WeightedEdge](self, absent float64) MutableWeightedDirectedGraph[K, N, E] {
 //	mg := &mutableGraph[K, N, E]{
 //		self:   self,
 //		absent: absent,
@@ -77,7 +77,7 @@ func (o *GraphBase[K, N, E]) RemoveGraphListener(listener GraphListener[K, N, E]
 //		panic("id allocation failed")
 //	}
 //
-//	return simple.Node(int64(id))
+//	return simple.Value(int64(id))
 //}
 //
 //func (o *mutableGraph[K, N, E]) AddNode(node N) {
@@ -85,7 +85,7 @@ func (o *GraphBase[K, N, E]) RemoveGraphListener(listener GraphListener[K, N, E]
 //	o.nodes.Set(node.ID(), node)
 //}
 //
-//func (o *mutableGraph[K, N, E]) Node(v int64) N {
+//func (o *mutableGraph[K, N, E]) Value(v int64) N {
 //	n, _ := o.nodes.Get(v)
 //
 //	return n

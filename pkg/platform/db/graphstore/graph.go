@@ -33,6 +33,7 @@ type IndexedGraph struct {
 	logger *zap.SugaredLogger
 	mu     sync.RWMutex
 
+	os    *ObjectStore
 	store *Store
 	root  psi.Node
 
@@ -49,6 +50,7 @@ func NewIndexedGraph(ctx context.Context, ds datastore.Batching, root psi.Node) 
 	g := &IndexedGraph{
 		logger: logging.GetLogger("graphstore"),
 
+		os:    os,
 		root:  root,
 		store: store,
 
@@ -231,12 +233,20 @@ func (g *IndexedGraph) run(proc goprocess.Process) {
 	ctx := goprocessctx.OnClosingContext(proc)
 
 	for item := range g.nodeUpdateQueue {
-		fn, err := g.store.UpsertNode(ctx, item.Node)
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					g.logger.Error(r)
+				}
+			}()
 
-		if err != nil {
-			g.logger.Error(err)
-		}
+			fn, err := g.store.UpsertNode(ctx, item.Node)
 
-		g.logger.Infow("Updated node", "uuid", item.Node.UUID(), "version", item.Version, "cid", fn.Cid)
+			if err != nil {
+				g.logger.Error(err)
+			}
+
+			g.logger.Infow("Updated node", "uuid", item.Node.UUID(), "version", item.Version, "cid", fn.Cid)
+		}()
 	}
 }

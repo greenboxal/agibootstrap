@@ -11,7 +11,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/promptml"
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -21,24 +21,24 @@ type AgentContextBase struct {
 
 	agent Agent
 
-	branch thoughtstream.Branch
-	stream thoughtstream.Stream
+	branch thoughtdb.Branch
+	stream thoughtdb.Cursor
 }
 
-func (c AgentContextBase) Context() context.Context     { return c.ctx }
-func (c AgentContextBase) Profile() *Profile            { return c.agent.Profile() }
-func (c AgentContextBase) Agent() Agent                 { return c.agent }
-func (c AgentContextBase) Branch() thoughtstream.Branch { return c.branch }
-func (c AgentContextBase) Stream() thoughtstream.Stream { return c.stream }
-func (c AgentContextBase) WorldState() WorldState       { return c.agent.WorldState() }
+func (c AgentContextBase) Context() context.Context { return c.ctx }
+func (c AgentContextBase) Profile() *Profile        { return c.agent.Profile() }
+func (c AgentContextBase) Agent() Agent             { return c.agent }
+func (c AgentContextBase) Branch() thoughtdb.Branch { return c.branch }
+func (c AgentContextBase) Stream() thoughtdb.Cursor { return c.stream }
+func (c AgentContextBase) WorldState() WorldState   { return c.agent.WorldState() }
 
 type AgentBase struct {
 	psi.NodeBase
 
 	profile *Profile
 
-	log        thoughtstream.Branch
-	repo       thoughtstream.Resolver
+	log        thoughtdb.Branch
+	repo       *thoughtdb.Repo
 	router     Router
 	worldState WorldState
 }
@@ -46,8 +46,8 @@ type AgentBase struct {
 func (a *AgentBase) Init(
 	self Agent,
 	profile *Profile,
-	repo thoughtstream.Resolver,
-	log thoughtstream.Branch,
+	repo *thoughtdb.Repo,
+	log thoughtdb.Branch,
 	worldState WorldState,
 ) {
 	a.profile = profile
@@ -58,37 +58,35 @@ func (a *AgentBase) Init(
 	a.NodeBase.Init(self, "")
 }
 
-func (a *AgentBase) Repo() thoughtstream.Resolver { return a.repo }
-func (a *AgentBase) Log() thoughtstream.Branch    { return a.log }
-func (a *AgentBase) WorldState() WorldState       { return a.worldState }
-func (a *AgentBase) Profile() *Profile            { return a.profile }
+func (a *AgentBase) Repo() *thoughtdb.Repo  { return a.repo }
+func (a *AgentBase) Log() thoughtdb.Branch  { return a.log }
+func (a *AgentBase) WorldState() WorldState { return a.worldState }
+func (a *AgentBase) Profile() *Profile      { return a.profile }
 
-func (a *AgentBase) History() []*thoughtstream.Thought {
-	return iterators.ToSlice[*thoughtstream.Thought](a.log.Stream().Reversed())
+func (a *AgentBase) History() []*thoughtdb.Thought {
+	return iterators.ToSlice[*thoughtdb.Thought](a.log.Cursor().IterateParents())
 }
 
 func (a *AgentBase) AttachTo(router Router) {
 	a.router = router
 }
 
-func (a *AgentBase) ReceiveMessage(ctx context.Context, msg *thoughtstream.Thought) error {
+func (a *AgentBase) ReceiveMessage(ctx context.Context, msg *thoughtdb.Thought) error {
 	msg = msg.Clone()
-	msg.Pointer = thoughtstream.Pointer{}
+	msg.Pointer = thoughtdb.Pointer{}
 
-	a.log.Mutate().Append(msg)
-
-	return nil
+	return a.log.Commit(ctx, msg)
 }
 
 func (a *AgentBase) ForkSession() (AnalysisSession, error) {
 	forked := &AgentBase{}
 
-	forked.Init(forked, a.profile, a.repo, a.log.Stream().Fork().AsBranch(), a.worldState)
+	forked.Init(forked, a.profile, a.repo, a.log.Fork(), a.worldState)
 
 	return forked, nil
 }
 
-func (a *AgentBase) EmitMessage(ctx context.Context, msg *thoughtstream.Thought) error {
+func (a *AgentBase) EmitMessage(ctx context.Context, msg *thoughtdb.Thought) error {
 	if msg.From.Name == "" && msg.From.Role == msn.RoleAI {
 		msg.From.Name = a.profile.Name
 	}
@@ -100,13 +98,13 @@ func (a *AgentBase) Step(ctx context.Context, options ...StepOption) error {
 	var opts StepOptions
 
 	opts.Base = a.log
-	opts.Head = a.log.HeadPointer()
+	opts.Head = a.log.Head().Pointer
 
 	if err := opts.Apply(options...); err != nil {
 		return err
 	}
 
-	branchStream := opts.Base.Fork()
+	fork := opts.Base.Fork()
 
 	prompt := TmlContainer(
 		promptml.Message("", msn.RoleSystem, promptml.Styled(
@@ -115,9 +113,9 @@ func (a *AgentBase) Step(ctx context.Context, options ...StepOption) error {
 		)),
 
 		promptml.NewDynamicList(func(ctx context.Context) iterators.Iterator[promptml.Node] {
-			src := thoughtstream.NewHierarchicalStream(branchStream.AsBranch()).Reversed()
+			src := fork.Cursor().IterateParents()
 
-			return iterators.Map(src, func(thought *thoughtstream.Thought) promptml.Node {
+			return iterators.Map(src, func(thought *thoughtdb.Thought) promptml.Node {
 				return promptml.Message(
 					thought.From.Name,
 					thought.From.Role,
@@ -132,8 +130,8 @@ func (a *AgentBase) Step(ctx context.Context, options ...StepOption) error {
 
 	options = append(
 		options,
-		WithStream(branchStream),
-		WithHeadPointer(thoughtstream.Pointer{}),
+		WithStream(fork.Cursor()),
+		WithHeadPointer(thoughtdb.Pointer{}),
 	)
 
 	reply, err := a.Introspect(ctx, prompt, options...)
@@ -142,7 +140,9 @@ func (a *AgentBase) Step(ctx context.Context, options ...StepOption) error {
 		return err
 	}
 
-	branchStream.Append(reply)
+	if err := fork.Commit(ctx, reply); err != nil {
+		return err
+	}
 
 	if err := a.EmitMessage(ctx, reply); err != nil {
 		return err
@@ -156,22 +156,15 @@ func (a *AgentBase) Step(ctx context.Context, options ...StepOption) error {
 		}
 	}
 
-	r := a.Repo()
-
-	return opts.Base.Mutate().Merge(
-		ctx,
-		r,
-		thoughtstream.FlatTimeMergeStrategy(),
-		branchStream.AsBranch(),
-	)
+	return opts.Base.Merge(ctx, thoughtdb.FlatTimeMergeStrategy(), fork)
 }
 
-func (a *AgentBase) Introspect(ctx context.Context, prompt AgentPrompt, options ...StepOption) (reply *thoughtstream.Thought, err error) {
+func (a *AgentBase) Introspect(ctx context.Context, prompt AgentPrompt, options ...StepOption) (reply *thoughtdb.Thought, err error) {
 	var opts StepOptions
 	var predictOptions []llm.PredictOption
 
 	opts.Base = a.log
-	opts.Head = a.log.HeadPointer()
+	opts.Head = a.log.Pointer()
 
 	if err := opts.Apply(options...); err != nil {
 		return nil, err
@@ -193,7 +186,7 @@ func (a *AgentBase) Introspect(ctx context.Context, prompt AgentPrompt, options 
 		return nil, err
 	}
 
-	reply = thoughtstream.NewThought()
+	reply = thoughtdb.NewThought()
 	reply.From.Name = a.profile.Name
 	reply.From.Role = msn.RoleAI
 

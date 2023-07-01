@@ -231,7 +231,7 @@ func (n *NodeBase) ChildrenList() collectionsfx.ObservableList[Node] { return &n
 func (n *NodeBase) ChildrenIterator() NodeIterator                   { return &nodeChildrenIterator{parent: n} }
 
 func (n *NodeBase) String() string {
-	return fmt.Sprintf("Node(%T, %d, %s)", n.self, n.id, n.uuid)
+	return fmt.Sprintf("Value(%T, %d, %s)", n.self, n.id, n.uuid)
 }
 
 func (n *NodeBase) ResolveChild(component PathElement) Node {
@@ -624,7 +624,7 @@ func (n *NodeBase) updatePath() {
 
 func (n *NodeBase) InvalidateTree() {
 	for it := n.ChildrenIterator(); it.Next(); {
-		it.Node().PsiNodeBase().InvalidateTree()
+		it.Value().PsiNodeBase().InvalidateTree()
 	}
 }
 

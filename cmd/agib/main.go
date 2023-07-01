@@ -12,6 +12,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/build/fiximports"
 	"github.com/greenboxal/agibootstrap/pkg/codex"
 	"github.com/greenboxal/agibootstrap/pkg/visor"
+	"github.com/greenboxal/agibootstrap/pkg/visor/chatui"
 
 	// Register languages
 	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/clang"
@@ -156,7 +157,36 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(initCmd, reindexCmd, generateCmd, commitCmd, debugCmd)
+	var chatCmd = &cobra.Command{
+		Use:   "chat",
+		Short: "Runs the debugger chat",
+		Long:  "This command runs the debugger chat UI.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			wd, err := os.Getwd()
+
+			if err != nil {
+				return err
+			}
+
+			cmd.SilenceUsage = true
+
+			p, err := codex.NewProject(cmd.Context(), wd)
+
+			if err != nil {
+				return err
+			}
+
+			defer p.Close()
+
+			vis := chatui.NewChatUI(p)
+
+			vis.Run()
+
+			return nil
+		},
+	}
+
+	rootCmd.AddCommand(initCmd, reindexCmd, generateCmd, commitCmd, debugCmd, chatCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		panic(err)

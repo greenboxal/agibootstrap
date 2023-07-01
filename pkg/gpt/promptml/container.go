@@ -142,7 +142,7 @@ func (n *ContainerBase) Update(ctx context.Context) error {
 		}
 
 		for it := n.ChildrenIterator(); it.Next(); {
-			if err := it.Node().Update(ctx); err != nil {
+			if err := it.Value().Update(ctx); err != nil {
 				return err
 			}
 		}

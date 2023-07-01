@@ -88,15 +88,17 @@ func (fl *FilteredList[T]) Iterator() Iterator[T] {
 	return &listIterator[T]{l: fl}
 }
 
-func (fl *FilteredList[T]) getBuilder() *ListChangeBuilder[T] {
+func (fl *FilteredList[T]) begin() *ListChangeBuilder[T] {
 	fl.builder.ObservableListBase = &fl.ObservableListBase
 	fl.builder.List = fl
+
+	fl.builder.Begin()
 
 	return &fl.builder
 }
 
 func (fl *FilteredList[T]) OnListChanged(ev ListChangeEvent[T]) {
-	b := fl.getBuilder()
+	b := fl.begin()
 	defer b.End()
 
 	for ev.Next() {
@@ -160,7 +162,7 @@ func (fl *FilteredList[T]) refilter() {
 }
 
 func (fl *FilteredList[T]) onPermutated(ev ListChangeEvent[T]) {
-	b := fl.getBuilder()
+	b := fl.begin()
 	defer b.End()
 
 	from := fl.findPosition(ev.From())
@@ -180,7 +182,7 @@ func (fl *FilteredList[T]) onPermutated(ev ListChangeEvent[T]) {
 }
 
 func (fl *FilteredList[T]) onAddRemove(ev ListChangeEvent[T]) {
-	b := fl.getBuilder()
+	b := fl.begin()
 	defer b.End()
 
 	fl.ensureSize(fl.src.Len())

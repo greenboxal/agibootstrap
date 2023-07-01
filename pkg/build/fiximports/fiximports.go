@@ -16,7 +16,7 @@ type BuildStep struct{}
 
 func (s *BuildStep) Process(ctx context.Context, bctx *build.Context) (result build.StepResult, err error) {
 	err = psi.Walk(bctx.Project(), func(cursor psi.Cursor, entering bool) error {
-		n := cursor.Node()
+		n := cursor.Value()
 
 		cursor.SkipChildren()
 

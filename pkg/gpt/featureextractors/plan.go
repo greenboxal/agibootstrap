@@ -3,7 +3,7 @@ package featureextractors
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -36,7 +36,7 @@ type PlanStatus struct {
 	Status     *GoalCompletion   `json:"Status" jsonschema:"title=Status,description=Status of the plan."`
 }
 
-func QueryPlan(ctx context.Context, history []*thoughtstream.Thought) (Plan, error) {
+func QueryPlan(ctx context.Context, history []*thoughtdb.Thought) (Plan, error) {
 	res, _, err := Reflect[Plan](ctx, ReflectOptions{
 		History: history,
 

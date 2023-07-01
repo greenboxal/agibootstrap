@@ -6,11 +6,11 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 
 	"github.com/greenboxal/agibootstrap/pkg/agents"
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 )
 
 type SimplePromptTemplate struct {
-	Messages []*thoughtstream.Thought
+	Messages []*thoughtdb.Thought
 }
 
 func (a *SimplePromptTemplate) AsPrompt() chain.Prompt { panic("implement me") }
@@ -34,7 +34,7 @@ func (a *SimplePromptTemplate) Build(ctx chain.ChainContext) (chat.Message, erro
 type AgentPromptTemplate struct {
 	Profile        agents.Profile
 	SystemMessages []chat.Message
-	Messages       []*thoughtstream.Thought
+	Messages       []*thoughtdb.Thought
 }
 
 func (a *AgentPromptTemplate) AsPrompt() chain.Prompt { panic("implement me") }

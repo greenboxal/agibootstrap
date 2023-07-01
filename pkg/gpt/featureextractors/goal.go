@@ -3,7 +3,7 @@ package featureextractors
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -21,7 +21,7 @@ type Objective struct {
 	Status GoalCompletion `json:"Status" jsonschema:"title=Status,description=Status of the goal."`
 }
 
-func QueryObjective(ctx context.Context, history []*thoughtstream.Thought) (Objective, error) {
+func QueryObjective(ctx context.Context, history []*thoughtdb.Thought) (Objective, error) {
 	res, _, err := Reflect[Objective](ctx, ReflectOptions{
 		History: history,
 
@@ -44,7 +44,7 @@ type GoalCompletion struct {
 	Feedback               string `json:"feedback" jsonschema:"title=Feedback,description=Feedback for the completion."`
 }
 
-func QueryGoalCompletion(ctx context.Context, history []*thoughtstream.Thought) (GoalCompletion, error) {
+func QueryGoalCompletion(ctx context.Context, history []*thoughtdb.Thought) (GoalCompletion, error) {
 	res, _, err := Reflect[GoalCompletion](ctx, ReflectOptions{
 		History: history,
 

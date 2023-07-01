@@ -4,14 +4,14 @@
 package psi
 
 // Reference:
-//type Node interface {
+//type Value interface {
 //	ID() int64
 //	UUID() string
-//	Node() *NodeBase
-//	Parent() Node
-//	Children() []Node
+//	Value() *NodeBase
+//	Parent() Value
+//	Children() []Value
 //
-//	Ast() dst.Node
+//	Ast() dst.Value
 //
 //	IsContainer() bool
 //	IsLeaf() bool
@@ -20,9 +20,9 @@ package psi
 //
 //	attachToGraph(g *Graph)
 //	detachFromGraph(g *Graph)
-//	SetParent(parent Node)
-//	AddChildNode(node Node)
-//	RemoveChildNode(node Node)
+//	SetParent(parent Value)
+//	AddChildNode(node Value)
+//	RemoveChildNode(node Value)
 //}
 
 // Retriever is an interface that can be used to retrieve nodes from a graph

@@ -2,7 +2,6 @@ package psi
 
 type NodeIterator interface {
 	Value() Node
-	Node() Node
 	Next() bool
 }
 
@@ -11,11 +10,7 @@ type nodeSliceIterator struct {
 	items   []Node
 }
 
-func (n *nodeSliceIterator) Value() Node { return n.Node() }
-
-func (n *nodeSliceIterator) Node() Node {
-	return n.current
-}
+func (n *nodeSliceIterator) Value() Node { return n.current }
 
 func (n *nodeSliceIterator) Next() bool {
 	if len(n.items) == 0 {
@@ -42,11 +37,7 @@ type nodeChildrenIterator struct {
 	index   int
 }
 
-func (n *nodeChildrenIterator) Value() Node { return n.Node() }
-
-func (n *nodeChildrenIterator) Node() Node {
-	return n.current
-}
+func (n *nodeChildrenIterator) Value() Node { return n.current }
 
 func (n *nodeChildrenIterator) Next() bool {
 	if n.index >= n.parent.children.Len() {
@@ -72,14 +63,12 @@ type nestedNodeIterator struct {
 	iterators []NodeIterator
 }
 
-func (n *nestedNodeIterator) Value() Node { return n.Node() }
-
-func (n *nestedNodeIterator) Node() Node {
+func (n *nestedNodeIterator) Value() Node {
 	if n.current == nil {
 		return nil
 	}
 
-	return n.current.Node()
+	return n.current.Value()
 }
 
 func (n *nestedNodeIterator) Next() bool {

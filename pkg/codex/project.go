@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 
 	"github.com/greenboxal/agibootstrap/pkg/codex/vts"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
@@ -55,7 +55,7 @@ type Project struct {
 
 	repo *fti.Repository
 	tm   *tasks.Manager
-	lm   *thoughtstream.Manager
+	lm   *thoughtdb.Repo
 
 	rootPath string
 	rootNode *vfs.DirectoryNode
@@ -149,7 +149,7 @@ func NewProject(ctx context.Context, rootPath string) (*Project, error) {
 	p.tm = tasks.NewManager()
 	p.tm.PsiNode().SetParent(p)
 
-	p.lm = thoughtstream.NewManager(p.g, debugPath)
+	p.lm = thoughtdb.NewRepo(p.g)
 	p.lm.PsiNode().SetParent(p)
 
 	if err := p.Sync(); err != nil {
@@ -159,8 +159,8 @@ func NewProject(ctx context.Context, rootPath string) (*Project, error) {
 	return p, nil
 }
 
-func (p *Project) TaskManager() *tasks.Manager        { return p.tm }
-func (p *Project) LogManager() *thoughtstream.Manager { return p.lm }
+func (p *Project) TaskManager() *tasks.Manager { return p.tm }
+func (p *Project) LogManager() *thoughtdb.Repo { return p.lm }
 
 // RootPath returns the root path of the project.
 func (p *Project) RootPath() string   { return p.rootPath }
@@ -204,7 +204,7 @@ func (p *Project) Sync() error {
 
 			progress.Update(cursor.Depth()*cursor.Depth()+count, maxDepth*maxDepth+count+1)
 
-			n := cursor.Node()
+			n := cursor.Value()
 
 			if n, ok := n.(*vfs.DirectoryNode); ok && entering {
 				count++
@@ -311,9 +311,5 @@ func (p *Project) Reindex() error {
 }
 
 func (p *Project) Close() error {
-	if err := p.lm.Close(); err != nil {
-		return err
-	}
-
 	return p.ds.Close()
 }

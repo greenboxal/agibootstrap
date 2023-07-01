@@ -99,7 +99,7 @@ func (s *Store) batchUpsertNode(ctx context.Context, batch datastore.Batch, n ps
 			Index: childIndex,
 		}
 
-		edge := psi.NewEdgeBase(key, n, it.Node())
+		edge := psi.NewEdgeBase(key, n, it.Value())
 
 		fe, feCid, err := s.batchUpsertEdge(ctx, batch, edge)
 

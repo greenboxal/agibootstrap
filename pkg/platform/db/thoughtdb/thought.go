@@ -1,4 +1,4 @@
-package thoughtstream
+package thoughtdb
 
 import (
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
@@ -16,8 +16,10 @@ type Thought struct {
 	psi.NodeBase
 
 	Pointer Pointer
-	From    CommHandle
-	Text    string
+	Parents []Pointer
+
+	From CommHandle
+	Text string
 
 	ReplyTo *CommHandle
 }

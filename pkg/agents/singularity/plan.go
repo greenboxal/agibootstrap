@@ -3,20 +3,20 @@ package singularity
 import (
 	"github.com/greenboxal/agibootstrap/pkg/agents"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/featureextractors"
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 )
 
 type PlanStepResult struct {
 	Step     *featureextractors.PlanStep
 	Status   *featureextractors.PlanStepStatus
-	Thoughts []*thoughtstream.Thought
+	Thoughts []*thoughtdb.Thought
 }
 
 type PlanStepHandler interface {
 	HandlePlanStep(
 		ctx agents.AgentContext,
 		planStep *featureextractors.PlanStep,
-		history ...*thoughtstream.Thought,
+		history ...*thoughtdb.Thought,
 	) (*PlanStepResult, error)
 }
 
@@ -37,7 +37,7 @@ type InstinctivePlanStepHandler struct{}
 func (i *InstinctivePlanStepHandler) HandlePlanStep(
 	ctx agents.AgentContext,
 	planStep *featureextractors.PlanStep,
-	history ...*thoughtstream.Thought,
+	history ...*thoughtdb.Thought,
 ) (*PlanStepResult, error) {
 	ctx.WorldState().Set("current_plan_step", planStep)
 

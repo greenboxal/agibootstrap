@@ -107,8 +107,7 @@ type graphNodeIterator struct {
 	iter    *reflect.MapIter
 }
 
-func (g *graphNodeIterator) Value() Node { return g.Node() }
-func (g *graphNodeIterator) Node() Node  { return g.current }
+func (g *graphNodeIterator) Value() Node { return g.current }
 
 func (g *graphNodeIterator) Next() bool {
 	if g.iter == nil {

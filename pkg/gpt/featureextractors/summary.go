@@ -3,7 +3,7 @@ package featureextractors
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 )
 
 type Summary struct {
@@ -11,7 +11,7 @@ type Summary struct {
 	Summary string `json:"summary" jsonschema:"title=Summary,description=Summary of the message."`
 }
 
-func QuerySummary(ctx context.Context, history []*thoughtstream.Thought) (Summary, error) {
+func QuerySummary(ctx context.Context, history []*thoughtdb.Thought) (Summary, error) {
 	res, _, err := Reflect[Summary](ctx, ReflectOptions{
 		History: history,
 

@@ -20,7 +20,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/build/codegen"
 	"github.com/greenboxal/agibootstrap/pkg/build/fiximports"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/tasks"
 )
@@ -78,7 +78,7 @@ func NewVisor(p project.Project) *Visor {
 
 				s.SetParent(v.p)
 
-				request := thoughtstream.NewThought()
+				request := thoughtdb.NewThought()
 				request.Pointer.Timestamp = time.Now()
 				request.From.Name = "Human"
 				request.From.Role = msn.RoleUser

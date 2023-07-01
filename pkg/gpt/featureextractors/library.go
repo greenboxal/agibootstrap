@@ -3,7 +3,7 @@ package featureextractors
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtstream"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -37,7 +37,7 @@ type Page struct {
 	CodeBlocks []mdutils.CodeBlock `json:"codeBlocks" jsonschema:"title=CodeBlocks,description=Code blocks of the page."`
 }
 
-func QueryLibrary(ctx context.Context, history []*thoughtstream.Thought) (Library, error) {
+func QueryLibrary(ctx context.Context, history []*thoughtdb.Thought) (Library, error) {
 	res, _, err := Reflect[Library](ctx, ReflectOptions{
 		History: history,
 

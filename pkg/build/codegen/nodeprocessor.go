@@ -70,19 +70,19 @@ var todoRegex = regexp.MustCompile(`(?m)^\s*//\s*TODO:`)
 // OnEnter is responsible for pushing a new NodeScope onto the FuncStack if the current node is a container.
 // Additionally, it scans the comments of the node for TODOs and stores them in the current NodeScope.
 func (p *NodeProcessor) OnEnter(cursor psi.Cursor) error {
-	e := cursor.Node()
+	e := cursor.Value()
 
 	if e.IsContainer() {
 		scope := &NodeScope{
 			Processor: p,
-			Node:      cursor.Node(),
+			Node:      cursor.Value(),
 			Todos:     make([]string, 0),
 		}
 
 		p.FuncStack = append(p.FuncStack, scope)
 	}
 
-	for _, txt := range cursor.Node().Comments() {
+	for _, txt := range cursor.Value().Comments() {
 		txt = strings.TrimSpace(txt)
 
 		if todoRegex.MatchString(txt) && len(p.FuncStack) > 0 {
@@ -110,7 +110,7 @@ func (p *NodeProcessor) OnEnter(cursor psi.Cursor) error {
 // OnLeave is responsible for popping the top NodeScope from the FuncStack if the current node is a container.
 // Additionally, it checks if the current function should be processed and calls the Step method to process the function if necessary.
 func (p *NodeProcessor) OnLeave(cursor psi.Cursor) error {
-	e := cursor.Node()
+	e := cursor.Value()
 
 	if e.IsContainer() {
 		if len(p.FuncStack) == 0 {
@@ -169,7 +169,7 @@ func (p *NodeProcessor) OnLeave(cursor psi.Cursor) error {
 // Return Processed Code:
 // 10. Return the processed code as a dst.Node.
 func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.Cursor) (result dst.Node, err error) {
-	stepRoot := cursor.Node()
+	stepRoot := cursor.Value()
 
 	todoComment, err := p.prepareObjective(p, scope)
 	if err != nil {
@@ -236,7 +236,7 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 				level--
 			}
 
-			n := cursor.Node()
+			n := cursor.Value()
 
 			fmt.Printf("%s%s\n", strings.Repeat(" ", level*2), n.CanonicalPath())
 
