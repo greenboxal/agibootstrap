@@ -90,6 +90,7 @@ require (
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
+	github.com/ipld/go-ipld-prime/storage/dsadapter v0.0.0-20230628024246-65bfa53512f2 // indirect
 	github.com/jsummers/gobmp v0.0.0-20151104160322-e2ba15ffa76e // indirect
 	github.com/klauspost/compress v1.16.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
