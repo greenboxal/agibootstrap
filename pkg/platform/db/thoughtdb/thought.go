@@ -32,6 +32,9 @@ func NewThought() *Thought {
 	return t
 }
 
+func (t *Thought) UUID() string        { return t.Pointer.String() }
+func (t *Thought) PsiNodeName() string { return t.Pointer.String() }
+
 func (t *Thought) PreviousThought() *Thought {
 	return t.PreviousSibling().(*Thought)
 }

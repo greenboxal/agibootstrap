@@ -63,13 +63,13 @@ func (g *BaseGraph) NextEdgeID() EdgeID {
 func (g *BaseGraph) Add(n Node) {
 	n.attachToGraph(g.self)
 	g.g.AddNode(n)
-	g.nodeIdMap[n.UUID()] = n.ID()
+	g.nodeIdMap[n.CanonicalPath().String()] = n.ID()
 }
 
 func (g *BaseGraph) Remove(n Node) {
 	g.g.RemoveNode(n.ID())
 	n.detachFromGraph(nil)
-	delete(g.nodeIdMap, n.UUID())
+	delete(g.nodeIdMap, n.CanonicalPath().String())
 }
 
 func (g *BaseGraph) SetEdge(e Edge) {

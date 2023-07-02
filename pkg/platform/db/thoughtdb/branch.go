@@ -71,7 +71,9 @@ func (b *repoBranch) Commit(ctx context.Context, head *Thought) error {
 	b.head = head
 	b.repo.thoughtCache[head.Pointer] = head
 
-	return b.Update(ctx)
+	head.Invalidate()
+
+	return head.Update(ctx)
 }
 
 func (b *repoBranch) Fork() Branch {

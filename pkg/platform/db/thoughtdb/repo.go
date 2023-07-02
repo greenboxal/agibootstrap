@@ -19,7 +19,7 @@ func NewRepo(graph *graphstore.IndexedGraph) *Repo {
 		thoughtCache: map[Pointer]*Thought{},
 	}
 
-	r.Init(r, "")
+	r.Init(r, "<tdb-repo>")
 
 	return r
 }

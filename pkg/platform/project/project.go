@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"go/token"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
@@ -24,7 +25,7 @@ type Project interface {
 	Graph() psi.Graph
 	LanguageProvider() *Registry
 
-	Sync() error
+	Sync(ctx context.Context) error
 	Commit() error
 
 	GetSourceFile(path string) (psi.SourceFile, error)

@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
-
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
 	collectionsfx "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 )
@@ -27,6 +25,8 @@ type NamedNode interface {
 
 // Node represents a PSI element in the graph.
 type Node interface {
+	obsfx.Observable
+
 	NodeLike
 
 	ID() int64
@@ -105,16 +105,19 @@ func (n *NodeLikeBase) PsiNodeBase() *NodeBase { return n.NodeBase.PsiNodeBase()
 func (n *NodeLikeBase) PsiNodeVersion() int64  { return n.NodeBase.PsiNodeVersion() }
 
 type NodeBase struct {
+	obsfx.HasListenersBase[obsfx.InvalidationListener]
+
 	g Graph
 
 	id      int64
-	uuid    string
 	typ     NodeType
 	version int64
 
-	self   Node
-	parent obsfx.SimpleProperty[Node]
-	path   Path
+	self Node
+	path Path
+
+	parent        obsfx.SimpleProperty[Node]
+	indexInParent int
 
 	children   collectionsfx.MutableSlice[Node]
 	edges      collectionsfx.MutableMap[EdgeKey, Edge]
@@ -138,14 +141,6 @@ func (n *NodeBase) Init(self Node, uid string) {
 
 	n.self = self
 
-	if uid != "" {
-		n.uuid = uid
-	}
-
-	if n.uuid == "" {
-		n.uuid = uuid.New().String()
-	}
-
 	if self == nil {
 		return
 	}
@@ -157,38 +152,50 @@ func (n *NodeBase) Init(self Node, uid string) {
 
 		if new != nil {
 			new.PsiNodeBase().AddChildNode(n.self)
+
+			n.updatePath()
+
+			n.attachToGraph(new.PsiNodeBase().g)
+		} else {
+			n.updatePath()
 		}
 
 		n.InvalidateTree()
-
-		if err := n.Update(context.Background()); err != nil {
-			panic(err)
-		}
 	})
 
 	collectionsfx.ObserveList(&n.children, func(ev collectionsfx.ListChangeEvent[Node]) {
 		for ev.Next() {
 			if ev.WasPermutated() {
-				continue
-			}
+				for i := ev.From(); i < ev.To(); i++ {
+					u := ev.GetPermutation(i)
 
-			if ev.WasAdded() {
-				for _, child := range ev.AddedSlice() {
-					if child == nil || child == n || child == n.self || n == child.PsiNodeBase() {
-						panic("invalid child")
-					}
+					a := n.children.Get(i)
+					b := n.children.Get(u)
 
-					if child.Parent() != n.self {
-						child.attachToGraph(n.g)
-						child.SetParent(n.self)
+					a.PsiNodeBase().indexInParent = i
+					b.PsiNodeBase().indexInParent = u
+				}
+			} else {
+				if ev.WasRemoved() {
+					for _, child := range ev.RemovedSlice() {
+						if child.Parent() == n.self {
+							child.SetParent(nil)
+							child.PsiNodeBase().indexInParent = -1
+						}
 					}
 				}
-			}
 
-			if ev.WasRemoved() {
-				for _, child := range ev.RemovedSlice() {
-					if child.Parent() == n.self {
-						child.SetParent(nil)
+				if ev.WasAdded() {
+					for i, child := range ev.AddedSlice() {
+						if child == nil || child == n || child == n.self || n == child.PsiNodeBase() {
+							panic("invalid child")
+						}
+
+						if child.Parent() != n.self {
+							child.SetParent(n.self)
+						}
+
+						child.PsiNodeBase().indexInParent = ev.From() + i
 					}
 				}
 			}
@@ -216,7 +223,6 @@ func (n *NodeBase) PsiNodeType() NodeType  { return n.typ }
 func (n *NodeBase) PsiNodeVersion() int64  { return n.version }
 
 func (n *NodeBase) ID() int64          { return n.id }
-func (n *NodeBase) UUID() string       { return n.uuid }
 func (n *NodeBase) IsContainer() bool  { return true }
 func (n *NodeBase) IsLeaf() bool       { return false }
 func (n *NodeBase) IsValid() bool      { return n.valid }
@@ -231,7 +237,11 @@ func (n *NodeBase) ChildrenList() collectionsfx.ObservableList[Node] { return &n
 func (n *NodeBase) ChildrenIterator() NodeIterator                   { return &nodeChildrenIterator{parent: n} }
 
 func (n *NodeBase) String() string {
-	return fmt.Sprintf("Value(%T, %d, %s)", n.self, n.id, n.uuid)
+	return fmt.Sprintf("Value(%T, %d, %s)", n.self, n.id, n.path)
+}
+
+func (n *NodeBase) UUID() NodeID {
+	return n.CanonicalPath().String()
 }
 
 func (n *NodeBase) ResolveChild(component PathElement) Node {
@@ -243,16 +253,11 @@ func (n *NodeBase) ResolveChild(component PathElement) Node {
 		} else {
 			for it := n.children.Iterator(); it.Next(); {
 				child := it.Item()
-				cn := child.PsiNodeBase()
 
 				if named, ok := child.(NamedNode); ok {
 					if named.PsiNodeName() == component.Name {
 						return child
 					}
-				}
-
-				if component.Name == cn.UUID() {
-					return child
 				}
 			}
 		}
@@ -572,7 +577,7 @@ func (n *NodeBase) doUpdate(ctx context.Context, skipValidation bool) error {
 		n.inUpdate = false
 	}()
 
-	n.updatePath()
+	n.version++
 
 	for it := n.children.Iterator(); it.Next(); {
 		if err := it.Item().PsiNodeBase().doUpdate(ctx, skipValidation); err != nil {
@@ -598,7 +603,7 @@ func (n *NodeBase) updatePath() {
 
 	if n.Parent() == nil {
 		self.Kind = EdgeKindChild
-		self.Name = n.UUID()
+		self.Name = ""
 		n.path = PathFromComponents(self)
 		return
 	}
@@ -611,11 +616,9 @@ func (n *NodeBase) updatePath() {
 			Name: named.PsiNodeName(),
 		}
 	} else {
-		index := n.Parent().PsiNodeBase().IndexOfChild(n.self)
-
 		self = PathElement{
 			Kind:  EdgeKindChild,
-			Index: int64(index),
+			Index: int64(n.indexInParent),
 		}
 	}
 
@@ -623,21 +626,31 @@ func (n *NodeBase) updatePath() {
 }
 
 func (n *NodeBase) InvalidateTree() {
+	n.Invalidate()
+
 	for it := n.ChildrenIterator(); it.Next(); {
 		it.Value().PsiNodeBase().InvalidateTree()
 	}
 }
 
 func (n *NodeBase) Invalidate() {
-	if n.valid {
-		n.valid = false
+	if !n.valid {
+		return
+	}
 
-		if n.g != nil {
-			n.g.OnNodeInvalidated(n.self)
-		}
+	n.valid = false
 
-		if n.Parent() != nil {
-			n.Parent().Invalidate()
-		}
+	n.ForEachListener(func(l obsfx.InvalidationListener) bool {
+		l.OnInvalidated(n.self)
+
+		return true
+	})
+
+	if n.g != nil {
+		n.g.OnNodeInvalidated(n.self)
+	}
+
+	if n.Parent() != nil {
+		n.Parent().Invalidate()
 	}
 }

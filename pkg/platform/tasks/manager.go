@@ -26,7 +26,7 @@ func NewManager() *Manager {
 		tasks: map[string]Task{},
 	}
 
-	m.NodeBase.Init(&m.NodeBase, "")
+	m.NodeBase.Init(&m.NodeBase, "<taskmgr>")
 
 	return m
 }

@@ -1,31 +1,45 @@
 package graphstore
 
 import (
-	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
-	"io"
 
 	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/ipld/go-ipld-prime/storage/dsadapter"
+	"github.com/multiformats/go-multihash"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type Store struct {
-	os *ObjectStore
-
-	ds datastore.Batching
+	ds   datastore.Batching
+	lsys ipld.LinkSystem
 }
 
-func NewStore(ds datastore.Batching, os *ObjectStore) *Store {
-	return &Store{ds: ds, os: os}
+func NewStore(ds datastore.Batching) *Store {
+	s := &Store{ds: ds}
+
+	adapter := &dsadapter.Adapter{
+		Wrapped: ds,
+
+		EscapingFunc: func(s string) string {
+			return hex.EncodeToString([]byte(s))
+		},
+	}
+
+	s.lsys = cidlink.DefaultLinkSystem()
+	s.lsys.SetReadStorage(adapter)
+	s.lsys.SetWriteStorage(adapter)
+	s.lsys.TrustedStorage = true
+
+	return s
 }
 
 func (s *Store) UpsertNode(ctx context.Context, n psi.Node) (*FrozenNode, error) {
@@ -48,32 +62,31 @@ func (s *Store) UpsertNode(ctx context.Context, n psi.Node) (*FrozenNode, error)
 	return fn, nil
 }
 
+var defaultLinkPrototype = cidlink.LinkPrototype{
+	Prefix: cid.Prefix{
+		Codec:    cid.DagJSON,
+		MhLength: -1,
+		MhType:   multihash.SHA2_256,
+		Version:  1,
+	},
+}
+
 func (s *Store) batchUpsertNode(ctx context.Context, batch datastore.Batch, n psi.Node) (*FrozenNode, []*FrozenEdge, error) {
-	data, id, err := SerializeNode(n)
+	dataLink, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(nodeWrapper{Node: n}))
 
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if _, err := s.os.Put(ctx, bytes.NewReader(data)); err != nil {
-		return nil, nil, err
-	}
-
 	fn := &FrozenNode{
-		Cid:        cidlink.Link{Cid: id},
+		Cid:        dataLink.(cidlink.Link),
 		UUID:       n.UUID(),
 		Type:       n.PsiNodeType(),
 		Version:    n.PsiNodeVersion(),
 		Attributes: n.Attributes(),
 	}
 
-	data, err = ipld.Encode(typesystem.Wrap(fn), dagjson.Encode)
-
-	if err != nil {
-		return nil, nil, err
-	}
-
-	id, err = s.os.Put(ctx, bytes.NewReader(data))
+	link, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(fn))
 
 	if err != nil {
 		return nil, nil, err
@@ -82,11 +95,11 @@ func (s *Store) batchUpsertNode(ctx context.Context, batch datastore.Batch, n ps
 	headKey := fmt.Sprintf("refs/nodes/%s/HEAD", n.UUID())
 	versionKey := fmt.Sprintf("refs/nodes/%s/%d", n.UUID(), n.PsiNodeVersion())
 
-	if err := batch.Put(ctx, datastore.NewKey(headKey), id.Bytes()); err != nil {
+	if err := batch.Put(ctx, datastore.NewKey(headKey), []byte(link.Binary())); err != nil {
 		return nil, nil, err
 	}
 
-	if err := batch.Put(ctx, datastore.NewKey(versionKey), id.Bytes()); err != nil {
+	if err := batch.Put(ctx, datastore.NewKey(versionKey), []byte(link.Binary())); err != nil {
 		return nil, nil, err
 	}
 
@@ -109,7 +122,7 @@ func (s *Store) batchUpsertNode(ctx context.Context, batch datastore.Batch, n ps
 
 		edgeKey := fmt.Sprintf("nodes/%s/%s", fn.Cid.String(), edge.Key().GetKey())
 
-		if err := batch.Put(ctx, datastore.NewKey(edgeKey), feCid.Bytes()); err != nil {
+		if err := batch.Put(ctx, datastore.NewKey(edgeKey), []byte(feCid.Binary())); err != nil {
 			return nil, nil, err
 		}
 
@@ -149,65 +162,43 @@ func (s *Store) UpsertEdge(ctx context.Context, edge psi.Edge) (*FrozenEdge, err
 	return fe, nil
 }
 
-func (s *Store) batchUpsertEdge(ctx context.Context, batch datastore.Batch, edge psi.Edge) (*FrozenEdge, cid.Cid, error) {
-	data, err := ipld.Encode(typesystem.Wrap(edge), dagjson.Encode)
+func (s *Store) batchUpsertEdge(ctx context.Context, batch datastore.Batch, edge psi.Edge) (*FrozenEdge, ipld.Link, error) {
+	dataLink, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(edgeWrapper{Edge: edge}))
 
 	if err != nil {
-		return nil, cid.Undef, err
-	}
-
-	contentId, err := s.os.Put(ctx, bytes.NewReader(data))
-
-	if err != nil {
-		return nil, cid.Undef, err
+		return nil, nil, err
 	}
 
 	fe := &FrozenEdge{
-		Cid:  cidlink.Link{Cid: contentId},
+		Cid:  dataLink.(cidlink.Link),
 		Key:  edge.Key().GetKey(),
 		From: edge.From().UUID(),
 		To:   edge.To().UUID(),
 	}
 
-	data, err = ipld.Encode(typesystem.Wrap(fe), dagjson.Encode)
+	link, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(fe))
 
 	if err != nil {
-		return nil, cid.Undef, err
-	}
-
-	contentId, err = s.os.Put(ctx, bytes.NewReader(data))
-
-	if err != nil {
-		return nil, cid.Undef, err
+		return nil, nil, err
 	}
 
 	key := fmt.Sprintf("edges/%s/%s", edge.From().UUID(), edge.Key().GetKey())
 
-	if err := batch.Put(ctx, datastore.NewKey(key), contentId.Bytes()); err != nil {
-		return nil, cid.Undef, err
+	if err := batch.Put(ctx, datastore.NewKey(key), []byte(dataLink.Binary())); err != nil {
+		return nil, nil, err
 	}
 
-	return fe, contentId, nil
+	return fe, link, nil
 }
 
 func (s *Store) LoadNode(ctx context.Context, fn *FrozenNode) (psi.Node, error) {
-	reader, err := s.os.Get(ctx, fn.Cid.Cid)
+	rawNode, err := s.lsys.Load(ipld.LinkContext{Ctx: ctx}, fn.Cid, nodeWrapperType.IpldPrototype())
 
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := io.ReadAll(reader)
-
-	if err != nil {
-		return nil, err
-	}
-
-	n, err := DeserializeNode(fn.UUID, data)
-
-	if err != nil {
-		return nil, err
-	}
+	n := typesystem.Unwrap(rawNode).(nodeWrapper).Node
 
 	for k, v := range fn.Attributes {
 		n.SetAttribute(k, v)
@@ -216,20 +207,8 @@ func (s *Store) LoadNode(ctx context.Context, fn *FrozenNode) (psi.Node, error) 
 	return n, err
 }
 
-func (s *Store) GetEdgeByCid(ctx context.Context, id cid.Cid) (*FrozenEdge, error) {
-	reader, err := s.os.Get(ctx, id)
-
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := io.ReadAll(reader)
-
-	if err != nil {
-		return nil, err
-	}
-
-	n, err := ipld.DecodeUsingPrototype(data, dagjson.Decode, frozenEdgeType.IpldPrototype())
+func (s *Store) GetEdgeByCid(ctx context.Context, link ipld.Link) (*FrozenEdge, error) {
+	n, err := s.lsys.Load(ipld.LinkContext{Ctx: ctx}, link, frozenEdgeType.IpldPrototype())
 
 	if err != nil {
 		return nil, err
@@ -238,20 +217,8 @@ func (s *Store) GetEdgeByCid(ctx context.Context, id cid.Cid) (*FrozenEdge, erro
 	return typesystem.Unwrap(n).(*FrozenEdge), nil
 }
 
-func (s *Store) GetNodeByCid(ctx context.Context, id cid.Cid) (*FrozenNode, error) {
-	reader, err := s.os.Get(ctx, id)
-
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := io.ReadAll(reader)
-
-	if err != nil {
-		return nil, err
-	}
-
-	n, err := ipld.DecodeUsingPrototype(data, dagjson.Decode, frozenNodeType.IpldPrototype())
+func (s *Store) GetNodeByCid(ctx context.Context, link ipld.Link) (*FrozenNode, error) {
+	n, err := s.lsys.Load(ipld.LinkContext{Ctx: ctx}, link, frozenNodeType.IpldPrototype())
 
 	if err != nil {
 		return nil, err
@@ -281,7 +248,7 @@ func (s *Store) GetNodeByID(ctx context.Context, id psi.NodeID, version int64) (
 		return nil, err
 	}
 
-	return s.GetNodeByCid(ctx, contentId)
+	return s.GetNodeByCid(ctx, cidlink.Link{Cid: contentId})
 }
 
 func (s *Store) GetNodeEdges(ctx context.Context, id psi.NodeID, version int64) (iterators.Iterator[*FrozenEdge], error) {
@@ -318,7 +285,7 @@ func (s *Store) GetNodeEdges(ctx context.Context, id psi.NodeID, version int64) 
 			return nil, false
 		}
 
-		fe, err := s.GetEdgeByCid(ctx, contentId)
+		fe, err := s.GetEdgeByCid(ctx, cidlink.Link{Cid: contentId})
 
 		if err != nil {
 			return nil, false

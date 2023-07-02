@@ -54,7 +54,7 @@ func (bctx *Context) runBuild(ctx context.Context) error {
 		stepChanges := 0
 
 		// Sync the project to ensure it is up to date
-		if err := bctx.project.Sync(); err != nil {
+		if err := bctx.project.Sync(ctx); err != nil {
 			return err
 		}
 

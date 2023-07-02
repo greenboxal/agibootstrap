@@ -33,7 +33,6 @@ type IndexedGraph struct {
 	logger *zap.SugaredLogger
 	mu     sync.RWMutex
 
-	os    *ObjectStore
 	store *Store
 	root  psi.Node
 
@@ -44,13 +43,11 @@ type IndexedGraph struct {
 }
 
 func NewIndexedGraph(ctx context.Context, ds datastore.Batching, root psi.Node) *IndexedGraph {
-	os := NewObjectStore(ds)
-	store := NewStore(ds, os)
+	store := NewStore(ds)
 
 	g := &IndexedGraph{
 		logger: logging.GetLogger("graphstore"),
 
-		os:    os,
 		root:  root,
 		store: store,
 
@@ -148,6 +145,11 @@ func (g *IndexedGraph) Add(n psi.Node) {
 
 	if doAdd() {
 		g.BaseGraph.Add(n)
+
+		g.nodeUpdateQueue <- nodeUpdateRequest{
+			Node:    n,
+			Version: n.PsiNodeVersion(),
+		}
 	}
 }
 
@@ -233,7 +235,7 @@ func (g *IndexedGraph) run(proc goprocess.Process) {
 	ctx := goprocessctx.OnClosingContext(proc)
 
 	for item := range g.nodeUpdateQueue {
-		func() {
+		err := (func(ctx context.Context) error {
 			defer func() {
 				if r := recover(); r != nil {
 					g.logger.Error(r)
@@ -243,10 +245,16 @@ func (g *IndexedGraph) run(proc goprocess.Process) {
 			fn, err := g.store.UpsertNode(ctx, item.Node)
 
 			if err != nil {
-				g.logger.Error(err)
+				return err
 			}
 
 			g.logger.Infow("Updated node", "uuid", item.Node.UUID(), "version", item.Version, "cid", fn.Cid)
-		}()
+
+			return nil
+		})(ctx)
+
+		if err != nil {
+			g.logger.Error(err)
+		}
 	}
 }

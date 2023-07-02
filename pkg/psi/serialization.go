@@ -79,13 +79,13 @@ func (f *Freezer) Get(id cid.Cid) (RawNode, bool) {
 }
 
 func (f *Freezer) Add(n Node) (entry RawNodeEntry) {
-	if _, ok := f.IdMap[n.UUID()]; ok {
+	if _, ok := f.IdMap[n.CanonicalPath().String()]; ok {
 		return
 	}
 
 	frozen := RawNode{}
 	frozen.ID = n.ID()
-	frozen.UUID = n.UUID()
+	frozen.UUID = n.CanonicalPath().String()
 	frozen.Children = make([]RawNodeEntry, len(n.Children()))
 	frozen.Edges = make([]RawEdge, 0)
 	frozen.Attributes = make([]RawAttribute, 0)
@@ -114,7 +114,7 @@ func (f *Freezer) Add(n Node) (entry RawNodeEntry) {
 
 	f.Cas[addr] = data
 	f.Cache[addr] = frozen
-	f.IdMap[n.UUID()] = addr
+	f.IdMap[n.CanonicalPath().String()] = addr
 
 	return
 }

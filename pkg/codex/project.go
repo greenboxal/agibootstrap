@@ -47,6 +47,8 @@ type BuildStep interface {
 type Project struct {
 	psi.NodeBase
 
+	uuid string
+
 	g *graphstore.IndexedGraph
 
 	ds         datastore.Batching
@@ -136,6 +138,8 @@ func NewProject(ctx context.Context, rootPath string) (*Project, error) {
 		}
 	}
 
+	p.uuid = string(projectUuid)
+
 	p.Init(p, string(projectUuid))
 
 	p.g = graphstore.NewIndexedGraph(ctx, p.ds, p)
@@ -143,22 +147,23 @@ func NewProject(ctx context.Context, rootPath string) (*Project, error) {
 
 	p.langRegistry = project.NewRegistry(p)
 
+	p.tm = tasks.NewManager()
+	p.tm.SetParent(p)
+
+	p.lm = thoughtdb.NewRepo(p.g)
+	p.lm.SetParent(p)
+
 	p.rootNode = vfs.NewDirectoryNode(p.fs, p.rootPath, "srcs")
 	p.rootNode.SetParent(p)
 
-	p.tm = tasks.NewManager()
-	p.tm.PsiNode().SetParent(p)
-
-	p.lm = thoughtdb.NewRepo(p.g)
-	p.lm.PsiNode().SetParent(p)
-
-	if err := p.Sync(); err != nil {
+	if err := p.Sync(ctx); err != nil {
 		return nil, err
 	}
 
 	return p, nil
 }
 
+func (p *Project) UUID() string                { return p.uuid }
 func (p *Project) TaskManager() *tasks.Manager { return p.tm }
 func (p *Project) LogManager() *thoughtdb.Repo { return p.lm }
 
@@ -183,7 +188,7 @@ func (p *Project) FileSet() *token.FileSet { return p.fset }
 // have valid file extensions specified in the `validExtensions`
 // slice. The function returns an error if any occurs during
 // the sync process.
-func (p *Project) Sync() error {
+func (p *Project) Sync(ctx context.Context) error {
 	p.currentSyncTaskMutex.Lock()
 	defer p.currentSyncTaskMutex.Unlock()
 
@@ -191,7 +196,7 @@ func (p *Project) Sync() error {
 		return nil
 	}
 
-	task := p.tm.SpawnTask(context.Background(), func(progress tasks.TaskProgress) error {
+	task := p.tm.SpawnTask(ctx, func(progress tasks.TaskProgress) error {
 		maxDepth := 0
 		count := 0
 
@@ -225,7 +230,7 @@ func (p *Project) Sync() error {
 			return err
 		}
 
-		return nil
+		return p.Update(ctx)
 	})
 
 	p.currentSyncTask = task
