@@ -65,12 +65,10 @@ func (b *repoBranch) Commit(ctx context.Context, head *Thought) error {
 		return errors.New("thought is already committed")
 	}
 
-	head.SetParent(b)
-
 	if b.head == nil {
-		head.Pointer = Pointer{}
+		head.Pointer = RootPointer()
 	} else {
-		link, err := b.repo.graph.CommitNode(ctx, head)
+		link, err := b.repo.graph.CommitNode(ctx, b.head)
 
 		if err != nil {
 			return err
@@ -79,6 +77,8 @@ func (b *repoBranch) Commit(ctx context.Context, head *Thought) error {
 		head.Pointer = b.head.Pointer.Next(link)
 		head.Parents = []Pointer{b.head.Pointer}
 	}
+
+	head.SetParent(b)
 
 	b.head = head
 	b.repo.thoughtCache[head.Pointer] = head

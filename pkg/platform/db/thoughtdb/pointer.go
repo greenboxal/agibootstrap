@@ -30,32 +30,22 @@ func (i Interval) CompareTo(other Interval) int {
 }
 
 type Pointer struct {
-	Parent    ipld.Link `json:"parent"`
-	Previous  ipld.Link `json:"previous"`
-	Timestamp time.Time `json:"timestamp"`
-	Level     int64     `json:"level"`
-	Clock     int64     `json:"clock"`
+	Parent    cidlink.Link `json:"parent"`
+	Previous  cidlink.Link `json:"previous"`
+	Timestamp time.Time    `json:"timestamp"`
+	Level     int64        `json:"level"`
+	Clock     int64        `json:"clock"`
 }
 
 func (p Pointer) Address() cid.Cid {
-	var parent, previous cid.Cid
-
-	if p.Parent != nil {
-		parent = p.Parent.(cidlink.Link).Cid
-	}
-
-	if p.Previous != nil {
-		previous = p.Previous.(cidlink.Link).Cid
-	}
-
-	buf := make([]byte, 8*3+parent.ByteLen()+previous.ByteLen())
+	buf := make([]byte, 8*3+p.Parent.ByteLen()+p.Previous.ByteLen())
 
 	binary.BigEndian.PutUint64(buf[0:8], uint64(p.Level))
 	binary.BigEndian.PutUint64(buf[8:16], uint64(p.Clock))
 	binary.BigEndian.PutUint64(buf[16:24], uint64(p.Timestamp.UnixNano()))
 
-	copy(buf[24:], parent.Bytes())
-	copy(buf[24+parent.ByteLen():], previous.Bytes())
+	copy(buf[24:], p.Parent.Bytes())
+	copy(buf[24+p.Parent.ByteLen():], p.Previous.Bytes())
 
 	mh, err := multihash.Sum(buf, multihash.SHA2_256, -1)
 
@@ -71,7 +61,7 @@ func (p Pointer) String() string {
 }
 
 func (p Pointer) IsZero() bool {
-	return p.Level == 0 && p.Clock == 0 && p.Timestamp.IsZero() && p.Parent == nil
+	return p.Level == 0 && p.Clock == 0 && p.Timestamp.IsZero() && p.Parent.Cid == cid.Undef
 }
 
 func (p Pointer) IsHead() bool {
@@ -79,7 +69,7 @@ func (p Pointer) IsHead() bool {
 }
 
 func (p Pointer) IsRoot() bool {
-	return p.Level == 0 && p.Clock == 0 && p.Timestamp.IsZero() && p.Parent == nil
+	return p.Level == 0 && p.Clock == 0 && p.Timestamp.IsZero() && p.Parent.Cid == rootCid
 }
 
 func (p Pointer) IsSiblingOf(other Pointer) bool {
@@ -137,7 +127,7 @@ func (p Pointer) CompareTo(other Pointer) int {
 func (p Pointer) Next(previous ipld.Link) Pointer {
 	return Pointer{
 		Parent:    p.Parent,
-		Previous:  previous,
+		Previous:  previous.(cidlink.Link),
 		Timestamp: time.Now(),
 		Level:     p.Level,
 		Clock:     p.Clock + 1,
