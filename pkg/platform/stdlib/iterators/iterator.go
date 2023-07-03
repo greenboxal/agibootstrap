@@ -80,3 +80,23 @@ func (s *single[T]) Next() bool {
 }
 
 func (s *single[T]) Value() T { return s.value }
+
+type empty[T any] struct {
+	consumed bool
+}
+
+func Empty[T any]() Iterator[T] {
+	return &empty[T]{}
+}
+
+func (s *empty[T]) Next() bool {
+	if s.consumed {
+		return false
+	}
+
+	s.consumed = true
+
+	return true
+}
+
+func (s *empty[T]) Value() (def T) { return }

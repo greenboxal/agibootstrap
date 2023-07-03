@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipfs/go-cid"
@@ -12,7 +13,6 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/storage/dsadapter"
-	"github.com/multiformats/go-multihash"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -42,14 +42,14 @@ func NewStore(ds datastore.Batching) *Store {
 	return s
 }
 
-func (s *Store) UpsertNode(ctx context.Context, n psi.Node) (*FrozenNode, error) {
+func (s *Store) UpsertNode(ctx context.Context, n psi.Node) (*psi.FrozenNode, error) {
 	batch, err := s.ds.Batch(ctx)
 
 	if err != nil {
 		return nil, err
 	}
 
-	fn, _, err := s.batchUpsertNode(ctx, batch, n)
+	fn, link, err := s.batchUpsertNode(ctx, batch, n)
 
 	if err != nil {
 		return nil, err
@@ -59,26 +59,23 @@ func (s *Store) UpsertNode(ctx context.Context, n psi.Node) (*FrozenNode, error)
 		return nil, err
 	}
 
+	psi.UpdateNodeSnapshot(n, &psi.NodeSnapshot{
+		Timestamp: time.Now(),
+		Version:   fn.Version,
+		Link:      link,
+	})
+
 	return fn, nil
 }
 
-var defaultLinkPrototype = cidlink.LinkPrototype{
-	Prefix: cid.Prefix{
-		Codec:    cid.DagJSON,
-		MhLength: -1,
-		MhType:   multihash.SHA2_256,
-		Version:  1,
-	},
-}
-
-func (s *Store) batchUpsertNode(ctx context.Context, batch datastore.Batch, n psi.Node) (*FrozenNode, []*FrozenEdge, error) {
+func (s *Store) batchUpsertNode(ctx context.Context, batch datastore.Batch, n psi.Node) (*psi.FrozenNode, ipld.Link, error) {
 	dataLink, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(nodeWrapper{Node: n}))
 
 	if err != nil {
 		return nil, nil, err
 	}
 
-	fn := &FrozenNode{
+	fn := &psi.FrozenNode{
 		Cid:        dataLink.(cidlink.Link),
 		UUID:       n.UUID(),
 		Type:       n.PsiNodeType(),
@@ -103,7 +100,7 @@ func (s *Store) batchUpsertNode(ctx context.Context, batch datastore.Batch, n ps
 		return nil, nil, err
 	}
 
-	edges := make([]*FrozenEdge, 0)
+	edges := make([]*psi.FrozenEdge, 0)
 
 	childIndex := int64(0)
 	for it := n.ChildrenIterator(); it.Next(); childIndex++ {
@@ -139,10 +136,10 @@ func (s *Store) batchUpsertNode(ctx context.Context, batch datastore.Batch, n ps
 		edges = append(edges, fe)
 	}
 
-	return fn, edges, nil
+	return fn, link, nil
 }
 
-func (s *Store) UpsertEdge(ctx context.Context, edge psi.Edge) (*FrozenEdge, error) {
+func (s *Store) UpsertEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge, error) {
 	batch, err := s.ds.Batch(ctx)
 
 	if err != nil {
@@ -162,14 +159,14 @@ func (s *Store) UpsertEdge(ctx context.Context, edge psi.Edge) (*FrozenEdge, err
 	return fe, nil
 }
 
-func (s *Store) batchUpsertEdge(ctx context.Context, batch datastore.Batch, edge psi.Edge) (*FrozenEdge, ipld.Link, error) {
+func (s *Store) batchUpsertEdge(ctx context.Context, batch datastore.Batch, edge psi.Edge) (*psi.FrozenEdge, ipld.Link, error) {
 	dataLink, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(edgeWrapper{Edge: edge}))
 
 	if err != nil {
 		return nil, nil, err
 	}
 
-	fe := &FrozenEdge{
+	fe := &psi.FrozenEdge{
 		Cid:  dataLink.(cidlink.Link),
 		Key:  edge.Key().GetKey(),
 		From: edge.From().UUID(),
@@ -191,7 +188,7 @@ func (s *Store) batchUpsertEdge(ctx context.Context, batch datastore.Batch, edge
 	return fe, link, nil
 }
 
-func (s *Store) LoadNode(ctx context.Context, fn *FrozenNode) (psi.Node, error) {
+func (s *Store) LoadNode(ctx context.Context, fn *psi.FrozenNode) (psi.Node, error) {
 	rawNode, err := s.lsys.Load(ipld.LinkContext{Ctx: ctx}, fn.Cid, nodeWrapperType.IpldPrototype())
 
 	if err != nil {
@@ -207,27 +204,27 @@ func (s *Store) LoadNode(ctx context.Context, fn *FrozenNode) (psi.Node, error) 
 	return n, err
 }
 
-func (s *Store) GetEdgeByCid(ctx context.Context, link ipld.Link) (*FrozenEdge, error) {
+func (s *Store) GetEdgeByCid(ctx context.Context, link ipld.Link) (*psi.FrozenEdge, error) {
 	n, err := s.lsys.Load(ipld.LinkContext{Ctx: ctx}, link, frozenEdgeType.IpldPrototype())
 
 	if err != nil {
 		return nil, err
 	}
 
-	return typesystem.Unwrap(n).(*FrozenEdge), nil
+	return typesystem.Unwrap(n).(*psi.FrozenEdge), nil
 }
 
-func (s *Store) GetNodeByCid(ctx context.Context, link ipld.Link) (*FrozenNode, error) {
+func (s *Store) GetNodeByCid(ctx context.Context, link ipld.Link) (*psi.FrozenNode, error) {
 	n, err := s.lsys.Load(ipld.LinkContext{Ctx: ctx}, link, frozenNodeType.IpldPrototype())
 
 	if err != nil {
 		return nil, err
 	}
 
-	return typesystem.Unwrap(n).(*FrozenNode), nil
+	return typesystem.Unwrap(n).(*psi.FrozenNode), nil
 }
 
-func (s *Store) GetNodeByID(ctx context.Context, id psi.NodeID, version int64) (*FrozenNode, error) {
+func (s *Store) GetNodeByID(ctx context.Context, id psi.NodeID, version int64) (*psi.FrozenNode, error) {
 	var key string
 
 	if version == -1 {
@@ -251,7 +248,7 @@ func (s *Store) GetNodeByID(ctx context.Context, id psi.NodeID, version int64) (
 	return s.GetNodeByCid(ctx, cidlink.Link{Cid: contentId})
 }
 
-func (s *Store) GetNodeEdges(ctx context.Context, id psi.NodeID, version int64) (iterators.Iterator[*FrozenEdge], error) {
+func (s *Store) GetNodeEdges(ctx context.Context, id psi.NodeID, version int64) (iterators.Iterator[*psi.FrozenEdge], error) {
 	var q query.Query
 
 	if version == -1 {
@@ -272,7 +269,7 @@ func (s *Store) GetNodeEdges(ctx context.Context, id psi.NodeID, version int64) 
 		return nil, err
 	}
 
-	return iterators.NewIterator(func() (*FrozenEdge, bool) {
+	return iterators.NewIterator(func() (*psi.FrozenEdge, bool) {
 		res, ok := it.NextSync()
 
 		if !ok {

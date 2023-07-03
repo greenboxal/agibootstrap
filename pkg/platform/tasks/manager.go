@@ -26,11 +26,12 @@ func NewManager() *Manager {
 		tasks: map[string]Task{},
 	}
 
-	m.NodeBase.Init(&m.NodeBase, "<taskmgr>")
+	m.NodeBase.Init(&m.NodeBase)
 
 	return m
 }
 
+func (m *Manager) UUID() string        { return "TaskManager" }
 func (m *Manager) PsiNodeName() string { return "TaskManager" }
 
 func (m *Manager) SpawnTask(ctx context.Context, taskFn TaskFunc) Task {

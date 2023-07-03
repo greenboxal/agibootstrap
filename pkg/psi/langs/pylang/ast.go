@@ -40,7 +40,7 @@ func (nb *NodeBase[T]) IsLeaf() bool       { return nb.isTerminal }
 func (nb *NodeBase[T]) Comments() []string { return nb.comments }
 
 func (nb *NodeBase[T]) Initialize(self Node) {
-	nb.NodeBase.Init(self, "")
+	nb.NodeBase.Init(self)
 }
 
 func (nb *NodeBase[T]) Tree() antlr.ParseTree { return nb.node }

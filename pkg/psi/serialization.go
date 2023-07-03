@@ -1,120 +1,45 @@
 package psi
 
 import (
-	"encoding/json"
+	"time"
 
-	"github.com/ipfs/go-cid"
-	"github.com/multiformats/go-multihash"
+	"github.com/ipld/go-ipld-prime"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 )
 
-type PhysAddr = cid.Cid
-
-type RawPointer struct {
-	Depth   int      `json:"Depth"`
-	Index   int      `json:"Index"`
-	Parent  PhysAddr `json:"Parent"`
-	Thought PhysAddr `json:"Thought"`
+type FrozenGraph struct {
+	Nodes []*FrozenNode
+	Edges []*FrozenEdge
 }
 
-type RawAttribute struct {
-	Key   string `json:"key"`
-	Value any    `json:"value"`
+type FrozenNode struct {
+	Cid cidlink.Link `json:"cid,omitempty"`
+
+	Index   int64 `json:"index"`
+	Version int64 `json:"version"`
+
+	UUID NodeID   `json:"uuid"`
+	Type NodeType `json:"type"`
+
+	Attributes map[string]interface{} `json:"attr,omitempty"`
 }
 
-type RawEdge struct {
+type FrozenEdge struct {
+	Cid cidlink.Link `json:"cid,omitempty"`
+
 	Key EdgeKey `json:"key"`
-	To  Path    `json:"to"`
+
+	From NodeID `json:"from"`
+	To   NodeID `json:"to"`
+
+	Attributes map[string]interface{} `json:"attr,omitempty"`
 }
 
-type RawNodeEntry struct {
-	UUID     string   `json:"UUID,omitempty"`
-	PhysAddr PhysAddr `json:"PhysAddr,omitempty"`
-	Node     Node     `json:"Value,omitempty"`
+type NodeSnapshot struct {
+	Link      ipld.Link
+	Version   int64
+	Timestamp time.Time
 }
 
-type RawNode struct {
-	ID         int64          `json:"ID"`
-	UUID       string         `json:"UUID"`
-	Attributes []RawAttribute `json:"Attributes"`
-	Edges      []RawEdge      `json:"Edges"`
-	Children   []RawNodeEntry `json:"Children"`
-}
-
-type Freezer struct {
-	Cas   map[cid.Cid][]byte  `json:"Cas"`
-	Cache map[cid.Cid]RawNode `json:"-"`
-	IdMap map[NodeID]cid.Cid  `json:"IdMap"`
-}
-
-func (f *Freezer) GetByID(id NodeID) (RawNode, bool) {
-	addr, ok := f.IdMap[id]
-
-	if !ok {
-		return RawNode{}, false
-	}
-
-	return f.Get(addr)
-}
-
-func (f *Freezer) Get(id cid.Cid) (RawNode, bool) {
-	node, ok := f.Cache[id]
-
-	if !ok {
-		data, ok := f.Cas[id]
-
-		if !ok {
-			return RawNode{}, false
-		}
-
-		err := json.Unmarshal(data, &node)
-
-		if err != nil {
-			return RawNode{}, false
-		}
-
-		f.Cache[id] = node
-	}
-
-	return node, ok
-}
-
-func (f *Freezer) Add(n Node) (entry RawNodeEntry) {
-	if _, ok := f.IdMap[n.CanonicalPath().String()]; ok {
-		return
-	}
-
-	frozen := RawNode{}
-	frozen.ID = n.ID()
-	frozen.UUID = n.CanonicalPath().String()
-	frozen.Children = make([]RawNodeEntry, len(n.Children()))
-	frozen.Edges = make([]RawEdge, 0)
-	frozen.Attributes = make([]RawAttribute, 0)
-
-	for i, child := range n.Children() {
-		childEntry := f.Add(child)
-
-		frozen.Children[i] = childEntry
-	}
-
-	for it := n.Edges(); it.Next(); {
-		frozen.Edges = append(frozen.Edges, RawEdge{
-			Key: it.Edge().Key().GetKey(),
-			To:  it.Edge().To().CanonicalPath(),
-		})
-	}
-
-	data, err := json.Marshal(frozen)
-
-	if err != nil {
-		panic(err)
-	}
-
-	mh, err := multihash.Sum(data, multihash.SHA2_256, -1)
-	addr := cid.NewCidV1(cid.Raw, mh)
-
-	f.Cas[addr] = data
-	f.Cache[addr] = frozen
-	f.IdMap[n.CanonicalPath().String()] = addr
-
-	return
-}
+func UpdateNodeSnapshot(node Node, fn *NodeSnapshot) { node.setLastSnapshot(fn) }
+func GetNodeSnapshot(node Node) *NodeSnapshot        { return node.getLastSnapshot() }

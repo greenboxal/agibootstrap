@@ -34,7 +34,7 @@ func (nb *NodeBase[T]) String() string {
 }
 
 func (nb *NodeBase[T]) Initialize(self Node) {
-	nb.NodeBase.Init(self, "")
+	nb.NodeBase.Init(self)
 }
 
 func (nb *NodeBase[T]) Update(context.Context) error {

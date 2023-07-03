@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"github.com/go-errors/errors"
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/gpt/promptml"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type AgentPrompt interface {
@@ -16,9 +18,17 @@ type AgentPrompt interface {
 
 type AgentPromptFunc func(ctx AgentContext) (chat.Message, error)
 
-func (a AgentPromptFunc) Render(ctx AgentContext) (chat.Message, error) { return a(ctx) }
+func (a AgentPromptFunc) Render(ctx AgentContext) (_ chat.Message, err error) {
+	defer func() {
+		if e := recover(); err != nil {
+			err = errors.Wrap(e, 0)
+		}
+	}()
 
-func TmlContainer(children ...promptml.Node) AgentPromptFunc {
+	return a(ctx)
+}
+
+func TmlContainer(children ...promptml.AttachableNodeLike) AgentPromptFunc {
 	return Tml(func(ctx AgentContext) promptml.Parent {
 		return promptml.Container(children...)
 	})
@@ -30,17 +40,24 @@ func Tml(rootBuilder func(ctx AgentContext) promptml.Parent) AgentPromptFunc {
 		stage := promptml.NewStage(root, gpt.GlobalModelTokenizer)
 		stage.MaxTokens = 10240
 
-		for it := root.ChildrenIterator(); it.Next(); {
-			msg, ok := it.Value().(*promptml.ChatMessage)
-
-			if !ok {
-				continue
+		if err = psi.Walk(root, func(c psi.Cursor, entering bool) error {
+			if !entering {
+				return nil
 			}
 
-			text, err := stage.RenderToString(ctx.Context())
+			msg, ok := c.Value().(*promptml.ChatMessage)
+
+			if !ok {
+				c.WalkChildren()
+				return nil
+			} else {
+				c.SkipChildren()
+			}
+
+			text, err := stage.RenderNodeToString(ctx.Context(), msg)
 
 			if err != nil {
-				return result, err
+				return err
 			}
 
 			m := chat.MessageEntry{
@@ -50,6 +67,10 @@ func Tml(rootBuilder func(ctx AgentContext) promptml.Parent) AgentPromptFunc {
 			}
 
 			result.Entries = append(result.Entries, m)
+
+			return nil
+		}); err != nil {
+			return
 		}
 
 		return

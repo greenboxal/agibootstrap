@@ -35,7 +35,7 @@ func (nb *NodeBase[T]) String() string {
 }
 
 func (nb *NodeBase[T]) Initialize(self Node) {
-	nb.NodeBase.Init(self, "")
+	nb.NodeBase.Init(self)
 }
 
 func (nb *NodeBase[T]) Update(context.Context) error {
@@ -64,7 +64,7 @@ func AstToPsi(node ast.Node) (result psi.Node) {
 				node: node,
 			}
 
-			wrapped.Init(wrapped, "")
+			wrapped.Init(wrapped)
 
 			if len(containerStack) > 0 {
 				wrapped.SetParent(containerStack[len(containerStack)-1])

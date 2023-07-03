@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ipld/go-ipld-prime"
+
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
 	collectionsfx "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 )
@@ -89,8 +91,11 @@ type Node interface {
 	InsertChildBefore(anchor Node, node Node)
 	InsertChildAfter(anchor Node, node Node)
 
+	getGraph() Graph
 	attachToGraph(g Graph)
 	detachFromGraph(g Graph)
+	setLastSnapshot(snapshot *NodeSnapshot)
+	getLastSnapshot() *NodeSnapshot
 
 	String() string
 }
@@ -107,7 +112,8 @@ func (n *NodeLikeBase) PsiNodeVersion() int64  { return n.NodeBase.PsiNodeVersio
 type NodeBase struct {
 	obsfx.HasListenersBase[obsfx.InvalidationListener]
 
-	g Graph
+	g            Graph
+	lastSnapshot *NodeSnapshot
 
 	id      int64
 	typ     NodeType
@@ -127,6 +133,10 @@ type NodeBase struct {
 	inUpdate bool
 }
 
+func (n *NodeBase) getGraph() Graph                        { return n.g }
+func (n *NodeBase) setLastSnapshot(snapshot *NodeSnapshot) { n.lastSnapshot = snapshot }
+func (n *NodeBase) getLastSnapshot() *NodeSnapshot         { return n.lastSnapshot }
+
 // Init initializes the NodeBase struct with the given self node and uid string.
 // It sets the self node, uuid, and initializes the edges map.
 // If the uuid is an empty string, it generates a new UUID using the github.com/google/uuid package.
@@ -134,7 +144,7 @@ type NodeBase struct {
 // Parameters:
 // - self: The self node to be set.
 // - uid: The UUID string to be set.
-func (n *NodeBase) Init(self Node, uid string) {
+func (n *NodeBase) Init(self Node) {
 	if n.self != nil {
 		panic(fmt.Sprintf("node %v already initialized", n.self))
 	}
@@ -221,6 +231,14 @@ func (n *NodeBase) PsiNode() Node          { return n.self }
 func (n *NodeBase) PsiNodeBase() *NodeBase { return n }
 func (n *NodeBase) PsiNodeType() NodeType  { return n.typ }
 func (n *NodeBase) PsiNodeVersion() int64  { return n.version }
+
+func (n *NodeBase) PsiNodeLink() ipld.Link {
+	if n.lastSnapshot == nil {
+		return nil
+	}
+
+	return n.lastSnapshot.Link
+}
 
 func (n *NodeBase) ID() int64          { return n.id }
 func (n *NodeBase) IsContainer() bool  { return true }

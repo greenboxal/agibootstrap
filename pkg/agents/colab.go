@@ -118,7 +118,7 @@ func NewColab(state WorldState, log thoughtdb.Branch, scheduler Scheduler, leade
 		state:     state,
 	}
 
-	c.Init(c, "")
+	c.Init(c)
 
 	c.router = NewBroadcastRouter(c.log)
 

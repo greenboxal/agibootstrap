@@ -140,7 +140,7 @@ func NewProject(ctx context.Context, rootPath string) (*Project, error) {
 
 	p.uuid = string(projectUuid)
 
-	p.Init(p, string(projectUuid))
+	p.Init(p)
 
 	p.g = graphstore.NewIndexedGraph(ctx, p.ds, p)
 	p.g.Add(p)

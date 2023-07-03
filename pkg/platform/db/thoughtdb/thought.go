@@ -27,7 +27,7 @@ type Thought struct {
 func NewThought() *Thought {
 	t := &Thought{}
 
-	t.Init(t, "")
+	t.Init(t)
 
 	return t
 }

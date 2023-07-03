@@ -3,6 +3,8 @@ package tasks
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -42,10 +44,12 @@ type task struct {
 
 	tc *taskContext
 
+	uuid        string
 	name        string
 	description string
 }
 
+func (t *task) UUID() string          { return t.uuid }
 func (t *task) PsiNodeName() string   { return t.UUID() }
 func (t *task) Name() string          { return t.name }
 func (t *task) Description() string   { return t.description }
@@ -55,5 +59,7 @@ func (t *task) Error() error          { return t.tc.Err() }
 func (t *task) Done() <-chan struct{} { return t.tc.done }
 
 func (t *task) Init() {
-	t.NodeBase.Init(t, "")
+	t.uuid = uuid.New().String()
+
+	t.NodeBase.Init(t)
 }

@@ -19,7 +19,7 @@ type Network struct {
 func NewNetwork() *Network {
 	n := &Network{}
 
-	n.Init(n, "")
+	n.Init(n)
 
 	return n
 }
@@ -56,7 +56,7 @@ func (c *EdgeCollection[T]) PsiNodeName() string { return c.name }
 func (c *EdgeCollection[T]) Init(name psi.EdgeKind) {
 	c.name = name.String()
 
-	c.NodeCollection.Init(c, "")
+	c.NodeCollection.Init(c)
 }
 
 type Node struct {

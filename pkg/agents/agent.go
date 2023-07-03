@@ -33,6 +33,8 @@ type StepOptions struct {
 	Base   thoughtdb.Branch
 	Head   thoughtdb.Pointer
 	Stream thoughtdb.Cursor
+
+	Prompt AgentPrompt
 }
 
 func (opts *StepOptions) Apply(options ...StepOption) error {
@@ -63,6 +65,14 @@ func NewStepOptions(options ...StepOption) (opts StepOptions, err error) {
 	}
 
 	return
+}
+
+func WithPrompt(prompt AgentPrompt) StepOption {
+	return func(opts *StepOptions) error {
+		opts.Prompt = prompt
+
+		return nil
+	}
 }
 
 func WithStream(stream thoughtdb.Cursor) StepOption {

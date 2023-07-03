@@ -23,3 +23,31 @@ type Profile struct {
 
 	PostStep PostStepHook
 }
+
+func BuildProfile(builder func(*Profile)) *Profile {
+	p := &Profile{
+		Rank:     1.0,
+		Priority: 1.0,
+	}
+
+	p.Init(p)
+	builder(p)
+	return p
+}
+
+func (p *Profile) Clone() *Profile {
+	clone := &Profile{
+		Name:                 p.Name,
+		Description:          p.Description,
+		BaselineSystemPrompt: p.BaselineSystemPrompt,
+		Rank:                 p.Rank,
+		Priority:             p.Priority,
+		Provides:             p.Provides,
+		Requires:             p.Requires,
+		PostStep:             p.PostStep,
+	}
+
+	clone.Init(clone)
+
+	return clone
+}

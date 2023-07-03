@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipld/go-ipld-prime"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multihash"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -28,22 +30,32 @@ func (i Interval) CompareTo(other Interval) int {
 }
 
 type Pointer struct {
-	Parent    string
-	Previous  string
-	Timestamp time.Time
-	Level     int64
-	Clock     int64
+	Parent    ipld.Link `json:"parent"`
+	Previous  ipld.Link `json:"previous"`
+	Timestamp time.Time `json:"timestamp"`
+	Level     int64     `json:"level"`
+	Clock     int64     `json:"clock"`
 }
 
 func (p Pointer) Address() cid.Cid {
-	buf := make([]byte, 8*3+len(p.Parent)+len(p.Previous))
+	var parent, previous cid.Cid
+
+	if p.Parent != nil {
+		parent = p.Parent.(cidlink.Link).Cid
+	}
+
+	if p.Previous != nil {
+		previous = p.Previous.(cidlink.Link).Cid
+	}
+
+	buf := make([]byte, 8*3+parent.ByteLen()+previous.ByteLen())
 
 	binary.BigEndian.PutUint64(buf[0:8], uint64(p.Level))
 	binary.BigEndian.PutUint64(buf[8:16], uint64(p.Clock))
 	binary.BigEndian.PutUint64(buf[16:24], uint64(p.Timestamp.UnixNano()))
 
-	copy(buf[24:], p.Parent)
-	copy(buf[24+len(p.Parent):], p.Previous)
+	copy(buf[24:], parent.Bytes())
+	copy(buf[24+parent.ByteLen():], previous.Bytes())
 
 	mh, err := multihash.Sum(buf, multihash.SHA2_256, -1)
 
@@ -59,7 +71,7 @@ func (p Pointer) String() string {
 }
 
 func (p Pointer) IsZero() bool {
-	return p.Level == 0 && p.Clock == 0 && p.Timestamp.IsZero() && len(p.Parent) == 0
+	return p.Level == 0 && p.Clock == 0 && p.Timestamp.IsZero() && p.Parent == nil
 }
 
 func (p Pointer) IsHead() bool {
@@ -67,19 +79,11 @@ func (p Pointer) IsHead() bool {
 }
 
 func (p Pointer) IsRoot() bool {
-	return p.Level == 0 && p.Clock == 0 && p.Timestamp.IsZero() && len(p.Parent) == 0
-}
-
-func (p Pointer) IsParentOf(other Pointer) bool {
-	return p.Level == other.Level-1 && p.Clock < other.Clock && p.Timestamp.Sub(other.Timestamp) < 0 && string(other.Parent) == string(p.Address().Bytes())
-}
-
-func (p Pointer) IsChildOf(other Pointer) bool {
-	return other.IsParentOf(p)
+	return p.Level == 0 && p.Clock == 0 && p.Timestamp.IsZero() && p.Parent == nil
 }
 
 func (p Pointer) IsSiblingOf(other Pointer) bool {
-	return p.Level == other.Level && string(p.Parent) == string(other.Parent)
+	return p.Level == other.Level && p.Parent == other.Parent
 }
 
 func (p Pointer) Less(other Pointer) bool {
@@ -130,10 +134,10 @@ func (p Pointer) CompareTo(other Pointer) int {
 	return 1
 }
 
-func (p Pointer) Next() Pointer {
+func (p Pointer) Next(previous ipld.Link) Pointer {
 	return Pointer{
 		Parent:    p.Parent,
-		Previous:  p.Address().String(),
+		Previous:  previous,
 		Timestamp: time.Now(),
 		Level:     p.Level,
 		Clock:     p.Clock + 1,
@@ -150,10 +154,22 @@ func Head() Pointer {
 
 func RootPointer() Pointer {
 	return Pointer{
-		Parent:    "",
-		Previous:  "",
+		Parent:    cidlink.Link{Cid: rootCid},
+		Previous:  cidlink.Link{Cid: rootCid},
 		Timestamp: time.UnixMilli(0),
 		Level:     0,
 		Clock:     0,
 	}
+}
+
+var rootCid cid.Cid
+
+func init() {
+	mh, err := multihash.Sum(nil, multihash.SHA2_256, -1)
+
+	if err != nil {
+		panic(err)
+	}
+
+	rootCid = cid.NewCidV1(cid.Raw, mh)
 }

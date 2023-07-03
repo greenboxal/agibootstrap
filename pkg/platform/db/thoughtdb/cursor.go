@@ -14,6 +14,9 @@ type Cursor interface {
 	PushThought(head *Thought)
 	PushPointer(pointer Pointer) error
 
+	PushParents()
+	EnqueueParents()
+
 	IterateParents() iterators.Iterator[*Thought]
 
 	Clone() Cursor
@@ -23,10 +26,13 @@ type repoCursor struct {
 	psi.Cursor
 
 	repo *Repo
+
+	current *Thought
+	pointer Pointer
 }
 
-func (r *repoCursor) Pointer() Pointer  { return r.Thought().Pointer }
-func (r *repoCursor) Thought() *Thought { return r.Value().(*Thought) }
+func (r *repoCursor) Pointer() Pointer  { return r.pointer }
+func (r *repoCursor) Thought() *Thought { return r.current }
 
 func (r *repoCursor) PushThought(t *Thought) {
 	r.Enqueue(iterators.Single[psi.Node](t))
@@ -45,25 +51,41 @@ func (r *repoCursor) PushPointer(p Pointer) error {
 }
 
 func (r *repoCursor) Next() bool {
-	for r.Cursor.Next() {
-		_, ok := r.Value().(*Thought)
-
-		if !ok {
-			continue
-		}
-
-		return true
+	if !r.Cursor.Next() {
+		return false
 	}
 
-	return false
+	if v, ok := r.Cursor.Value().(*Thought); ok && v != nil {
+		r.current = v
+		r.pointer = r.current.Pointer
+	} else {
+		r.current = nil
+		r.pointer = Pointer{}
+	}
+
+	return true
 }
 
 func (r *repoCursor) Parents() iterators.Iterator[*Thought] {
-	return iterators.Map(iterators.FromSlice(r.Thought().Parents), func(p Pointer) *Thought {
+	t := r.Thought()
+
+	if t == nil {
+		return iterators.Empty[*Thought]()
+	}
+
+	parents := iterators.Filter(iterators.FromSlice(t.Parents), func(t Pointer) bool {
+		return !t.IsZero() && !t.IsRoot()
+	})
+
+	return iterators.Map(parents, func(p Pointer) *Thought {
 		t, err := r.repo.ResolvePointer(p)
 
 		if err != nil {
 			panic(err)
+		}
+
+		if t == nil {
+			panic("nil thought")
 		}
 
 		return t
@@ -84,8 +106,11 @@ func (r *repoCursor) IterateParents() iterators.Iterator[*Thought] {
 
 func (r *repoCursor) Clone() Cursor {
 	cur := psi.NewCursor()
-	cur.SetCurrent(r.Thought())
-	return &repoCursor{Cursor: cur, repo: r.repo}
+	clone := &repoCursor{Cursor: cur, repo: r.repo}
+
+	clone.PushThought(r.Thought())
+
+	return clone
 }
 
 type parentsIterator struct {
@@ -103,7 +128,7 @@ func (it *parentsIterator) Next() bool {
 	}
 
 	it.current = it.cursor.Thought()
-	it.cursor.EnqueueParents()
+	it.cursor.PushParents()
 
 	return true
 }

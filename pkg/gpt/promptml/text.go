@@ -5,6 +5,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
 )
 
 type TextNode struct {
@@ -13,15 +14,13 @@ type TextNode struct {
 	Text obsfx.StringProperty `json:"text"`
 }
 
-func (l *TextNode) Init(self psi.Node, uuid string) {
-	l.LeafBase.Init(self, uuid)
+func (l *TextNode) Init(self psi.Node) {
+	l.LeafBase.Init(self)
 
-	obsfx.ObserveInvalidation(&l.Text, l.InvalidateLayout)
+	obsfx.ObserveInvalidation(&l.Text, l.Invalidate)
 }
 
-func (l *TextNode) Render(ctx context.Context) error {
-	tb := l.GetTokenBuffer()
-
+func (l *TextNode) Render(ctx context.Context, tb *rendering.TokenBuffer) error {
 	_, err := tb.Write([]byte(l.Text.Value()))
 
 	return err
@@ -30,7 +29,7 @@ func (l *TextNode) Render(ctx context.Context) error {
 func Text(content string) *TextNode {
 	t := &TextNode{}
 
-	t.Init(t, "")
+	t.Init(t)
 
 	t.Text.SetValue(content)
 
@@ -40,7 +39,7 @@ func Text(content string) *TextNode {
 func TextWithData(binding obsfx.ObservableValue[string]) *TextNode {
 	t := &TextNode{}
 
-	t.Init(t, "")
+	t.Init(t)
 
 	t.Text.Bind(binding)
 

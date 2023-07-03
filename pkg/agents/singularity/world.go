@@ -26,7 +26,7 @@ func NewWorldState() *WorldState {
 		KV: map[string]any{},
 	}
 
-	ws.Init(ws, "")
+	ws.Init(ws)
 
 	return ws
 }

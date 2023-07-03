@@ -9,8 +9,23 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
 )
 
+type NodeLike interface {
+	psi.NodeLike
+
+	PmlNodeBase() *NodeBase
+	PmlNode() Node
+}
+
+type AttachableNodeLike interface {
+	NodeLike
+
+	SetParent(parent psi.Node)
+}
+
 type Node interface {
 	psi.Node
+
+	AttachableNodeLike
 
 	PmlNodeBase() *NodeBase
 	PmlNode() Node
@@ -40,6 +55,8 @@ type Node interface {
 
 	GetTokenLength() int
 	GetTokenLengthProperty() obsfx.ObservableValue[int]
+
+	render(ctx context.Context, tb *rendering.TokenBuffer) error
 }
 
 type NodeBase struct {
@@ -121,7 +138,7 @@ func (n *NodeBase) GetEffectiveMaxLength() int {
 	return v.TokenCount()
 }
 
-func (n *NodeBase) Init(self psi.Node, uuid string) {
+func (n *NodeBase) Init(self psi.Node) {
 	n.MinLength.SetValue(NewTokenLength(0, TokenUnitPercent))
 	n.MaxLength.SetValue(NewTokenLength(1, TokenUnitPercent))
 	n.Bias.SetValue(0.0)
@@ -133,7 +150,7 @@ func (n *NodeBase) Init(self psi.Node, uuid string) {
 		return 1.0 + n.Bias.Value()
 	}, &n.Bias))
 
-	n.NodeBase.Init(self, uuid)
+	n.NodeBase.Init(self)
 
 	obsfx.ObserveInvalidation(&n.stage, func() {
 		for it := n.ChildrenIterator(); it.Next(); {
@@ -167,6 +184,7 @@ func (n *NodeBase) Init(self psi.Node, uuid string) {
 	obsfx.ObserveInvalidation(&n.Visible, n.InvalidateLayout)
 	obsfx.ObserveInvalidation(&n.Resizable, n.InvalidateLayout)
 	obsfx.ObserveInvalidation(&n.Movable, n.InvalidateLayout)
+	obsfx.ObserveInvalidation(&n.tokenLength, n.InvalidateLayout)
 
 	collectionsfx.ObserveList(n.ChildrenList(), func(ev collectionsfx.ListChangeEvent[psi.Node]) {
 		if ev.WasAdded() {

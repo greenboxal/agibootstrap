@@ -55,7 +55,7 @@ func (a *AgentBase) Init(
 	a.repo = repo
 	a.worldState = worldState
 
-	a.NodeBase.Init(self, "")
+	a.NodeBase.Init(self)
 }
 
 func (a *AgentBase) Repo() *thoughtdb.Repo  { return a.repo }
@@ -98,7 +98,7 @@ func (a *AgentBase) Step(ctx context.Context, options ...StepOption) error {
 	var opts StepOptions
 
 	opts.Base = a.log
-	opts.Head = a.log.Head().Pointer
+	opts.Head = a.log.Pointer()
 
 	if err := opts.Apply(options...); err != nil {
 		return err
@@ -106,16 +106,14 @@ func (a *AgentBase) Step(ctx context.Context, options ...StepOption) error {
 
 	fork := opts.Base.Fork()
 
-	prompt := TmlContainer(
-		promptml.Message("", msn.RoleSystem, promptml.Styled(
-			promptml.Text(a.profile.BaselineSystemPrompt),
-			promptml.Fixed(),
-		)),
+	if opts.Prompt == nil {
+		opts.Prompt = TmlContainer(
+			promptml.Message("", msn.RoleSystem, promptml.Styled(
+				promptml.Text(a.profile.BaselineSystemPrompt),
+				promptml.Fixed(),
+			)),
 
-		promptml.NewDynamicList(func(ctx context.Context) iterators.Iterator[promptml.Node] {
-			src := fork.Cursor().IterateParents()
-
-			return iterators.Map(src, func(thought *thoughtdb.Thought) promptml.Node {
+			promptml.Map(fork.Cursor().IterateParents(), func(thought *thoughtdb.Thought) promptml.AttachableNodeLike {
 				return promptml.Message(
 					thought.From.Name,
 					thought.From.Role,
@@ -124,9 +122,11 @@ func (a *AgentBase) Step(ctx context.Context, options ...StepOption) error {
 						promptml.Fixed(),
 					),
 				)
-			})
-		}),
-	)
+			}),
+
+			promptml.Message(a.profile.Name, msn.RoleAI, promptml.Placeholder()),
+		)
+	}
 
 	options = append(
 		options,
@@ -134,7 +134,7 @@ func (a *AgentBase) Step(ctx context.Context, options ...StepOption) error {
 		WithHeadPointer(thoughtdb.Pointer{}),
 	)
 
-	reply, err := a.Introspect(ctx, prompt, options...)
+	reply, err := a.Introspect(ctx, opts.Prompt, options...)
 
 	if err != nil {
 		return err
@@ -206,7 +206,10 @@ func (a *AgentBase) Introspect(ctx context.Context, prompt AgentPrompt, options 
 		fmt.Printf("%s", frag.Delta)
 
 		reply.Invalidate()
-		reply.Update(nil)
+
+		if err := reply.Update(ctx); err != nil {
+			return nil, err
+		}
 	}
 
 	fmt.Printf("\n\n##############\n")

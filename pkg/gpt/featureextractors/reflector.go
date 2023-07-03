@@ -42,7 +42,7 @@ func getSchemaForType[T any]() *jsonschema.Schema {
 type initializerIface interface {
 	psi.Node
 
-	Init(self psi.Node, uuid string)
+	Init(self psi.Node)
 }
 
 func Reflect[T any](ctx context.Context, req ReflectOptions) (def T, _ chat.Message, _ error) {
@@ -173,7 +173,7 @@ func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ cha
 	}
 
 	if init, ok := any(def).(initializerIface); ok {
-		init.Init(init, "")
+		init.Init(init)
 	}
 
 	return def, reply, nil

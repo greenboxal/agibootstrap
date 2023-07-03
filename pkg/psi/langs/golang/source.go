@@ -47,7 +47,7 @@ func NewSourceFile(l *Language, name string, handle repofs.FileHandle) *SourceFi
 
 	sf.dec = decorator.NewDecorator(sf.fset)
 
-	sf.Init(sf, sf.name)
+	sf.Init(sf)
 
 	return sf
 }

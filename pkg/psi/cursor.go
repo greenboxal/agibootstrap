@@ -78,6 +78,10 @@ func (c *cursor) push(st cursorState) {
 }
 
 func (c *cursor) pop() cursorState {
+	if len(c.stack) == 0 {
+		panic("psi: cursor stack underflow")
+	}
+
 	old := c.state
 	c.state = c.stack[len(c.stack)-1]
 	c.stack = c.stack[:len(c.stack)-1]
@@ -102,8 +106,6 @@ func (c *cursor) SetNext(node Node) {
 }
 
 func (c *cursor) Enqueue(it iterators.Iterator[Node]) {
-	c.state.iterator = it
-
 	if c.state.iterator == nil {
 		c.state.iterator = it
 	} else {
@@ -147,11 +149,21 @@ func (c *cursor) Replace(newNode Node) {
 }
 
 func (c *cursor) Next() bool {
+	if c.state.iterator == nil {
+		return false
+	}
+
 	if !c.state.iterator.Next() {
 		return false
 	}
 
-	c.state.current = c.state.iterator.Value()
+	v := c.state.iterator.Value()
+
+	if v == nil {
+		panic("psi: iterator returned nil node")
+	}
+
+	c.state.current = v
 
 	return true
 }

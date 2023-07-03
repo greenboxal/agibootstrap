@@ -4,7 +4,9 @@ import (
 	"context"
 	"sync"
 
+	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipld/go-ipld-prime"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/samber/lo"
@@ -23,7 +25,7 @@ type cachedNode struct {
 	mu sync.Mutex
 
 	uuid   psi.NodeID
-	frozen *FrozenNode
+	frozen *psi.FrozenNode
 	node   psi.Node
 }
 
@@ -128,7 +130,8 @@ func (g *IndexedGraph) Add(n psi.Node) {
 		}
 
 		if entry.node != nil {
-			panic("node already exists in graph")
+			//panic("node already exists in graph")
+			return false
 		}
 
 		frozen, err := g.store.UpsertNode(context.Background(), n)
@@ -248,7 +251,7 @@ func (g *IndexedGraph) run(proc goprocess.Process) {
 				return err
 			}
 
-			g.logger.Infow("Updated node", "uuid", item.Node.UUID(), "version", item.Version, "cid", fn.Cid)
+			g.logger.Infow("Updated node", "uuid", item.Node.UUID(), "version", item.Version, "type", typesystem.TypeOf(item.Node).Name(), "cid", fn.Cid)
 
 			return nil
 		})(ctx)
@@ -257,4 +260,12 @@ func (g *IndexedGraph) run(proc goprocess.Process) {
 			g.logger.Error(err)
 		}
 	}
+}
+
+func (g *IndexedGraph) CommitNode(ctx context.Context, node psi.Node) (ipld.Link, error) {
+	if _, err := g.store.UpsertNode(ctx, node); err != nil {
+		return nil, err
+	}
+
+	return psi.GetNodeSnapshot(node).Link, nil
 }

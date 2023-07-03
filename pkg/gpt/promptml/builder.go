@@ -1,10 +1,10 @@
 package promptml
 
-func Container(children ...Node) Parent {
+func Container(children ...AttachableNodeLike) Parent {
 	c := NewContainer()
 
 	for _, child := range children {
-		c.AddChildNode(child)
+		child.SetParent(c)
 	}
 
 	return c

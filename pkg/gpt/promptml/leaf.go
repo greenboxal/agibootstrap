@@ -10,7 +10,7 @@ import (
 type Leaf interface {
 	Node
 
-	Render(ctx context.Context) error
+	Render(ctx context.Context, tb *rendering.TokenBuffer) error
 
 	GetTokenBuffer() *rendering.TokenBuffer
 }
@@ -19,8 +19,8 @@ type LeafBase struct {
 	NodeBase
 }
 
-func (l *LeafBase) Init(self psi.Node, uuid string) {
-	l.NodeBase.Init(self, uuid)
+func (l *LeafBase) Init(self psi.Node) {
+	l.NodeBase.Init(self)
 }
 
 func (l *LeafBase) PmlLeaf() Leaf { return l.PsiNode().(Leaf) }
@@ -33,24 +33,30 @@ func (l *LeafBase) Update(ctx context.Context) error {
 	if l.tb != nil {
 		l.tb.Reset()
 
-		if err := l.PmlLeaf().Render(ctx); err != nil {
+		if err := l.render(ctx, l.tb); err != nil {
 			return err
 		}
 
-		l.RequestParentLayout()
-
 		l.tokenLength.SetValue(l.tb.TokenCount())
-
-		/*if l.GetTokenLength() > l.GetEffectiveMaxLength() && l.PmlNode().IsResizable() {
-			l.SetVisible(false)
-		} else {
-			l.SetVisible(true)
-		}*/
 	}
+
+	/*if l.GetTokenLength() > l.GetEffectiveMaxLength() && l.PmlNode().IsResizable() {
+		l.SetVisible(false)
+	} else {
+		l.SetVisible(true)
+	}*/
 
 	return nil
 }
 
-func (l *LeafBase) Render(ctx context.Context) error {
+func (l *LeafBase) Render(ctx context.Context, tb *rendering.TokenBuffer) error {
+	return nil
+}
+
+func (l *LeafBase) render(ctx context.Context, tb *rendering.TokenBuffer) error {
+	if err := l.PmlLeaf().Render(ctx, tb); err != nil {
+		return err
+	}
+
 	return nil
 }

@@ -35,7 +35,7 @@ func NewSingularity(lm *thoughtdb.Repo) (*Singularity, error) {
 		scheduler:  &agents.RoundRobinScheduler{},
 	}
 
-	s.Init(s, "")
+	s.Init(s)
 
 	globalLog := lm.CreateBranch()
 

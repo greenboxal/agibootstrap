@@ -35,7 +35,7 @@ func ExtractCodeBlocks(ctx context.Context, expectedLanguage string, history ...
 		Blocks: blocks,
 	}
 
-	cb.Init(cb, "")
+	cb.Init(cb)
 
 	return cb, nil
 }

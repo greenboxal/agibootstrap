@@ -2,114 +2,48 @@ package thoughtdb
 
 import (
 	"context"
-	"fmt"
 	"testing"
-	"time"
 
-	"github.com/ipfs/go-cid"
-	"github.com/stretchr/testify/assert"
+	"github.com/ipfs/go-datastore"
 	"github.com/stretchr/testify/require"
+
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
-func TestBranchSimple(t *testing.T) {
-	branch := NewBranchFromSlice(nil, RootPointer())
+func TestBranch(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	rootNode := &psi.NodeBase{}
+	rootNode.Init(rootNode, "root")
+
+	g := graphstore.NewIndexedGraph(ctx, datastore.NewMapDatastore(), rootNode)
+	r := NewRepo(g)
+	b := r.CreateBranch()
 
 	t1 := NewThought()
 	t2 := NewThought()
 	t3 := NewThought()
 
-	branchStream := branch.Mutate()
-	branchStream.Append(t1)
-	branchStream.Append(t2)
-	branchStream.Append(t3)
+	err := b.Commit(ctx, t1)
+	require.NoError(t, err)
 
-	require.Equal(t, 3, branch.Len())
+	err = b.Commit(ctx, t2)
+	require.NoError(t, err)
 
-}
+	err = b.Commit(ctx, t3)
+	require.NoError(t, err)
 
-func TestThoughtStream(t *testing.T) {
-	// Initialize Resolver
-	r := newTestResolver()
+	cursor := b.Cursor()
+	cursor.PushParents()
 
-	// Create a base Branch
-	basePtr := Pointer{
-		Parent:    cid.Cid{},
-		Previous:  cid.Cid{},
-		Timestamp: time.Now(),
-		Level:     1,
-		Clock:     1,
-	}
-	rootThought := NewThought()
-	rootThought.Pointer = basePtr
+	//require.Equal(t, t3, cursor.Thought())
 
-	rootBranch := NewBranchFromSlice(nil, basePtr, rootThought)
+	parentsCursor := b.Cursor()
+	parentIterator := parentsCursor.IterateParents()
+	parents := iterators.ToSlice(parentIterator)
 
-	// Test base branch properties
-	assert.Equal(t, basePtr, rootBranch.BasePointer())
-	assert.Nil(t, rootBranch.Base())
-
-	// Add a Thought to base branch
-	baseThought := NewThought()
-	baseBranchStream := rootBranch.Mutate()
-	baseBranchStream.Append(baseThought)
-
-	// Create a new Branch from base Branch
-	newThought := NewThought()
-
-	newBranchStream := baseBranchStream.Fork()
-	newBranchStream.Append(newThought)
-
-	newBranch := newBranchStream.AsBranch()
-
-	r.AddBranch(rootBranch)
-	r.AddBranch(newBranch)
-
-	// Merge baseBranchStream into newBranchStream
-	err := baseBranchStream.Merge(context.Background(), r, HierarchicalTimeMergeStrategy(r), newBranch)
-
-	assert.Nil(t, err)
-}
-
-type testResolver struct {
-	branches map[cid.Cid]Branch
-	thoughts map[cid.Cid]*Thought
-}
-
-func newTestResolver() *testResolver {
-	return &testResolver{
-		branches: make(map[cid.Cid]Branch),
-		thoughts: make(map[cid.Cid]*Thought),
-	}
-}
-
-func (r *testResolver) AddBranch(b Branch) {
-	r.branches[b.BasePointer().Address()] = b
-
-	for it := b.Stream(); it.Next(); {
-		r.AddThought(it.Value())
-	}
-}
-
-func (r *testResolver) AddThought(thought *Thought) {
-	r.thoughts[thought.Pointer.Address()] = thought
-}
-
-func (r *testResolver) ResolveThought(ctx context.Context, id cid.Cid) (*Thought, error) {
-	t := r.thoughts[id]
-
-	if t == nil {
-		return nil, fmt.Errorf("branch not found: %s", id)
-	}
-
-	return t, nil
-}
-
-func (r *testResolver) ResolveBranch(ctx context.Context, id cid.Cid) (Branch, error) {
-	b := r.branches[id]
-
-	if b == nil {
-		return nil, fmt.Errorf("branch not found: %s", id)
-	}
-
-	return b, nil
+	require.Equal(t, []Pointer{t2.Pointer, t1.Pointer}, parents)
 }

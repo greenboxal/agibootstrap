@@ -3,7 +3,6 @@ package visor
 import (
 	"context"
 	"fmt"
-	"os"
 	"path"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/build"
 	"github.com/greenboxal/agibootstrap/pkg/build/codegen"
 	"github.com/greenboxal/agibootstrap/pkg/build/fiximports"
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/tasks"
@@ -107,20 +105,6 @@ Create a Pytorch model based on the human brain cytoarchitecture.
 
 				return nil
 			})
-		}),
-
-		widget.NewButton("Dump Graph", func() {
-			data, err := graphstore.SerializeGraph(p.Graph())
-
-			if err != nil {
-				panic(err)
-			}
-
-			err = os.WriteFile("/tmp/agib-debug/graph.json", data, 0644)
-
-			if err != nil {
-				panic(err)
-			}
 		}),
 	)
 

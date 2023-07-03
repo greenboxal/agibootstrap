@@ -45,7 +45,7 @@ func NewSourceFile(l *Language, name string, handle repofs.FileHandle) *SourceFi
 		handle: handle,
 	}
 
-	sf.Init(sf, sf.name)
+	sf.Init(sf)
 
 	return sf
 }

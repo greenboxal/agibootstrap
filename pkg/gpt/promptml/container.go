@@ -32,7 +32,7 @@ type ContainerBase struct {
 func NewContainer() *ContainerBase {
 	c := &ContainerBase{}
 
-	c.Init(c, "")
+	c.Init(c)
 
 	return c
 }
@@ -83,10 +83,6 @@ func (n *ContainerBase) LayoutChildren(ctx context.Context) error {
 
 	resizableOrdered := iterators.FilterIsInstance[psi.Node, Node](n.ChildrenIterator())
 
-	resizableOrdered = iterators.Filter(resizableOrdered, func(n Node) bool {
-		return n.IsResizable()
-	})
-
 	resizableOrdered = iterators.SortWith(resizableOrdered, func(a, b Node) int {
 		aNorm := a.GetRelevance() / treeWeight
 		bNorm := b.GetRelevance() / treeWeight
@@ -101,12 +97,14 @@ func (n *ContainerBase) LayoutChildren(ctx context.Context) error {
 
 		biasNorm := child.GetRelevance() / treeWeight
 
-		if child.GetMinLength().Unit != TokenUnitPercent {
-			child.SetMinLength(NewTokenLength(float64(remainingDynamicTokens)*biasNorm, TokenUnitToken))
-		}
+		if child.IsResizable() {
+			if child.GetMinLength().Unit != TokenUnitPercent {
+				child.SetMinLength(NewTokenLength(float64(remainingDynamicTokens)*biasNorm, TokenUnitToken))
+			}
 
-		if child.GetMaxLength().Unit != TokenUnitPercent {
-			child.SetMaxLength(NewTokenLength(float64(remainingDynamicTokens), TokenUnitToken))
+			if child.GetMaxLength().Unit != TokenUnitPercent {
+				child.SetMaxLength(NewTokenLength(float64(remainingDynamicTokens), TokenUnitToken))
+			}
 		}
 
 		if err := child.Update(ctx); err != nil {
@@ -175,18 +173,9 @@ func (n *ContainerBase) render(ctx context.Context, tb *rendering.TokenBuffer) e
 			continue
 		}
 
-		childTb := cn.PmlNodeBase().GetTokenBuffer()
-
-		if childTb == nil {
-			continue
-		}
-
-		_, err := childTb.WriteTo(tb)
-
-		if err != nil {
+		if err := cn.render(ctx, tb); err != nil {
 			return err
 		}
-
 	}
 
 	return nil

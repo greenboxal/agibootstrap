@@ -63,7 +63,7 @@ func NewDirectoryNode(fs FS, path string, name string) *DirectoryNode {
 	dn.name = name
 	dn.path = path
 
-	dn.Init(dn, path)
+	dn.Init(dn)
 
 	return dn
 }
@@ -142,7 +142,7 @@ func NewFileNode(fs FS, path string) *FileNode {
 	fn.name = filepath.Base(path)
 	fn.path = path
 
-	fn.Init(fn, path)
+	fn.Init(fn)
 
 	return fn
 }

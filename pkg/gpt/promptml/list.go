@@ -20,16 +20,12 @@ func NewDynamicList(streamBuilder BuildListStreamFunc) *DynamicList {
 		buildStream: streamBuilder,
 	}
 
-	l.Init(l, "")
+	l.Init(l)
 
 	return l
 }
 
-func (l *DynamicList) Update(ctx context.Context) error {
-	if err := l.ContainerBase.Update(ctx); err != nil {
-		return err
-	}
-
+func (l *DynamicList) LayoutChildren(ctx context.Context) error {
 	if l.GetStage() != nil {
 		if l.currentStream == nil {
 			l.currentStream = l.buildStream(ctx)
@@ -48,11 +44,7 @@ func (l *DynamicList) Update(ctx context.Context) error {
 
 			currentLength += child.GetTokenLength()
 		}
-
-		if err := l.ContainerBase.Update(ctx); err != nil {
-			return err
-		}
 	}
 
-	return nil
+	return l.ContainerBase.LayoutChildren(ctx)
 }

@@ -34,13 +34,13 @@ func NewRouter(routes ...*Route) *Router {
 		}
 	})
 
-	r.Init(r, "")
+	r.Init(r)
 
 	return r
 }
 
-func (r *Router) Init(self psi.Node, uuid string) {
-	r.ContainerBase.Init(self, uuid)
+func (r *Router) Init(self psi.Node) {
+	r.ContainerBase.Init(self)
 }
 
 func (r *Router) Update(ctx context.Context) error {
