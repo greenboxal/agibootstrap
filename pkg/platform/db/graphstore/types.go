@@ -1,8 +1,11 @@
 package graphstore
 
 import (
+	"reflect"
+
 	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multihash"
 
@@ -17,10 +20,9 @@ type edgeWrapper struct {
 	Edge psi.Edge `json:"edge"`
 }
 
-var nodeWrapperType = typesystem.TypeOf(nodeWrapper{})
-var edgeWrapperType = typesystem.TypeOf(edgeWrapper{})
-var frozenNodeType = typesystem.TypeOf(&psi.FrozenNode{})
-var frozenEdgeType = typesystem.TypeOf(&psi.FrozenEdge{})
+var lastFenceKey = datastore.NewKey("_graphstore/_lastFence")
+var frozenNodeType = typesystem.TypeFrom(reflect.TypeOf((*psi.FrozenNode)(nil)).Elem())
+var frozenEdgeType = typesystem.TypeFrom(reflect.TypeOf((*psi.FrozenEdge)(nil)).Elem())
 
 var defaultLinkPrototype = cidlink.LinkPrototype{
 	Prefix: cid.Prefix{
@@ -29,4 +31,16 @@ var defaultLinkPrototype = cidlink.LinkPrototype{
 		MhType:   multihash.SHA2_256,
 		Version:  1,
 	},
+}
+
+var NoDataCid cid.Cid
+
+func init() {
+	mh, err := multihash.Sum(nil, multihash.SHA2_256, -1)
+
+	if err != nil {
+		panic(err)
+	}
+
+	NoDataCid = cid.NewCidV1(cid.Raw, mh)
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"time"
 
 	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipfs/go-cid"
@@ -19,12 +18,14 @@ import (
 )
 
 type Store struct {
-	ds   datastore.Batching
+	ds  datastore.Batching
+	wal *WriteAheadLog
+
 	lsys ipld.LinkSystem
 }
 
-func NewStore(ds datastore.Batching) *Store {
-	s := &Store{ds: ds}
+func NewStore(ds datastore.Batching, wal *WriteAheadLog) *Store {
+	s := &Store{ds: ds, wal: wal}
 
 	adapter := &dsadapter.Adapter{
 		Wrapped: ds,
@@ -42,67 +43,30 @@ func NewStore(ds datastore.Batching) *Store {
 	return s
 }
 
-func (s *Store) UpsertNode(ctx context.Context, n psi.Node) (*psi.FrozenNode, error) {
-	batch, err := s.ds.Batch(ctx)
-
-	if err != nil {
-		return nil, err
-	}
-
-	fn, link, err := s.batchUpsertNode(ctx, batch, n)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if err := batch.Commit(ctx); err != nil {
-		return nil, err
-	}
-
-	psi.UpdateNodeSnapshot(n, &psi.NodeSnapshot{
-		Timestamp: time.Now(),
-		Version:   fn.Version,
-		Link:      link,
-	})
-
-	return fn, nil
-}
-
-func (s *Store) batchUpsertNode(ctx context.Context, batch datastore.Batch, n psi.Node) (*psi.FrozenNode, ipld.Link, error) {
-	dataLink, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(nodeWrapper{Node: n}))
-
-	if err != nil {
-		return nil, nil, err
-	}
-
+func (s *Store) FreezeNode(ctx context.Context, n psi.Node) (*psi.FrozenNode, []*psi.FrozenEdge, ipld.Link, error) {
 	fn := &psi.FrozenNode{
-		Cid:        dataLink.(cidlink.Link),
 		UUID:       n.UUID(),
-		Type:       n.PsiNodeType(),
+		Type:       n.PsiNodeType().Name(),
 		Version:    n.PsiNodeVersion(),
 		Attributes: n.Attributes(),
-	}
-
-	link, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(fn))
-
-	if err != nil {
-		return nil, nil, err
-	}
-
-	headKey := fmt.Sprintf("refs/nodes/%s/HEAD", n.UUID())
-	versionKey := fmt.Sprintf("refs/nodes/%s/%d", n.UUID(), n.PsiNodeVersion())
-
-	if err := batch.Put(ctx, datastore.NewKey(headKey), []byte(link.Binary())); err != nil {
-		return nil, nil, err
-	}
-
-	if err := batch.Put(ctx, datastore.NewKey(versionKey), []byte(link.Binary())); err != nil {
-		return nil, nil, err
 	}
 
 	edges := make([]*psi.FrozenEdge, 0)
 
 	childIndex := int64(0)
+
+	if n.PsiNodeType().Definition().IsRuntimeOnly {
+		dataLink, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(n))
+
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		fn.Link = dataLink.(cidlink.Link)
+	} else {
+		fn.Link = cidlink.Link{Cid: NoDataCid}
+	}
+
 	for it := n.ChildrenIterator(); it.Next(); childIndex++ {
 		key := psi.EdgeKey{
 			Kind:  psi.EdgeKindChild,
@@ -111,55 +75,39 @@ func (s *Store) batchUpsertNode(ctx context.Context, batch datastore.Batch, n ps
 
 		edge := psi.NewEdgeBase(key, n, it.Value())
 
-		fe, feCid, err := s.batchUpsertEdge(ctx, batch, edge)
+		fe, feLink, err := s.FreezeEdge(ctx, edge)
 
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
-		edgeKey := fmt.Sprintf("nodes/%s/%s", fn.Cid.String(), edge.Key().GetKey())
-
-		if err := batch.Put(ctx, datastore.NewKey(edgeKey), []byte(feCid.Binary())); err != nil {
-			return nil, nil, err
-		}
+		fn.Edges = append(fn.Edges, feLink.(cidlink.Link))
 
 		edges = append(edges, fe)
 	}
 
 	for it := n.Edges(); it.Next(); {
-		fe, _, err := s.batchUpsertEdge(ctx, batch, it.Edge())
+		fe, feLink, err := s.FreezeEdge(ctx, it.Edge())
 
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
+
+		fn.Edges = append(fn.Edges, feLink.(cidlink.Link))
 
 		edges = append(edges, fe)
 	}
 
-	return fn, link, nil
-}
-
-func (s *Store) UpsertEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge, error) {
-	batch, err := s.ds.Batch(ctx)
+	link, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(fn))
 
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	fe, _, err := s.batchUpsertEdge(ctx, batch, edge)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if err := batch.Commit(ctx); err != nil {
-		return nil, err
-	}
-
-	return fe, nil
+	return fn, edges, link, nil
 }
 
-func (s *Store) batchUpsertEdge(ctx context.Context, batch datastore.Batch, edge psi.Edge) (*psi.FrozenEdge, ipld.Link, error) {
+func (s *Store) FreezeEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge, ipld.Link, error) {
 	dataLink, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(edgeWrapper{Edge: edge}))
 
 	if err != nil {
@@ -179,31 +127,93 @@ func (s *Store) batchUpsertEdge(ctx context.Context, batch datastore.Batch, edge
 		return nil, nil, err
 	}
 
-	key := fmt.Sprintf("edges/%s/%s", edge.From().UUID(), edge.Key().GetKey())
-
-	if err := batch.Put(ctx, datastore.NewKey(key), []byte(dataLink.Binary())); err != nil {
-		return nil, nil, err
-	}
-
 	return fe, link, nil
 }
 
-func (s *Store) LoadNode(ctx context.Context, fn *psi.FrozenNode) (psi.Node, error) {
-	rawNode, err := s.lsys.Load(ipld.LinkContext{Ctx: ctx}, fn.Cid, nodeWrapperType.IpldPrototype())
+func (s *Store) UpsertNode(ctx context.Context, n psi.Node) (*psi.FrozenNode, error) {
+	batch, err := s.ds.Batch(ctx)
 
 	if err != nil {
 		return nil, err
 	}
 
-	n := typesystem.Unwrap(rawNode).(nodeWrapper).Node
+	fn, edges, link, err := s.FreezeNode(context.Background(), n)
 
-	for k, v := range fn.Attributes {
-		n.SetAttribute(k, v)
+	if err != nil {
+		return nil, err
 	}
 
-	return n, err
+	if err := s.batchUpsertNode(ctx, batch, fn, link); err != nil {
+		return nil, err
+	}
+
+	for _, edge := range edges {
+		if err := s.batchUpsertEdge(ctx, batch, edge, edge.Cid); err != nil {
+			return nil, err
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := batch.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return fn, nil
 }
 
+func (s *Store) batchUpsertNode(ctx context.Context, batch datastore.Batch, fn *psi.FrozenNode, link ipld.Link) error {
+	headKey := fmt.Sprintf("refs/nodes/%s/HEAD", fn.UUID)
+	versionKey := fmt.Sprintf("refs/nodes/%s/%d", fn.UUID, fn.Version)
+
+	if err := batch.Put(ctx, datastore.NewKey(headKey), []byte(link.Binary())); err != nil {
+		return err
+	}
+
+	if err := batch.Put(ctx, datastore.NewKey(versionKey), []byte(link.Binary())); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) UpsertEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge, error) {
+	fe, feLink, err := s.FreezeEdge(ctx, edge)
+
+	if err != nil {
+		return nil, err
+	}
+
+	batch, err := s.ds.Batch(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.batchUpsertEdge(ctx, batch, fe, feLink.(cidlink.Link))
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := batch.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return fe, nil
+}
+
+func (s *Store) batchUpsertEdge(ctx context.Context, batch datastore.Batch, fe *psi.FrozenEdge, feLink cidlink.Link) error {
+	key := fmt.Sprintf("edges/%s/%s", fe.From, fe.Key)
+
+	if err := batch.Put(ctx, datastore.NewKey(key), []byte(feLink.Binary())); err != nil {
+		return err
+	}
+
+	return nil
+}
 func (s *Store) GetEdgeByCid(ctx context.Context, link ipld.Link) (*psi.FrozenEdge, error) {
 	n, err := s.lsys.Load(ipld.LinkContext{Ctx: ctx}, link, frozenEdgeType.IpldPrototype())
 
@@ -211,7 +221,9 @@ func (s *Store) GetEdgeByCid(ctx context.Context, link ipld.Link) (*psi.FrozenEd
 		return nil, err
 	}
 
-	return typesystem.Unwrap(n).(*psi.FrozenEdge), nil
+	fe := typesystem.Unwrap(n).(psi.FrozenEdge)
+
+	return &fe, nil
 }
 
 func (s *Store) GetNodeByCid(ctx context.Context, link ipld.Link) (*psi.FrozenNode, error) {
@@ -221,7 +233,9 @@ func (s *Store) GetNodeByCid(ctx context.Context, link ipld.Link) (*psi.FrozenNo
 		return nil, err
 	}
 
-	return typesystem.Unwrap(n).(*psi.FrozenNode), nil
+	fn := typesystem.Unwrap(n).(psi.FrozenNode)
+
+	return &fn, nil
 }
 
 func (s *Store) GetNodeByID(ctx context.Context, id psi.NodeID, version int64) (*psi.FrozenNode, error) {
@@ -260,7 +274,7 @@ func (s *Store) GetNodeEdges(ctx context.Context, id psi.NodeID, version int64) 
 			return nil, err
 		}
 
-		q.Prefix = fmt.Sprintf("nodes/%s/%d", n.Cid.String(), version)
+		q.Prefix = fmt.Sprintf("nodes/%s/%d", n.Link.String(), version)
 	}
 
 	it, err := s.ds.Query(ctx, q)
