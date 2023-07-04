@@ -36,4 +36,10 @@ func (f TypedEdgeKind[T]) Singleton() TypedEdgeKey[T] {
 	return TypedEdgeKey[T]{Kind: f}
 }
 
+func (f TypedEdgeKind[T]) Kind() EdgeKind { return EdgeKind(f) }
+
 var EdgeKindChild = EdgeKind("child")
+
+func DefineEdgeKind[T Node](name string) TypedEdgeKind[T] {
+	return TypedEdgeKind[T](name)
+}

@@ -110,6 +110,7 @@ func (e *EdgeBase) detachFromGraph(g Graph) {
 
 type EdgeIterator interface {
 	Next() bool
+	Value() Edge
 	Edge() Edge
 }
 
@@ -118,6 +119,9 @@ type nodeEdgeIterator struct {
 	it      collectionsfx.MapIterator[EdgeKey, Edge]
 	current Edge
 }
+
+func (e *nodeEdgeIterator) Value() Edge { return e.Edge() }
+func (e *nodeEdgeIterator) Edge() Edge  { return e.current }
 
 func (e *nodeEdgeIterator) Next() bool {
 	if e.it == nil {
@@ -131,10 +135,6 @@ func (e *nodeEdgeIterator) Next() bool {
 	e.current = e.it.Value()
 
 	return true
-}
-
-func (e *nodeEdgeIterator) Edge() Edge {
-	return e.current
 }
 
 type psiEdgeWrapper struct{ Edge }

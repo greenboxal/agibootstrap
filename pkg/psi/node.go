@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipld/go-ipld-prime"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
@@ -137,6 +138,26 @@ func (n *NodeBase) getGraph() Graph                        { return n.g }
 func (n *NodeBase) setLastSnapshot(snapshot *NodeSnapshot) { n.lastSnapshot = snapshot }
 func (n *NodeBase) getLastSnapshot() *NodeSnapshot         { return n.lastSnapshot }
 
+type NodeInitOption func(*NodeBase)
+
+func WithNodeID(id int64) NodeInitOption {
+	return func(n *NodeBase) {
+		n.id = id
+	}
+}
+
+func WithNodeType(typ NodeType) NodeInitOption {
+	return func(n *NodeBase) {
+		n.typ = typ
+	}
+}
+
+func WithNodeVersion(version int64) NodeInitOption {
+	return func(n *NodeBase) {
+		n.version = version
+	}
+}
+
 // Init initializes the NodeBase struct with the given self node and uid string.
 // It sets the self node, uuid, and initializes the edges map.
 // If the uuid is an empty string, it generates a new UUID using the github.com/google/uuid package.
@@ -144,15 +165,23 @@ func (n *NodeBase) getLastSnapshot() *NodeSnapshot         { return n.lastSnapsh
 // Parameters:
 // - self: The self node to be set.
 // - uid: The UUID string to be set.
-func (n *NodeBase) Init(self Node) {
+func (n *NodeBase) Init(self Node, options ...NodeInitOption) {
+	if self == nil {
+		panic("self node cannot be nil")
+	}
+
 	if n.self != nil {
 		panic(fmt.Sprintf("node %v already initialized", n.self))
 	}
 
 	n.self = self
 
-	if self == nil {
-		return
+	for _, option := range options {
+		option(n)
+	}
+
+	if n.typ == nil {
+		n.typ = ReflectNodeType(typesystem.TypeOf(self))
 	}
 
 	obsfx.ObserveChange(&n.parent, func(old, new Node) {

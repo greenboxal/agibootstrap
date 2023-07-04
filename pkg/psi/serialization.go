@@ -13,14 +13,15 @@ type FrozenGraph struct {
 }
 
 type FrozenNode struct {
-	Cid cidlink.Link `json:"cid,omitempty"`
+	Link cidlink.Link `json:"link,omitempty"`
 
 	Index   int64 `json:"index"`
 	Version int64 `json:"version"`
 
-	UUID NodeID   `json:"uuid"`
-	Type NodeType `json:"type"`
+	UUID NodeID `json:"uuid"`
+	Type string `json:"type"`
 
+	Edges      []cidlink.Link         `json:"edges,omitempty"`
 	Attributes map[string]interface{} `json:"attr,omitempty"`
 }
 
@@ -37,7 +38,7 @@ type FrozenEdge struct {
 
 type NodeSnapshot struct {
 	Link      ipld.Link
-	Version   int64
+	Fence     uint64
 	Timestamp time.Time
 }
 

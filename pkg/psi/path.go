@@ -235,6 +235,16 @@ func ResolveEdge[T Node](parent Node, key TypedEdgeKey[T]) (def T) {
 	return e.To().(T)
 }
 
+func Resolve(root Node, path string) (Node, error) {
+	p, err := ParsePath(path)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ResolvePath(root, p)
+}
+
 func ResolvePath(root Node, path Path) (Node, error) {
 	if path.root != nil {
 		root = path.root
