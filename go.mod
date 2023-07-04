@@ -10,6 +10,7 @@ require (
 require (
 	fyne.io/fyne/v2 v2.3.5
 	git.mills.io/prologic/bitcask v1.0.2
+	github.com/BurntSushi/toml v1.2.1
 	github.com/DataIntelligenceCrew/go-faiss v0.2.0
 	github.com/antlr4-go/antlr/v4 v4.13.0
 	github.com/dave/dst v0.27.2
@@ -24,6 +25,7 @@ require (
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/ipfs/go-ds-badger v0.3.0
 	github.com/ipld/go-ipld-prime v0.20.0
+	github.com/ipld/go-ipld-prime/storage/dsadapter v0.0.0-20230628024246-65bfa53512f2
 	github.com/jaswdr/faker v1.17.0
 	github.com/jbenet/goprocess v0.1.4
 	github.com/multiformats/go-multihash v0.2.3
@@ -42,6 +44,7 @@ require (
 	fyne.io/systray v1.10.1-0.20230602210930-b6a2d6ca2a7b // indirect
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
 	github.com/abcum/lcp v0.0.0-20201209214815-7a3f3840be81 // indirect
+	github.com/adrianbrad/queue v1.2.1 // indirect
 	github.com/antonmedv/expr v1.12.5 // indirect
 	github.com/arl/statsviz v0.5.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -90,7 +93,6 @@ require (
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
-	github.com/ipld/go-ipld-prime/storage/dsadapter v0.0.0-20230628024246-65bfa53512f2 // indirect
 	github.com/jsummers/gobmp v0.0.0-20151104160322-e2ba15ffa76e // indirect
 	github.com/klauspost/compress v1.16.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
