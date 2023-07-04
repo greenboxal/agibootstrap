@@ -22,6 +22,18 @@ type ModuleBase struct {
 	Name string `json:"name" psi-attr:""`
 }
 
+func (m *ModuleBase) UUID() string {
+	uuid := m.Name
+
+	if p, ok := m.Parent().(Module); ok {
+		uuid = p.UUID() + "/" + uuid
+	} else {
+		uuid = "/modules/" + uuid
+	}
+
+	return uuid
+}
+
 func (m *ModuleBase) PsiNodeName() string           { return m.GetName() }
 func (m *ModuleBase) PsiNodeScope() *analysis.Scope { return analysis.GetNodeScope(m) }
 
@@ -29,6 +41,10 @@ func (m *ModuleBase) GetName() string { return m.Name }
 
 func (m *ModuleBase) GetProject() (result Project) {
 	return *psi.LoadEdge(m, EdgeKindProject.Singleton(), &result)
+}
+
+func (m *ModuleBase) GetRoot() (result Package) {
+	return *psi.LoadEdge(m, EdgeKindPackage.Named("Root"), &result)
 }
 
 type Package interface {
@@ -41,14 +57,27 @@ type Package interface {
 	GetDirectory() *vfs.Directory
 }
 
-const EdgeKindProject = psi.TypedEdgeKind[Project]("codex.package.project")
-const EdgeKindModule = psi.TypedEdgeKind[Module]("codex.package.module")
-const EdgeKindDirectory = psi.TypedEdgeKind[*vfs.Directory]("codex.package.directory")
+const EdgeKindProject = psi.TypedEdgeKind[Project]("codex.project")
+const EdgeKindModule = psi.TypedEdgeKind[Module]("codex.module")
+const EdgeKindDirectory = psi.TypedEdgeKind[*vfs.Directory]("codex.directory")
+const EdgeKindPackage = psi.TypedEdgeKind[Package]("codex.pkg")
 
 type PackageBase struct {
 	psi.NodeBase
 
 	Name string `json:"name" psi-attr:""`
+}
+
+func (p *PackageBase) UUID() string {
+	uuid := p.Name
+
+	if p, ok := p.Parent().(Module); ok {
+		uuid = p.UUID() + "/" + uuid
+	} else {
+		uuid = "/pkgs/" + uuid
+	}
+
+	return uuid
 }
 
 func (p *PackageBase) PsiNodeName() string           { return p.GetName() }

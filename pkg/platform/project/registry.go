@@ -10,7 +10,8 @@ type LanguageFactory func(p Project) psi.Language
 
 type Registry struct {
 	project Project
-	langs   map[psi.LanguageID]psi.Language
+
+	langs map[psi.LanguageID]psi.Language
 }
 
 func NewRegistry(project Project) *Registry {
@@ -19,12 +20,11 @@ func NewRegistry(project Project) *Registry {
 		langs:   map[psi.LanguageID]psi.Language{},
 	}
 
-	for _, factory := range factories {
-		l := factory(project)
-		r.langs[l.Name()] = l
-	}
-
 	return r
+}
+
+func (r *Registry) Register(language psi.Language) {
+	r.langs[language.Name()] = language
 }
 
 func (r *Registry) ResolveExtension(fileName string) psi.Language {
@@ -45,7 +45,15 @@ func (r *Registry) Resolve(language psi.LanguageID) psi.Language {
 	return r.langs[language]
 }
 
+func (r *Registry) GetLanguage(language psi.LanguageID) psi.Language {
+	return r.langs[language]
+}
+
 var factories = map[psi.LanguageID]LanguageFactory{}
+
+func GetLanguageFactory(name psi.LanguageID) LanguageFactory {
+	return factories[name]
+}
 
 func RegisterLanguage(name psi.LanguageID, factory LanguageFactory) {
 	factories[name] = factory
