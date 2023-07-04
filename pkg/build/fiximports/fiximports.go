@@ -28,7 +28,7 @@ func (s *BuildStep) Process(ctx context.Context, bctx *build.Context) (result bu
 			case *vfs.Directory:
 				cursor.WalkChildren()
 
-			case *vfs.FileNode:
+			case *vfs.File:
 				if !strings.HasSuffix(n.Path(), ".go") {
 					break
 				}

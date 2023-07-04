@@ -30,7 +30,7 @@ func (bs *BuildStep) Process(ctx context.Context, bctx *build.Context) (result b
 			case *vfs.Directory:
 				cursor.WalkChildren()
 
-			case *vfs.FileNode:
+			case *vfs.File:
 				filePath := n.Path()
 				lang := langRegistry.ResolveExtension(filePath)
 

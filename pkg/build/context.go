@@ -53,11 +53,6 @@ func (bctx *Context) runBuild(ctx context.Context) error {
 	for ; bctx.cfg.MaxEpochs == 0 || bctx.totalEpochs < bctx.cfg.MaxEpochs; bctx.totalEpochs++ {
 		stepChanges := 0
 
-		// Sync the project to ensure it is up to date
-		if err := bctx.project.Sync(ctx); err != nil {
-			return err
-		}
-
 		// Execute each build step
 		for _, step := range bctx.cfg.BuildSteps {
 			if bctx.cfg.MaxSteps != 0 && bctx.totalSteps >= bctx.cfg.MaxSteps {

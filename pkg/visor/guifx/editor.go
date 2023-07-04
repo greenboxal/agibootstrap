@@ -43,7 +43,7 @@ func GetPsiNodeDescription(v psi.Node) PsiNodeDescription {
 			Icon:        theme.FolderIcon(),
 		}
 
-	case *vfs.FileNode:
+	case *vfs.File:
 		return PsiNodeDescription{
 			Name:        v.PsiNodeName(),
 			Description: v.String(),

@@ -48,6 +48,8 @@ type Directory struct {
 	children map[string]FsNode
 }
 
+var DirectoryType = psi.DefineNodeType[*Directory](psi.WithRuntimeOnly())
+
 // NewDirectoryNode creates a new DirectoryNode with the specified path.
 // The key of the DirectoryNode is set to the lowercase version of the path.
 func NewDirectoryNode(fs FS, path string, name string) *Directory {
@@ -63,7 +65,7 @@ func NewDirectoryNode(fs FS, path string, name string) *Directory {
 	dn.name = name
 	dn.path = path
 
-	dn.Init(dn)
+	dn.Init(dn, psi.WithNodeType(DirectoryType))
 
 	return dn
 }
@@ -131,18 +133,20 @@ func (dn *Directory) Sync(filterFn func(path string) bool) error {
 	return nil
 }
 
-type FileNode struct {
+type File struct {
 	NodeBase
 }
 
-func NewFileNode(fs FS, path string) *FileNode {
-	fn := &FileNode{}
+var FileType = psi.DefineNodeType[*File](psi.WithRuntimeOnly())
+
+func NewFileNode(fs FS, path string) *File {
+	fn := &File{}
 
 	fn.fs = fs
 	fn.name = filepath.Base(path)
 	fn.path = path
 
-	fn.Init(fn)
+	fn.Init(fn, psi.WithNodeType(FileType))
 
 	return fn
 }
