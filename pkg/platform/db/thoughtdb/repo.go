@@ -13,13 +13,15 @@ type Repo struct {
 	thoughtCache map[Pointer]*Thought
 }
 
+var RepoType = psi.DefineNodeType[*Repo](psi.WithRuntimeOnly())
+
 func NewRepo(graph *graphstore.IndexedGraph) *Repo {
 	r := &Repo{
 		graph:        graph,
 		thoughtCache: map[Pointer]*Thought{},
 	}
 
-	r.Init(r)
+	r.Init(r, psi.WithNodeType(RepoType))
 
 	return r
 }
