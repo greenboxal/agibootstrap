@@ -40,7 +40,7 @@ func (nb *NodeBase) Name() string        { return path.Base(nb.path) }
 func (nb *NodeBase) Path() string        { return nb.path }
 
 // A DirectoryNode is a directory in the virtual file system.
-type DirectoryNode struct {
+type Directory struct {
 	NodeBase
 
 	mu sync.RWMutex
@@ -50,8 +50,8 @@ type DirectoryNode struct {
 
 // NewDirectoryNode creates a new DirectoryNode with the specified path.
 // The key of the DirectoryNode is set to the lowercase version of the path.
-func NewDirectoryNode(fs FS, path string, name string) *DirectoryNode {
-	dn := &DirectoryNode{
+func NewDirectoryNode(fs FS, path string, name string) *Directory {
+	dn := &Directory{
 		children: map[string]FsNode{},
 	}
 
@@ -68,7 +68,7 @@ func NewDirectoryNode(fs FS, path string, name string) *DirectoryNode {
 	return dn
 }
 
-func (dn *DirectoryNode) Resolve(name string) FsNode {
+func (dn *Directory) Resolve(name string) FsNode {
 	dn.mu.RLock()
 	defer dn.mu.RUnlock()
 
@@ -82,7 +82,7 @@ func (dn *DirectoryNode) Resolve(name string) FsNode {
 // Sync synchronizes the DirectoryNode with the underlying filesystem.
 // It scans the directory and updates the children nodes to reflect the current state of the filesystem.
 // Any nodes that no longer exist in the filesystem are removed.
-func (dn *DirectoryNode) Sync(filterFn func(path string) bool) error {
+func (dn *Directory) Sync(filterFn func(path string) bool) error {
 	dn.mu.Lock()
 	defer dn.mu.Unlock()
 

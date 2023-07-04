@@ -68,7 +68,7 @@ func TestPruningRenderer(t *testing.T) {
 		},
 	}
 
-	p, err := codex.NewProject(context.Background(), ".")
+	p, err := codex.LoadProject(context.Background(), ".")
 	require.NoError(t, err)
 	lang := golang.NewLanguage(p)
 	src := golang.NewSourceFile(lang, "test.go", repofs.String("package main\n\nfunc main() {\n\tprintln(\"Hello world\")\n}"))

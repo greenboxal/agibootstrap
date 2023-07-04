@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go/token"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -16,8 +17,8 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
+	"github.com/greenboxal/agibootstrap/pkg/psi/vts"
 
-	"github.com/greenboxal/agibootstrap/pkg/codex/vts"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	tasks "github.com/greenboxal/agibootstrap/pkg/platform/tasks"
@@ -53,14 +54,14 @@ type Project struct {
 
 	ds         datastore.Batching
 	fs         repofs.FS
-	fsRootNode *vfs.DirectoryNode
+	fsRootNode *vfs.Directory
 
 	repo *fti.Repository
 	tm   *tasks.Manager
 	lm   *thoughtdb.Repo
 
 	rootPath string
-	rootNode *vfs.DirectoryNode
+	rootNode *vfs.Directory
 
 	vts          *vts.Scope
 	langRegistry *project.Registry
@@ -71,10 +72,7 @@ type Project struct {
 	currentSyncTask      tasks.Task
 }
 
-// NewProject creates a new codex project with the given root path.
-// It initializes the project file system, repository, and other required data structures.
-// It returns a pointer to the created Project object and an error if any.
-func NewProject(ctx context.Context, rootPath string) (*Project, error) {
+func NewBareProject(ctx context.Context, rootPath string) (*Project, error) {
 	rootFs, err := repofs.NewFS(rootPath)
 
 	if err != nil {
@@ -118,31 +116,33 @@ func NewProject(ctx context.Context, rootPath string) (*Project, error) {
 		vts:  vts.NewScope(),
 	}
 
-	projectUuid, err := ds.Get(ctx, datastore.NewKey("project-uuid"))
+	return p, nil
+}
+
+// LoadProject creates a new codex project with the given root path.
+// It initializes the project file system, repository, and other required data structures.
+// It returns a pointer to the created Project object and an error if any.
+func LoadProject(ctx context.Context, rootPath string) (*Project, error) {
+	p, err := NewBareProject(ctx, rootPath)
 
 	if err != nil {
-		if errors.Is(err, datastore.ErrNotFound) {
-			projectUuid = nil
-		} else {
-			return nil, errors.Wrap(err, "failed to get project uuid")
-		}
+		return nil, err
 	}
 
-	if len(projectUuid) == 0 {
-		projectUuid = []byte(uuid.New().String())
-
-		err := ds.Put(ctx, datastore.NewKey("project-uuid"), projectUuid)
-
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to put project uuid")
-		}
+	if err := p.Load(ctx); err != nil {
+		return nil, err
 	}
 
-	p.uuid = string(projectUuid)
+	return p, nil
+}
 
-	p.Init(p)
+func (p *Project) Init(self psi.Node, projectUuid string) {
+	p.uuid = projectUuid
 
-	p.g = graphstore.NewIndexedGraph(ctx, p.ds, p)
+	p.NodeBase.Init(p)
+
+	p.g = graphstore.NewIndexedGraph(p.ds, p)
+	p.g.AddListener(&analysisListener{p: p})
 	p.g.Add(p)
 
 	p.langRegistry = project.NewRegistry(p)
@@ -155,12 +155,76 @@ func NewProject(ctx context.Context, rootPath string) (*Project, error) {
 
 	p.rootNode = vfs.NewDirectoryNode(p.fs, p.rootPath, "srcs")
 	p.rootNode.SetParent(p)
+}
 
-	if err := p.Sync(ctx); err != nil {
-		return nil, err
+func (p *Project) IsProjectValid(ctx context.Context) (bool, error) {
+	projectUuid, err := p.ds.Get(ctx, datastore.NewKey("project-uuid"))
+
+	if err != nil {
+		if errors.Is(err, datastore.ErrNotFound) {
+			projectUuid = nil
+		} else {
+			return false, errors.Wrap(err, "failed to get project uuid")
+		}
 	}
 
-	return p, nil
+	if len(projectUuid) == 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (p *Project) Create(ctx context.Context) error {
+	if p.uuid != "" {
+		return errors.New("project already initialized")
+	}
+
+	projectUuid := []byte(uuid.New().String())
+
+	if err := os.MkdirAll(path.Join(p.rootPath, ".codex"), 0755); err != nil {
+		return errors.Wrap(err, "failed to create codex directory")
+	}
+
+	if err := os.WriteFile(path.Join(p.rootPath, ".codex", "project-uuid"), projectUuid, 0644); err != nil {
+		return errors.Wrap(err, "failed to write project uuid")
+	}
+
+	err := p.ds.Put(ctx, datastore.NewKey("project-uuid"), projectUuid)
+
+	if err != nil {
+		return errors.Wrap(err, "failed to put project uuid")
+	}
+
+	return p.Load(ctx)
+}
+
+func (p *Project) Load(ctx context.Context) error {
+	if p.uuid != "" {
+		return errors.New("project already initialized")
+	}
+
+	projectUuid, err := p.ds.Get(ctx, datastore.NewKey("project-uuid"))
+
+	if err != nil {
+		if errors.Is(err, datastore.ErrNotFound) {
+			projectUuid = nil
+		} else {
+			return errors.Wrap(err, "failed to get project uuid")
+		}
+	}
+
+	if len(projectUuid) == 0 {
+		return errors.Wrap(err, "project uuid not found")
+	}
+
+	p.Init(p, string(projectUuid))
+
+	if err := p.Sync(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (p *Project) UUID() string                { return p.uuid }
@@ -211,7 +275,7 @@ func (p *Project) Sync(ctx context.Context) error {
 
 			n := cursor.Value()
 
-			if n, ok := n.(*vfs.DirectoryNode); ok && entering {
+			if n, ok := n.(*vfs.Directory); ok && entering {
 				count++
 
 				cursor.WalkChildren()

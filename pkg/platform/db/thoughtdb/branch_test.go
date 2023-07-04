@@ -17,9 +17,9 @@ func TestBranch(t *testing.T) {
 	defer cancel()
 
 	rootNode := &psi.NodeBase{}
-	rootNode.Init(rootNode, "root")
+	rootNode.Init(rootNode)
 
-	g := graphstore.NewIndexedGraph(ctx, datastore.NewMapDatastore(), rootNode)
+	g := graphstore.NewIndexedGraph(datastore.NewMapDatastore(), rootNode)
 	r := NewRepo(g)
 	b := r.CreateBranch()
 

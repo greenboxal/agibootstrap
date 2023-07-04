@@ -25,7 +25,7 @@ func (s *BuildStep) Process(ctx context.Context, bctx *build.Context) (result bu
 			case project.Project:
 				cursor.WalkChildren()
 
-			case *vfs.DirectoryNode:
+			case *vfs.Directory:
 				cursor.WalkChildren()
 
 			case *vfs.FileNode:

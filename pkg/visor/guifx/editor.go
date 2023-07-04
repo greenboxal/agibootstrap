@@ -36,7 +36,7 @@ func GetPsiNodeDescription(v psi.Node) PsiNodeDescription {
 			Icon:        theme.AccountIcon(),
 		}
 
-	case *vfs.DirectoryNode:
+	case *vfs.Directory:
 		return PsiNodeDescription{
 			Name:        v.PsiNodeName(),
 			Description: v.String(),

@@ -11,6 +11,7 @@ import (
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -29,6 +30,16 @@ type cachedNode struct {
 	node   psi.Node
 }
 
+type IndexedGraphListener interface {
+	OnNodeUpdated(node psi.Node)
+}
+
+type listenerSlot struct {
+	listener IndexedGraphListener
+	queue    chan psi.Node
+	proc     goprocess.Process
+}
+
 type IndexedGraph struct {
 	psi.BaseGraph
 
@@ -42,9 +53,11 @@ type IndexedGraph struct {
 
 	proc            goprocess.Process
 	nodeUpdateQueue chan nodeUpdateRequest
+
+	listeners []*listenerSlot
 }
 
-func NewIndexedGraph(ctx context.Context, ds datastore.Batching, root psi.Node) *IndexedGraph {
+func NewIndexedGraph(ds datastore.Batching, root psi.Node) *IndexedGraph {
 	store := NewStore(ds)
 
 	g := &IndexedGraph{
@@ -220,6 +233,14 @@ func (g *IndexedGraph) GetNodeChildren(path psi.Path) (result []psi.Path, err er
 	}), nil
 }
 
+func (g *IndexedGraph) CommitNode(ctx context.Context, node psi.Node) (ipld.Link, error) {
+	if _, err := g.store.UpsertNode(ctx, node); err != nil {
+		return nil, err
+	}
+
+	return psi.GetNodeSnapshot(node).Link, nil
+}
+
 func (g *IndexedGraph) OnNodeInvalidated(n psi.Node) {
 	g.nodeUpdateQueue <- nodeUpdateRequest{
 		Node:    n,
@@ -231,6 +252,68 @@ func (g *IndexedGraph) OnNodeUpdated(n psi.Node) {
 	g.nodeUpdateQueue <- nodeUpdateRequest{
 		Node:    n,
 		Version: n.PsiNodeVersion(),
+	}
+}
+
+func (g *IndexedGraph) AddListener(l IndexedGraphListener) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	index := slices.IndexFunc(g.listeners, func(s *listenerSlot) bool {
+		return s.listener == l
+	})
+
+	if index != -1 {
+		return
+	}
+
+	s := &listenerSlot{
+		listener: l,
+		queue:    make(chan psi.Node, 128),
+	}
+
+	s.proc = goprocess.SpawnChild(g.proc, func(proc goprocess.Process) {
+		close(s.queue)
+
+		for {
+			select {
+			case <-proc.Closing():
+				return
+			case n := <-s.queue:
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							g.logger.Error("panic in graph listener", "err", r)
+						}
+					}()
+
+					l.OnNodeUpdated(n)
+				}()
+			}
+		}
+	})
+
+	g.listeners = append(g.listeners, s)
+}
+
+func (g *IndexedGraph) RemoveListener(l IndexedGraphListener) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	index := slices.IndexFunc(g.listeners, func(s *listenerSlot) bool {
+		return s.listener == l
+	})
+
+	if index == -1 {
+		return
+	}
+
+	s := g.listeners[index]
+
+	g.listeners = slices.Delete(g.listeners, index, index+1)
+
+	if err := s.proc.Close(); err != nil {
+		panic(err)
 	}
 }
 
@@ -258,14 +341,21 @@ func (g *IndexedGraph) run(proc goprocess.Process) {
 
 		if err != nil {
 			g.logger.Error(err)
+		} else {
+			g.dispatchListeners(item)
 		}
+	}
+
+	if err := proc.CloseAfterChildren(); err != nil {
+		panic(err)
 	}
 }
 
-func (g *IndexedGraph) CommitNode(ctx context.Context, node psi.Node) (ipld.Link, error) {
-	if _, err := g.store.UpsertNode(ctx, node); err != nil {
-		return nil, err
-	}
+func (g *IndexedGraph) dispatchListeners(item nodeUpdateRequest) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 
-	return psi.GetNodeSnapshot(node).Link, nil
+	for _, l := range g.listeners {
+		l.queue <- item.Node
+	}
 }
