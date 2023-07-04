@@ -1,0 +1,7 @@
+[project]
+enabled_languages = ["go", "markdown"]
+
+[[module]]
+name = "agibootstrap"
+path = "."
+language = "go"

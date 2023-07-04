@@ -8,15 +8,17 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"sync"
 
+	"github.com/BurntSushi/toml"
 	"github.com/google/uuid"
 	"github.com/ipfs/go-datastore"
 	badger "github.com/ipfs/go-ds-badger"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
+	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/psi/vts"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
@@ -29,26 +31,14 @@ import (
 
 const SourceFileEdge psi.TypedEdgeKind[psi.SourceFile] = "SourceFile"
 
-// BuildStepResult represents the result of a build step.
-// It contains the number of changes made during the build step.
-type BuildStepResult struct {
-	Changes int
-}
-
-// BuildStep is an interface that defines the contract for a build step.
-// It represents a step in the build process and provides a method for processing a project.
-type BuildStep interface {
-	// Process executes the build step logic on the given project.
-	// It returns the result of the build step and any error that occurred during the process.
-	Process(ctx context.Context, p *Project) (result BuildStepResult, err error)
-}
-
-// Project represents a codex project.
 // It contains all the information about the project.
 type Project struct {
 	psi.NodeBase
 
-	uuid string
+	logger *zap.SugaredLogger
+
+	uuid   string
+	config project.Config
 
 	g *graphstore.IndexedGraph
 
@@ -59,6 +49,7 @@ type Project struct {
 	repo *fti.Repository
 	tm   *tasks.Manager
 	lm   *thoughtdb.Repo
+	sm   *SyncManager
 
 	rootPath string
 	rootNode *vfs.Directory
@@ -67,10 +58,9 @@ type Project struct {
 	langRegistry *project.Registry
 
 	fset *token.FileSet
-
-	currentSyncTaskMutex sync.Mutex
-	currentSyncTask      tasks.Task
 }
+
+var ProjectType = psi.DefineNodeType[*Project](psi.WithRuntimeOnly())
 
 func NewBareProject(ctx context.Context, rootPath string) (*Project, error) {
 	rootFs, err := repofs.NewFS(rootPath)
@@ -85,9 +75,9 @@ func NewBareProject(ctx context.Context, rootPath string) (*Project, error) {
 		return nil, err
 	}
 
-	debugPath := repo.ResolveDbPath("codex", "debug")
+	walPath := repo.ResolveDbPath("codex", "wal")
 
-	if err := os.MkdirAll(debugPath, 0755); err != nil {
+	if err := os.MkdirAll(walPath, 0755); err != nil {
 		return nil, errors.Wrap(err, "failed to create datastore directory")
 	}
 
@@ -106,6 +96,8 @@ func NewBareProject(ctx context.Context, rootPath string) (*Project, error) {
 	}
 
 	p := &Project{
+		logger: logging.GetLogger("codex"),
+
 		rootPath: rootPath,
 
 		ds:   ds,
@@ -115,6 +107,14 @@ func NewBareProject(ctx context.Context, rootPath string) (*Project, error) {
 		fset: token.NewFileSet(),
 		vts:  vts.NewScope(),
 	}
+
+	p.g, err = graphstore.NewIndexedGraph(p.ds, walPath, p)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create graph")
+	}
+
+	p.g.AddListener(&analysisListener{p: p})
 
 	return p, nil
 }
@@ -139,10 +139,8 @@ func LoadProject(ctx context.Context, rootPath string) (*Project, error) {
 func (p *Project) Init(self psi.Node, projectUuid string) {
 	p.uuid = projectUuid
 
-	p.NodeBase.Init(p)
+	p.NodeBase.Init(self, psi.WithNodeType(ProjectType))
 
-	p.g = graphstore.NewIndexedGraph(p.ds, p)
-	p.g.AddListener(&analysisListener{p: p})
 	p.g.Add(p)
 
 	p.langRegistry = project.NewRegistry(p)
@@ -152,6 +150,9 @@ func (p *Project) Init(self psi.Node, projectUuid string) {
 
 	p.lm = thoughtdb.NewRepo(p.g)
 	p.lm.SetParent(p)
+
+	p.sm = NewSyncManager(p)
+	p.sm.SetParent(p)
 
 	p.rootNode = vfs.NewDirectoryNode(p.fs, p.rootPath, "srcs")
 	p.rootNode.SetParent(p)
@@ -220,8 +221,94 @@ func (p *Project) Load(ctx context.Context) error {
 
 	p.Init(p, string(projectUuid))
 
-	if err := p.Sync(ctx); err != nil {
+	if err := p.loadConfig(ctx); err != nil {
 		return err
+	}
+
+	if err := p.bootstrap(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *Project) bootstrap(ctx context.Context) error {
+	if err := p.sm.RequestSync(ctx, true); err != nil {
+		return err
+	}
+
+	for _, lang := range p.config.Project.EnabledLanguages {
+		if err := p.bootstrapLanguage(ctx, lang); err != nil {
+			return err
+		}
+	}
+
+	for _, mod := range p.config.Modules {
+		if err := p.bootstrapModule(ctx, mod); err != nil {
+			return err
+		}
+	}
+
+	if err := p.sm.WaitForInitialSync(ctx); err != nil {
+		return err
+	}
+
+	p.logger.Info("Project bootstrapped")
+
+	return nil
+}
+
+func (p *Project) bootstrapLanguage(ctx context.Context, name string) error {
+	factory := project.GetLanguageFactory(psi.LanguageID(name))
+
+	if factory == nil {
+		return errors.Errorf("language %s not found", name)
+	}
+
+	p.langRegistry.Register(factory(p))
+
+	return nil
+}
+
+func (p *Project) bootstrapModule(ctx context.Context, mod project.ModuleConfig) error {
+	lang := p.langRegistry.GetLanguage(psi.LanguageID(mod.Language))
+
+	if lang == nil {
+		return errors.Errorf("language %s not configured", mod.Language)
+	}
+
+	root, err := psi.Resolve(p.rootNode, mod.Path)
+
+	if err != nil {
+		return errors.Wrapf(err, "failed to resolve module root %s", mod.Path)
+	}
+
+	m, err := NewModule(p, mod, lang, root.(*vfs.Directory))
+
+	if err != nil {
+		return err
+	}
+
+	m.SetParent(p)
+
+	return nil
+}
+
+func (p *Project) loadConfig(ctx context.Context) error {
+	configPath := path.Join(p.rootPath, "Codex.project.toml")
+
+	data, err := os.ReadFile(configPath)
+
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+
+		return err
+	}
+
+	if _, err := toml.Decode(string(data), &p.config); err != nil {
+		return errors.Wrap(err, "failed to decode config")
 	}
 
 	return nil
@@ -253,64 +340,7 @@ func (p *Project) FileSet() *token.FileSet { return p.fset }
 // slice. The function returns an error if any occurs during
 // the sync process.
 func (p *Project) Sync(ctx context.Context) error {
-	p.currentSyncTaskMutex.Lock()
-	defer p.currentSyncTaskMutex.Unlock()
-
-	if p.currentSyncTask != nil {
-		return nil
-	}
-
-	task := p.tm.SpawnTask(ctx, func(progress tasks.TaskProgress) error {
-		maxDepth := 0
-		count := 0
-
-		defer progress.Update(maxDepth*maxDepth+count+1, maxDepth*maxDepth+count+1)
-
-		err := psi.Walk(p.rootNode, func(cursor psi.Cursor, entering bool) error {
-			if cursor.Depth() > maxDepth {
-				maxDepth = cursor.Depth()
-			}
-
-			progress.Update(cursor.Depth()*cursor.Depth()+count, maxDepth*maxDepth+count+1)
-
-			n := cursor.Value()
-
-			if n, ok := n.(*vfs.Directory); ok && entering {
-				count++
-
-				cursor.WalkChildren()
-
-				return n.Sync(func(path string) bool {
-					return !p.repo.IsIgnored(path)
-				})
-			} else {
-				cursor.SkipChildren()
-			}
-
-			return nil
-		})
-
-		if err != nil {
-			return err
-		}
-
-		return p.Update(ctx)
-	})
-
-	p.currentSyncTask = task
-
-	go func() {
-		<-task.Done()
-
-		p.currentSyncTaskMutex.Lock()
-		defer p.currentSyncTaskMutex.Unlock()
-
-		if p.currentSyncTask == task {
-			p.currentSyncTask = nil
-		}
-	}()
-
-	return nil
+	return p.sm.RequestSync(ctx, false)
 }
 
 // GetSourceFile retrieves the source file with the given filename from the project.
@@ -380,5 +410,9 @@ func (p *Project) Reindex() error {
 }
 
 func (p *Project) Close() error {
+	if err := p.g.Close(); err != nil {
+		return errors.Wrap(err, "failed to close graph")
+	}
+
 	return p.ds.Close()
 }
