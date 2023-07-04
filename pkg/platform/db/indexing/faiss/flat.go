@@ -6,7 +6,7 @@ import (
 	"github.com/DataIntelligenceCrew/go-faiss"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 
-	"github.com/greenboxal/agibootstrap/pkg/indexing"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/indexing"
 )
 
 type IndexObject[K comparable] struct {
