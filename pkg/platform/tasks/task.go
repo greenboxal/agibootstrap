@@ -49,6 +49,8 @@ type task struct {
 	description string
 }
 
+var TaskType = psi.DefineNodeType[*task](psi.WithRuntimeOnly())
+
 func (t *task) UUID() string          { return t.uuid }
 func (t *task) PsiNodeName() string   { return t.UUID() }
 func (t *task) Name() string          { return t.name }
@@ -61,5 +63,5 @@ func (t *task) Done() <-chan struct{} { return t.tc.done }
 func (t *task) Init() {
 	t.uuid = uuid.New().String()
 
-	t.NodeBase.Init(t)
+	t.NodeBase.Init(t, psi.WithNodeType(TaskType))
 }

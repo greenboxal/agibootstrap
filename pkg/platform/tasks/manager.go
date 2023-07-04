@@ -21,12 +21,14 @@ type Manager struct {
 	tasks map[string]Task
 }
 
+var ManagerType = psi.DefineNodeType[*Manager](psi.WithRuntimeOnly())
+
 func NewManager() *Manager {
 	m := &Manager{
 		tasks: map[string]Task{},
 	}
 
-	m.NodeBase.Init(&m.NodeBase)
+	m.NodeBase.Init(m, psi.WithNodeType(ManagerType))
 
 	return m
 }
