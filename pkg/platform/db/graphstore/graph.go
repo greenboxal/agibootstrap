@@ -63,6 +63,7 @@ type IndexedGraph struct {
 	nodeCache map[psi.NodeID]*cachedNode
 
 	proc            goprocess.Process
+	closeCh         chan struct{}
 	nodeUpdateQueue chan nodeUpdateRequest
 
 	listeners []*listenerSlot
@@ -91,6 +92,7 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.Node) (*Ind
 
 		nodeCache: map[psi.NodeID]*cachedNode{},
 
+		closeCh:         make(chan struct{}),
 		nodeUpdateQueue: make(chan nodeUpdateRequest, 256),
 	}
 
@@ -378,67 +380,16 @@ func (g *IndexedGraph) indexNode(ctx context.Context, item nodeUpdateRequest) er
 func (g *IndexedGraph) run(proc goprocess.Process) {
 	ctx := goprocessctx.OnClosingContext(proc)
 
-	lastFenceData, err := g.ds.Get(ctx, lastFenceKey)
-
-	if err == nil && len(lastFenceData) > 0 {
-		lastFence, err := strconv.ParseUint(string(lastFenceData), 10, 64)
-
-		if err != nil {
-			panic(err)
-		}
-
-		for i := lastFence; i <= g.wal.LastRecordIndex(); i++ {
-			rec, err := g.wal.ReadRecord(i)
-
-			if err != nil {
-				panic(err)
-			}
-
-			if rec.Op != WalOpUpdateNode {
-				continue
-			}
-
-			fnLink := cidlink.Link{Cid: rec.Payload}
-			fn, err := g.store.GetNodeByCid(ctx, fnLink)
-
-			if err != nil {
-				panic(err)
-			}
-
-			edges := make([]*psi.FrozenEdge, len(fn.Edges))
-
-			for i, edgeLink := range fn.Edges {
-				edge, err := g.store.GetEdgeByCid(ctx, edgeLink)
-
-				if err != nil {
-					panic(err)
-				}
-
-				edges[i] = edge
-			}
-
-			item := nodeUpdateRequest{
-				Fence:  rec.Counter,
-				Frozen: fn,
-				Edges:  edges,
-				Link:   fnLink,
-			}
-
-			if err := g.processQueueItem(ctx, item); err != nil {
-				g.logger.Error(err)
-			}
-		}
-	} else if err != nil && err != datastore.ErrNotFound {
+	if err := g.recoverFromWal(ctx); err != nil {
 		panic(err)
 	}
 
 	for {
 		select {
-		case <-ctx.Done():
-			if err := proc.CloseAfterChildren(); err != nil {
-				panic(err)
-			}
+		case <-g.closeCh:
+			return
 
+		case <-ctx.Done():
 			return
 
 		case item := <-g.nodeUpdateQueue:
@@ -449,8 +400,69 @@ func (g *IndexedGraph) run(proc goprocess.Process) {
 	}
 }
 
-func (g *IndexedGraph) processQueueItem(ctx context.Context, item nodeUpdateRequest) error {
+func (g *IndexedGraph) recoverFromWal(ctx context.Context) error {
+	lastFenceData, err := g.ds.Get(ctx, lastFenceKey)
 
+	if err != nil && err != datastore.ErrNotFound {
+		return err
+	}
+
+	if len(lastFenceData) == 0 {
+		return nil
+	}
+
+	lastFence, err := strconv.ParseUint(string(lastFenceData), 10, 64)
+
+	if err != nil {
+		return err
+	}
+
+	for i := lastFence; i <= g.wal.LastRecordIndex(); i++ {
+		rec, err := g.wal.ReadRecord(i)
+
+		if err != nil {
+			return err
+		}
+
+		if rec.Op != WalOpUpdateNode {
+			continue
+		}
+
+		fnLink := cidlink.Link{Cid: rec.Payload}
+		fn, err := g.store.GetNodeByCid(ctx, fnLink)
+
+		if err != nil {
+			return err
+		}
+
+		edges := make([]*psi.FrozenEdge, len(fn.Edges))
+
+		for i, edgeLink := range fn.Edges {
+			edge, err := g.store.GetEdgeByCid(ctx, edgeLink)
+
+			if err != nil {
+				return err
+			}
+
+			edges[i] = edge
+		}
+
+		item := nodeUpdateRequest{
+			Fence:  rec.Counter,
+			Frozen: fn,
+			Edges:  edges,
+			Link:   fnLink,
+		}
+
+		if err := g.processQueueItem(ctx, item); err != nil {
+			g.logger.Error(err)
+		}
+	}
+
+	return nil
+}
+
+func (g *IndexedGraph) processQueueItem(ctx context.Context, item nodeUpdateRequest) error {
 	if err := g.indexNode(ctx, item); err != nil {
 		return err
 	}
@@ -538,8 +550,6 @@ func (g *IndexedGraph) AddListener(l IndexedGraphListener) {
 	}
 
 	s.proc = goprocess.SpawnChild(g.proc, func(proc goprocess.Process) {
-		defer close(s.queue)
-
 		for {
 			select {
 			case <-proc.Closing():
@@ -587,11 +597,15 @@ func (g *IndexedGraph) dispatchListeners(item nodeUpdateRequest) {
 	defer g.mu.RUnlock()
 
 	for _, l := range g.listeners {
-		l.queue <- item.Node
+		if l.queue != nil {
+			l.queue <- item.Node
+		}
 	}
 }
 
 func (g *IndexedGraph) Close() error {
+	close(g.closeCh)
+
 	if g.proc != nil {
 		if err := g.proc.Close(); err != nil {
 			return err

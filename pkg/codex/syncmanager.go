@@ -150,10 +150,6 @@ func (sm *SyncManager) run(proc goprocess.Process) {
 	for {
 		select {
 		case <-ctx.Done():
-			if err := proc.CloseAfterChildren(); err != nil {
-				panic(err)
-			}
-
 			return
 
 		case cmd := <-sm.commandQueue:

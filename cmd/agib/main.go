@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -22,8 +23,61 @@ import (
 	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/pylang"
 )
 
+var projectRoot string
+var project *codex.Project
+
+func initializeProject(ctx context.Context, load bool) error {
+	if projectRoot == "" {
+		root, err := findProjectRoot()
+
+		if err == nil {
+			projectRoot = root
+		}
+	}
+
+	if projectRoot != "" {
+		p, err := codex.NewBareProject(ctx, projectRoot)
+
+		if err != nil {
+			return err
+		}
+
+		project = p
+	}
+
+	if project != nil && load {
+		if err := project.Load(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func teardownProject() error {
+	if project != nil {
+		if err := project.Close(); err != nil {
+			return err
+		}
+
+		project = nil
+	}
+
+	return nil
+}
+
 func main() {
-	var rootCmd = &cobra.Command{Use: "app"}
+	var rootCmd = &cobra.Command{
+		Use: "app",
+
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			return initializeProject(cmd.Context(), false)
+		},
+
+		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+			return teardownProject()
+		},
+	}
 
 	var initCmd = &cobra.Command{
 		Use:   "init",
@@ -38,19 +92,11 @@ func main() {
 				return err
 			}
 
-			existingRoot, err := findProjectRoot()
-
-			if err == nil && existingRoot != wd {
+			if projectRoot != "" && projectRoot != wd {
 				return fmt.Errorf("a project already exists in this directory tree")
 			}
 
-			p, err := codex.NewBareProject(cmd.Context(), wd)
-
-			if err != nil {
-				return err
-			}
-
-			isValid, err := p.IsProjectValid(cmd.Context())
+			isValid, err := project.IsProjectValid(cmd.Context())
 
 			if err != nil {
 				return err
@@ -62,7 +108,7 @@ func main() {
 
 			fmt.Println("Initializing a new project...")
 
-			return p.Create(cmd.Context())
+			return project.Create(cmd.Context())
 		},
 	}
 
@@ -73,52 +119,28 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 
-			wd, err := findProjectRoot()
-
-			if err != nil {
+			if err := project.Load(cmd.Context()); err != nil {
 				return err
 			}
 
-			p, err := codex.LoadProject(cmd.Context(), wd)
-
-			if err != nil {
-				return err
-			}
-
-			defer p.Close()
-
-			return p.Reindex()
+			return project.Reindex()
 		},
 	}
 
 	var generateCmd = &cobra.Command{
-		Use:   "generate [repo path]",
+		Use:   "generate",
 		Short: "Generate a new file",
 		Long:  "This command generates a new file.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 
-			wd, err := findProjectRoot()
-
-			if err != nil {
+			if err := project.Load(cmd.Context()); err != nil {
 				return err
 			}
 
-			if len(args) > 0 {
-				wd = args[0]
-			}
-
-			p, err := codex.LoadProject(cmd.Context(), wd)
-
-			if err != nil {
-				return err
-			}
-
-			defer p.Close()
-
-			builder := build.NewBuilder(p, build.Configuration{
-				OutputDirectory: p.RootPath(),
-				BuildDirectory:  path.Join(p.RootPath(), ".build"),
+			builder := build.NewBuilder(project, build.Configuration{
+				OutputDirectory: project.RootPath(),
+				BuildDirectory:  path.Join(project.RootPath(), ".build"),
 
 				BuildSteps: []build.Step{
 					&codegen.BuildStep{},
@@ -126,7 +148,7 @@ func main() {
 				},
 			})
 
-			_, err = builder.Build(cmd.Context())
+			_, err := builder.Build(cmd.Context())
 
 			if err != nil {
 				fmt.Printf("error: %s\n", err)
@@ -143,21 +165,11 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 
-			wd, err := findProjectRoot()
-
-			if err != nil {
+			if err := project.Load(cmd.Context()); err != nil {
 				return err
 			}
 
-			p, err := codex.LoadProject(cmd.Context(), wd)
-
-			if err != nil {
-				return err
-			}
-
-			defer p.Close()
-
-			return p.Commit()
+			return project.Commit()
 		},
 	}
 
@@ -168,21 +180,11 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 
-			wd, err := findProjectRoot()
-
-			if err != nil {
+			if err := project.Load(cmd.Context()); err != nil {
 				return err
 			}
 
-			p, err := codex.LoadProject(cmd.Context(), wd)
-
-			if err != nil {
-				return err
-			}
-
-			defer p.Close()
-
-			vis := visor.NewVisor(p)
+			vis := visor.NewVisor(project)
 
 			vis.Run()
 
@@ -197,21 +199,11 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 
-			wd, err := findProjectRoot()
-
-			if err != nil {
+			if err := project.Load(cmd.Context()); err != nil {
 				return err
 			}
 
-			p, err := codex.LoadProject(cmd.Context(), wd)
-
-			if err != nil {
-				return err
-			}
-
-			defer p.Close()
-
-			vis := chatui.NewChatUI(p)
+			vis := chatui.NewChatUI(project)
 
 			vis.Run()
 
@@ -219,7 +211,9 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(initCmd, reindexCmd, generateCmd, commitCmd, debugCmd, chatCmd)
+	psiDbCmd := buildPsiDbCmd()
+
+	rootCmd.AddCommand(initCmd, reindexCmd, generateCmd, commitCmd, debugCmd, chatCmd, psiDbCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: %s\n", err)
