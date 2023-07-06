@@ -48,6 +48,7 @@ require (
 	github.com/antonmedv/expr v1.12.5 // indirect
 	github.com/arl/statsviz v0.5.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bep/debounce v1.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cockroachdb/errors v1.10.0 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
