@@ -26,7 +26,7 @@ func NewChatExplorer(p project.Project, dm *DocumentManager) *ChatExplorer {
 
 	chatLogsToolbar := container.NewHBox()
 
-	chatLogTree := guifx.NewPsiTreeWidget(p)
+	chatLogTree := guifx.NewPsiTreeWidget(p.Graph())
 	chatLogTree.SetRootItem(p.LogManager().CanonicalPath())
 
 	chatLogTree.OnNodeSelected = func(n psi.Node) {
@@ -44,7 +44,7 @@ func NewChatExplorer(p project.Project, dm *DocumentManager) *ChatExplorer {
 		nil,
 		nil,
 		nil,
-		chatLogTree,
+		container.NewScroll(chatLogTree),
 	)
 
 	ce.CanvasObject = chatLogsPanel

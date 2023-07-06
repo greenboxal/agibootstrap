@@ -14,7 +14,7 @@ type ProjectExplorer struct {
 }
 
 func NewProjectExplorer(p project.Project, dm *DocumentManager) *ProjectExplorer {
-	projectTree := guifx.NewPsiTreeWidget(p)
+	projectTree := guifx.NewPsiTreeWidget(p.Graph())
 
 	projectTree.OnNodeSelected = func(n psi.Node) {
 		dm.OpenDocument(n.CanonicalPath(), n)
@@ -27,7 +27,7 @@ func NewProjectExplorer(p project.Project, dm *DocumentManager) *ProjectExplorer
 		nil,
 		nil,
 		nil,
-		projectTree,
+		container.NewScroll(projectTree),
 	)
 
 	return &ProjectExplorer{

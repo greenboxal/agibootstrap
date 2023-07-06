@@ -26,7 +26,7 @@ func NewTasksToolWindow(p project.Project) *TasksToolWindow {
 	selectedTaskDesc := binding.NewString()
 	selectedTaskProgress := binding.NewFloat()
 
-	taskTree := guifx.NewPsiTreeWidget(p)
+	taskTree := guifx.NewPsiTreeWidget(p.Graph())
 	taskTree.SetRootItem(p.TaskManager().CanonicalPath())
 
 	updateSelectedTask := func() {
@@ -77,7 +77,7 @@ func NewTasksToolWindow(p project.Project) *TasksToolWindow {
 		nil,
 		nil,
 		container.NewHSplit(
-			taskTree,
+			container.NewScroll(taskTree),
 			taskDetails,
 		),
 	)

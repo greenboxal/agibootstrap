@@ -124,8 +124,9 @@ Create a Pytorch model based on the human brain cytoarchitecture.
 		container.NewTabItem("Properties", propertyInspector.CanvasObject),
 	)
 
-	bottomDrawer := container.NewAppTabs()
-	container.NewTabItem("Tasks", tasksToolWindow.CanvasObject)
+	bottomDrawer := container.NewAppTabs(
+		container.NewTabItem("Tasks", tasksToolWindow.CanvasObject),
+	)
 
 	bottomDrawer.SetTabLocation(container.TabLocationBottom)
 

@@ -199,8 +199,8 @@ func (ui *ChatUI) initializeUi() {
 
 	navigationToolbar := container.NewHBox()
 
-	navigationTree := guifx.NewPsiTreeWidget(ui.p)
-	navigationTree.Root = ui.p.LogManager().CanonicalPath().String()
+	navigationTree := guifx.NewPsiTreeWidget(ui.p.Graph())
+	navigationTree.SetRootItem(ui.p.LogManager().CanonicalPath())
 
 	navigationContainer := container.NewBorder(
 		navigationToolbar,

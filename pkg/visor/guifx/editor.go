@@ -66,10 +66,14 @@ func GetPsiNodeDescription(v psi.Node) PsiNodeDescription {
 	}
 
 	components := v.CanonicalPath().Components()
-	baseName := components[len(components)-1]
+	baseName := "/"
+
+	if len(components) > 0 {
+		baseName = components[len(components)-1].String()
+	}
 
 	return PsiNodeDescription{
-		Name:        baseName.String(),
+		Name:        baseName,
 		Description: v.String(),
 		Icon:        theme.QuestionIcon(),
 	}
