@@ -109,8 +109,8 @@ func (i *Index) removeIndexEntry(v *IndexEntry) {
 	v.Index = -1
 }
 
-func (i *Index) Update(ctx context.Context) error {
-	if err := i.NodeBase.Update(ctx); err != nil {
+func (i *Index) OnUpdate(ctx context.Context) error {
+	if err := i.NodeBase.OnUpdate(ctx); err != nil {
 		return err
 	}
 

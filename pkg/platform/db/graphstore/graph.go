@@ -33,7 +33,7 @@ type nodeUpdateRequest struct {
 type cachedNode struct {
 	mu sync.Mutex
 
-	uuid   psi.NodeID
+	path   psi.Path
 	frozen *psi.FrozenNode
 	node   psi.Node
 }
@@ -79,7 +79,7 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.Node) (*Ind
 		return nil, err
 	}
 
-	store := NewStore(ds, wal)
+	store := NewStore(ds, wal, root)
 
 	g := &IndexedGraph{
 		logger: logging.GetLogger("graphstore"),
@@ -101,14 +101,16 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.Node) (*Ind
 	return g, nil
 }
 
-func (g *IndexedGraph) ResolveNode(path psi.Path) (n psi.Node, err error) {
-	return psi.ResolvePath(g.root, path)
-}
+func (g *IndexedGraph) Root() psi.Node { return g.root }
 
-func (g *IndexedGraph) GetNodeByID(id psi.NodeID) (psi.Node, error) {
-	entry := g.getCacheEntry(id, true)
+func (g *IndexedGraph) ResolveNode(ctx context.Context, path psi.Path) (n psi.Node, err error) {
+	entry := g.getCacheEntry(path, true)
 
-	if err := g.loadCacheEntry(context.Background(), entry); err != nil {
+	if entry.node != nil {
+		return entry.node, nil
+	}
+
+	if err := g.loadCacheEntry(ctx, entry); err != nil {
 		return nil, err
 	}
 
@@ -119,21 +121,11 @@ func (g *IndexedGraph) GetNodeByID(id psi.NodeID) (psi.Node, error) {
 	return entry.node, nil
 }
 
-func (g *IndexedGraph) GetNodeChildren(path psi.Path) (result []psi.Path, err error) {
-	var n psi.Node
+func (g *IndexedGraph) ListNodeChildren(ctx context.Context, path psi.Path) (result []psi.Path, err error) {
+	n, err := g.ResolveNode(ctx, path)
 
-	if path.Root() != nil {
-		n, err = psi.ResolvePath(path.Root(), path)
-
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		n, err = g.ResolveNode(path)
-
-		if err != nil {
-			return nil, err
-		}
+	if err != nil {
+		return nil, err
 	}
 
 	return lo.Map(n.Children(), func(c psi.Node, _ int) psi.Path {
@@ -142,7 +134,7 @@ func (g *IndexedGraph) GetNodeChildren(path psi.Path) (result []psi.Path, err er
 }
 
 func (g *IndexedGraph) Add(n psi.Node) {
-	entry := g.getCacheEntry(n.UUID(), true)
+	entry := g.getCacheEntry(n.CanonicalPath(), true)
 
 	doAdd := func() bool {
 		entry.mu.Lock()
@@ -157,13 +149,6 @@ func (g *IndexedGraph) Add(n psi.Node) {
 			return false
 		}
 
-		frozen, err := g.store.UpsertNode(context.Background(), n)
-
-		if err != nil {
-			panic(err)
-		}
-
-		entry.frozen = frozen
 		entry.node = n
 
 		return true
@@ -179,7 +164,7 @@ func (g *IndexedGraph) Add(n psi.Node) {
 }
 
 func (g *IndexedGraph) Remove(n psi.Node) {
-	entry := g.getCacheEntry(n.UUID(), false)
+	entry := g.getCacheEntry(n.CanonicalPath(), false)
 
 	if entry == nil {
 		return
@@ -202,8 +187,62 @@ func (g *IndexedGraph) Remove(n psi.Node) {
 	}
 }
 
+func (g *IndexedGraph) RefreshNode(ctx context.Context, fn *psi.FrozenNode, n psi.Node) error {
+	for k, v := range fn.Attributes {
+		n.SetAttribute(k, v)
+	}
+
+	for _, edgeLink := range fn.Edges {
+		var to psi.Node
+
+		rawEdge, err := g.store.lsys.Load(ipld.LinkContext{Ctx: ctx}, edgeLink, frozenEdgeType.IpldPrototype())
+
+		if err != nil {
+			return err
+		}
+
+		fe := typesystem.Unwrap(rawEdge).(psi.FrozenEdge)
+
+		if fe.ToPath.IsEmpty() && !fe.ToLink.Equals(NoDataCid) {
+			frozen, err := g.store.GetNodeByCid(ctx, fe.ToLink)
+
+			if err != nil {
+				return err
+			}
+
+			to, err = g.LoadNode(ctx, frozen)
+		} else {
+			to, err = g.ResolveNode(ctx, fe.ToPath)
+
+			if err != nil {
+				return err
+			}
+		}
+
+		if fe.Key.Kind == psi.EdgeKindChild {
+			idx := fe.Key.Index
+
+			if idx >= int64(len(n.Children())) {
+				idx = int64(len(n.Children()))
+			}
+
+			n.InsertChildrenAt(int(fe.Key.Index), to)
+		} else {
+			n.SetEdge(fe.Key, to)
+		}
+	}
+
+	if n.PsiNode() == nil {
+		typ := psi.NodeTypeByName(fn.Type)
+
+		typ.InitializeNode(n)
+	}
+
+	return nil
+}
+
 func (g *IndexedGraph) LoadNode(ctx context.Context, fn *psi.FrozenNode) (psi.Node, error) {
-	entry := g.getCacheEntry(fn.UUID, true)
+	entry := g.getCacheEntry(fn.Path, true)
 
 	typ := psi.NodeTypeByName(fn.Type)
 
@@ -223,42 +262,19 @@ func (g *IndexedGraph) LoadNode(ctx context.Context, fn *psi.FrozenNode) (psi.No
 
 	n := typesystem.Unwrap(rawNode).(psi.Node)
 
-	for k, v := range fn.Attributes {
-		n.SetAttribute(k, v)
-	}
-
-	for _, edgeLink := range fn.Edges {
-		rawEdge, err := g.store.lsys.Load(ipld.LinkContext{Ctx: ctx}, edgeLink, frozenEdgeType.IpldPrototype())
-
-		if err != nil {
-			return nil, err
-		}
-
-		fe := typesystem.Unwrap(rawEdge).(psi.FrozenEdge)
-
-		to, err := g.GetNodeByID(fe.To)
-
-		if err != nil {
-			return nil, err
-		}
-
-		if fe.Key.Kind == psi.EdgeKindChild {
-			idx := fe.Key.Index
-
-			if idx >= int64(len(n.Children())) {
-				idx = int64(len(n.Children()))
-			}
-
-			n.InsertChildrenAt(int(fe.Key.Index), to)
-		} else {
-			n.SetEdge(fe.Key, to)
-		}
+	if err := g.RefreshNode(ctx, fn, n); err != nil {
+		return nil, err
 	}
 
 	return n, err
 }
 
 func (g *IndexedGraph) CommitNode(ctx context.Context, node psi.Node) (ipld.Link, error) {
+	entry := g.getCacheEntry(node.CanonicalPath(), true)
+
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+
 	fn, edges, link, err := g.store.FreezeNode(ctx, node)
 
 	if err != nil {
@@ -280,6 +296,11 @@ func (g *IndexedGraph) CommitNode(ctx context.Context, node psi.Node) (ipld.Link
 	if err != nil {
 		return nil, err
 	}
+
+	entry.node = node
+	entry.frozen = fn
+
+	g.logger.Infow("Commit node", "path", node.CanonicalPath().String(), "link", link.String())
 
 	psi.UpdateNodeSnapshot(node, &psi.NodeSnapshot{
 		Timestamp: time.Now(),
@@ -308,26 +329,47 @@ func (g *IndexedGraph) OnNodeUpdated(n psi.Node) {
 }
 
 func (g *IndexedGraph) indexNode(ctx context.Context, item nodeUpdateRequest) error {
-	batch, err := g.store.ds.Batch(ctx)
+	isInTree := false
 
-	if err != nil {
-		return err
-	}
+	if item.Node == nil {
+		n, err := g.LoadNode(ctx, item.Frozen)
 
-	if err := g.store.batchUpsertNode(ctx, batch, item.Frozen, item.Link); err != nil {
-		return err
-	}
-
-	for i, edge := range item.Edges {
-		link := item.Frozen.Edges[i]
-
-		if err := g.store.batchUpsertEdge(ctx, batch, edge, link); err != nil {
+		if err != nil {
 			return err
+		}
+
+		item.Node = n
+	}
+
+	for parent := item.Node; parent != nil; parent = parent.Parent() {
+		if parent == g.root {
+			isInTree = true
+			break
 		}
 	}
 
-	if err := batch.Commit(ctx); err != nil {
-		return err
+	if isInTree {
+		batch, err := g.store.ds.Batch(ctx)
+
+		if err != nil {
+			return err
+		}
+
+		if err := g.store.batchUpsertNode(ctx, batch, item.Frozen, item.Link); err != nil {
+			return err
+		}
+
+		for i, edge := range item.Edges {
+			link := item.Frozen.Edges[i]
+
+			if err := g.store.batchUpsertEdge(ctx, batch, edge, link); err != nil {
+				return err
+			}
+		}
+
+		if err := batch.Commit(ctx); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -408,15 +450,6 @@ func (g *IndexedGraph) run(proc goprocess.Process) {
 }
 
 func (g *IndexedGraph) processQueueItem(ctx context.Context, item nodeUpdateRequest) error {
-	if item.Node == nil {
-		n, err := g.LoadNode(ctx, item.Frozen)
-
-		if err != nil {
-			return err
-		}
-
-		item.Node = n
-	}
 
 	if err := g.indexNode(ctx, item); err != nil {
 		return err
@@ -433,7 +466,7 @@ func (g *IndexedGraph) processQueueItem(ctx context.Context, item nodeUpdateRequ
 	return nil
 }
 
-func (g *IndexedGraph) getCacheEntry(id psi.NodeID, create bool) *cachedNode {
+func (g *IndexedGraph) getCacheEntry(path psi.Path, create bool) *cachedNode {
 	if create {
 		g.mu.Lock()
 		defer g.mu.Unlock()
@@ -442,14 +475,15 @@ func (g *IndexedGraph) getCacheEntry(id psi.NodeID, create bool) *cachedNode {
 		defer g.mu.RUnlock()
 	}
 
-	entry := g.nodeCache[id]
+	key := path.String()
+	entry := g.nodeCache[key]
 
 	if entry == nil && create {
 		entry = &cachedNode{
-			uuid: id,
+			path: path,
 		}
 
-		g.nodeCache[id] = entry
+		g.nodeCache[key] = entry
 	}
 
 	return entry
@@ -464,7 +498,7 @@ func (g *IndexedGraph) loadCacheEntry(ctx context.Context, entry *cachedNode) er
 	}
 
 	if entry.frozen == nil {
-		frozen, err := g.store.GetNodeByID(ctx, entry.uuid, -1)
+		frozen, err := g.store.GetNodeByPath(ctx, entry.path)
 
 		if err != nil {
 			return err

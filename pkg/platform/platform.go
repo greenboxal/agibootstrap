@@ -1,9 +1,21 @@
 package platform
 
-import (
-	"github.com/greenboxal/agibootstrap/pkg/platform/project"
-)
+type EventLoop interface {
+	Dispatch(f func())
 
-type Platform struct {
-	ProjectManager *project.Manager
+	EnterNestedEventLoop(wait bool)
+	ExitNestedEventLoop()
+}
+
+type Platform interface {
+	EventLoop() EventLoop
+}
+
+var instance Platform
+
+func SetInstance(p Platform) { instance = p }
+func Instance() Platform     { return instance }
+
+func Dispatch(f func()) {
+	Instance().EventLoop().Dispatch(f)
 }

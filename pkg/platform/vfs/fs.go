@@ -2,151 +2,200 @@ package vfs
 
 import (
 	"io/fs"
+	"os"
 	"path"
 	"path/filepath"
 	"sync"
 
-	"github.com/dave/dst"
+	"github.com/fsnotify/fsnotify"
+	"github.com/jbenet/goprocess"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 )
 
 type FS interface {
 	fs.FS
 }
 
-// A FsNode is a node in the virtual file system.
-type FsNode interface {
-	psi.Node
+type fileSystem struct {
+	logger *zap.SugaredLogger
 
-	Name() string
-	Path() string
+	root string
+
+	mu       sync.Mutex
+	watchMap map[string]Node
+	watcher  *fsnotify.Watcher
+	proc     goprocess.Process
+
+	stopCh chan struct{}
 }
 
-type NodeBase struct {
-	psi.NodeBase
-
-	fs   FS
-	name string
-	path string
-}
-
-func (nb *NodeBase) PsiNodeName() string { return nb.name }
-func (nb *NodeBase) Ast() dst.Node       { return nil }
-func (nb *NodeBase) IsContainer() bool   { return true }
-func (nb *NodeBase) IsLeaf() bool        { return false }
-func (nb *NodeBase) Comments() []string  { return nil }
-func (nb *NodeBase) Name() string        { return path.Base(nb.path) }
-func (nb *NodeBase) Path() string        { return nb.path }
-
-// A DirectoryNode is a directory in the virtual file system.
-type Directory struct {
-	NodeBase
-
-	mu sync.RWMutex
-
-	children map[string]FsNode
-}
-
-var DirectoryType = psi.DefineNodeType[*Directory](psi.WithRuntimeOnly())
-
-// NewDirectoryNode creates a new DirectoryNode with the specified path.
-// The key of the DirectoryNode is set to the lowercase version of the path.
-func NewDirectoryNode(fs FS, path string, name string) *Directory {
-	dn := &Directory{
-		children: map[string]FsNode{},
+func NewFS(rootPath string) (FS, error) {
+	if _, err := os.Stat(rootPath); err != nil {
+		return nil, errors.Wrap(err, "invalid root path")
 	}
 
-	if name == "" {
-		name = filepath.Base(path)
-	}
-
-	dn.fs = fs
-	dn.name = name
-	dn.path = path
-
-	dn.Init(dn, psi.WithNodeType(DirectoryType))
-
-	return dn
-}
-
-func (dn *Directory) Resolve(name string) FsNode {
-	dn.mu.RLock()
-	defer dn.mu.RUnlock()
-
-	if child, ok := dn.children[name]; ok {
-		return child
-	}
-
-	return nil
-}
-
-// Sync synchronizes the DirectoryNode with the underlying filesystem.
-// It scans the directory and updates the children nodes to reflect the current state of the filesystem.
-// Any nodes that no longer exist in the filesystem are removed.
-func (dn *Directory) Sync(filterFn func(path string) bool) error {
-	dn.mu.Lock()
-	defer dn.mu.Unlock()
-
-	files, err := fs.ReadDir(dn.fs, dn.path)
+	w, err := fsnotify.NewWatcher()
 
 	if err != nil {
+		return nil, err
+	}
+
+	bfs := &fileSystem{
+		logger: logging.GetLogger("vfs"),
+
+		root: rootPath,
+
+		watchMap: map[string]Node{},
+		watcher:  w,
+
+		stopCh: make(chan struct{}),
+	}
+
+	bfs.proc = goprocess.Go(bfs.run)
+
+	return bfs, nil
+}
+
+func (bfs *fileSystem) Watch(node Node) error {
+	bfs.mu.Lock()
+	defer bfs.mu.Unlock()
+
+	if err := bfs.watcher.Add(node.Path()); err != nil {
 		return err
 	}
 
-	changes := make(map[string]FsNode)
+	bfs.watchMap[node.Path()] = node
 
-	for _, file := range files {
-		fullPath := path.Join(dn.path, file.Name())
+	return nil
+}
 
-		if filterFn != nil && !filterFn(fullPath) {
-			continue
-		}
+func (bfs *fileSystem) Unwatch(node Node) error {
+	bfs.mu.Lock()
+	defer bfs.mu.Unlock()
 
-		n := dn.children[file.Name()]
-
-		if n == nil {
-			if file.IsDir() {
-				n = NewDirectoryNode(dn.fs, fullPath, file.Name())
-			} else {
-				n = NewFileNode(dn.fs, fullPath)
-			}
-
-			n.SetParent(dn)
-
-			dn.children[file.Name()] = n
-		}
-
-		changes[file.Name()] = n
+	if _, ok := bfs.watchMap[node.Path()]; !ok {
+		return nil
 	}
 
-	for _, child := range dn.children {
-		if _, ok := changes[child.Name()]; !ok {
-			child.SetParent(nil)
-
-			delete(dn.children, child.Name())
-
-			continue
-		}
+	if err := bfs.watcher.Remove(node.Path()); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-type File struct {
-	NodeBase
+func (bfs *fileSystem) Open(name string) (fs.File, error) {
+	fullname, err := bfs.join(name)
+
+	if err != nil {
+		return nil, &fs.PathError{Op: "stat", Path: name, Err: err}
+	}
+
+	f, err := os.Open(fullname)
+
+	if err != nil {
+		// DirFS takes a string appropriate for GOOS,
+		// while the name argument here is always slash separated.
+		// bfs.join will have mixed the two; undo that for
+		// error reporting.
+		err.(*os.PathError).Path = name
+		return nil, err
+	}
+
+	return f, nil
 }
 
-var FileType = psi.DefineNodeType[*File](psi.WithRuntimeOnly())
+func (bfs *fileSystem) Stat(name string) (fs.FileInfo, error) {
+	fullname, err := bfs.join(name)
 
-func NewFileNode(fs FS, path string) *File {
-	fn := &File{}
+	if err != nil {
+		return nil, &fs.PathError{Op: "stat", Path: name, Err: err}
+	}
 
-	fn.fs = fs
-	fn.name = filepath.Base(path)
-	fn.path = path
+	f, err := os.Stat(fullname)
 
-	fn.Init(fn, psi.WithNodeType(FileType))
+	if err != nil {
+		err.(*fs.PathError).Path = name
+		return nil, err
+	}
 
-	return fn
+	return f, nil
+}
+
+// join returns the path for name in dir.
+func (bfs *fileSystem) join(name string) (string, error) {
+	var relPath, absPath string
+
+	if bfs.root == "" {
+		return "", errors.New("repofs: fileSystem with empty root")
+	}
+
+	if path.IsAbs(name) {
+		absPath = name
+
+		rel, relErr := filepath.Rel(bfs.root, name)
+
+		if relErr == nil {
+			relPath = rel
+		}
+	} else {
+		relPath = name
+
+		abs, err := filepath.Abs(path.Join(bfs.root, relPath))
+
+		if err == nil {
+			absPath = abs
+		}
+	}
+
+	if relPath == "" || absPath == "" {
+		return "", errors.New("file outside of project")
+	}
+
+	return absPath, nil
+}
+
+func (bfs *fileSystem) Close() error {
+	if bfs.watcher != nil {
+		if err := bfs.watcher.Close(); err != nil {
+			return err
+		}
+
+		bfs.watcher = nil
+	}
+
+	return nil
+}
+
+func (bfs *fileSystem) run(proc goprocess.Process) {
+	for {
+		select {
+		case <-proc.Closing():
+			return
+
+		case <-bfs.stopCh:
+			return
+
+		case ev := <-bfs.watcher.Events:
+			if err := bfs.handleEvent(ev); err != nil {
+				bfs.logger.Error(err)
+			}
+
+		case err := <-bfs.watcher.Errors:
+			bfs.logger.Error(err)
+		}
+	}
+}
+
+func (bfs *fileSystem) handleEvent(ev fsnotify.Event) error {
+	node := bfs.watchMap[ev.Name]
+
+	if node == nil {
+		return nil
+	}
+
+	return node.onWatchEvent(ev)
 }
