@@ -158,7 +158,27 @@ func (p *Project) Init(self psi.Node, projectUuid string) {
 	p.rootNode = vfs.NewDirectoryNode(p.fs, p.rootPath, "srcs")
 	p.rootNode.SetParent(p)
 
-	analysis.SetNodeScope(p, analysis.NewScope(p))
+	scope := analysis.NewScope(p)
+	scope.SetParent(p)
+	analysis.SetNodeScope(p, scope)
+}
+
+func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
+	p.Init(p, projectUuid)
+
+	if err := p.loadConfig(ctx); err != nil {
+		return err
+	}
+
+	if err := p.g.RefreshNode(ctx, p.lm); err != nil {
+		return errors.Wrap(err, "failed to refresh thoughtdb node")
+	}
+
+	if err := p.bootstrap(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (p *Project) IsProjectValid(ctx context.Context) (bool, error) {
@@ -222,16 +242,9 @@ func (p *Project) Load(ctx context.Context) error {
 		return errors.Wrap(err, "project uuid not found")
 	}
 
-	p.Init(p, string(projectUuid))
-
-	if err := p.loadConfig(ctx); err != nil {
+	if err := p.Initialize(ctx, string(projectUuid)); err != nil {
 		return err
 	}
-
-	if err := p.bootstrap(ctx); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -349,18 +362,6 @@ func (p *Project) Sync(ctx context.Context) error {
 // GetSourceFile retrieves the source file with the given filename from the project.
 // It returns a pointer to the psi.SourceFile and any error that occurred during the process.
 func (p *Project) GetSourceFile(ctx context.Context, filename string) (_ psi.SourceFile, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			if e, ok := r.(error); ok {
-				err = e
-			} else {
-				err = r.(error)
-			}
-
-			err = errors.Wrap(err, "failed to get source file "+filename)
-		}
-	}()
-
 	relPath, err := filepath.Rel(p.rootPath, filename)
 
 	if err != nil {
@@ -398,6 +399,7 @@ func (p *Project) GetSourceFile(ctx context.Context, filename string) (_ psi.Sou
 		err = existing.Load(ctx)
 
 		if err != nil {
+			p.logger.Warn(err)
 			return nil, err
 		}
 	}
@@ -412,8 +414,8 @@ func (p *Project) Reindex() error {
 	return nil
 }
 
-func (p *Project) Close() error {
-	if err := p.g.Close(); err != nil {
+func (p *Project) Shutdown(ctx context.Context) error {
+	if err := p.g.Shutdown(ctx); err != nil {
 		return errors.Wrap(err, "failed to close graph")
 	}
 

@@ -31,7 +31,7 @@ func GetPsiNodeDescription(v psi.Node) PsiNodeDescription {
 	switch v := v.(type) {
 	case thoughtdb.Branch:
 		return PsiNodeDescription{
-			Name:        v.UUID(),
+			Name:        v.String(),
 			Description: "Log Branch",
 			Icon:        theme.AccountIcon(),
 		}

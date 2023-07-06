@@ -54,9 +54,9 @@ func initializeProject(ctx context.Context, load bool) error {
 	return nil
 }
 
-func teardownProject() error {
+func teardownProject(ctx context.Context) error {
 	if project != nil {
-		if err := project.Close(); err != nil {
+		if err := project.Shutdown(ctx); err != nil {
 			return err
 		}
 
@@ -75,7 +75,7 @@ func main() {
 		},
 
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-			return teardownProject()
+			return teardownProject(cmd.Context())
 		},
 	}
 

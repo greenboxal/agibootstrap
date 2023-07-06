@@ -31,7 +31,7 @@ func NewTasksToolWindow(p project.Project) *TasksToolWindow {
 
 	updateSelectedTask := func() {
 		if selectedTask != nil {
-			selectedTaskId.Set(selectedTask.UUID())
+			selectedTaskId.Set(selectedTask.CanonicalPath().String())
 			selectedTaskName.Set(selectedTask.Name())
 			selectedTaskDesc.Set(selectedTask.Description())
 			selectedTaskProgress.Set(selectedTask.Progress())

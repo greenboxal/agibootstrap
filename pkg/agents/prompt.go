@@ -1,7 +1,6 @@
 package agents
 
 import (
-	"github.com/go-errors/errors"
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 
@@ -19,12 +18,6 @@ type AgentPrompt interface {
 type AgentPromptFunc func(ctx AgentContext) (chat.Message, error)
 
 func (a AgentPromptFunc) Render(ctx AgentContext) (_ chat.Message, err error) {
-	defer func() {
-		if e := recover(); err != nil {
-			err = errors.Wrap(e, 0)
-		}
-	}()
-
 	return a(ctx)
 }
 
