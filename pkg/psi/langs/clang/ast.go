@@ -30,19 +30,21 @@ func (nb *NodeBase[T]) Ast() antlr.ParserRuleContext { return nb.node }
 func (nb *NodeBase[T]) Comments() []string           { return nb.comments }
 
 func (nb *NodeBase[T]) String() string {
-	return fmt.Sprintf("%T(%d, %s)", nb.node, nb.ID(), nb.UUID())
+	return fmt.Sprintf("%T(%d)", nb.node, nb.ID())
 }
 
 func (nb *NodeBase[T]) Initialize(self Node) {
 	nb.NodeBase.Init(self)
 }
 
-func (nb *NodeBase[T]) OnUpdate(context.Context) error {
+func (nb *NodeBase[T]) OnUpdate(ctx context.Context) error {
 	if nb.IsValid() {
 		return nil
 	}
 
-	nb.NodeBase.OnUpdate(nil)
+	if err := nb.NodeBase.OnUpdate(ctx); err != nil {
+		return nil
+	}
 
 	return nil
 }

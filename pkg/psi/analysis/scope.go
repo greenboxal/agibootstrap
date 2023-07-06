@@ -96,7 +96,7 @@ func (s *Scope) Imports() []*Scope {
 }
 
 func (s *Scope) ImportScope(imp *Scope) {
-	psi.UpdateEdge(s, EdgeKindImport.Named(imp.UUID()), imp)
+	psi.UpdateEdge(s, EdgeKindImport.Named(imp.CanonicalPath().String()), imp)
 }
 
 func (s *Scope) GetSymbol(name string) *Symbol {

@@ -26,10 +26,16 @@ type NamedNode interface {
 	PsiNodeName() string
 }
 
-type UpdateableNode interface {
+type UpdatableNode interface {
 	Node
 
 	OnUpdate(context.Context) error
+}
+
+type UniqueNode interface {
+	Node
+
+	UUID() string
 }
 
 // Node represents a PSI element in the graph.
@@ -39,7 +45,6 @@ type Node interface {
 	NodeLike
 
 	ID() int64
-	UUID() NodeID
 	CanonicalPath() Path
 
 	Parent() Node
@@ -69,6 +74,8 @@ type Node interface {
 
 	// Edges returns the edges of the current node.
 	Edges() EdgeIterator
+	// UpsertEdge upserts the given edge.
+	UpsertEdge(edge Edge)
 	// SetEdge sets the edge with the given key to the given node.
 	SetEdge(key EdgeReference, to Node)
 	// UnsetEdge removes the edge with the given key.
@@ -101,8 +108,6 @@ type Node interface {
 	getGraph() Graph
 	attachToGraph(g Graph)
 	detachFromGraph(g Graph)
-	setLastSnapshot(snapshot *NodeSnapshot)
-	getLastSnapshot() *NodeSnapshot
 
 	String() string
 }
@@ -119,8 +124,8 @@ func (n *NodeLikeBase) PsiNodeVersion() int64  { return n.NodeBase.PsiNodeVersio
 type NodeBase struct {
 	obsfx.HasListenersBase[obsfx.InvalidationListener]
 
-	g            Graph
-	lastSnapshot *NodeSnapshot
+	g    Graph
+	snap NodeSnapshot
 
 	id      int64
 	typ     NodeType
@@ -140,9 +145,9 @@ type NodeBase struct {
 	inUpdate bool
 }
 
-func (n *NodeBase) getGraph() Graph                        { return n.g }
-func (n *NodeBase) setLastSnapshot(snapshot *NodeSnapshot) { n.lastSnapshot = snapshot }
-func (n *NodeBase) getLastSnapshot() *NodeSnapshot         { return n.lastSnapshot }
+func (n *NodeBase) getGraph() Graph                       { return n.g }
+func (n *NodeBase) setLastSnapshot(snapshot NodeSnapshot) { n.snap = snapshot }
+func (n *NodeBase) getLastSnapshot() NodeSnapshot         { return n.snap }
 
 type NodeInitOption func(*NodeBase)
 
@@ -268,11 +273,11 @@ func (n *NodeBase) PsiNodeType() NodeType  { return n.typ }
 func (n *NodeBase) PsiNodeVersion() int64  { return n.version }
 
 func (n *NodeBase) PsiNodeLink() ipld.Link {
-	if n.lastSnapshot == nil {
+	if n.snap == nil {
 		return nil
 	}
 
-	return n.lastSnapshot.Link
+	return n.snap.CommittedLink()
 }
 
 func (n *NodeBase) ID() int64          { return n.id }
@@ -291,10 +296,6 @@ func (n *NodeBase) ChildrenIterator() NodeIterator                   { return &n
 
 func (n *NodeBase) String() string {
 	return fmt.Sprintf("Value(%T, %d, %s)", n.self, n.id, n.path)
-}
-
-func (n *NodeBase) UUID() NodeID {
-	return n.CanonicalPath().String()
 }
 
 func (n *NodeBase) ResolveChild(component PathElement) Node {
@@ -505,6 +506,10 @@ func (n *NodeBase) Edges() EdgeIterator {
 	}
 }
 
+func (n *NodeBase) UpsertEdge(edge Edge) {
+	n.edges.Set(edge.Key().GetKey(), edge)
+}
+
 func (n *NodeBase) SetEdge(key EdgeReference, to Node) {
 	e, _ := n.edges.Get(key.GetKey())
 
@@ -634,7 +639,7 @@ func (n *NodeBase) Update(ctx context.Context) error {
 
 	n.version++
 
-	if n, ok := n.PsiNode().(UpdateableNode); ok {
+	if n, ok := n.PsiNode().(UpdatableNode); ok {
 		if err := n.OnUpdate(ctx); err != nil {
 			return nil
 		}
@@ -653,9 +658,7 @@ func (n *NodeBase) updatePath() {
 	var self PathElement
 
 	if n.Parent() == nil {
-		self.Kind = EdgeKindChild
-		self.Name = ""
-		n.path = PathFromElements(self)
+		n.path = PathFromElements()
 		return
 	}
 

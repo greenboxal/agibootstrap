@@ -2,10 +2,6 @@ package psi
 
 import (
 	"fmt"
-
-	"gonum.org/v1/gonum/graph"
-
-	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 )
 
 type EdgeID int64
@@ -41,11 +37,16 @@ func NewEdgeBase(key EdgeReference, from Node, to Node) *EdgeBase {
 	}
 }
 
+func (e *EdgeBase) SetFrom(from Node)        { e.from = from }
+func (e *EdgeBase) SetTo(to Node)            { e.to = to }
+func (e *EdgeBase) SetKey(key EdgeReference) { e.key = key.GetKey() }
+
 func (e *EdgeBase) ID() EdgeID         { return e.id }
 func (e *EdgeBase) Key() EdgeReference { return e.key }
 func (e *EdgeBase) Kind() EdgeKind     { return e.key.GetKind() }
 func (e *EdgeBase) From() Node         { return e.from }
 func (e *EdgeBase) To() Node           { return e.to }
+func (e *EdgeBase) Graph() Graph       { return e.g }
 
 func (e *EdgeBase) String() string {
 	return fmt.Sprintf("Edge(%s): %s -> %s", e.key, e.from, e.to)
@@ -106,51 +107,4 @@ func (e *EdgeBase) detachFromGraph(g Graph) {
 	e.g = nil
 
 	oldGraph.UnsetEdge(e)
-}
-
-type EdgeIterator interface {
-	Next() bool
-	Value() Edge
-	Edge() Edge
-}
-
-type nodeEdgeIterator struct {
-	n       *NodeBase
-	it      collectionsfx.MapIterator[EdgeKey, Edge]
-	current Edge
-}
-
-func (e *nodeEdgeIterator) Value() Edge { return e.Edge() }
-func (e *nodeEdgeIterator) Edge() Edge  { return e.current }
-
-func (e *nodeEdgeIterator) Next() bool {
-	if e.it == nil {
-		e.it = e.n.edges.MapIterator()
-	}
-
-	if !e.it.Next() {
-		return false
-	}
-
-	e.current = e.it.Value()
-
-	return true
-}
-
-type psiEdgeWrapper struct{ Edge }
-
-func (p psiEdgeWrapper) From() graph.Node {
-	return p.Edge.From()
-}
-
-func (p psiEdgeWrapper) To() graph.Node {
-	return p.Edge.To()
-}
-
-func (p psiEdgeWrapper) ID() int64 {
-	return int64(p.Edge.ID())
-}
-
-func (p psiEdgeWrapper) ReversedLine() graph.Line {
-	panic("not supported")
 }

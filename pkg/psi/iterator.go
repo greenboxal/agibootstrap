@@ -1,8 +1,20 @@
 package psi
 
+import (
+	"gonum.org/v1/gonum/graph"
+
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
+)
+
 type NodeIterator interface {
 	Value() Node
 	Next() bool
+}
+
+type EdgeIterator interface {
+	Next() bool
+	Value() Edge
+	Edge() Edge
 }
 
 type nodeSliceIterator struct {
@@ -92,6 +104,43 @@ func (n *nestedNodeIterator) Append(iterator NodeIterator) NodeIterator {
 	return &nestedNodeIterator{iterators: []NodeIterator{n, iterator}}
 }
 
-func AppendNodeIterator(iterators ...NodeIterator) NodeIterator {
-	return &nestedNodeIterator{iterators: iterators}
+type nodeEdgeIterator struct {
+	n       *NodeBase
+	it      collectionsfx.MapIterator[EdgeKey, Edge]
+	current Edge
+}
+
+func (e *nodeEdgeIterator) Value() Edge { return e.Edge() }
+func (e *nodeEdgeIterator) Edge() Edge  { return e.current }
+
+func (e *nodeEdgeIterator) Next() bool {
+	if e.it == nil {
+		e.it = e.n.edges.MapIterator()
+	}
+
+	if !e.it.Next() {
+		return false
+	}
+
+	e.current = e.it.Value()
+
+	return true
+}
+
+type psiEdgeWrapper struct{ Edge }
+
+func (p psiEdgeWrapper) From() graph.Node {
+	return p.Edge.From()
+}
+
+func (p psiEdgeWrapper) To() graph.Node {
+	return p.Edge.To()
+}
+
+func (p psiEdgeWrapper) ID() int64 {
+	return int64(p.Edge.ID())
+}
+
+func (p psiEdgeWrapper) ReversedLine() graph.Line {
+	panic("not supported")
 }

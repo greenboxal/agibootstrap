@@ -189,13 +189,13 @@ func (r *PruningRenderer) Render(node psi.Node, writer io.Writer) (total int64, 
 }
 
 func (r *PruningRenderer) getState(n psi.Node) *NodeState {
-	s, ok := r.nodeStates[n.UUID()]
+	s, ok := r.nodeStates[n.CanonicalPath().String()]
 
 	if !ok {
 		s = &NodeState{}
 		s.Node = n
 		s.Reset(r.Tokenizer)
-		r.nodeStates[n.UUID()] = s
+		r.nodeStates[n.CanonicalPath().String()] = s
 	}
 
 	return s
