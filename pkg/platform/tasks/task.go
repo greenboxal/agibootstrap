@@ -51,8 +51,7 @@ type task struct {
 
 var TaskType = psi.DefineNodeType[*task](psi.WithRuntimeOnly())
 
-func (t *task) UUID() string          { return t.uuid }
-func (t *task) PsiNodeName() string   { return t.UUID() }
+func (t *task) PsiNodeName() string   { return t.uuid }
 func (t *task) Name() string          { return t.name }
 func (t *task) Description() string   { return t.description }
 func (t *task) Progress() float64     { return float64(t.tc.current) / float64(t.tc.total) }

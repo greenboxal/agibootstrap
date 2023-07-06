@@ -24,15 +24,16 @@ type Thought struct {
 	ReplyTo *CommHandle
 }
 
+var ThoughtType = psi.DefineNodeType[*Thought]()
+
 func NewThought() *Thought {
 	t := &Thought{}
 
-	t.Init(t)
+	t.Init(t, psi.WithNodeType(ThoughtType))
 
 	return t
 }
 
-func (t *Thought) UUID() string        { return t.Pointer.String() }
 func (t *Thought) PsiNodeName() string { return t.Pointer.String() }
 
 func (t *Thought) PreviousThought() *Thought {

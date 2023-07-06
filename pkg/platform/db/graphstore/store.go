@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"path"
 
 	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipfs/go-cid"
@@ -56,22 +57,25 @@ func (s *Store) FreezeNode(ctx context.Context, n psi.Node) (*psi.FrozenNode, []
 
 	childIndex := int64(0)
 
-	if n.PsiNodeType().Definition().IsRuntimeOnly {
+	if !n.PsiNodeType().Definition().IsRuntimeOnly {
 		dataLink, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(n))
 
 		if err != nil {
 			return nil, nil, nil, err
 		}
 
-		fn.Link = dataLink.(cidlink.Link)
-	} else {
-		fn.Link = cidlink.Link{Cid: NoDataCid}
+		l := dataLink.(cidlink.Link)
+		fn.Data = &l
 	}
 
 	for it := n.ChildrenIterator(); it.Next(); childIndex++ {
 		key := psi.EdgeKey{
 			Kind:  psi.EdgeKindChild,
 			Index: childIndex,
+		}
+
+		if named, ok := it.Value().(psi.NamedNode); ok {
+			key.Name = named.PsiNodeName()
 		}
 
 		edge := psi.NewEdgeBase(key, n, it.Value())
@@ -109,6 +113,20 @@ func (s *Store) FreezeNode(ctx context.Context, n psi.Node) (*psi.FrozenNode, []
 }
 
 func (s *Store) FreezeEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge, ipld.Link, error) {
+	if le, ok := edge.(*lazyEdge); ok && le.frozen != nil {
+		if le.link == nil {
+			link, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(le.frozen))
+
+			if err != nil {
+				return nil, nil, err
+			}
+
+			le.link = link
+		}
+
+		return le.frozen, le.link, nil
+	}
+
 	dataLink, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(edgeWrapper{Edge: edge}))
 
 	if err != nil {
@@ -116,21 +134,23 @@ func (s *Store) FreezeEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge,
 	}
 
 	fe := &psi.FrozenEdge{
-		Cid:      dataLink.(cidlink.Link),
+		Data:     dataLink.(cidlink.Link),
 		Key:      edge.Key().GetKey(),
 		FromPath: edge.From().CanonicalPath(),
-		ToLink:   cidlink.Link{Cid: NoDataCid},
 	}
 
 	for parent := edge.To(); parent != nil; parent = parent.Parent() {
 		if parent == s.root {
-			fe.ToPath = edge.To().CanonicalPath()
+			p := edge.To().CanonicalPath()
+			fe.ToPath = &p
 			break
 		}
 	}
 
 	if toSnapshot := psi.GetNodeSnapshot(edge.To()); toSnapshot != nil {
-		fe.ToLink = toSnapshot.Link.(cidlink.Link)
+		if l, ok := toSnapshot.CommittedLink().(cidlink.Link); ok {
+			fe.ToLink = &l
+		}
 	}
 
 	link, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(fe))
@@ -142,85 +162,6 @@ func (s *Store) FreezeEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge,
 	return fe, link, nil
 }
 
-func (s *Store) UpsertNode(ctx context.Context, n psi.Node) (*psi.FrozenNode, error) {
-	batch, err := s.ds.Batch(ctx)
-
-	if err != nil {
-		return nil, err
-	}
-
-	fn, edges, link, err := s.FreezeNode(context.Background(), n)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.batchUpsertNode(ctx, batch, fn, link); err != nil {
-		return nil, err
-	}
-
-	for _, edge := range edges {
-		if err := s.batchUpsertEdge(ctx, batch, edge, edge.Cid); err != nil {
-			return nil, err
-		}
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	if err := batch.Commit(ctx); err != nil {
-		return nil, err
-	}
-
-	return fn, nil
-}
-
-func (s *Store) batchUpsertNode(ctx context.Context, batch datastore.Batch, fn *psi.FrozenNode, link ipld.Link) error {
-	headKey := fmt.Sprintf("refs/heads/%s", fn.Path)
-
-	if err := batch.Put(ctx, datastore.NewKey(headKey), []byte(link.Binary())); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Store) UpsertEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge, error) {
-	fe, feLink, err := s.FreezeEdge(ctx, edge)
-
-	if err != nil {
-		return nil, err
-	}
-
-	batch, err := s.ds.Batch(ctx)
-
-	if err != nil {
-		return nil, err
-	}
-
-	err = s.batchUpsertEdge(ctx, batch, fe, feLink.(cidlink.Link))
-
-	if err != nil {
-		return nil, err
-	}
-
-	if err := batch.Commit(ctx); err != nil {
-		return nil, err
-	}
-
-	return fe, nil
-}
-
-func (s *Store) batchUpsertEdge(ctx context.Context, batch datastore.Batch, fe *psi.FrozenEdge, feLink cidlink.Link) error {
-	key := fmt.Sprintf("refs/edges/%s?%s", fe.FromPath, fe.Key)
-
-	if err := batch.Put(ctx, datastore.NewKey(key), []byte(feLink.Binary())); err != nil {
-		return err
-	}
-
-	return nil
-}
 func (s *Store) GetEdgeByCid(ctx context.Context, link ipld.Link) (*psi.FrozenEdge, error) {
 	n, err := s.lsys.Load(ipld.LinkContext{Ctx: ctx}, link, frozenEdgeType.IpldPrototype())
 
@@ -245,8 +186,28 @@ func (s *Store) GetNodeByCid(ctx context.Context, link ipld.Link) (*psi.FrozenNo
 	return &fn, nil
 }
 
-func (s *Store) GetNodeByPath(ctx context.Context, path psi.Path) (*psi.FrozenNode, error) {
-	key := fmt.Sprintf("refs/heads/%s", path)
+func (s *Store) IndexNode(ctx context.Context, batch datastore.Batch, root string, fn *psi.FrozenNode, link ipld.Link) error {
+	headKey := fmt.Sprintf("refs/heads/%s/%s", root, fn.Path)
+
+	if err := batch.Put(ctx, datastore.NewKey(headKey), []byte(link.Binary())); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) IndexEdge(ctx context.Context, batch datastore.Batch, root string, fe *psi.FrozenEdge, feLink cidlink.Link) error {
+	key := fmt.Sprintf("refs/edges/%s/%s!/%s", root, fe.FromPath, fe.Key)
+
+	if err := batch.Put(ctx, datastore.NewKey(key), []byte(feLink.Binary())); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) GetNodeByPath(ctx context.Context, root string, path psi.Path) (*psi.FrozenNode, error) {
+	key := fmt.Sprintf("refs/heads/%s/%s", root, path)
 
 	cidBytes, err := s.ds.Get(ctx, datastore.NewKey(key))
 
@@ -263,10 +224,10 @@ func (s *Store) GetNodeByPath(ctx context.Context, path psi.Path) (*psi.FrozenNo
 	return s.GetNodeByCid(ctx, cidlink.Link{Cid: contentId})
 }
 
-func (s *Store) ListNodeEdges(ctx context.Context, path psi.Path) (iterators.Iterator[*psi.FrozenEdge], error) {
+func (s *Store) ListNodeEdges(ctx context.Context, root string, nodePath psi.Path) (iterators.Iterator[*psi.FrozenEdge], error) {
 	var q query.Query
 
-	q.Prefix = fmt.Sprintf("refs/edges/%s?", path)
+	q.Prefix = path.Join("/refs/edges", root, nodePath.String()+"!")
 
 	it, err := s.ds.Query(ctx, q)
 

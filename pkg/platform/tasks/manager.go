@@ -33,7 +33,6 @@ func NewManager() *Manager {
 	return m
 }
 
-func (m *Manager) UUID() string        { return "TaskManager" }
 func (m *Manager) PsiNodeName() string { return "TaskManager" }
 
 func (m *Manager) SpawnTask(ctx context.Context, taskFn TaskFunc) Task {
@@ -65,7 +64,7 @@ func (m *Manager) SpawnTask(ctx context.Context, taskFn TaskFunc) Task {
 		t.SetParent(m.PsiNode())
 	}
 
-	m.tasks[t.UUID()] = t
+	m.tasks[t.uuid] = t
 
 	parent := goprocessctx.WithContext(ctx)
 	tc.proc = goprocess.GoChild(parent, func(proc goprocess.Process) {
@@ -109,7 +108,7 @@ func (m *Manager) onTaskComplete(t *task) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	delete(m.tasks, t.UUID())
+	delete(m.tasks, t.uuid)
 
 	if t.Parent() == m.PsiNode() {
 		t.SetParent(nil)

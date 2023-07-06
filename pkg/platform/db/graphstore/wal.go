@@ -30,21 +30,27 @@ type WalRecord struct {
 	Counter uint64
 	Ts      int64
 	Len     uint8
-	Payload cid.Cid
+	Payload *cid.Cid
 }
 
 func BuildWalRecord(op WalOp, payload cid.Cid) WalRecord {
+	p := &payload
+
+	if payload == cid.Undef {
+		p = nil
+	}
+
 	return WalRecord{
 		HdrLen:  20,
 		Ts:      time.Now().UnixNano(),
 		Op:      op,
 		Len:     uint8(payload.ByteLen()),
-		Payload: payload,
+		Payload: p,
 	}
 }
 
 func (r *WalRecord) MarshalBinary() ([]byte, error) {
-	if r.Payload.ByteLen() != 37 && r.Payload.ByteLen() != 0 {
+	if r.Payload != nil && r.Payload.ByteLen() != 37 && r.Payload.ByteLen() != 0 {
 		return nil, fmt.Errorf("payload must be 37 bytes")
 	}
 
@@ -57,7 +63,9 @@ func (r *WalRecord) MarshalBinary() ([]byte, error) {
 	binary.BigEndian.PutUint64(data[10:18], uint64(r.Ts))
 	data[18] = r.Len
 
-	copy(data[r.HdrLen:r.HdrLen+r.Len], r.Payload.Bytes())
+	if r.Payload != nil {
+		copy(data[r.HdrLen:r.HdrLen+r.Len], r.Payload.Bytes())
+	}
 
 	return data, nil
 }
@@ -80,7 +88,7 @@ func (r *WalRecord) UnmarshalBinary(data []byte) error {
 			return err
 		}
 
-		r.Payload = payload
+		r.Payload = &payload
 	}
 
 	return nil
@@ -151,7 +159,12 @@ func (w *WriteAheadLog) WriteRecords(records ...WalRecord) (last uint64, err err
 		rec.HdrLen = 20
 		rec.Counter = w.counter.Add(1)
 		rec.Ts = time.Now().UnixNano()
-		rec.Len = uint8(rec.Payload.ByteLen())
+
+		if rec.Payload != nil {
+			rec.Len = uint8(rec.Payload.ByteLen())
+		} else {
+			rec.Len = 0
+		}
 
 		data, err := rec.MarshalBinary()
 

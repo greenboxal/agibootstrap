@@ -22,18 +22,6 @@ type ModuleBase struct {
 	Name string `json:"name" psi-attr:""`
 }
 
-func (m *ModuleBase) UUID() string {
-	uuid := m.Name
-
-	if p, ok := m.Parent().(Module); ok {
-		uuid = p.UUID() + "/" + uuid
-	} else {
-		uuid = "/modules/" + uuid
-	}
-
-	return uuid
-}
-
 func (m *ModuleBase) PsiNodeName() string           { return m.GetName() }
 func (m *ModuleBase) PsiNodeScope() *analysis.Scope { return analysis.GetNodeScope(m) }
 
@@ -66,18 +54,6 @@ type PackageBase struct {
 	psi.NodeBase
 
 	Name string `json:"name" psi-attr:""`
-}
-
-func (p *PackageBase) UUID() string {
-	uuid := p.Name
-
-	if p, ok := p.Parent().(Module); ok {
-		uuid = p.UUID() + "/" + uuid
-	} else {
-		uuid = "/pkgs/" + uuid
-	}
-
-	return uuid
 }
 
 func (p *PackageBase) PsiNodeName() string           { return p.GetName() }

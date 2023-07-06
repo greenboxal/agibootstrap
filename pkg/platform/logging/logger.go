@@ -8,6 +8,8 @@ func init() {
 	config := zap.NewDevelopmentConfig()
 	config.DisableStacktrace = false
 	config.DisableCaller = true
+	config.OutputPaths = []string{"stderr"}
+	config.ErrorOutputPaths = []string{"stderr"}
 
 	logger, err := config.Build()
 

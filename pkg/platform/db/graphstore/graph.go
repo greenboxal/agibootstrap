@@ -2,19 +2,16 @@ package graphstore
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"sync"
-	"time"
 
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
-	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
-	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
@@ -28,14 +25,6 @@ type nodeUpdateRequest struct {
 	Frozen *psi.FrozenNode
 	Edges  []*psi.FrozenEdge
 	Link   ipld.Link
-}
-
-type cachedNode struct {
-	mu sync.Mutex
-
-	path   psi.Path
-	frozen *psi.FrozenNode
-	node   psi.Node
 }
 
 type listenerSlot struct {
@@ -54,7 +43,7 @@ type IndexedGraph struct {
 	logger *zap.SugaredLogger
 	mu     sync.RWMutex
 
-	root psi.Node
+	root psi.UniqueNode
 
 	ds    datastore.Batching
 	store *Store
@@ -69,7 +58,7 @@ type IndexedGraph struct {
 	listeners []*listenerSlot
 }
 
-func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.Node) (*IndexedGraph, error) {
+func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.UniqueNode) (*IndexedGraph, error) {
 	if err := os.MkdirAll(walPath, 0755); err != nil {
 		return nil, err
 	}
@@ -103,36 +92,61 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.Node) (*Ind
 	return g, nil
 }
 
-func (g *IndexedGraph) Root() psi.Node { return g.root }
+func (g *IndexedGraph) Root() psi.UniqueNode { return g.root }
+func (g *IndexedGraph) Store() *Store        { return g.store }
+
+func (g *IndexedGraph) Commit(ctx context.Context) error {
+	if err := g.root.Update(ctx); err != nil {
+		return err
+	}
+
+	if _, err := g.CommitNode(ctx, g.root); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (g *IndexedGraph) NewTransaction(root psi.Node) Transaction {
+	return newGraphTx(g, root)
+}
 
 func (g *IndexedGraph) ResolveNode(ctx context.Context, path psi.Path) (n psi.Node, err error) {
 	entry := g.getCacheEntry(path, true)
 
-	if entry.node != nil {
-		return entry.node, nil
-	}
-
-	if err := g.loadCacheEntry(ctx, entry); err != nil {
+	if err := entry.Load(ctx); err != nil {
 		return nil, err
 	}
 
-	if entry.node == nil {
+	n = entry.Node()
+
+	if n == nil {
 		return nil, psi.ErrNodeNotFound
 	}
 
-	return entry.node, nil
+	return n, nil
 }
 
 func (g *IndexedGraph) ListNodeChildren(ctx context.Context, path psi.Path) (result []psi.Path, err error) {
-	n, err := g.ResolveNode(ctx, path)
+	edges, err := g.store.ListNodeEdges(ctx, g.root.UUID(), path)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return lo.Map(n.Children(), func(c psi.Node, _ int) psi.Path {
-		return c.CanonicalPath()
-	}), nil
+	for edges.Next() {
+		fe := edges.Value()
+
+		if fe.Key.Kind != psi.EdgeKindChild {
+			continue
+		}
+
+		p := fe.FromPath.Child(fe.Key.AsPathElement())
+
+		result = append(result, p)
+	}
+
+	return result, nil
 }
 
 func (g *IndexedGraph) Add(n psi.Node) {
@@ -178,7 +192,7 @@ func (g *IndexedGraph) Remove(n psi.Node) {
 	entry.node = nil
 	entry.frozen = nil
 
-	delete(g.nodeCache, n.UUID())
+	delete(g.nodeCache, n.CanonicalPath().String())
 
 	if entry.node != nil {
 		g.BaseGraph.Remove(n)
@@ -189,136 +203,40 @@ func (g *IndexedGraph) Remove(n psi.Node) {
 	}
 }
 
-func (g *IndexedGraph) RefreshNode(ctx context.Context, fn *psi.FrozenNode, n psi.Node) error {
-	for k, v := range fn.Attributes {
-		n.SetAttribute(k, v)
+func (g *IndexedGraph) RefreshNode(ctx context.Context, n psi.Node) error {
+	entry := g.getCacheEntry(n.CanonicalPath(), true)
+
+	if entry.node == nil {
+		return entry.updateFromMemory(ctx, n)
+	} else if entry.node != n {
+		return fmt.Errorf("conflict: node already exists in graph")
 	}
 
-	for _, edgeLink := range fn.Edges {
-		var to psi.Node
-
-		rawEdge, err := g.store.lsys.Load(ipld.LinkContext{Ctx: ctx}, edgeLink, frozenEdgeType.IpldPrototype())
-
-		if err != nil {
-			return err
-		}
-
-		fe := typesystem.Unwrap(rawEdge).(psi.FrozenEdge)
-
-		if fe.ToPath.IsEmpty() && !fe.ToLink.Equals(NoDataCid) {
-			frozen, err := g.store.GetNodeByCid(ctx, fe.ToLink)
-
-			if err != nil {
-				return err
-			}
-
-			to, err = g.LoadNode(ctx, frozen)
-		} else {
-			to, err = g.ResolveNode(ctx, fe.ToPath)
-
-			if err != nil {
-				return err
-			}
-		}
-
-		if fe.Key.Kind == psi.EdgeKindChild {
-			idx := fe.Key.Index
-
-			if idx >= int64(len(n.Children())) {
-				idx = int64(len(n.Children()))
-			}
-
-			n.InsertChildrenAt(int(fe.Key.Index), to)
-		} else {
-			n.SetEdge(fe.Key, to)
-		}
-	}
-
-	if n.PsiNode() == nil {
-		typ := psi.NodeTypeByName(fn.Type)
-
-		typ.InitializeNode(n)
-	}
-
-	return nil
+	return entry.Refresh(ctx)
 }
 
 func (g *IndexedGraph) LoadNode(ctx context.Context, fn *psi.FrozenNode) (psi.Node, error) {
 	entry := g.getCacheEntry(fn.Path, true)
 
-	typ := psi.NodeTypeByName(fn.Type)
-
-	if typ.Definition().IsRuntimeOnly {
-		if entry == nil {
-			return nil, psi.ErrNodeNotFound
-		}
-
-		return entry.node, nil
-	}
-
-	rawNode, err := g.store.lsys.Load(ipld.LinkContext{Ctx: ctx}, fn.Link, typ.Type().IpldPrototype())
-
-	if err != nil {
+	if err := entry.Load(ctx); err != nil {
 		return nil, err
 	}
 
-	n := typesystem.Unwrap(rawNode).(psi.Node)
-
-	if err := g.RefreshNode(ctx, fn, n); err != nil {
-		return nil, err
-	}
-
-	return n, err
+	return entry.Node(), nil
 }
 
 func (g *IndexedGraph) CommitNode(ctx context.Context, node psi.Node) (ipld.Link, error) {
 	entry := g.getCacheEntry(node.CanonicalPath(), true)
 
-	entry.mu.Lock()
-	defer entry.mu.Unlock()
-
-	fn, edges, link, err := g.store.FreezeNode(ctx, node)
-
-	if err != nil {
-		panic(err)
-	}
-
-	records := make([]WalRecord, 2+len(edges))
-
-	records[0] = BuildWalRecord(WalOpUpdateNode, link.(cidlink.Link).Cid)
-
-	for i, edgeLink := range fn.Edges {
-		records[i+1] = BuildWalRecord(WalOpUpdateEdge, edgeLink.Cid)
-	}
-
-	records[len(records)-1] = BuildWalRecord(WalOpFence, cid.Undef)
-
-	rid, err := g.wal.WriteRecords(records...)
-
-	if err != nil {
+	if err := entry.updateFromMemory(ctx, node); err != nil {
 		return nil, err
 	}
 
-	entry.node = node
-	entry.frozen = fn
-
-	g.logger.Infow("Commit node", "path", node.CanonicalPath().String(), "link", link.String())
-
-	psi.UpdateNodeSnapshot(node, &psi.NodeSnapshot{
-		Timestamp: time.Now(),
-		Fence:     rid,
-		Link:      link,
-	})
-
-	g.nodeUpdateQueue <- nodeUpdateRequest{
-		Fence:  rid,
-		Node:   node,
-		Frozen: fn,
-		Edges:  edges,
-		Link:   link,
+	if err := entry.Commit(ctx, nil); err != nil {
+		return nil, err
 	}
 
-	return link, nil
+	return entry.CommittedLink(), nil
 }
 
 func (g *IndexedGraph) OnNodeInvalidated(n psi.Node) {
@@ -330,59 +248,37 @@ func (g *IndexedGraph) OnNodeUpdated(n psi.Node) {
 	}
 }
 
-func (g *IndexedGraph) indexNode(ctx context.Context, item nodeUpdateRequest) error {
-	isInTree := false
-
-	if item.Node == nil {
-		n, err := g.LoadNode(ctx, item.Frozen)
-
-		if err != nil {
-			return err
-		}
-
-		item.Node = n
+func (g *IndexedGraph) getCacheEntry(path psi.Path, create bool) *cachedNode {
+	if create {
+		g.mu.Lock()
+		defer g.mu.Unlock()
+	} else {
+		g.mu.RLock()
+		defer g.mu.RUnlock()
 	}
 
-	for parent := item.Node; parent != nil; parent = parent.Parent() {
-		if parent == g.root {
-			isInTree = true
-			break
+	key := path.String()
+	entry := g.nodeCache[key]
+
+	if entry == nil && create {
+		entry = &cachedNode{
+			g: g,
+
+			path: path,
 		}
+
+		g.nodeCache[key] = entry
 	}
 
-	if isInTree {
-		batch, err := g.store.ds.Batch(ctx)
-
-		if err != nil {
-			return err
-		}
-
-		if err := g.store.batchUpsertNode(ctx, batch, item.Frozen, item.Link); err != nil {
-			return err
-		}
-
-		for i, edge := range item.Edges {
-			link := item.Frozen.Edges[i]
-
-			if err := g.store.batchUpsertEdge(ctx, batch, edge, link); err != nil {
-				return err
-			}
-		}
-
-		if err := batch.Commit(ctx); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return entry
 }
 
 func (g *IndexedGraph) run(proc goprocess.Process) {
 	ctx := goprocessctx.OnClosingContext(proc)
 
-	if err := g.recoverFromWal(ctx); err != nil {
+	/*if err := g.recoverFromWal(ctx); err != nil {
 		panic(err)
-	}
+	}*/
 
 	for {
 		select {
@@ -428,7 +324,11 @@ func (g *IndexedGraph) recoverFromWal(ctx context.Context) error {
 			continue
 		}
 
-		fnLink := cidlink.Link{Cid: rec.Payload}
+		if rec.Payload == nil {
+			continue
+		}
+
+		fnLink := cidlink.Link{Cid: *rec.Payload}
 		fn, err := g.store.GetNodeByCid(ctx, fnLink)
 
 		if err != nil {
@@ -463,70 +363,10 @@ func (g *IndexedGraph) recoverFromWal(ctx context.Context) error {
 }
 
 func (g *IndexedGraph) processQueueItem(ctx context.Context, item nodeUpdateRequest) error {
-	if err := g.indexNode(ctx, item); err != nil {
-		return err
-	}
-
 	err := g.ds.Put(ctx, lastFenceKey, []byte(strconv.FormatUint(item.Fence, 10)))
 
 	if err != nil {
 		return err
-	}
-
-	g.dispatchListeners(item)
-
-	return nil
-}
-
-func (g *IndexedGraph) getCacheEntry(path psi.Path, create bool) *cachedNode {
-	if create {
-		g.mu.Lock()
-		defer g.mu.Unlock()
-	} else {
-		g.mu.RLock()
-		defer g.mu.RUnlock()
-	}
-
-	key := path.String()
-	entry := g.nodeCache[key]
-
-	if entry == nil && create {
-		entry = &cachedNode{
-			path: path,
-		}
-
-		g.nodeCache[key] = entry
-	}
-
-	return entry
-}
-
-func (g *IndexedGraph) loadCacheEntry(ctx context.Context, entry *cachedNode) error {
-	entry.mu.Lock()
-	defer entry.mu.Unlock()
-
-	if entry.node != nil {
-		return nil
-	}
-
-	if entry.frozen == nil {
-		frozen, err := g.store.GetNodeByPath(ctx, entry.path)
-
-		if err != nil {
-			return err
-		}
-
-		entry.frozen = frozen
-	}
-
-	if entry.node == nil {
-		node, err := g.LoadNode(ctx, entry.frozen)
-
-		if err != nil {
-			return err
-		}
-
-		entry.node = node
 	}
 
 	return nil
@@ -592,27 +432,23 @@ func (g *IndexedGraph) RemoveListener(l IndexedGraphListener) {
 	}
 }
 
-func (g *IndexedGraph) dispatchListeners(item nodeUpdateRequest) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	for _, l := range g.listeners {
-		if l.queue != nil {
-			l.queue <- item.Node
-		}
+func (g *IndexedGraph) Shutdown(ctx context.Context) error {
+	if err := g.Commit(ctx); err != nil {
+		return err
 	}
-}
-
-func (g *IndexedGraph) Close() error {
-	close(g.closeCh)
 
 	if g.proc != nil {
-		if err := g.proc.Close(); err != nil {
+		close(g.closeCh)
+
+		if err := g.proc.CloseAfterChildren(); err != nil {
 			return err
 		}
 
 		g.proc = nil
 	}
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
 
 	if g.wal != nil {
 		if err := g.wal.Close(); err != nil {
@@ -623,4 +459,19 @@ func (g *IndexedGraph) Close() error {
 	}
 
 	return nil
+}
+
+func (g *IndexedGraph) notifyNodeUpdated(ctx context.Context, node psi.Node) {
+	g.dispatchListeners(node)
+}
+
+func (g *IndexedGraph) dispatchListeners(node psi.Node) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	for _, l := range g.listeners {
+		if l.queue != nil {
+			l.queue <- node
+		}
+	}
 }

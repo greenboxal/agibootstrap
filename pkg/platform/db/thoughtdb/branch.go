@@ -22,6 +22,8 @@ type Branch interface {
 	Merge(ctx context.Context, strategy MergeStrategy, forks ...Branch) error
 }
 
+var BranchType = psi.DefineNodeType[*repoBranch]()
+
 type repoBranch struct {
 	psi.NodeBase
 
@@ -35,7 +37,7 @@ func newBranch(repo *Repo, head *Thought) *repoBranch {
 		head: head,
 	}
 
-	b.Init(b)
+	b.Init(b, psi.WithNodeType(BranchType))
 
 	return b
 }
