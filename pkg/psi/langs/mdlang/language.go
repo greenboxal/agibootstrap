@@ -2,6 +2,7 @@ package mdlang
 
 import (
 	"bytes"
+	"context"
 	"io"
 
 	"github.com/pkg/errors"
@@ -36,22 +37,22 @@ func (l *Language) Extensions() []string {
 	return []string{".md"}
 }
 
-func (l *Language) CreateSourceFile(fileName string, fileHandle repofs.FileHandle) psi.SourceFile {
+func (l *Language) CreateSourceFile(ctx context.Context, fileName string, fileHandle repofs.FileHandle) psi.SourceFile {
 	return NewSourceFile(l, fileName, fileHandle)
 }
 
-func (l *Language) Parse(fileName string, code string) (psi.SourceFile, error) {
-	f := l.CreateSourceFile(fileName, &BufferFileHandle{data: code})
+func (l *Language) Parse(ctx context.Context, fileName string, code string) (psi.SourceFile, error) {
+	f := l.CreateSourceFile(ctx, fileName, &BufferFileHandle{data: code})
 
-	if err := f.Load(); err != nil {
+	if err := f.Load(ctx); err != nil {
 		return nil, err
 	}
 
 	return f, nil
 }
 
-func (l *Language) ParseCodeBlock(blockName string, block mdutils.CodeBlock) (psi.SourceFile, error) {
-	return l.Parse(blockName, block.Code)
+func (l *Language) ParseCodeBlock(ctx context.Context, blockName string, block mdutils.CodeBlock) (psi.SourceFile, error) {
+	return l.Parse(ctx, blockName, block.Code)
 }
 
 type BufferFileHandle struct {

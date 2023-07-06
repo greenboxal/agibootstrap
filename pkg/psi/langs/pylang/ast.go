@@ -61,12 +61,12 @@ func (nb *NodeBase[T]) Ast() antlr.ParserRuleContext {
 	return nil
 }
 
-func (nb *NodeBase[T]) Update(context.Context) error {
+func (nb *NodeBase[T]) OnUpdate(context.Context) error {
 	if nb.IsValid() {
 		return nil
 	}
 
-	nb.NodeBase.Update(nil)
+	nb.NodeBase.OnUpdate(nil)
 
 	if nb.IsContainer() {
 		for i := 0; i < nb.node.GetChildCount(); i++ {

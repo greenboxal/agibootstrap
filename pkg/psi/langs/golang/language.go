@@ -2,6 +2,7 @@ package golang
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"go/scanner"
 	"html"
@@ -46,14 +47,14 @@ func (l *Language) Extensions() []string {
 	return []string{".go"}
 }
 
-func (l *Language) CreateSourceFile(fileName string, fileHandle repofs.FileHandle) psi.SourceFile {
+func (l *Language) CreateSourceFile(ctx context.Context, fileName string, fileHandle repofs.FileHandle) psi.SourceFile {
 	return NewSourceFile(l, fileName, fileHandle)
 }
 
-func (l *Language) Parse(fileName string, code string) (psi.SourceFile, error) {
-	f := l.CreateSourceFile(fileName, &BufferFileHandle{data: code})
+func (l *Language) Parse(ctx context.Context, fileName string, code string) (psi.SourceFile, error) {
+	f := l.CreateSourceFile(ctx, fileName, &BufferFileHandle{data: code})
 
-	if err := f.Load(); err != nil {
+	if err := f.Load(ctx); err != nil {
 		return nil, err
 	}
 
@@ -64,7 +65,7 @@ func (l *Language) Parse(fileName string, code string) (psi.SourceFile, error) {
 // This function unescapes HTML escape sequences, modifies the package declaration,
 // and merges the resulting code with the existing AST.
 // It also handles orphan snippets by wrapping them in a pseudo function.
-func (l *Language) ParseCodeBlock(blockName string, block mdutils.CodeBlock) (psi.SourceFile, error) {
+func (l *Language) ParseCodeBlock(ctx context.Context, blockName string, block mdutils.CodeBlock) (psi.SourceFile, error) {
 	// Unescape HTML escape sequences in the code block
 	if hasHtmlEscapeRegex.MatchString(block.Code) {
 		block.Code = html.UnescapeString(block.Code)
@@ -81,14 +82,14 @@ func (l *Language) ParseCodeBlock(blockName string, block mdutils.CodeBlock) (ps
 
 	patchedCode = hasPackageRegex.ReplaceAllString(patchedCode, "package gptimport\n")
 
-	newRoot, e := l.Parse(blockName, patchedCode)
+	newRoot, e := l.Parse(ctx, blockName, patchedCode)
 
 	if e != nil {
 		if errList, ok := e.(scanner.ErrorList); ok {
 			if len(errList) == 1 && strings.HasPrefix(errList[0].Msg, "expected declaration, ") {
 				// Handle orphan snippets by wrapping them in a pseudo function
 				patchedCode = fmt.Sprintf("package gptimport_orphan\nfunc orphanSnippet() {\n%s\n}\n", block.Code)
-				newRoot2, e2 := l.Parse(blockName, patchedCode)
+				newRoot2, e2 := l.Parse(ctx, blockName, patchedCode)
 
 				if e2 != nil {
 					return nil, e

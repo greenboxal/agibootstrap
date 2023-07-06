@@ -37,12 +37,12 @@ func (nb *NodeBase[T]) Initialize(self Node) {
 	nb.NodeBase.Init(self)
 }
 
-func (nb *NodeBase[T]) Update(context.Context) error {
+func (nb *NodeBase[T]) OnUpdate(context.Context) error {
 	if nb.IsValid() {
 		return nil
 	}
 
-	nb.NodeBase.Update(nil)
+	nb.NodeBase.OnUpdate(nil)
 
 	return nil
 }

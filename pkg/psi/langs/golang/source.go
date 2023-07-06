@@ -15,6 +15,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/analysis"
 )
 
 const EdgeKindDeclarations psi.EdgeKind = "Decls"
@@ -34,6 +35,8 @@ type SourceFile struct {
 	err    error
 
 	original string
+
+	scope *analysis.Scope
 }
 
 func NewSourceFile(l *Language, name string, handle repofs.FileHandle) *SourceFile {
@@ -49,6 +52,9 @@ func NewSourceFile(l *Language, name string, handle repofs.FileHandle) *SourceFi
 
 	sf.Init(sf)
 
+	sf.scope = analysis.NewScope(sf)
+	sf.scope.SetParent(sf)
+
 	return sf
 }
 
@@ -61,7 +67,7 @@ func (sf *SourceFile) OriginalText() string            { return sf.original }
 func (sf *SourceFile) Root() psi.Node                  { return sf.root }
 func (sf *SourceFile) Error() error                    { return sf.err }
 
-func (sf *SourceFile) Load() error {
+func (sf *SourceFile) Load(ctx context.Context) error {
 	file, err := sf.handle.Get()
 
 	if err != nil {
@@ -79,14 +85,14 @@ func (sf *SourceFile) Load() error {
 	sf.err = nil
 	sf.original = string(data)
 
-	_, err = sf.Parse(sf.name, string(data))
+	_, err = sf.Parse(ctx, sf.name, string(data))
 
 	sf.err = err
 
 	return err
 }
 
-func (sf *SourceFile) Replace(code string) error {
+func (sf *SourceFile) Replace(ctx context.Context, code string) error {
 	if code == sf.original {
 		return nil
 	}
@@ -97,18 +103,18 @@ func (sf *SourceFile) Replace(code string) error {
 		return err
 	}
 
-	return sf.Load()
+	return sf.Load(ctx)
 }
 
-func (sf *SourceFile) SetRoot(node *dst.File) error {
+func (sf *SourceFile) SetRoot(ctx context.Context, node *dst.File) error {
 	sf.parsed = node
-	sf.root = AstToPsi(sf.parsed)
+	sf.root = AstToPsi(sf.scope, sf.parsed)
 	sf.root.SetParent(sf)
 
-	return nil
+	return sf.OnUpdate(ctx)
 }
 
-func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node, err error) {
+func (sf *SourceFile) Parse(ctx context.Context, filename string, sourceCode string) (result psi.Node, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if e, ok := r.(error); ok {
@@ -130,10 +136,10 @@ func (sf *SourceFile) Parse(filename string, sourceCode string) (result psi.Node
 		return nil, err
 	}
 
-	node := AstToPsi(parsed)
+	node := AstToPsi(sf.scope, parsed)
 
 	if sf.root == nil {
-		if err := sf.SetRoot(parsed); err != nil {
+		if err := sf.SetRoot(ctx, parsed); err != nil {
 			return nil, err
 		}
 	}

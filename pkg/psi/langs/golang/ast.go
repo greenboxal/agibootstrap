@@ -10,6 +10,7 @@ import (
 	"github.com/zeroflucs-given/generics/collections/stack"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/analysis"
 )
 
 type Node interface {
@@ -37,12 +38,14 @@ func (nb *NodeBase[T]) Initialize(self Node) {
 	nb.NodeBase.Init(self)
 }
 
-func (nb *NodeBase[T]) Update(context.Context) error {
+func (nb *NodeBase[T]) OnUpdate(ctx context.Context) error {
 	if nb.IsValid() {
 		return nil
 	}
 
-	nb.NodeBase.Update(nil)
+	if err := nb.NodeBase.OnUpdate(ctx); err != nil {
+		return err
+	}
 
 	updated := dstutil.Apply(nb.node, func(cursor *dstutil.Cursor) bool {
 		n := cursor.Node()
@@ -102,7 +105,7 @@ func getEdgeName(parent dst.Node, kind string, index int) psi.EdgeKey {
 	}
 }
 
-func AstToPsi(root dst.Node) (result Node) {
+func AstToPsi(rootScope *analysis.Scope, root dst.Node) (result Node) {
 	containerStack := stack.NewStack[Node](16)
 
 	dstutil.Apply(root, func(cursor *dstutil.Cursor) bool {
@@ -122,6 +125,26 @@ func AstToPsi(root dst.Node) (result Node) {
 			key := getEdgeName(node, cursor.Name(), cursor.Index())
 
 			parent.SetEdge(key, wrapped)
+
+			if isScopedNode(node) && node != root {
+				var scope *analysis.Scope
+
+				if parent != nil {
+					parentScope := analysis.GetNodeScope(parent)
+
+					if parentScope != nil {
+						scope = parentScope.NewChildScope(wrapped)
+					} else {
+						scope = rootScope
+					}
+				} else {
+					scope = analysis.NewScope(wrapped)
+				}
+
+				analysis.SetNodeScope(wrapped, scope)
+			}
+		} else {
+			analysis.SetNodeScope(wrapped, rootScope)
 		}
 
 		if wrapped.IsContainer() {
@@ -133,10 +156,25 @@ func AstToPsi(root dst.Node) (result Node) {
 		return true
 	}, func(cursor *dstutil.Cursor) bool {
 		node := cursor.Node()
-		hasParent, parent := containerStack.Peek()
+		hasWrapped, wrapped := containerStack.Peek()
 
-		if hasParent && parent.Ast() == node {
+		if hasWrapped && wrapped.Ast() == node {
 			_, result = containerStack.Pop()
+
+			parent := wrapped.Parent()
+
+			if parent != nil {
+				parentScope := analysis.GetNodeScope(wrapped)
+
+				if parentScope != nil {
+					switch node := node.(type) {
+					case *dst.FuncDecl:
+						sym := parentScope.GetOrCreateSymbol(node.Name.Name)
+
+						analysis.SetNodeSymbol(wrapped, sym)
+					}
+				}
+			}
 		}
 
 		return true
@@ -194,4 +232,18 @@ func NewLeaf(node dst.Node) *Leaf {
 	}
 
 	return l
+}
+
+func isScopedNode(n dst.Node) bool {
+	switch n.(type) {
+	case *dst.File:
+		return true
+	case *dst.FuncDecl:
+		return true
+	case *dst.BlockStmt:
+		return true
+
+	default:
+		return false
+	}
 }
