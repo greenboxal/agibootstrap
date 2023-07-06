@@ -19,6 +19,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
+	"github.com/greenboxal/agibootstrap/pkg/psi/analysis"
 	"github.com/greenboxal/agibootstrap/pkg/psi/vts"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
@@ -156,6 +157,8 @@ func (p *Project) Init(self psi.Node, projectUuid string) {
 
 	p.rootNode = vfs.NewDirectoryNode(p.fs, p.rootPath, "srcs")
 	p.rootNode.SetParent(p)
+
+	analysis.SetNodeScope(p, analysis.NewScope(p))
 }
 
 func (p *Project) IsProjectValid(ctx context.Context) (bool, error) {
@@ -326,7 +329,7 @@ func (p *Project) RootNode() psi.Node { return p.rootNode }
 // It provides methods for managing the project's files and directories.
 func (p *Project) FS() repofs.FS { return p.fs }
 
-func (p *Project) Graph() psi.Graph                    { return p.g }
+func (p *Project) Graph() *graphstore.IndexedGraph     { return p.g }
 func (p *Project) LanguageProvider() *project.Registry { return p.langRegistry }
 
 func (p *Project) Repo() *fti.Repository { return p.repo }
@@ -345,7 +348,7 @@ func (p *Project) Sync(ctx context.Context) error {
 
 // GetSourceFile retrieves the source file with the given filename from the project.
 // It returns a pointer to the psi.SourceFile and any error that occurred during the process.
-func (p *Project) GetSourceFile(filename string) (_ psi.SourceFile, err error) {
+func (p *Project) GetSourceFile(ctx context.Context, filename string) (_ psi.SourceFile, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if e, ok := r.(error); ok {
@@ -384,7 +387,7 @@ func (p *Project) GetSourceFile(filename string) (_ psi.SourceFile, err error) {
 			return nil, fmt.Errorf("failed to resolve language for file %s", filename)
 		}
 
-		existing = lang.CreateSourceFile(filename, &repofs.FsFileHandle{
+		existing = lang.CreateSourceFile(ctx, filename, &repofs.FsFileHandle{
 			FS:   p.fs,
 			Path: strings.TrimPrefix(filename, p.rootPath+"/"),
 		})
@@ -392,7 +395,7 @@ func (p *Project) GetSourceFile(filename string) (_ psi.SourceFile, err error) {
 		existing.SetParent(fileNode)
 		fileNode.SetEdge(SourceFileEdge.Singleton(), existing)
 
-		err = existing.Load()
+		err = existing.Load(ctx)
 
 		if err != nil {
 			return nil, err

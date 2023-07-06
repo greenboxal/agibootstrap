@@ -43,6 +43,6 @@ func (r *Router) Init(self psi.Node) {
 	r.ContainerBase.Init(self)
 }
 
-func (r *Router) Update(ctx context.Context) error {
-	return r.ContainerBase.Update(ctx)
+func (r *Router) OnUpdate(ctx context.Context) error {
+	return r.ContainerBase.OnUpdate(ctx)
 }

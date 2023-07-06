@@ -7,8 +7,10 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
-func NewScope() *Scope {
-	s := &Scope{}
+func NewScope(root psi.Node) *Scope {
+	s := &Scope{
+		root: root,
+	}
 
 	s.Init(s)
 
@@ -17,10 +19,12 @@ func NewScope() *Scope {
 
 type Scope struct {
 	psi.NodeBase
+
+	root psi.Node
 }
 
-func (s *Scope) NewChildScope() *Scope {
-	child := NewScope()
+func (s *Scope) NewChildScope(root psi.Node) *Scope {
+	child := NewScope(root)
 
 	s.AddChildNode(child)
 

@@ -221,7 +221,7 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 
 		blockName := fmt.Sprintf("_mergeContents_%d.%s", i, block.Language)
 
-		newRoot, err := lang.ParseCodeBlock(blockName, block)
+		newRoot, err := lang.ParseCodeBlock(ctx, blockName, block)
 
 		if err != nil {
 			return nil, err

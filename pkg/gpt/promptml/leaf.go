@@ -25,8 +25,8 @@ func (l *LeafBase) Init(self psi.Node) {
 
 func (l *LeafBase) PmlLeaf() Leaf { return l.PsiNode().(Leaf) }
 
-func (l *LeafBase) Update(ctx context.Context) error {
-	if err := l.NodeBase.Update(ctx); err != nil {
+func (l *LeafBase) OnUpdate(ctx context.Context) error {
+	if err := l.NodeBase.OnUpdate(ctx); err != nil {
 		return err
 	}
 

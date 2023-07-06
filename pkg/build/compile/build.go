@@ -40,7 +40,7 @@ func (s *FixBuildStep) Process(ctx context.Context, p *codex.Project) (result co
 	}
 
 	for _, buildError := range buildErrors {
-		sf, e := p.GetSourceFile(buildError.Filename)
+		sf, e := p.GetSourceFile(ctx, buildError.Filename)
 
 		if e != nil {
 			err = multierror.Append(err, e)

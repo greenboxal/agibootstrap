@@ -141,7 +141,7 @@ func (sm *SyncManager) performSync(ctx context.Context) error {
 
 	sm.logger.Info("Performing sync update")
 
-	return sm.p.Update(ctx)
+	return sm.p.OnUpdate(ctx)
 }
 
 func (sm *SyncManager) run(proc goprocess.Process) {

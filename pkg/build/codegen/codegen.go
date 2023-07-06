@@ -63,7 +63,7 @@ func (bs *BuildStep) processFile(ctx context.Context, bctx *build.Context, fsPat
 
 	//bctx.Branch().Infow("Processing file", "file", fsPath)
 
-	sf, err := p.GetSourceFile(fsPath)
+	sf, err := p.GetSourceFile(ctx, fsPath)
 
 	if err != nil {
 		return 0, err
@@ -87,7 +87,7 @@ func (bs *BuildStep) processFile(ctx context.Context, bctx *build.Context, fsPat
 	}
 
 	if newCode.Code != sf.OriginalText() {
-		if err := sf.Replace(newCode.Code); err != nil {
+		if err := sf.Replace(ctx, newCode.Code); err != nil {
 			return 0, nil
 		}
 

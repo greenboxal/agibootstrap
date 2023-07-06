@@ -42,7 +42,7 @@ func (s *BuildStep) Process(ctx context.Context, bctx *build.Context) (result bu
 					Fragment:   false,
 				}
 
-				sf, err := bctx.Project().GetSourceFile(n.Path())
+				sf, err := bctx.Project().GetSourceFile(ctx, n.Path())
 
 				if err != nil {
 					return err
@@ -61,7 +61,7 @@ func (s *BuildStep) Process(ctx context.Context, bctx *build.Context) (result bu
 				}
 
 				if string(newCode) != code.Code {
-					err = sf.Replace(string(newCode))
+					err = sf.Replace(ctx, string(newCode))
 
 					if err != nil {
 						return err

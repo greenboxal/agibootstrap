@@ -265,7 +265,7 @@ func (n *NodeBase) updateDimensions() {
 	}
 }
 
-func (n *NodeBase) Update(ctx context.Context) error {
+func (n *NodeBase) OnUpdate(ctx context.Context) error {
 	if p := n.PmlParent(); p != nil {
 		ps := p.PmlNodeBase().GetStage()
 
@@ -276,7 +276,7 @@ func (n *NodeBase) Update(ctx context.Context) error {
 
 	n.updateDimensions()
 
-	if err := n.NodeBase.Update(ctx); err != nil {
+	if err := n.NodeBase.OnUpdate(ctx); err != nil {
 		return err
 	}
 

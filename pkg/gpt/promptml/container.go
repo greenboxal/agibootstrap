@@ -51,7 +51,7 @@ func (n *ContainerBase) RequestLayout() {
 func (n *ContainerBase) Layout(ctx context.Context) error {
 	n.RequestLayout()
 
-	return n.Update(ctx)
+	return n.OnUpdate(ctx)
 }
 
 func (n *ContainerBase) LayoutChildren(ctx context.Context) error {
@@ -125,12 +125,12 @@ func (n *ContainerBase) LayoutChildren(ctx context.Context) error {
 	return nil
 }
 
-func (n *ContainerBase) Update(ctx context.Context) error {
+func (n *ContainerBase) OnUpdate(ctx context.Context) error {
 	if n.GetStage() == nil {
 		return nil
 	}
 
-	if err := n.NodeBase.Update(ctx); err != nil {
+	if err := n.NodeBase.OnUpdate(ctx); err != nil {
 		return err
 	}
 
