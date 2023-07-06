@@ -13,10 +13,10 @@ type Language interface {
 	Name() LanguageID
 	Extensions() []string
 
-	CreateSourceFile(fileName string, fileHandle repofs.FileHandle) SourceFile
+	CreateSourceFile(ctx context.Context, fileName string, fileHandle repofs.FileHandle) SourceFile
 
-	Parse(fileName string, code string) (SourceFile, error)
-	ParseCodeBlock(name string, block mdutils.CodeBlock) (SourceFile, error)
+	Parse(ctx context.Context, fileName string, code string) (SourceFile, error)
+	ParseCodeBlock(ctx context.Context, name string, block mdutils.CodeBlock) (SourceFile, error)
 }
 
 type SourceFile interface {
@@ -28,8 +28,8 @@ type SourceFile interface {
 	Root() Node
 	Error() error
 
-	Load() error
-	Replace(code string) error
+	Load(ctx context.Context) error
+	Replace(ctx context.Context, code string) error
 
 	OriginalText() string
 	ToCode(node Node) (mdutils.CodeBlock, error)

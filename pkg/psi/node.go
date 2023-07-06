@@ -26,6 +26,12 @@ type NamedNode interface {
 	PsiNodeName() string
 }
 
+type UpdateableNode interface {
+	Node
+
+	OnUpdate(context.Context) error
+}
+
 // Node represents a PSI element in the graph.
 type Node interface {
 	obsfx.Observable
@@ -275,7 +281,7 @@ func (n *NodeBase) IsLeaf() bool       { return false }
 func (n *NodeBase) IsValid() bool      { return n.valid }
 func (n *NodeBase) Comments() []string { return nil }
 
-func (n *NodeBase) CanonicalPath() (res Path)                   { return n.path }
+func (n *NodeBase) CanonicalPath() Path                         { return n.path }
 func (n *NodeBase) Parent() Node                                { return n.parent.Value() }
 func (n *NodeBase) ParentProperty() obsfx.ObservableValue[Node] { return &n.parent }
 
@@ -605,16 +611,18 @@ func (n *NodeBase) detachFromGraph(g Graph) {
 	n.Invalidate()
 }
 
-func (n *NodeBase) Update(ctx context.Context) error {
-	if n.inUpdate {
-		return nil
+func (n *NodeBase) OnUpdate(ctx context.Context) error {
+	for it := n.children.Iterator(); it.Next(); {
+		if err := it.Item().PsiNodeBase().Update(ctx); err != nil {
+			return err
+		}
 	}
 
-	return n.doUpdate(ctx, false)
+	return nil
 }
 
-func (n *NodeBase) doUpdate(ctx context.Context, skipValidation bool) error {
-	if n.valid && !skipValidation {
+func (n *NodeBase) Update(ctx context.Context) error {
+	if n.valid {
 		return nil
 	}
 
@@ -626,14 +634,10 @@ func (n *NodeBase) doUpdate(ctx context.Context, skipValidation bool) error {
 
 	n.version++
 
-	for it := n.children.Iterator(); it.Next(); {
-		if err := it.Item().PsiNodeBase().doUpdate(ctx, skipValidation); err != nil {
-			return err
+	if n, ok := n.PsiNode().(UpdateableNode); ok {
+		if err := n.OnUpdate(ctx); err != nil {
+			return nil
 		}
-	}
-
-	if err := n.PsiNode().Update(ctx); err != nil {
-		return nil
 	}
 
 	n.valid = true
@@ -651,7 +655,7 @@ func (n *NodeBase) updatePath() {
 	if n.Parent() == nil {
 		self.Kind = EdgeKindChild
 		self.Name = ""
-		n.path = PathFromComponents(self)
+		n.path = PathFromElements(self)
 		return
 	}
 

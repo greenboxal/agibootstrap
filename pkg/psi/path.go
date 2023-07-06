@@ -5,10 +5,32 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/hashicorp/go-multierror"
-	"github.com/samber/lo"
+	"github.com/pkg/errors"
 )
 
+// PathElement is a string of the form:
+//
+//	:<kind>#<name>@<index>
+//
+// Where:
+//
+//	<kind> is the edge kind (optional, defaults to "child")
+//	<name> is the name of the node (optional)
+//	<index> is the index of the node (optional)
+//
+// If no special characters are present, the component is assumed to be a name.
+//
+// Examples:
+//
+//	:child#foo@0
+//	:child#foo
+//	:child@0
+//	:child
+//	#foo
+//	@0
+//	foo
 type PathElement struct {
 	Kind  EdgeKind
 	Name  string
@@ -30,6 +52,10 @@ func (p PathElement) String() string {
 		str += fmt.Sprintf("@%d", p.Index)
 	}
 
+	if str == "" {
+		str = fmt.Sprintf("@%d", p.Index)
+	}
+
 	return str
 }
 
@@ -37,38 +63,42 @@ func (p PathElement) IsEmpty() bool {
 	return p.Kind == "" && p.Name == "" && p.Index == 0
 }
 
-type Path struct {
-	root       Node
-	components []PathElement
-}
+func ParsePathElements(s string) (result []PathElement, err error) {
+	s = strings.TrimSpace(s)
+	s = strings.TrimRight(s, "/")
 
-//goland:noinspection GoMixedReceiverTypes
-func (p Path) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("\"%s\"", p.String())), nil
-}
-
-//goland:noinspection GoMixedReceiverTypes
-func (p *Path) UnmarshalJSON(data []byte) error {
-	str := string(data)
-
-	if str == "null" {
-		return nil
+	if s == "" {
+		return nil, nil
 	}
 
-	str = strings.Trim(str, "\"")
-	parsed, err := ParsePath(str)
+	sp := strings.Split(s, "/")
+	result = make([]PathElement, 0, len(sp))
 
-	if err != nil {
-		return err
+	for i, part := range sp {
+		part = strings.TrimSpace(part)
+
+		if part == "" {
+			if i == 0 {
+				continue
+			} else {
+				return nil, errors.New("empty Path component")
+			}
+		}
+
+		c, e := ParsePathElement(part)
+
+		if e != nil {
+			err = multierror.Append(err, e)
+		}
+
+		result = append(result, c)
 	}
 
-	p.root = parsed.root
-	p.components = parsed.components
-
-	return nil
+	return
 }
 
-func ParsePathComponent(str string) (e PathElement, err error) {
+// ParsePathElement parses a single Path component.
+func ParsePathElement(str string) (e PathElement, err error) {
 	state := '#'
 	acc := ""
 
@@ -128,60 +158,51 @@ func MustParsePath(path string) Path {
 	return p
 }
 
-func ParsePath(path string) (Path, error) {
+func ParsePath(s string) (Path, error) {
 	var err error
 
-	strs := strings.Split(path, "/")
+	components, err := ParsePathElements(s)
 
-	if strs[0] == "" {
-		strs = strs[1:]
+	if err != nil {
+		return Path{}, err
 	}
 
-	components := lo.Map(strs, func(str string, _ int) PathElement {
-		c, e := ParsePathComponent(str)
-
-		if e != nil {
-			e = multierror.Append(err, e)
-		}
-
-		return c
-	})
-
-	return PathFromComponents(components...), err
+	return PathFromElements(components...), nil
 }
 
-func PathFromComponents(components ...PathElement) Path {
+func PathFromElements(components ...PathElement) Path {
 	c := make([]PathElement, 0, len(components))
 	c = append(c, components...)
-	return Path{
-		components: c,
-	}
+	return Path{components: c}
 }
+
+type Path struct {
+	components []PathElement
+}
+
+func (p Path) PrimitiveKind() typesystem.PrimitiveKind { return typesystem.PrimitiveKindString }
+func (p Path) Components() []PathElement               { return p.components }
 
 func (p Path) Parent() Path {
 	if len(p.components) == 0 {
 		return p
 	}
 
-	return PathFromComponents(p.components[:len(p.components)-1]...)
+	return PathFromElements(p.components[:len(p.components)-1]...)
 }
 
-func (p Path) Join(other Path) (res Path) {
+func (p Path) Join(other Path) Path {
 	var components []PathElement
 	components = append(components, p.components...)
 	components = append(components, other.components...)
-	return PathFromComponents(components...)
+	return PathFromElements(components...)
 }
 
-func (p Path) Child(name PathElement) (res Path) {
+func (p Path) Child(name PathElement) Path {
 	var components []PathElement
 	components = append(components, p.components...)
 	components = append(components, name)
-	return PathFromComponents(components...)
-}
-
-func (p Path) Components() []PathElement {
-	return p.components
+	return PathFromElements(components...)
 }
 
 func (p Path) String() (res string) {
@@ -196,29 +217,55 @@ func (p Path) String() (res string) {
 	return
 }
 
-func (p Path) WithRoot(root Node) Path {
-	return Path{
-		root:       root,
-		components: p.components,
-	}
-}
-
-func (p Path) Root() Node {
-	return p.root
-}
-
 func (p Path) IsEmpty() bool {
-	if len(p.components) == 0 {
-		return true
+	return len(p.components) == 0
+}
+
+func (p Path) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("\"%s\"", p.String())), nil
+}
+
+func (p *Path) UnmarshalJSON(data []byte) error {
+	str := string(data)
+
+	if str == "null" {
+		return nil
 	}
 
-	for _, c := range p.components {
-		if !c.IsEmpty() {
-			return false
-		}
+	str = str[1 : len(str)-1]
+	components, err := ParsePathElements(str)
+
+	if err != nil {
+		return err
 	}
 
-	return true
+	p.components = components
+
+	return nil
+}
+
+func (p Path) MarshalText() (text []byte, err error) {
+	return []byte(p.String()), nil
+}
+
+func (p *Path) UnmarshalText(text []byte) error {
+	components, err := ParsePathElements(string(text))
+
+	if err != nil {
+		return err
+	}
+
+	p.components = components
+
+	return nil
+}
+
+func (p Path) MarshalBinary() (data []byte, err error) {
+	return p.MarshalText()
+}
+
+func (p *Path) UnmarshalBinary(data []byte) error {
+	return p.UnmarshalText(data)
 }
 
 func ResolveChild(parent Path, child PathElement) Path {
@@ -246,10 +293,6 @@ func Resolve(root Node, path string) (Node, error) {
 }
 
 func ResolvePath(root Node, path Path) (Node, error) {
-	if path.root != nil {
-		root = path.root
-	}
-
 	if root == nil {
 		return nil, ErrNodeNotFound
 	}
@@ -261,7 +304,7 @@ func ResolvePath(root Node, path Path) (Node, error) {
 			if i == 0 {
 				component.Name = "/"
 			} else {
-				panic("empty path component")
+				panic("empty Path component")
 			}
 		}
 

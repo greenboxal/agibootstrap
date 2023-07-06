@@ -74,7 +74,7 @@ func reflectNodeType(typ typesystem.Type, options ...NodeTypeOption) *nodeType {
 		typ: typ,
 	}
 
-	nt.def.Name = nt.typ.Name().String()
+	nt.def.Name = nt.typ.Name().NormalizedFullNameWithArguments()
 	nt.def.Class = NodeClassGeneric
 
 	for _, opt := range options {
@@ -107,6 +107,9 @@ type NodeType interface {
 	Type() typesystem.Type
 	RuntimeType() reflect.Type
 	Definition() NodeTypeDefinition
+
+	CreateInstance() Node
+	InitializeNode(n Node)
 }
 
 type TypedNodeType[T Node] interface {
@@ -122,7 +125,27 @@ type nodeType struct {
 	def NodeTypeDefinition
 }
 
-func (n *nodeType) Name() string                   { return n.def.Name }
-func (n *nodeType) Type() typesystem.Type          { return n.typ }
-func (n *nodeType) RuntimeType() reflect.Type      { return n.typ.RuntimeType() }
-func (n *nodeType) Definition() NodeTypeDefinition { return n.def }
+func (nt *nodeType) Name() string                   { return nt.def.Name }
+func (nt *nodeType) Type() typesystem.Type          { return nt.typ }
+func (nt *nodeType) RuntimeType() reflect.Type      { return nt.typ.RuntimeType() }
+func (nt *nodeType) Definition() NodeTypeDefinition { return nt.def }
+
+func (nt *nodeType) CreateInstance() Node {
+	return reflect.New(nt.typ.RuntimeType()).Interface().(Node)
+}
+
+func (nt *nodeType) InitializeNode(n Node) {
+	if init, ok := n.(baseNodeInitializer); ok {
+		init.Init(n)
+	} else if init, ok := n.(baseNodeInitializerWithOptions); ok {
+		init.Init(n)
+	}
+}
+
+type baseNodeInitializer interface {
+	Init(n Node)
+}
+
+type baseNodeInitializerWithOptions interface {
+	Init(n Node, options ...NodeInitOption)
+}

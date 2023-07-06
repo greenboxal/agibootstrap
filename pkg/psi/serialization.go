@@ -18,7 +18,7 @@ type FrozenNode struct {
 	Index   int64 `json:"index"`
 	Version int64 `json:"version"`
 
-	UUID NodeID `json:"uuid"`
+	Path Path   `json:"path"`
 	Type string `json:"type"`
 
 	Edges      []cidlink.Link         `json:"edges,omitempty"`
@@ -30,8 +30,9 @@ type FrozenEdge struct {
 
 	Key EdgeKey `json:"key"`
 
-	From NodeID `json:"from"`
-	To   NodeID `json:"to"`
+	FromPath Path         `json:"from_path"`
+	ToPath   Path         `json:"to_path"`
+	ToLink   cidlink.Link `json:"to_link"`
 
 	Attributes map[string]interface{} `json:"attr,omitempty"`
 }
