@@ -13,7 +13,7 @@ type Repo struct {
 	thoughtCache map[Pointer]*Thought
 }
 
-var RepoType = psi.DefineNodeType[*Repo](psi.WithRuntimeOnly())
+var RepoType = psi.DefineNodeType[*Repo]()
 
 func NewRepo(graph *graphstore.IndexedGraph) *Repo {
 	r := &Repo{

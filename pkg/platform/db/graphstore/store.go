@@ -137,6 +137,7 @@ func (s *Store) FreezeEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge,
 		Data:     dataLink.(cidlink.Link),
 		Key:      edge.Key().GetKey(),
 		FromPath: edge.From().CanonicalPath(),
+		ToIndex:  edge.To().ID(),
 	}
 
 	for parent := edge.To(); parent != nil; parent = parent.Parent() {
@@ -197,7 +198,7 @@ func (s *Store) IndexNode(ctx context.Context, batch datastore.Batch, root strin
 }
 
 func (s *Store) IndexEdge(ctx context.Context, batch datastore.Batch, root string, fe *psi.FrozenEdge, feLink cidlink.Link) error {
-	key := fmt.Sprintf("refs/edges/%s/%s!/%s", root, fe.FromPath, fe.Key)
+	key := fmt.Sprintf("refs/edges/%s/%s!/%s", root, fe.FromPath, fe.Key.AsPathElement())
 
 	if err := batch.Put(ctx, datastore.NewKey(key), []byte(feLink.Binary())); err != nil {
 		return err
@@ -206,22 +207,29 @@ func (s *Store) IndexEdge(ctx context.Context, batch datastore.Batch, root strin
 	return nil
 }
 
-func (s *Store) GetNodeByPath(ctx context.Context, root string, path psi.Path) (*psi.FrozenNode, error) {
+func (s *Store) GetNodeByPath(ctx context.Context, root string, path psi.Path) (*psi.FrozenNode, ipld.Link, error) {
 	key := fmt.Sprintf("refs/heads/%s/%s", root, path)
 
 	cidBytes, err := s.ds.Get(ctx, datastore.NewKey(key))
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	contentId, err := cid.Cast(cidBytes)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return s.GetNodeByCid(ctx, cidlink.Link{Cid: contentId})
+	link := cidlink.Link{Cid: contentId}
+	fn, err := s.GetNodeByCid(ctx, link)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return fn, link, nil
 }
 
 func (s *Store) ListNodeEdges(ctx context.Context, root string, nodePath psi.Path) (iterators.Iterator[*psi.FrozenEdge], error) {

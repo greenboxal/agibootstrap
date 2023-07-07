@@ -29,6 +29,7 @@ type FrozenEdge struct {
 	FromPath Path          `json:"from_path"`
 	ToPath   *Path         `json:"to_path"`
 	ToLink   *cidlink.Link `json:"to_link"`
+	ToIndex  int64         `json:"to_index"`
 
 	Attributes map[string]interface{} `json:"attr,omitempty"`
 
@@ -42,6 +43,7 @@ type NodeSnapshot interface {
 	CommittedLink() ipld.Link
 
 	LastFenceID() uint64
+	FrozenNode() *FrozenNode
 }
 
 func UpdateNodeSnapshot(node Node, fn NodeSnapshot) { node.PsiNodeBase().setLastSnapshot(fn) }

@@ -17,7 +17,8 @@ import (
 type cachedNode struct {
 	mu sync.Mutex
 
-	g *IndexedGraph
+	g      *IndexedGraph
+	parent *cachedNode
 
 	path   psi.Path
 	frozen *psi.FrozenNode
@@ -28,12 +29,25 @@ type cachedNode struct {
 	lastFenceId uint64
 }
 
-func (c *cachedNode) Node() psi.Node           { return c.node }
-func (c *cachedNode) CommittedVersion() int64  { return c.frozen.Version }
-func (c *cachedNode) CommittedLink() ipld.Link { return c.link }
-func (c *cachedNode) LastFenceID() uint64      { return c.lastFenceId }
+func (c *cachedNode) FrozenNode() *psi.FrozenNode { return c.frozen }
+func (c *cachedNode) Node() psi.Node              { return c.node }
+func (c *cachedNode) CommittedVersion() int64     { return c.frozen.Version }
+func (c *cachedNode) CommittedLink() ipld.Link    { return c.link }
+func (c *cachedNode) LastFenceID() uint64         { return c.lastFenceId }
 
 func (c *cachedNode) Load(ctx context.Context) error {
+	if err := c.Preload(ctx); err != nil {
+		return err
+	}
+
+	if err := c.Refresh(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *cachedNode) Preload(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -43,16 +57,23 @@ func (c *cachedNode) Load(ctx context.Context) error {
 
 	if c.frozen == nil {
 		if c.link == nil {
-			return nil
+			frozen, link, err := c.g.store.GetNodeByPath(ctx, c.g.root.UUID(), c.path)
+
+			if err != nil {
+				return err
+			}
+
+			c.frozen = frozen
+			c.link = link
+		} else {
+			frozen, err := c.g.store.GetNodeByCid(ctx, c.link)
+
+			if err != nil {
+				return err
+			}
+
+			c.frozen = frozen
 		}
-
-		frozen, err := c.g.store.GetNodeByCid(ctx, c.link)
-
-		if err != nil {
-			return err
-		}
-
-		c.frozen = frozen
 	}
 
 	typ := psi.NodeTypeByName(c.frozen.Type)
@@ -77,7 +98,7 @@ func (c *cachedNode) Load(ctx context.Context) error {
 		c.node = n
 	}
 
-	return c.Refresh(ctx)
+	return nil
 }
 
 func (c *cachedNode) Refresh(ctx context.Context) error {
@@ -90,6 +111,16 @@ func (c *cachedNode) Refresh(ctx context.Context) error {
 
 	if c.frozen == nil {
 		return nil
+	}
+
+	if len(c.path.Parent().Components()) > 1 {
+		c.parent = c.g.getCacheEntry(c.path.Parent(), true)
+
+		if err := c.parent.Preload(ctx); err != nil {
+			return err
+		}
+
+		c.node.SetParent(c.parent.node)
 	}
 
 	edges, err := c.g.store.ListNodeEdges(ctx, c.g.root.UUID(), c.path)
@@ -129,6 +160,8 @@ func (c *cachedNode) Refresh(ctx context.Context) error {
 
 		typ.InitializeNode(c.node)
 	}
+
+	psi.UpdateNodeSnapshot(c.node, c)
 
 	return nil
 }
@@ -214,9 +247,8 @@ func (c *cachedNode) updateFromFreezer(ctx context.Context, link ipld.Link, fn *
 	c.frozen = fn
 	c.link = link
 	c.edges = edges
-	c.node = nil
 
-	return nil
+	return c.Load(ctx)
 }
 
 func (c *cachedNode) updateIndex(ctx context.Context, batch datastore.Batch) error {

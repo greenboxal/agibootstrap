@@ -83,13 +83,20 @@ func (e *EdgeBase) attachToGraph(g Graph) {
 
 	e.g = g
 
-	e.from.attachToGraph(g)
-	e.to.attachToGraph(g)
+	if e.from != nil {
+		e.from.attachToGraph(g)
+	}
+
+	if e.to != nil {
+		e.to.attachToGraph(g)
+	}
 
 	if e.g != nil {
 		e.id = g.NextEdgeID()
 
-		e.g.SetEdge(e)
+		if e.from != nil && e.to != nil {
+			e.g.SetEdge(e)
+		}
 	}
 }
 

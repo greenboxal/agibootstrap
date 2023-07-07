@@ -40,6 +40,10 @@ type PathElement struct {
 func (p PathElement) String() string {
 	str := ""
 
+	if p.Kind == EdgeKindChild && p.Name != "" && p.Index == 0 {
+		return p.Name
+	}
+
 	if p.Kind != "" && p.Kind != EdgeKindChild {
 		str += fmt.Sprintf(":%s", p.Kind)
 	}

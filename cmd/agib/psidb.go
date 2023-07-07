@@ -3,14 +3,19 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
 
 	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
+	fusefs "github.com/hanwen/go-fuse/v2/fs"
+	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/spf13/cobra"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/psifuse"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -96,7 +101,7 @@ func buildPsiDbCmd() *cobra.Command {
 			}
 
 			g := project.Graph()
-			fn, err := g.Store().GetNodeByPath(cmd.Context(), g.Root().UUID(), rootPath)
+			fn, _, err := g.Store().GetNodeByPath(cmd.Context(), g.Root().UUID(), rootPath)
 
 			if err != nil {
 				return err
@@ -136,7 +141,45 @@ func buildPsiDbCmd() *cobra.Command {
 		},
 	}
 
-	rootCmd.AddCommand(listCmd, dumpFrozenNode, dumpFrozenEdge)
+	mountFuse := &cobra.Command{
+		Use:   "fuse [dir]",
+		Short: "Mounts fuse filesystem",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var err error
+
+			if _, err := os.Stat(args[0]); err != nil {
+				return err
+			}
+
+			root := psifuse.NewPsiNodeWrapper(project.Graph(), project.Graph().Root().CanonicalPath())
+
+			_ = exec.Command("diskutil", "unmount", "force", args[0]).Run()
+
+			server, err := fusefs.Mount(args[0], root, &fusefs.Options{
+				MountOptions: fuse.MountOptions{
+					// Set to true to see how the file system works.
+					Debug: true,
+				},
+			})
+
+			if err != nil {
+
+				return err
+			}
+
+			defer server.Unmount()
+
+			cmd.Printf("Mounted at %s\n", args[0])
+			cmd.Printf("Unmount by running: fusermount -u %s\n", args[0])
+
+			server.Wait()
+
+			return nil
+		},
+	}
+
+	rootCmd.AddCommand(listCmd, dumpFrozenNode, dumpFrozenEdge, mountFuse)
 
 	return rootCmd
 }

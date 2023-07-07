@@ -138,7 +138,7 @@ func (nt *nodeType) InitializeNode(n Node) {
 	if init, ok := n.(baseNodeInitializer); ok {
 		init.Init(n)
 	} else if init, ok := n.(baseNodeInitializerWithOptions); ok {
-		init.Init(n)
+		init.Init(n, WithNodeType(nt))
 	}
 }
 
