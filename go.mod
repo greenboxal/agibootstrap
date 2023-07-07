@@ -90,6 +90,7 @@ require (
 	github.com/graphql-go/graphql v0.8.1 // indirect
 	github.com/graphql-go/handler v0.2.3 // indirect
 	github.com/greenboxal/aip/aip-sdk v0.0.0-20230613210128-ceee04e39305 // indirect
+	github.com/hanwen/go-fuse/v2 v2.3.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
