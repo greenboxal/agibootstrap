@@ -105,10 +105,6 @@ type Node interface {
 	InsertChildBefore(anchor Node, node Node)
 	InsertChildAfter(anchor Node, node Node)
 
-	getGraph() Graph
-	attachToGraph(g Graph)
-	detachFromGraph(g Graph)
-
 	String() string
 }
 
@@ -127,7 +123,6 @@ type NodeBase struct {
 	g    Graph
 	snap NodeSnapshot
 
-	id      int64
 	typ     NodeType
 	version int64
 
@@ -145,17 +140,11 @@ type NodeBase struct {
 	inUpdate bool
 }
 
-func (n *NodeBase) getGraph() Graph                       { return n.g }
-func (n *NodeBase) setLastSnapshot(snapshot NodeSnapshot) { n.snap = snapshot }
-func (n *NodeBase) getLastSnapshot() NodeSnapshot         { return n.snap }
+func (n *NodeBase) Graph() Graph                      { return n.g }
+func (n *NodeBase) SetSnapshot(snapshot NodeSnapshot) { n.snap = snapshot }
+func (n *NodeBase) GetSnapshot() NodeSnapshot         { return n.snap }
 
 type NodeInitOption func(*NodeBase)
-
-func WithNodeID(id int64) NodeInitOption {
-	return func(n *NodeBase) {
-		n.id = id
-	}
-}
 
 func WithNodeType(typ NodeType) NodeInitOption {
 	return func(n *NodeBase) {
@@ -205,7 +194,7 @@ func (n *NodeBase) Init(self Node, options ...NodeInitOption) {
 
 			n.updatePath()
 
-			n.attachToGraph(new.PsiNodeBase().g)
+			n.AttachToGraph(new.PsiNodeBase().g)
 		} else {
 			n.updatePath()
 		}
@@ -265,6 +254,8 @@ func (n *NodeBase) Init(self Node, options ...NodeInitOption) {
 	collectionsfx.ObserveMap(&n.attributes, func(ev collectionsfx.MapChangeEvent[string, any]) {
 		n.Invalidate()
 	})
+
+	n.updatePath()
 }
 
 func (n *NodeBase) PsiNode() Node          { return n.self }
@@ -277,10 +268,17 @@ func (n *NodeBase) PsiNodeLink() ipld.Link {
 		return nil
 	}
 
-	return n.snap.CommittedLink()
+	return n.snap.CommitLink()
 }
 
-func (n *NodeBase) ID() int64          { return n.id }
+func (n *NodeBase) ID() int64 {
+	if n.snap != nil {
+		return n.snap.ID()
+	}
+
+	return 0
+}
+
 func (n *NodeBase) IsContainer() bool  { return true }
 func (n *NodeBase) IsLeaf() bool       { return false }
 func (n *NodeBase) IsValid() bool      { return n.valid }
@@ -295,7 +293,7 @@ func (n *NodeBase) ChildrenList() collectionsfx.ObservableList[Node] { return &n
 func (n *NodeBase) ChildrenIterator() NodeIterator                   { return &nodeChildrenIterator{parent: n} }
 
 func (n *NodeBase) String() string {
-	return fmt.Sprintf("Value(%T, %d, %s)", n.self, n.id, n.path)
+	return fmt.Sprintf("Value(%T, %d, %s)", n.self, n.ID(), n.path)
 }
 
 func (n *NodeBase) ResolveChild(component PathElement) Node {
@@ -408,20 +406,11 @@ func (n *NodeBase) RemoveChildNode(child Node) {
 }
 
 func (n *NodeBase) InsertChildrenAt(idx int, child Node) {
-	existingIdx := n.children.IndexOf(child)
-
-	if existingIdx != -1 && idx == existingIdx {
-		return
+	if child == nil {
+		panic("child is nil")
 	}
 
-	if existingIdx != -1 {
-		if existingIdx >= idx {
-			existingIdx++
-		}
-
-		n.children.RemoveAt(existingIdx)
-	}
-
+	n.children.Remove(child)
 	n.children.InsertAt(idx, child)
 }
 
@@ -514,11 +503,7 @@ func (n *NodeBase) SetEdge(key EdgeReference, to Node) {
 	e, _ := n.edges.Get(key.GetKey())
 
 	if e == nil {
-		e = &EdgeBase{
-			from: n.self,
-			to:   to,
-			key:  key,
-		}
+		e = NewSimpleEdge(key, n.self, to)
 	} else {
 		if e.To() == to {
 			return
@@ -547,19 +532,19 @@ func (n *NodeBase) GetEdge(key EdgeReference) Edge {
 	return v
 }
 
-// attachToGraph attaches the node to the given graph.
+// AttachToGraph attaches the node to the given graph.
 // If the node is already attached to the given graph, no action is taken.
 // If the graph is nil, the node is detached from its current graph.
 // If the node is already attached to a different graph, it raises a panic.
 // The node is assigned a new ID from the graph's NewNode method.
 // After attaching the node, each child of the node is also attached to the graph recursively.
-func (n *NodeBase) attachToGraph(g Graph) {
+func (n *NodeBase) AttachToGraph(g Graph) {
 	if n.g == g {
 		return
 	}
 
 	if g == nil {
-		n.detachFromGraph(nil)
+		n.DetachFromGraph(nil)
 		return
 	}
 
@@ -570,13 +555,11 @@ func (n *NodeBase) attachToGraph(g Graph) {
 	n.g = g
 
 	if n.g != nil {
-		n.id = g.NextNodeID()
-
 		n.g.Add(n.self)
 	}
 
 	for it := n.children.Iterator(); it.Next(); {
-		it.Item().attachToGraph(g)
+		it.Item().PsiNodeBase().AttachToGraph(g)
 	}
 
 	for it := n.edges.Iterator(); it.Next(); {
@@ -594,7 +577,7 @@ func (n *NodeBase) attachToGraph(g Graph) {
 //
 // Parameters:
 // - g: The graph from which the node is to be detached.
-func (n *NodeBase) detachFromGraph(g Graph) {
+func (n *NodeBase) DetachFromGraph(g Graph) {
 	if n.g == nil {
 		return
 	}
@@ -604,7 +587,7 @@ func (n *NodeBase) detachFromGraph(g Graph) {
 	}
 
 	for it := n.children.Iterator(); it.Next(); {
-		it.Item().detachFromGraph(n.g)
+		it.Item().PsiNodeBase().DetachFromGraph(n.g)
 	}
 
 	oldGraph := n.g
@@ -658,7 +641,12 @@ func (n *NodeBase) updatePath() {
 	var self PathElement
 
 	if n.Parent() == nil {
-		n.path = PathFromElements()
+		if unique, ok := n.self.(UniqueNode); ok {
+			n.path = PathFromElements(unique.UUID(), false)
+		} else {
+			n.path = PathFromElements("", true)
+		}
+
 		return
 	}
 

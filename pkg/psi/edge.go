@@ -1,7 +1,11 @@
 package psi
 
 import (
+	"context"
 	"fmt"
+	"sync"
+
+	"github.com/ipld/go-ipld-prime"
 )
 
 type EdgeID int64
@@ -10,61 +14,49 @@ type Edge interface {
 	ID() EdgeID
 	Key() EdgeReference
 	Kind() EdgeKind
+
+	PsiEdgeBase() *EdgeBase
+
 	From() Node
 	To() Node
+	ResolveTo(ctx context.Context) (Node, error)
 
 	ReplaceTo(node Node) Edge
-	ReplaceFrom(node Node) Edge
 
 	attachToGraph(g Graph)
 	detachFromGraph(g Graph)
 }
 
+type EdgeSnapshot struct {
+	Frozen *FrozenEdge
+	Link   ipld.Link
+}
+
 type EdgeBase struct {
-	g Graph
+	g    Graph
+	self Edge
+	snap EdgeSnapshot
 
-	id   EdgeID
-	key  EdgeReference
-	from Node
-	to   Node
+	id  EdgeID
+	key EdgeReference
 }
 
-func NewEdgeBase(key EdgeReference, from Node, to Node) *EdgeBase {
-	return &EdgeBase{
-		key:  key,
-		from: from,
-		to:   to,
-	}
-}
-
-func (e *EdgeBase) SetFrom(from Node)        { e.from = from }
-func (e *EdgeBase) SetTo(to Node)            { e.to = to }
-func (e *EdgeBase) SetKey(key EdgeReference) { e.key = key.GetKey() }
-
-func (e *EdgeBase) ID() EdgeID         { return e.id }
-func (e *EdgeBase) Key() EdgeReference { return e.key }
-func (e *EdgeBase) Kind() EdgeKind     { return e.key.GetKind() }
-func (e *EdgeBase) From() Node         { return e.from }
-func (e *EdgeBase) To() Node           { return e.to }
-func (e *EdgeBase) Graph() Graph       { return e.g }
+func (e *EdgeBase) ID() EdgeID             { return e.id }
+func (e *EdgeBase) Key() EdgeReference     { return e.key }
+func (e *EdgeBase) Kind() EdgeKind         { return e.key.GetKind() }
+func (e *EdgeBase) Graph() Graph           { return e.g }
+func (e *EdgeBase) PsiEdgeBase() *EdgeBase { return e }
 
 func (e *EdgeBase) String() string {
-	return fmt.Sprintf("Edge(%s): %s -> %s", e.key, e.from, e.to)
+	return fmt.Sprintf("Edge(%d, %s)", e.id, e.key)
 }
 
-func (e *EdgeBase) ReplaceTo(node Node) Edge {
-	return &EdgeBase{
-		key:  e.key,
-		from: e.from,
-		to:   node,
+func (e *EdgeBase) Init(self Edge) {
+	if e.self != nil {
+		panic("edge already initialized")
 	}
-}
-func (e *EdgeBase) ReplaceFrom(node Node) Edge {
-	return &EdgeBase{
-		key:  e.key,
-		from: node,
-		to:   e.to,
-	}
+
+	e.self = self
 }
 
 func (e *EdgeBase) attachToGraph(g Graph) {
@@ -83,19 +75,18 @@ func (e *EdgeBase) attachToGraph(g Graph) {
 
 	e.g = g
 
-	if e.from != nil {
-		e.from.attachToGraph(g)
-	}
+	from := e.self.From()
+	to := e.self.To()
 
-	if e.to != nil {
-		e.to.attachToGraph(g)
+	if to != nil {
+		to.PsiNodeBase().AttachToGraph(g)
 	}
 
 	if e.g != nil {
 		e.id = g.NextEdgeID()
 
-		if e.from != nil && e.to != nil {
-			e.g.SetEdge(e)
+		if from != nil && to != nil {
+			e.g.SetEdge(e.self)
 		}
 	}
 }
@@ -113,5 +104,96 @@ func (e *EdgeBase) detachFromGraph(g Graph) {
 
 	e.g = nil
 
-	oldGraph.UnsetEdge(e)
+	oldGraph.UnsetEdge(e.self)
+}
+
+func (e *EdgeBase) GetSnapshot() EdgeSnapshot     { return e.snap }
+func (e *EdgeBase) SetSnapshot(snap EdgeSnapshot) { e.snap = snap }
+
+type LazyEdge struct {
+	EdgeBase
+
+	mu   sync.RWMutex
+	cond *sync.Cond
+	from Node
+	to   Node
+
+	valid    bool
+	resolver ResolveEdgeFunc
+}
+
+func NewLazyEdge(g Graph, key EdgeReference, from Node, resolver ResolveEdgeFunc) Edge {
+	le := &LazyEdge{}
+	le.g = g
+	le.cond = sync.NewCond(le.mu.RLocker())
+	le.key = key
+	le.from = from
+	le.resolver = resolver
+	le.Init(le)
+	return le
+}
+
+func (l *LazyEdge) From() Node { return l.from }
+
+func (l *LazyEdge) To() Node {
+	if l.valid {
+		return l.to
+	}
+
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+
+	if !l.valid {
+		n, err := l.ResolveTo(context.Background())
+
+		if err != nil {
+			return nil
+		}
+
+		l.to = n
+	}
+
+	return l.to
+}
+
+func (l *LazyEdge) ResolveTo(ctx context.Context) (Node, error) {
+	return l.resolver(ctx, l.g, l.from, l.key.GetKey())
+}
+
+func (l *LazyEdge) ReplaceTo(node Node) Edge {
+	return NewSimpleEdge(l.key, l.from, node)
+}
+
+func (l *LazyEdge) Invalidate() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.valid {
+		l.valid = false
+	}
+}
+
+type SimpleEdge struct {
+	EdgeBase
+
+	from Node
+	to   Node
+}
+
+func NewSimpleEdge(key EdgeReference, from Node, to Node) Edge {
+	se := &SimpleEdge{}
+	se.key = key
+	se.from = from
+	se.to = to
+	se.Init(se)
+	return se
+}
+
+func (e *SimpleEdge) From() Node { return e.from }
+func (e *SimpleEdge) To() Node   { return e.to }
+
+func (e *SimpleEdge) ResolveTo(ctx context.Context) (Node, error) { return e.To(), nil }
+
+func (e *SimpleEdge) ReplaceTo(node Node) Edge {
+	return NewSimpleEdge(e.key, e.from, node)
 }

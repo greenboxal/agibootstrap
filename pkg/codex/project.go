@@ -16,23 +16,20 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
-	"github.com/greenboxal/agibootstrap/pkg/psi/analysis"
-	"github.com/greenboxal/agibootstrap/pkg/psi/vts"
-
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	tasks "github.com/greenboxal/agibootstrap/pkg/platform/tasks"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/analysis"
 )
 
 const SourceFileEdge psi.TypedEdgeKind[psi.SourceFile] = "SourceFile"
 
-// It contains all the information about the project.
 type Project struct {
 	psi.NodeBase
 
@@ -43,9 +40,8 @@ type Project struct {
 
 	g *graphstore.IndexedGraph
 
-	ds         datastore.Batching
-	fs         repofs.FS
-	fsRootNode *vfs.Directory
+	ds datastore.Batching
+	fs repofs.FS
 
 	repo *fti.Repository
 	tm   *tasks.Manager
@@ -55,7 +51,6 @@ type Project struct {
 	rootPath string
 	rootNode *vfs.Directory
 
-	vts          *vts.Scope
 	langRegistry *project.Registry
 
 	fset *token.FileSet
@@ -74,12 +69,6 @@ func NewBareProject(ctx context.Context, rootPath string) (*Project, error) {
 
 	if err != nil {
 		return nil, err
-	}
-
-	walPath := repo.ResolveDbPath("codex", "wal")
-
-	if err := os.MkdirAll(walPath, 0755); err != nil {
-		return nil, errors.Wrap(err, "failed to create datastore directory")
 	}
 
 	dsOpts := badger.DefaultOptions
@@ -106,16 +95,7 @@ func NewBareProject(ctx context.Context, rootPath string) (*Project, error) {
 		repo: repo,
 
 		fset: token.NewFileSet(),
-		vts:  vts.NewScope(),
 	}
-
-	p.g, err = graphstore.NewIndexedGraph(p.ds, walPath, p)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create graph")
-	}
-
-	p.g.AddListener(&analysisListener{p: p})
 
 	return p, nil
 }
@@ -142,43 +122,9 @@ func (p *Project) Init(self psi.Node, projectUuid string) {
 
 	p.NodeBase.Init(self, psi.WithNodeType(ProjectType))
 
-	p.g.Add(p)
-
-	p.langRegistry = project.NewRegistry(p)
-
-	p.tm = tasks.NewManager()
-	p.tm.SetParent(p)
-
-	p.lm = thoughtdb.NewRepo(p.g)
-	p.lm.SetParent(p)
-
-	p.sm = NewSyncManager(p)
-	p.sm.SetParent(p)
-
-	p.rootNode = vfs.NewDirectoryNode(p.fs, p.rootPath, "srcs")
-	p.rootNode.SetParent(p)
-
 	scope := analysis.NewScope(p)
 	scope.SetParent(p)
 	analysis.SetNodeScope(p, scope)
-}
-
-func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
-	p.Init(p, projectUuid)
-
-	if err := p.loadConfig(ctx); err != nil {
-		return err
-	}
-
-	if err := p.g.RefreshNode(ctx, p.lm); err != nil {
-		return errors.Wrap(err, "failed to refresh thoughtdb node")
-	}
-
-	if err := p.bootstrap(ctx); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (p *Project) IsProjectValid(ctx context.Context) (bool, error) {
@@ -220,14 +166,24 @@ func (p *Project) Create(ctx context.Context) error {
 		return errors.Wrap(err, "failed to put project uuid")
 	}
 
-	return p.Load(ctx)
+	if err := p.Initialize(ctx, string(projectUuid)); err != nil {
+		return err
+	}
+
+	p.InvalidateTree()
+
+	if err := p.Update(ctx); err != nil {
+		return err
+	}
+
+	if err := p.g.Commit(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (p *Project) Load(ctx context.Context) error {
-	if p.uuid != "" {
-		return errors.New("project already initialized")
-	}
-
 	projectUuid, err := p.ds.Get(ctx, datastore.NewKey("project-uuid"))
 
 	if err != nil {
@@ -245,6 +201,63 @@ func (p *Project) Load(ctx context.Context) error {
 	if err := p.Initialize(ctx, string(projectUuid)); err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
+	var err error
+
+	if p.uuid != "" {
+		return errors.New("project already initialized")
+	}
+
+	p.Init(p, projectUuid)
+
+	if err := p.loadConfig(ctx); err != nil {
+		return err
+	}
+
+	walPath := p.repo.ResolveDbPath("codex", "wal")
+
+	if err := os.MkdirAll(walPath, 0755); err != nil {
+		return errors.Wrap(err, "failed to create datastore directory")
+	}
+
+	p.g, err = graphstore.NewIndexedGraph(p.ds, walPath, p)
+
+	if err != nil {
+		return errors.Wrap(err, "failed to create graph")
+	}
+
+	p.langRegistry = project.NewRegistry(p)
+
+	p.tm = tasks.NewManager()
+	p.tm.SetParent(p)
+
+	p.lm = thoughtdb.NewRepo(p.g)
+	p.lm.SetParent(p)
+
+	p.sm = NewSyncManager(p)
+	p.sm.SetParent(p)
+
+	p.rootNode = vfs.NewDirectoryNode(p.fs, p.rootPath, "srcs")
+	p.rootNode.SetParent(p)
+
+	p.g.AddListener(&analysisListener{p: p})
+
+	if err := p.g.RefreshNode(ctx, p); err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
+		return errors.Wrap(err, "failed to refresh project node")
+	}
+
+	if err := p.g.RefreshNode(ctx, p.lm); err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
+		return errors.Wrap(err, "failed to refresh thoughtdb node")
+	}
+
+	if err := p.bootstrap(ctx); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -259,11 +272,11 @@ func (p *Project) bootstrap(ctx context.Context) error {
 		}
 	}
 
-	for _, mod := range p.config.Modules {
+	/*for _, mod := range p.config.Modules {
 		if err := p.bootstrapModule(ctx, mod); err != nil {
 			return err
 		}
-	}
+	}*/
 
 	if err := p.sm.WaitForInitialSync(ctx); err != nil {
 		return err

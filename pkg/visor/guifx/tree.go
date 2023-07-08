@@ -13,6 +13,7 @@ import (
 	"github.com/bep/debounce"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
+	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
 	collectionsfx "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
@@ -220,6 +221,8 @@ func newPsiTreeNodeState(ptw *PsiTreeWidget, p psi.Path) *psiTreeNodeState {
 	return st
 }
 
+var logger = logging.GetLogger("psi-tree-widget")
+
 func (s *psiTreeNodeState) loadNode(ctx context.Context) {
 	if s.isNodeLoading {
 		return
@@ -240,12 +243,11 @@ func (s *psiTreeNodeState) loadNode(ctx context.Context) {
 	n, err := s.tree.resolutionRoot.ResolveNode(ctx, s.path)
 
 	if err != nil {
+		logger.Error(err)
 		return
 	}
 
 	s.node.SetValue(n)
-	if s.Node() != n {
-	}
 }
 
 func (s *psiTreeNodeState) Close() {

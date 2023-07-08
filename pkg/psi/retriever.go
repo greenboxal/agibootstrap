@@ -18,8 +18,8 @@ package psi
 //
 //	Comments() []string
 //
-//	attachToGraph(g *Graph)
-//	detachFromGraph(g *Graph)
+//	AttachToGraph(g *Graph)
+//	DetachFromGraph(g *Graph)
 //	SetParent(parent Value)
 //	AddChildNode(node Value)
 //	RemoveChildNode(node Value)

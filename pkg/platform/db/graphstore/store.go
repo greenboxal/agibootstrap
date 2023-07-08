@@ -33,7 +33,7 @@ func NewStore(ds datastore.Batching, wal *WriteAheadLog, root psi.Node) *Store {
 		Wrapped: ds,
 
 		EscapingFunc: func(s string) string {
-			return hex.EncodeToString([]byte(s))
+			return "_cas/" + hex.EncodeToString([]byte(s))
 		},
 	}
 
@@ -78,7 +78,7 @@ func (s *Store) FreezeNode(ctx context.Context, n psi.Node) (*psi.FrozenNode, []
 			key.Name = named.PsiNodeName()
 		}
 
-		edge := psi.NewEdgeBase(key, n, it.Value())
+		edge := psi.NewSimpleEdge(key, n, it.Value())
 
 		fe, feLink, err := s.FreezeEdge(ctx, edge)
 
@@ -113,18 +113,20 @@ func (s *Store) FreezeNode(ctx context.Context, n psi.Node) (*psi.FrozenNode, []
 }
 
 func (s *Store) FreezeEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge, ipld.Link, error) {
-	if le, ok := edge.(*lazyEdge); ok && le.frozen != nil {
-		if le.link == nil {
-			link, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(le.frozen))
+	snap := edge.PsiEdgeBase().GetSnapshot()
+
+	if snap.Frozen != nil {
+		if snap.Link == nil {
+			link, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(snap.Frozen))
 
 			if err != nil {
 				return nil, nil, err
 			}
 
-			le.link = link
+			snap.Link = link
 		}
 
-		return le.frozen, le.link, nil
+		return snap.Frozen, snap.Link, nil
 	}
 
 	dataLink, err := s.lsys.Store(ipld.LinkContext{Ctx: ctx}, defaultLinkPrototype, typesystem.Wrap(edgeWrapper{Edge: edge}))
@@ -149,7 +151,7 @@ func (s *Store) FreezeEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge,
 	}
 
 	if toSnapshot := psi.GetNodeSnapshot(edge.To()); toSnapshot != nil {
-		if l, ok := toSnapshot.CommittedLink().(cidlink.Link); ok {
+		if l, ok := toSnapshot.CommitLink().(cidlink.Link); ok {
 			fe.ToLink = &l
 		}
 	}
@@ -159,6 +161,11 @@ func (s *Store) FreezeEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge,
 	if err != nil {
 		return nil, nil, err
 	}
+
+	edge.PsiEdgeBase().SetSnapshot(psi.EdgeSnapshot{
+		Frozen: fe,
+		Link:   link,
+	})
 
 	return fe, link, nil
 }
@@ -187,32 +194,16 @@ func (s *Store) GetNodeByCid(ctx context.Context, link ipld.Link) (*psi.FrozenNo
 	return &fn, nil
 }
 
-func (s *Store) IndexNode(ctx context.Context, batch datastore.Batch, root string, fn *psi.FrozenNode, link ipld.Link) error {
-	headKey := fmt.Sprintf("refs/heads/%s/%s", root, fn.Path)
-
-	if err := batch.Put(ctx, datastore.NewKey(headKey), []byte(link.Binary())); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Store) IndexEdge(ctx context.Context, batch datastore.Batch, root string, fe *psi.FrozenEdge, feLink cidlink.Link) error {
-	key := fmt.Sprintf("refs/edges/%s/%s!/%s", root, fe.FromPath, fe.Key.AsPathElement())
-
-	if err := batch.Put(ctx, datastore.NewKey(key), []byte(feLink.Binary())); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Store) GetNodeByPath(ctx context.Context, root string, path psi.Path) (*psi.FrozenNode, ipld.Link, error) {
-	key := fmt.Sprintf("refs/heads/%s/%s", root, path)
+func (s *Store) GetNodeByPath(ctx context.Context, path psi.Path) (*psi.FrozenNode, ipld.Link, error) {
+	key := fmt.Sprintf("refs/heads/%s", path)
 
 	cidBytes, err := s.ds.Get(ctx, datastore.NewKey(key))
 
 	if err != nil {
+		if err == datastore.ErrNotFound {
+			return nil, nil, psi.ErrNodeNotFound
+		}
+
 		return nil, nil, err
 	}
 
@@ -232,10 +223,10 @@ func (s *Store) GetNodeByPath(ctx context.Context, root string, path psi.Path) (
 	return fn, link, nil
 }
 
-func (s *Store) ListNodeEdges(ctx context.Context, root string, nodePath psi.Path) (iterators.Iterator[*psi.FrozenEdge], error) {
+func (s *Store) ListNodeEdges(ctx context.Context, nodePath psi.Path) (iterators.Iterator[*psi.FrozenEdge], error) {
 	var q query.Query
 
-	q.Prefix = path.Join("/refs/edges", root, nodePath.String()+"!")
+	q.Prefix = path.Join("/refs/edges", nodePath.String()+"!")
 
 	it, err := s.ds.Query(ctx, q)
 
@@ -264,49 +255,36 @@ func (s *Store) ListNodeEdges(ctx context.Context, root string, nodePath psi.Pat
 
 		return fe, true
 	}), nil
-
 }
 
-func (s *Store) RemoveNode(ctx context.Context, path psi.Path) error {
-	batch, err := s.ds.Batch(ctx)
+func (s *Store) IndexNode(ctx context.Context, batch datastore.Batch, fn *psi.FrozenNode, link ipld.Link) error {
+	headKey := fmt.Sprintf("refs/heads/%s", fn.Path)
 
-	if err != nil {
-		return err
-	}
-
-	if err := s.batchRemoveNode(ctx, batch, path); err != nil {
-		return err
-	}
-
-	if err := batch.Commit(ctx); err != nil {
+	if err := batch.Put(ctx, datastore.NewKey(headKey), []byte(link.Binary())); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (s *Store) batchRemoveNode(ctx context.Context, batch datastore.Batch, path psi.Path) error {
-	return nil
-}
+func (s *Store) IndexEdge(ctx context.Context, batch datastore.Batch, fe *psi.FrozenEdge, feLink cidlink.Link) error {
+	key := fmt.Sprintf("refs/edges/%s!/%s", fe.FromPath, fe.Key.AsPathElement())
 
-func (s *Store) RemoveEdge(ctx context.Context, nodeId psi.NodeID, key psi.EdgeKey) error {
-	batch, err := s.ds.Batch(ctx)
-
-	if err != nil {
-		return err
-	}
-
-	if err := s.batchRemoveEdge(ctx, batch, nodeId, key); err != nil {
-		return err
-	}
-
-	if err := batch.Commit(ctx); err != nil {
+	if err := batch.Put(ctx, datastore.NewKey(key), []byte(feLink.Binary())); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (s *Store) batchRemoveEdge(ctx context.Context, batch datastore.Batch, nodeId psi.NodeID, key psi.EdgeKey) error {
-	return nil
+func (s *Store) RemoveNodeFromIndex(ctx context.Context, batch datastore.Batch, path psi.Path) error {
+	headKey := fmt.Sprintf("refs/heads/%s", path)
+
+	return batch.Delete(ctx, datastore.NewKey(headKey))
+}
+
+func (s *Store) RemoveEdgeFromIndex(ctx context.Context, batch datastore.Batch, path psi.Path, key psi.EdgeKey) error {
+	edgeKey := fmt.Sprintf("refs/edges/%s!/%s", path, key.AsPathElement())
+
+	return batch.Delete(ctx, datastore.NewKey(edgeKey))
 }

@@ -132,8 +132,7 @@ func (o *MutableSlice[T]) RemoveCount(index int, count int) {
 	from := index
 	to := index + count
 
-	removed := append([]T(nil), o.slice[from:to]...)
-
+	removed := slices.Clone(o.slice[from:to])
 	o.slice = slices.Delete(o.slice, from, to)
 
 	b.NextRemoveRange(from, removed)

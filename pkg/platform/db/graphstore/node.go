@@ -10,6 +10,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -20,19 +21,25 @@ type cachedNode struct {
 	g      *IndexedGraph
 	parent *cachedNode
 
-	path   psi.Path
+	id   int64
+	path psi.Path
+
 	frozen *psi.FrozenNode
 	edges  []*psi.FrozenEdge
 	link   ipld.Link
 	node   psi.Node
 
+	loaded      bool
+	initialized bool
+
 	lastFenceId uint64
 }
 
+func (c *cachedNode) ID() int64                   { return c.id }
 func (c *cachedNode) FrozenNode() *psi.FrozenNode { return c.frozen }
 func (c *cachedNode) Node() psi.Node              { return c.node }
-func (c *cachedNode) CommittedVersion() int64     { return c.frozen.Version }
-func (c *cachedNode) CommittedLink() ipld.Link    { return c.link }
+func (c *cachedNode) CommitVersion() int64        { return c.frozen.Version }
+func (c *cachedNode) CommitLink() ipld.Link       { return c.link }
 func (c *cachedNode) LastFenceID() uint64         { return c.lastFenceId }
 
 func (c *cachedNode) Load(ctx context.Context) error {
@@ -44,20 +51,26 @@ func (c *cachedNode) Load(ctx context.Context) error {
 		return err
 	}
 
+	if c.node == nil {
+		return psi.ErrNodeNotFound
+	}
+
 	return nil
 }
 
 func (c *cachedNode) Preload(ctx context.Context) error {
+	defer c.update()
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.node != nil {
+	if c.loaded {
 		return nil
 	}
 
 	if c.frozen == nil {
 		if c.link == nil {
-			frozen, link, err := c.g.store.GetNodeByPath(ctx, c.g.root.UUID(), c.path)
+			frozen, link, err := c.g.store.GetNodeByPath(ctx, c.path)
 
 			if err != nil {
 				return err
@@ -76,7 +89,15 @@ func (c *cachedNode) Preload(ctx context.Context) error {
 		}
 	}
 
+	if c.frozen == nil {
+		return psi.ErrNodeNotFound
+	}
+
 	typ := psi.NodeTypeByName(c.frozen.Type)
+
+	if typ == nil {
+		return fmt.Errorf("unknown node type %q", c.frozen.Type)
+	}
 
 	if c.frozen.Data != nil && !typ.Definition().IsRuntimeOnly {
 		rawNode, err := c.g.store.lsys.Load(
@@ -96,34 +117,40 @@ func (c *cachedNode) Preload(ctx context.Context) error {
 		}
 
 		c.node = n
+
+		if len(c.path.Parent().Components()) > 1 {
+			c.parent = c.g.getCacheEntry(c.path.Parent(), true)
+
+			if err := c.parent.Preload(ctx); err != nil {
+				return err
+			}
+
+			c.node.SetParent(c.parent.node)
+		}
+	}
+
+	if c.node != nil {
+		c.loaded = true
 	}
 
 	return nil
 }
 
 func (c *cachedNode) Refresh(ctx context.Context) error {
+	defer c.update()
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.node == nil {
+	if !c.loaded {
 		return nil
 	}
 
 	if c.frozen == nil {
-		return nil
+		return psi.ErrNodeNotFound
 	}
 
-	if len(c.path.Parent().Components()) > 1 {
-		c.parent = c.g.getCacheEntry(c.path.Parent(), true)
-
-		if err := c.parent.Preload(ctx); err != nil {
-			return err
-		}
-
-		c.node.SetParent(c.parent.node)
-	}
-
-	edges, err := c.g.store.ListNodeEdges(ctx, c.g.root.UUID(), c.path)
+	edges, err := c.g.store.ListNodeEdges(ctx, c.path)
 
 	if err != nil {
 		return err
@@ -133,7 +160,7 @@ func (c *cachedNode) Refresh(ctx context.Context) error {
 		fe := edges.Value()
 
 		if fe.Key.Kind != psi.EdgeKindChild {
-			edge := newLazyEdge(c.node, fe.Key, nil, fe)
+			edge := psi.NewLazyEdge(c.g, fe.Key, c.node, c.resolveEdge)
 
 			c.node.UpsertEdge(edge)
 		} else if fe.ToLink != nil {
@@ -144,6 +171,15 @@ func (c *cachedNode) Refresh(ctx context.Context) error {
 			}
 
 			to, err := c.g.LoadNode(ctx, frozen)
+
+			if err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
+				c.g.logger.Warn(err)
+				return err
+			}
+
+			if to == nil {
+				continue
+			}
 
 			idx := fe.Key.Index
 
@@ -161,7 +197,7 @@ func (c *cachedNode) Refresh(ctx context.Context) error {
 		typ.InitializeNode(c.node)
 	}
 
-	psi.UpdateNodeSnapshot(c.node, c)
+	c.initialized = true
 
 	return nil
 }
@@ -210,7 +246,28 @@ func (c *cachedNode) Commit(ctx context.Context, batch datastore.Batch) error {
 	return c.updateIndex(ctx, batch)
 }
 
-func (c *cachedNode) updateFromMemory(ctx context.Context, node psi.Node) error {
+func (c *cachedNode) update() {
+	if c.node == nil || c.node.PsiNode() == nil {
+		return
+	}
+
+	if c.id == -1 {
+		c.id = int64(c.g.bmp.Allocate())
+	}
+
+	if c.id != -1 && c.node != nil {
+		c.node.PsiNodeBase().SetSnapshot(c)
+		c.node.PsiNodeBase().AttachToGraph(c.g)
+	}
+}
+
+func (c *cachedNode) updateFromMemory(node psi.Node) error {
+	defer c.update()
+
+	if c.node == node {
+		return nil
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -219,9 +276,8 @@ func (c *cachedNode) updateFromMemory(ctx context.Context, node psi.Node) error 
 	}
 
 	c.node = node
-	c.frozen = nil
-	c.edges = nil
-	c.link = nil
+
+	c.invalidate()
 
 	return nil
 }
@@ -247,6 +303,7 @@ func (c *cachedNode) updateFromFreezer(ctx context.Context, link ipld.Link, fn *
 	c.frozen = fn
 	c.link = link
 	c.edges = edges
+	c.invalidate()
 
 	return c.Load(ctx)
 }
@@ -259,35 +316,25 @@ func (c *cachedNode) updateIndex(ctx context.Context, batch datastore.Batch) err
 		return nil
 	}
 
-	nodeRoot := c.node
+	if batch == nil {
+		batch, err = c.g.store.ds.Batch(ctx)
 
-	for parent := nodeRoot; parent != nil; parent = parent.Parent() {
-		nodeRoot = parent
-	}
-
-	if nodeRoot, ok := nodeRoot.(psi.UniqueNode); ok {
-		root := nodeRoot.UUID()
-
-		if batch == nil {
-			batch, err = c.g.store.ds.Batch(ctx)
-
-			if err != nil {
-				return err
-			}
-
-			shouldCommit = true
-		}
-
-		if err := c.g.store.IndexNode(ctx, batch, root, c.frozen, c.link); err != nil {
+		if err != nil {
 			return err
 		}
 
-		for i, edge := range c.edges {
-			link := c.frozen.Edges[i]
+		shouldCommit = true
+	}
 
-			if err := c.g.store.IndexEdge(ctx, batch, root, edge, link); err != nil {
-				return err
-			}
+	if err := c.g.store.IndexNode(ctx, batch, c.frozen, c.link); err != nil {
+		return err
+	}
+
+	for i, edge := range c.edges {
+		link := c.frozen.Edges[i]
+
+		if err := c.g.store.IndexEdge(ctx, batch, edge, link); err != nil {
+			return err
 		}
 	}
 
@@ -295,6 +342,76 @@ func (c *cachedNode) updateIndex(ctx context.Context, batch datastore.Batch) err
 		if err := batch.Commit(ctx); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (c *cachedNode) Remove(ctx context.Context, n psi.Node) error {
+	if n.CanonicalPath().IsRelative() {
+		return fmt.Errorf("node path must be absolute")
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.node = nil
+	c.frozen = nil
+	c.edges = nil
+	c.link = nil
+
+	batch, err := c.g.store.ds.Batch(ctx)
+
+	if err != nil {
+		return err
+	}
+
+	for _, edge := range c.edges {
+		if err := c.g.store.RemoveEdgeFromIndex(ctx, batch, c.path, edge.Key); err != nil {
+			return err
+		}
+	}
+
+	if err := c.g.store.RemoveNodeFromIndex(ctx, batch, c.path); err != nil {
+		return err
+	}
+
+	if err := batch.Commit(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *cachedNode) resolveEdge(ctx context.Context, g psi.Graph, from psi.Node, key psi.EdgeKey) (psi.Node, error) {
+	for _, e := range c.edges {
+		if e.Key != key {
+			continue
+		}
+
+		if n, err := c.g.ResolveEdge(ctx, e); err == nil {
+			return n, nil
+		}
+
+		break
+	}
+
+	return nil, psi.ErrNodeNotFound
+}
+func (c *cachedNode) invalidate() {
+	c.loaded = false
+	c.initialized = false
+}
+
+func getNodeUniqueRoot(node psi.Node) psi.UniqueNode {
+	nodeRoot := node
+
+	for parent := nodeRoot; parent != nil; parent = parent.Parent() {
+		nodeRoot = parent
+	}
+
+	if nodeRoot, ok := nodeRoot.(psi.UniqueNode); ok {
+		return nodeRoot
 	}
 
 	return nil

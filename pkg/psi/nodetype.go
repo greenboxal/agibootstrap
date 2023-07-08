@@ -2,7 +2,6 @@ package psi
 
 import (
 	"reflect"
-	"sync"
 
 	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 )
@@ -23,66 +22,7 @@ type NodeTypeDefinition struct {
 	IsRuntimeOnly bool `json:"is_runtime_only"`
 }
 
-var nodeTypeRegistryMutex sync.Mutex
-var nodeTypeRegistry = map[typesystem.Type]NodeType{}
-var nodeTypeByName = map[string]NodeType{}
-
 type NodeTypeOption func(*nodeType)
-
-func DefineNodeType[T Node](options ...NodeTypeOption) TypedNodeType[T] {
-	nodeTypeRegistryMutex.Lock()
-	defer nodeTypeRegistryMutex.Unlock()
-
-	rt := reflect.TypeOf((*T)(nil)).Elem()
-	typ := typesystem.TypeFrom(rt)
-
-	if _, ok := nodeTypeRegistry[typ]; ok {
-		panic("node type already defined")
-	}
-
-	nt := reflectNodeType(typ, options...)
-	tnt := typedNode[T]{NodeType: nt}
-
-	nodeTypeRegistry[typ] = tnt
-	nodeTypeByName[tnt.Name()] = tnt
-
-	return tnt
-}
-
-func NodeTypeByName(name string) NodeType {
-	return nodeTypeByName[name]
-}
-
-func ReflectNodeType(typ typesystem.Type) NodeType {
-	nodeTypeRegistryMutex.Lock()
-	defer nodeTypeRegistryMutex.Unlock()
-
-	if _, ok := nodeTypeRegistry[typ]; ok {
-		return nodeTypeRegistry[typ]
-	}
-
-	nt := reflectNodeType(typ)
-
-	nodeTypeRegistry[typ] = nt
-	nodeTypeByName[nt.Name()] = nt
-
-	return nt
-}
-
-func reflectNodeType(typ typesystem.Type, options ...NodeTypeOption) *nodeType {
-	nt := &nodeType{
-		typ: typ,
-	}
-
-	nt.def.Name = nt.typ.Name().NormalizedFullNameWithArguments()
-	nt.def.Class = NodeClassGeneric
-
-	for _, opt := range options {
-		opt(nt)
-	}
-
-	return nt
-}
 
 func WithTypeName(name string) NodeTypeOption {
 	return func(nt *nodeType) {

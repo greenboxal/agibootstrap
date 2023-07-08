@@ -11,7 +11,7 @@ func FromMap[K comparable, V any](m map[K]V) Iterator[KeyValue[K, V]] {
 	return &mapEntryIterator[K, V]{m: m, keys: maps.Keys(m)}
 }
 
-func ToMap[IT Iterator[KeyValue[K, V]], K comparable, V any](iter IT) map[K]V {
+func ToMap[K comparable, V any](iter Iterator[KeyValue[K, V]]) map[K]V {
 	result := make(map[K]V)
 
 	for iter.Next() {

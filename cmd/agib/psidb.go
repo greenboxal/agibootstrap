@@ -55,7 +55,7 @@ func buildPsiDbCmd() *cobra.Command {
 			}
 
 			g := project.Graph()
-			edges, err := g.Store().ListNodeEdges(cmd.Context(), project.UUID(), rootPath)
+			edges, err := g.Store().ListNodeEdges(cmd.Context(), rootPath)
 
 			if err != nil {
 				return err
@@ -101,7 +101,7 @@ func buildPsiDbCmd() *cobra.Command {
 			}
 
 			g := project.Graph()
-			fn, _, err := g.Store().GetNodeByPath(cmd.Context(), g.Root().UUID(), rootPath)
+			fn, _, err := g.Store().GetNodeByPath(cmd.Context(), rootPath)
 
 			if err != nil {
 				return err
@@ -152,7 +152,7 @@ func buildPsiDbCmd() *cobra.Command {
 				return err
 			}
 
-			root := psifuse.NewPsiNodeWrapper(project.Graph(), project.Graph().Root().CanonicalPath())
+			root := psifuse.NewPsiNodeDir(project.Graph(), project.Graph().Root().CanonicalPath())
 
 			_ = exec.Command("diskutil", "unmount", "force", args[0]).Run()
 

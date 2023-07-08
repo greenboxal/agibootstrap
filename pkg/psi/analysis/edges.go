@@ -2,6 +2,9 @@ package analysis
 
 import "github.com/greenboxal/agibootstrap/pkg/psi"
 
+var ScopeType = psi.DefineNodeType[*Scope]()
+var SymbolType = psi.DefineNodeType[*Symbol]()
+
 const EdgeKindSymbol = psi.TypedEdgeKind[*Symbol]("codex.analysis.symbol")
 const EdgeKindScope = psi.TypedEdgeKind[*Scope]("codex.analysis.scope")
 const EdgeKindDefinition = psi.TypedEdgeKind[psi.Node]("codex.analysis.definition")

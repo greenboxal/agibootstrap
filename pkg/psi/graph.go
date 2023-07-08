@@ -1,13 +1,17 @@
 package psi
 
 import (
+	"context"
 	"reflect"
 	"sync/atomic"
 
+	"github.com/ipld/go-ipld-prime"
 	"gonum.org/v1/gonum/graph/multi"
 )
 
 type Graph interface {
+	Root() UniqueNode
+
 	Add(n Node)
 	Remove(n Node)
 	Replace(old, new Node)
@@ -23,6 +27,13 @@ type Graph interface {
 
 	OnNodeUpdated(n Node)
 	OnNodeInvalidated(n Node)
+
+	RefreshNode(ctx context.Context, n Node) error
+	LoadNode(ctx context.Context, fn *FrozenNode) (Node, error)
+	CommitNode(ctx context.Context, node Node) (ipld.Link, error)
+
+	ResolveNode(ctx context.Context, path Path) (n Node, err error)
+	ListNodeChildren(ctx context.Context, path Path) (result []Path, err error)
 }
 
 type BaseGraph struct {
@@ -61,14 +72,14 @@ func (g *BaseGraph) NextEdgeID() EdgeID {
 }
 
 func (g *BaseGraph) Add(n Node) {
-	n.attachToGraph(g.self)
+	n.PsiNodeBase().AttachToGraph(g.self)
 	g.g.AddNode(n)
 	g.nodeIdMap[n.CanonicalPath().String()] = n.ID()
 }
 
 func (g *BaseGraph) Remove(n Node) {
 	g.g.RemoveNode(n.ID())
-	n.detachFromGraph(nil)
+	n.PsiNodeBase().DetachFromGraph(g.self)
 	delete(g.nodeIdMap, n.CanonicalPath().String())
 }
 
@@ -87,7 +98,7 @@ func (g *BaseGraph) Replace(old, new Node) {
 
 	gn := old.PsiNodeBase().g
 
-	if gn != nil && gn != g {
+	if gn != nil && gn != g.self {
 		panic("nodes belong to different graphs")
 	}
 

@@ -10,7 +10,6 @@ func init() {
 	config.DisableCaller = true
 	config.OutputPaths = []string{"stderr"}
 	config.ErrorOutputPaths = []string{"stderr"}
-
 	logger, err := config.Build()
 
 	if err != nil {

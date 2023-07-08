@@ -12,7 +12,7 @@ func NewScope(root psi.Node) *Scope {
 		root: root,
 	}
 
-	s.Init(s)
+	s.Init(s, psi.WithNodeType(ScopeType))
 
 	return s
 }

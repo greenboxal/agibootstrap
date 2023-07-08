@@ -37,14 +37,15 @@ type FrozenEdge struct {
 }
 
 type NodeSnapshot interface {
+	ID() int64
 	Node() Node
 
-	CommittedVersion() int64
-	CommittedLink() ipld.Link
+	CommitVersion() int64
+	CommitLink() ipld.Link
 
 	LastFenceID() uint64
 	FrozenNode() *FrozenNode
 }
 
-func UpdateNodeSnapshot(node Node, fn NodeSnapshot) { node.PsiNodeBase().setLastSnapshot(fn) }
-func GetNodeSnapshot(node Node) NodeSnapshot        { return node.PsiNodeBase().getLastSnapshot() }
+func UpdateNodeSnapshot(node Node, fn NodeSnapshot) { node.PsiNodeBase().SetSnapshot(fn) }
+func GetNodeSnapshot(node Node) NodeSnapshot        { return node.PsiNodeBase().GetSnapshot() }

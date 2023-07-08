@@ -5,7 +5,7 @@ import (
 	"reflect"
 )
 
-func Concat[IT Iterator[T], T any](iterators ...IT) Iterator[T] {
+func Concat[T any](iterators ...Iterator[T]) Iterator[T] {
 	iters := make([]Iterator[T], len(iterators))
 
 	for i, iter := range iterators {

@@ -2,6 +2,7 @@ package psi
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 
@@ -9,6 +10,196 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 )
+
+func MustParsePath(path string) Path {
+	p, err := ParsePath(path)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return p
+}
+
+func ParsePath(s string) (Path, error) {
+	var err error
+
+	rootSepIndex := strings.Index(s, "//")
+	isRelative := rootSepIndex == -1
+	root := ""
+	path := s
+
+	if !isRelative {
+		root = s[:rootSepIndex]
+		path = s[rootSepIndex+2:]
+	}
+
+	components, err := ParsePathElements(path)
+
+	if err != nil {
+		return Path{}, err
+	}
+
+	return PathFromElements(root, isRelative, components...), nil
+}
+
+func PathFromElements(root string, isRelative bool, components ...PathElement) Path {
+	c := make([]PathElement, 0, len(components))
+	c = append(c, components...)
+	return Path{root: root, relative: isRelative, components: c}
+}
+
+type Path struct {
+	relative   bool
+	root       string
+	components []PathElement
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) IsEmpty() bool { return len(p.components) == 0 && p.relative }
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) PrimitiveKind() typesystem.PrimitiveKind { return typesystem.PrimitiveKindString }
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) Components() []PathElement { return p.components }
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) Root() string { return p.root }
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) WithRoot(root string) Path {
+	p.root = root
+	return p
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) IsRelative() bool { return p.relative }
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) Parent() Path {
+	if len(p.components) == 0 {
+		return p
+	}
+
+	return PathFromElements(p.root, p.relative, p.components[:len(p.components)-1]...)
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) RelativeTo(other Path) Path {
+	if p.root != other.root {
+		panic(fmt.Errorf("cannot make path %s relative to %s", p, other))
+	}
+
+	if !p.IsChildOf(other) {
+		panic(fmt.Errorf("cannot make path %s relative to %s", p, other))
+	}
+
+	return PathFromElements(p.root, true, p.components[len(other.components):]...)
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) IsChildOf(other Path) bool {
+	if p.root != other.root {
+		return false
+	}
+
+	if len(p.components) <= len(other.components) {
+		return false
+	}
+
+	for i, component := range other.components {
+		if p.components[i] != component {
+			return false
+		}
+	}
+
+	return true
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) Last() PathElement {
+	if len(p.components) == 0 {
+		return PathElement{}
+	}
+
+	return p.components[len(p.components)-1]
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) Join(other Path) Path {
+	if !p.relative && !other.relative {
+		panic("cannot join two absolute paths")
+	}
+
+	root := p.root
+
+	if p.relative {
+		root = other.root
+	}
+
+	var components []PathElement
+	components = append(components, p.components...)
+	components = append(components, other.components...)
+	return PathFromElements(root, p.relative && other.relative, components...)
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) Child(name PathElement) Path {
+	var components []PathElement
+	components = append(components, p.components...)
+	components = append(components, name)
+	return PathFromElements(p.root, p.relative, components...)
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) String() (res string) {
+	for _, component := range p.components {
+		res = path.Join(res, component.String())
+	}
+
+	if !p.relative {
+		res = p.root + "//" + res
+	}
+
+	return
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) MarshalJSON() ([]byte, error) { return []byte(fmt.Sprintf("\"%s\"", p.String())), nil }
+
+//goland:noinspection GoMixedReceiverTypes
+func (p *Path) UnmarshalJSON(data []byte) error {
+	str := string(data)
+
+	if str == "null" {
+		return nil
+	}
+
+	return p.UnmarshalText(data[1 : len(data)-1])
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) MarshalText() (text []byte, err error) { return []byte(p.String()), nil }
+
+//goland:noinspection GoMixedReceiverTypes
+func (p *Path) UnmarshalText(text []byte) error {
+	parsed, err := ParsePath(string(text))
+
+	if err != nil {
+		return err
+	}
+
+	*p = parsed
+
+	return nil
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) MarshalBinary() (data []byte, err error) { return p.MarshalText() }
+
+//goland:noinspection GoMixedReceiverTypes
+func (p *Path) UnmarshalBinary(data []byte) error { return p.UnmarshalText(data) }
 
 // PathElement is a string of the form:
 //
@@ -150,196 +341,4 @@ func ParsePathElement(str string) (e PathElement, err error) {
 	endState()
 
 	return
-}
-
-func MustParsePath(path string) Path {
-	p, err := ParsePath(path)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return p
-}
-
-func ParsePath(s string) (Path, error) {
-	var err error
-
-	components, err := ParsePathElements(s)
-
-	if err != nil {
-		return Path{}, err
-	}
-
-	return PathFromElements(components...), nil
-}
-
-func PathFromElements(components ...PathElement) Path {
-	c := make([]PathElement, 0, len(components))
-	c = append(c, components...)
-	return Path{components: c}
-}
-
-type Path struct {
-	components []PathElement
-}
-
-func (p Path) PrimitiveKind() typesystem.PrimitiveKind { return typesystem.PrimitiveKindString }
-func (p Path) Components() []PathElement               { return p.components }
-
-func (p Path) Parent() Path {
-	if len(p.components) == 0 {
-		return p
-	}
-
-	return PathFromElements(p.components[:len(p.components)-1]...)
-}
-
-func (p Path) Join(other Path) Path {
-	var components []PathElement
-	components = append(components, p.components...)
-	components = append(components, other.components...)
-	return PathFromElements(components...)
-}
-
-func (p Path) Child(name PathElement) Path {
-	var components []PathElement
-	components = append(components, p.components...)
-	components = append(components, name)
-	return PathFromElements(components...)
-}
-
-func (p Path) String() (res string) {
-	for _, component := range p.components {
-		res += "/" + component.String()
-	}
-
-	if res == "" {
-		res = "/"
-	}
-
-	return
-}
-
-func (p Path) IsEmpty() bool {
-	return len(p.components) == 0
-}
-
-func (p Path) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("\"%s\"", p.String())), nil
-}
-
-func (p *Path) UnmarshalJSON(data []byte) error {
-	str := string(data)
-
-	if str == "null" {
-		return nil
-	}
-
-	str = str[1 : len(str)-1]
-	components, err := ParsePathElements(str)
-
-	if err != nil {
-		return err
-	}
-
-	p.components = components
-
-	return nil
-}
-
-func (p Path) MarshalText() (text []byte, err error) {
-	return []byte(p.String()), nil
-}
-
-func (p *Path) UnmarshalText(text []byte) error {
-	components, err := ParsePathElements(string(text))
-
-	if err != nil {
-		return err
-	}
-
-	p.components = components
-
-	return nil
-}
-
-func (p Path) MarshalBinary() (data []byte, err error) {
-	return p.MarshalText()
-}
-
-func (p *Path) UnmarshalBinary(data []byte) error {
-	return p.UnmarshalText(data)
-}
-
-func ResolveChild(parent Path, child PathElement) Path {
-	return parent.Child(child)
-}
-
-func ResolveEdge[T Node](parent Node, key TypedEdgeKey[T]) (def T) {
-	e := parent.GetEdge(key)
-
-	if e == nil {
-		return
-	}
-
-	return e.To().(T)
-}
-
-func Resolve(root Node, path string) (Node, error) {
-	p, err := ParsePath(path)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return ResolvePath(root, p)
-}
-
-func ResolvePath(root Node, path Path) (Node, error) {
-	if root == nil {
-		return nil, ErrNodeNotFound
-	}
-
-	result := root
-
-	for i, component := range path.components {
-		if component.IsEmpty() {
-			if i == 0 {
-				component.Name = "/"
-			} else {
-				panic("empty Path component")
-			}
-		}
-
-		if component.Kind == EdgeKindChild && component.Index == 0 {
-			if component.Name == "/" {
-				result = root
-			} else if component.Name == "." {
-				continue
-			} else if component.Name == ".." {
-				cn := result.Parent()
-
-				if cn != nil {
-					result = cn
-				}
-
-				continue
-			}
-		}
-
-		cn := result.ResolveChild(component)
-
-		if cn == nil {
-			break
-		}
-
-		result = cn
-	}
-
-	if result == nil {
-		return nil, ErrNodeNotFound
-	}
-
-	return result, nil
 }

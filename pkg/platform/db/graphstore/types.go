@@ -20,7 +20,12 @@ type edgeWrapper struct {
 	Edge psi.Edge `json:"edge"`
 }
 
-var lastFenceKey = datastore.NewKey("_graphstore/_lastFence")
+var graphLastFenceKey = datastore.NewKey("_graphstore/_lastFence")
+var graphBitmapKey = datastore.NewKey("_graphstore/_bitmap")
+var graphRootUuidKey = datastore.NewKey("_graphstore/_rootUuid")
+var graphRootPathKey = datastore.NewKey("_graphstore/_rootPath")
+var graphRootSnapKey = datastore.NewKey("_graphstore/_rootSnap")
+
 var frozenNodeType = typesystem.TypeFrom(reflect.TypeOf((*psi.FrozenNode)(nil)).Elem())
 var frozenEdgeType = typesystem.TypeFrom(reflect.TypeOf((*psi.FrozenEdge)(nil)).Elem())
 

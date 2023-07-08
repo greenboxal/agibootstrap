@@ -9,7 +9,7 @@ import (
 func NewSymbol() *Symbol {
 	s := &Symbol{}
 
-	s.Init(s)
+	s.Init(s, psi.WithNodeType(SymbolType))
 
 	return s
 }
