@@ -36,6 +36,7 @@ type cachedNode struct {
 }
 
 func (c *cachedNode) ID() int64                   { return c.id }
+func (c *cachedNode) Path() psi.Path              { return c.path }
 func (c *cachedNode) FrozenNode() *psi.FrozenNode { return c.frozen }
 func (c *cachedNode) Node() psi.Node              { return c.node }
 func (c *cachedNode) CommitVersion() int64        { return c.frozen.Version }
@@ -243,7 +244,7 @@ func (c *cachedNode) Commit(ctx context.Context, batch datastore.Batch) error {
 
 	c.g.logger.Debugw("Commit node", "path", c.node.CanonicalPath().String(), "link", link.String())
 
-	return c.updateIndex(ctx, batch)
+	return c.commitIndex(ctx, batch)
 }
 
 func (c *cachedNode) update() {
@@ -257,11 +258,10 @@ func (c *cachedNode) update() {
 
 	if c.id != -1 && c.node != nil {
 		c.node.PsiNodeBase().SetSnapshot(c)
-		c.node.PsiNodeBase().AttachToGraph(c.g)
 	}
 }
 
-func (c *cachedNode) updateFromMemory(node psi.Node) error {
+func (c *cachedNode) updateNode(node psi.Node) error {
 	defer c.update()
 
 	if c.node == node {
@@ -282,33 +282,7 @@ func (c *cachedNode) updateFromMemory(node psi.Node) error {
 	return nil
 }
 
-func (c *cachedNode) updateFromFreezer(ctx context.Context, link ipld.Link, fn *psi.FrozenNode, edges []*psi.FrozenEdge) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.frozen == fn && c.link == link {
-		return nil
-	}
-
-	if fn == nil {
-		f, err := c.g.store.GetNodeByCid(ctx, link)
-
-		if err != nil {
-			return err
-		}
-
-		fn = f
-	}
-
-	c.frozen = fn
-	c.link = link
-	c.edges = edges
-	c.invalidate()
-
-	return c.Load(ctx)
-}
-
-func (c *cachedNode) updateIndex(ctx context.Context, batch datastore.Batch) error {
+func (c *cachedNode) commitIndex(ctx context.Context, batch datastore.Batch) error {
 	var err error
 	var shouldCommit bool
 

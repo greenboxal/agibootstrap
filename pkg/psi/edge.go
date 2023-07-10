@@ -136,28 +136,34 @@ func NewLazyEdge(g Graph, key EdgeReference, from Node, resolver ResolveEdgeFunc
 func (l *LazyEdge) From() Node { return l.from }
 
 func (l *LazyEdge) To() Node {
+	n, err := l.ResolveTo(context.Background())
+
+	if err != nil {
+		panic(err)
+	}
+
+	return n
+}
+
+func (l *LazyEdge) ResolveTo(ctx context.Context) (Node, error) {
 	if l.valid {
-		return l.to
+		return l.to, nil
 	}
 
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
 	if !l.valid {
-		n, err := l.ResolveTo(context.Background())
+		n, err := l.resolver(ctx, l.g, l.from, l.key.GetKey())
 
 		if err != nil {
-			return nil
+			return nil, err
 		}
 
 		l.to = n
 	}
 
-	return l.to
-}
-
-func (l *LazyEdge) ResolveTo(ctx context.Context) (Node, error) {
-	return l.resolver(ctx, l.g, l.from, l.key.GetKey())
+	return l.to, nil
 }
 
 func (l *LazyEdge) ReplaceTo(node Node) Edge {

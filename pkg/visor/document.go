@@ -1,6 +1,7 @@
 package visor
 
 import (
+	"context"
 	"sync"
 
 	"fyne.io/fyne/v2"
@@ -74,7 +75,7 @@ func (m *DocumentManager) OpenDocument(path psi.Path, node psi.Node) {
 	key := path.String()
 
 	if node == nil {
-		n, err := psi.ResolvePath(m.p, path)
+		n, err := psi.ResolvePath(context.Background(), m.p, path)
 
 		if err != nil {
 			panic(err)

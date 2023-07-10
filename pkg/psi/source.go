@@ -3,21 +3,11 @@ package psi
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 )
-
-type LanguageID string
-
-type Language interface {
-	Name() LanguageID
-	Extensions() []string
-
-	CreateSourceFile(ctx context.Context, fileName string, fileHandle repofs.FileHandle) SourceFile
-
-	Parse(ctx context.Context, fileName string, code string) (SourceFile, error)
-	ParseCodeBlock(ctx context.Context, name string, block mdutils.CodeBlock) (SourceFile, error)
-}
 
 type SourceFile interface {
 	Node
@@ -37,6 +27,30 @@ type SourceFile interface {
 	MergeCompletionResults(ctx context.Context, scope Scope, cursor Cursor, newSource SourceFile, newAst Node) error
 }
 
+type AstNode interface {
+	Node
+}
+
 type Scope interface {
 	Root() Node
+}
+
+type SourceFileBase struct {
+	NodeBase
+}
+
+type FileHandleSource interface {
+	Node
+
+	Open() (repofs.FileHandle, error)
+}
+
+func (sfb *SourceFileBase) GetFileHandle() (repofs.FileHandle, error) {
+	parent, ok := sfb.Parent().(FileHandleSource)
+
+	if !ok {
+		return nil, errors.New("parent is not a FileHandleSource")
+	}
+
+	return parent.Open()
 }

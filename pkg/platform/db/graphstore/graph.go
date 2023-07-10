@@ -31,8 +31,6 @@ type nodeUpdateRequest struct {
 }
 
 type IndexedGraph struct {
-	psi.BaseGraph
-
 	logger *zap.SugaredLogger
 	mu     sync.RWMutex
 
@@ -83,8 +81,6 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.UniqueNode)
 		closeCh:         make(chan struct{}),
 		nodeUpdateQueue: make(chan nodeUpdateRequest, 256),
 	}
-
-	g.Init(g)
 
 	g.Add(root)
 
@@ -158,9 +154,11 @@ func (g *IndexedGraph) Add(n psi.Node) {
 
 	entry := g.getCacheEntry(n.CanonicalPath(), true)
 
-	if err := entry.updateFromMemory(n); err != nil {
+	if err := entry.updateNode(n); err != nil {
 		panic(err)
 	}
+
+	n.PsiNodeBase().AttachToGraph(g)
 }
 
 func (g *IndexedGraph) Remove(n psi.Node) {
@@ -175,11 +173,29 @@ func (g *IndexedGraph) Remove(n psi.Node) {
 	}
 }
 
+/*func (g *BaseGraph) Add(n Node) {
+	n.PsiNodeBase().AttachToGraph(g.self)
+	g.g.AddNode(n)
+	g.nodeIdMap[n.CanonicalPath().String()] = n.ID()
+}
+
+func (g *BaseGraph) Remove(n Node) {
+	g.g.RemoveNode(n.ID())
+	n.PsiNodeBase().DetachFromGraph(g.self)
+	delete(g.nodeIdMap, n.CanonicalPath().String())
+}*/
+
+func (g *IndexedGraph) SetEdge(e psi.Edge) {
+}
+
+func (g *IndexedGraph) UnsetEdge(self psi.Edge) {
+}
+
 func (g *IndexedGraph) RefreshNode(ctx context.Context, n psi.Node) error {
 	entry := g.getCacheEntry(n.CanonicalPath(), true)
 
 	if entry.node == nil {
-		if err := entry.updateFromMemory(n); err != nil {
+		if err := entry.updateNode(n); err != nil {
 			return err
 		}
 	} else if entry.node != n {
@@ -208,7 +224,7 @@ func (g *IndexedGraph) LoadNode(ctx context.Context, fn *psi.FrozenNode) (psi.No
 func (g *IndexedGraph) CommitNode(ctx context.Context, node psi.Node) (ipld.Link, error) {
 	entry := g.getCacheEntry(node.CanonicalPath(), true)
 
-	if err := entry.updateFromMemory(node); err != nil {
+	if err := entry.updateNode(node); err != nil {
 		return nil, err
 	}
 
@@ -269,6 +285,38 @@ func (g *IndexedGraph) flushRoot(ctx context.Context, batch datastore.Batch) err
 	return nil
 }
 
+func (g *IndexedGraph) loadBitmap(ctx context.Context) error {
+	data, err := g.ds.Get(ctx, graphBitmapKey)
+
+	if err != nil {
+		if err == datastore.ErrNotFound {
+			return nil
+		}
+
+		return err
+	}
+
+	if data == nil {
+		return nil
+	}
+
+	decoded, err := ipld.DecodeUsingPrototype(data, dagcbor.Decode, serializedBitmapIndexType.IpldPrototype())
+
+	if err != nil {
+		return err
+	}
+
+	snapshot, ok := typesystem.TryUnwrap[SerializedBitmapIndex](decoded)
+
+	if !ok {
+		return fmt.Errorf("unexpected type: %T", decoded)
+	}
+
+	g.bmp.LoadSnapshot(snapshot)
+
+	return nil
+}
+
 func (g *IndexedGraph) flushBitmap(ctx context.Context, batch datastore.Batch) error {
 	serialized := g.bmp.Snapshot()
 
@@ -322,9 +370,13 @@ func (g *IndexedGraph) getCacheEntry(path psi.Path, create bool) *cachedNode {
 func (g *IndexedGraph) run(proc goprocess.Process) {
 	ctx := goprocessctx.OnClosingContext(proc)
 
-	/*if err := g.recoverFromWal(ctx); err != nil {
+	if err := g.recoverFromWal(ctx); err != nil {
 		panic(err)
-	}*/
+	}
+
+	if err := g.loadBitmap(ctx); err != nil {
+
+	}
 
 	for {
 		select {

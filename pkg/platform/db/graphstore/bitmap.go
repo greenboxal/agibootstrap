@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/dgraph-io/sroar"
+	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 )
 
 type SerializableBitmap struct {
@@ -26,6 +27,8 @@ type SerializedBitmapIndex struct {
 	FreeList []byte `json:"freeList"`
 	UsedList []byte `json:"usedList"`
 }
+
+var serializedBitmapIndexType = typesystem.TypeOf(SerializedBitmapIndex{})
 
 type SparseBitmapIndex struct {
 	mu sync.RWMutex

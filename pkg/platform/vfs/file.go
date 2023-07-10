@@ -6,6 +6,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/multiformats/go-multihash"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -28,6 +29,15 @@ func NewFileNode(fs FS, path string) *File {
 	fn.Init(fn, psi.WithNodeType(FileType))
 
 	return fn
+}
+
+func (f *File) Open() (repofs.FileHandle, error) {
+	fh := &repofs.FsFileHandle{
+		FS:   f.fs,
+		Path: f.path,
+	}
+
+	return fh, nil
 }
 
 func (f *File) onWatchEvent(ev fsnotify.Event) error {

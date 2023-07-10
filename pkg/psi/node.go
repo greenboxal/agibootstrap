@@ -68,7 +68,7 @@ type Node interface {
 	IsContainer() bool
 	IsLeaf() bool
 
-	ResolveChild(component PathElement) Node
+	ResolveChild(ctx context.Context, component PathElement) Node
 
 	/* Edges */
 
@@ -284,7 +284,14 @@ func (n *NodeBase) IsLeaf() bool       { return false }
 func (n *NodeBase) IsValid() bool      { return n.valid }
 func (n *NodeBase) Comments() []string { return nil }
 
-func (n *NodeBase) CanonicalPath() Path                         { return n.path }
+func (n *NodeBase) CanonicalPath() Path {
+	if n.snap != nil {
+		return n.snap.Path()
+	}
+
+	return n.path
+}
+
 func (n *NodeBase) Parent() Node                                { return n.parent.Value() }
 func (n *NodeBase) ParentProperty() obsfx.ObservableValue[Node] { return &n.parent }
 
@@ -296,7 +303,7 @@ func (n *NodeBase) String() string {
 	return fmt.Sprintf("Value(%T, %d, %s)", n.self, n.ID(), n.path)
 }
 
-func (n *NodeBase) ResolveChild(component PathElement) Node {
+func (n *NodeBase) ResolveChild(ctx context.Context, component PathElement) Node {
 	if component.Kind == "" || component.Kind == EdgeKindChild {
 		if component.Name == "" {
 			if component.Index < int64(n.children.Len()) {
@@ -334,7 +341,19 @@ func (n *NodeBase) ResolveChild(component PathElement) Node {
 		}
 	}
 
-	return nil
+	typ := component.Kind.Type()
+
+	if typ == nil {
+		return nil
+	}
+
+	resolved, err := typ.Resolve(ctx, n.g, n.self, component.AsEdgeKey())
+
+	if err != nil {
+		return nil
+	}
+
+	return resolved
 }
 
 func (n *NodeBase) IndexOfChild(node Node) int {

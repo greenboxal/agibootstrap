@@ -39,6 +39,7 @@ type FrozenEdge struct {
 type NodeSnapshot interface {
 	ID() int64
 	Node() Node
+	Path() Path
 
 	CommitVersion() int64
 	CommitLink() ipld.Link

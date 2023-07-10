@@ -306,7 +306,7 @@ func (p *Project) bootstrapModule(ctx context.Context, mod project.ModuleConfig)
 		return errors.Errorf("language %s not configured", mod.Language)
 	}
 
-	root, err := psi.Resolve(p.rootNode, mod.Path)
+	root, err := psi.Resolve(ctx, p.rootNode, mod.Path)
 
 	if err != nil {
 		return errors.Wrapf(err, "failed to resolve module root %s", mod.Path)
@@ -382,7 +382,7 @@ func (p *Project) GetSourceFile(ctx context.Context, filename string) (_ psi.Sou
 	}
 
 	psiPath := psi.MustParsePath(relPath)
-	fileNode, err := psi.ResolvePath(p.rootNode, psiPath)
+	fileNode, err := psi.ResolvePath(ctx, p.rootNode, psiPath)
 
 	if err != nil {
 		return nil, err

@@ -20,6 +20,8 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
+var logger = logging.GetLogger("psi-tree-widget")
+
 type PsiTreeWidget struct {
 	*widget.Tree
 
@@ -58,17 +60,7 @@ func NewPsiTreeWidget(resolutionRoot *graphstore.IndexedGraph) *PsiTreeWidget {
 		},
 
 		IsBranch: func(id widget.TreeNodeID) bool {
-			existing := ptw.getNodeState(id, true)
-
-			if existing == nil {
-				return false
-			}
-
-			if existing.Node() == nil {
-				existing.loadNode(context.Background())
-			}
-
-			return existing.childrenIds.Len() > 0
+			return true
 		},
 
 		CreateNode: func(branch bool) fyne.CanvasObject {
@@ -91,9 +83,19 @@ func NewPsiTreeWidget(resolutionRoot *graphstore.IndexedGraph) *PsiTreeWidget {
 	}
 
 	ptw.Tree.OnBranchOpened = func(id widget.TreeNodeID) {
+		existing := ptw.getNodeState(id, true)
+
+		existing.loadChildren()
 	}
 
 	ptw.Tree.OnBranchClosed = func(id widget.TreeNodeID) {
+		existing := ptw.getNodeState(id, false)
+
+		if existing == nil {
+			return
+		}
+
+		existing.unloadChildren()
 	}
 
 	ptw.Tree.OnSelected = func(id widget.TreeNodeID) {
@@ -113,6 +115,11 @@ func NewPsiTreeWidget(resolutionRoot *graphstore.IndexedGraph) *PsiTreeWidget {
 
 func (ptw *PsiTreeWidget) SetRootItem(path psi.Path) {
 	ptw.Tree.Root = path.String()
+
+	entry := ptw.getNodeState(path.String(), true)
+	entry.loadChildren()
+
+	ptw.Refresh()
 }
 
 func (ptw *PsiTreeWidget) Node(id widget.TreeNodeID) psi.Node {
@@ -179,7 +186,8 @@ type psiTreeNodeState struct {
 	lastUpdate time.Time
 	lastError  error
 
-	isNodeLoading bool
+	isNodeLoading    bool
+	isChildrenLoaded bool
 
 	node        obsfx.SimpleProperty[psi.Node]
 	childrenIds collectionsfx.MutableSlice[widget.TreeNodeID]
@@ -196,13 +204,12 @@ func newPsiTreeNodeState(ptw *PsiTreeWidget, p psi.Path) *psiTreeNodeState {
 	}
 
 	obsfx.ObserveChange(&st.node, func(old, new psi.Node) {
-		st.childrenIds.Clear()
-		st.childrenIds.Unbind()
+		wasLoaded := st.isChildrenLoaded
 
-		if new != nil {
-			collectionsfx.BindList(&st.childrenIds, new.ChildrenList(), func(v psi.Node) widget.TreeNodeID {
-				return v.CanonicalPath().String()
-			})
+		st.unloadChildren()
+
+		if new != nil && wasLoaded {
+			st.loadChildren()
 		}
 	})
 
@@ -221,7 +228,34 @@ func newPsiTreeNodeState(ptw *PsiTreeWidget, p psi.Path) *psiTreeNodeState {
 	return st
 }
 
-var logger = logging.GetLogger("psi-tree-widget")
+func (s *psiTreeNodeState) loadChildren() {
+	if s.isChildrenLoaded {
+		return
+	}
+
+	s.childrenIdsCached = nil
+	s.childrenIds.Clear()
+	s.childrenIds.Unbind()
+
+	if s.Node() != nil {
+		collectionsfx.BindList(&s.childrenIds, s.Node().ChildrenList(), func(v psi.Node) widget.TreeNodeID {
+			return v.CanonicalPath().String()
+		})
+	}
+
+	s.isChildrenLoaded = true
+}
+
+func (s *psiTreeNodeState) unloadChildren() {
+	if !s.isChildrenLoaded {
+		return
+	}
+
+	s.isChildrenLoaded = false
+	s.childrenIds.Unbind()
+	s.childrenIds.Clear()
+	s.childrenIdsCached = nil
+}
 
 func (s *psiTreeNodeState) loadNode(ctx context.Context) {
 	if s.isNodeLoading {

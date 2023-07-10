@@ -32,6 +32,12 @@ func WithEdgeTypeNamed() EdgeTypeOption {
 	}
 }
 
+func WithEdgeTypeInvalidateFromSource() EdgeTypeOption {
+	return func(et *edgeType) {
+		et.cacheResolvedFrom = true
+	}
+}
+
 func WithEdgeTypeResolveFunc(fn ResolveEdgeFunc) EdgeTypeOption {
 	return func(et *edgeType) {
 		et.resolve = fn
@@ -44,6 +50,7 @@ type EdgeType interface {
 	IsVirtual() bool
 	IsIndexed() bool
 	IsNamed() bool
+	IsCachedBasedOnFrom() bool
 
 	Resolve(ctx context.Context, g Graph, from Node, key EdgeKey) (Node, error)
 }
@@ -55,17 +62,20 @@ type edgeType struct {
 
 	name string
 
-	virtual bool
-	indexed bool
-	named   bool
+	virtual   bool
+	indexed   bool
+	named     bool
+	singleton bool
 
-	resolve ResolveEdgeFunc
+	resolve           ResolveEdgeFunc
+	cacheResolvedFrom bool
 }
 
-func (t *edgeType) Kind() EdgeKind  { return t.kind }
-func (t *edgeType) IsVirtual() bool { return t.virtual }
-func (t *edgeType) IsIndexed() bool { return t.indexed }
-func (t *edgeType) IsNamed() bool   { return t.named }
+func (t *edgeType) Kind() EdgeKind            { return t.kind }
+func (t *edgeType) IsVirtual() bool           { return t.virtual }
+func (t *edgeType) IsIndexed() bool           { return t.indexed }
+func (t *edgeType) IsNamed() bool             { return t.named }
+func (t *edgeType) IsCachedBasedOnFrom() bool { return t.cacheResolvedFrom }
 
 func (t *edgeType) Resolve(ctx context.Context, g Graph, from Node, key EdgeKey) (Node, error) {
 	if t.resolve != nil {

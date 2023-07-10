@@ -86,16 +86,16 @@ func (p Path) Parent() Path {
 }
 
 //goland:noinspection GoMixedReceiverTypes
-func (p Path) RelativeTo(other Path) Path {
+func (p Path) RelativeTo(other Path) (Path, error) {
 	if p.root != other.root {
-		panic(fmt.Errorf("cannot make path %s relative to %s", p, other))
+		return Path{}, fmt.Errorf("cannot make path %s relative to %s", p, other)
 	}
 
 	if !p.IsChildOf(other) {
-		panic(fmt.Errorf("cannot make path %s relative to %s", p, other))
+		return Path{}, fmt.Errorf("cannot make path %s relative to %s", p, other)
 	}
 
-	return PathFromElements(p.root, true, p.components[len(other.components):]...)
+	return PathFromElements(p.root, true, p.components[len(other.components):]...), nil
 }
 
 //goland:noinspection GoMixedReceiverTypes
@@ -256,6 +256,14 @@ func (p PathElement) String() string {
 
 func (p PathElement) IsEmpty() bool {
 	return p.Kind == "" && p.Name == "" && p.Index == 0
+}
+
+func (p PathElement) AsEdgeKey() EdgeKey {
+	return EdgeKey{
+		Kind:  p.Kind,
+		Name:  p.Name,
+		Index: p.Index,
+	}
 }
 
 func ParsePathElements(s string) (result []PathElement, err error) {
