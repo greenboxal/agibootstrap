@@ -222,11 +222,17 @@ func (s *Store) FreezeEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge,
 		ToIndex:  edge.To().ID(),
 	}
 
-	for parent := edge.To(); parent != nil; parent = parent.Parent() {
-		if parent == s.root {
-			p := edge.To().CanonicalPath()
-			fe.ToPath = &p
-			break
+	to := edge.To()
+
+	if to == nil {
+		fe.ToIndex = -1
+	} else {
+		fe.ToIndex = to.ID()
+
+		toPath := to.CanonicalPath()
+
+		if toPath.IsChildOf(s.root.CanonicalPath()) {
+			fe.ToPath = &toPath
 		}
 	}
 

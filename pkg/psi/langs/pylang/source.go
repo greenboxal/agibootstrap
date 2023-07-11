@@ -168,36 +168,36 @@ func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
 		Weight: func(state *rendering.NodeState, node psi.Node) float32 {
 			return 1
 		},
-		Write: func(w *rendering.TokenBuffer, node psi.Node) (total int, err error) {
+		Write: func(w *rendering.TokenBuffer, node psi.Node) (err error) {
 			n := node.(Node)
 
 			hidden := sf.tokens.GetHiddenTokensToLeft(n.Tree().GetSourceInterval().Start, 1)
 
 			for _, tk := range hidden {
-				n, err := w.Write([]byte(tk.GetText()))
+				_, err := w.Write([]byte(tk.GetText()))
 
 				if err != nil {
-					return total, err
+					return err
 				}
-
-				total += n
 			}
 
 			if n.IsContainer() {
 				for _, child := range n.Children() {
-					num, err := w.WriteNode(renderer, child)
+					_, err := w.WriteNode(renderer, child)
 
 					if err != nil {
-						return total, err
+						return err
 					}
-
-					total += num
 				}
 			} else {
 				t := n.Token()
 				str := t.GetText()
 
-				return w.Write([]byte(str))
+				_, err := w.Write([]byte(str))
+
+				if err != nil {
+					return err
+				}
 			}
 
 			return

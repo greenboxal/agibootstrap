@@ -49,12 +49,13 @@ func newFaissIndex(m *Manager, stateDir string, id string, d int) (*faissIndex, 
 	}
 
 	return &faissIndex{
-		id:    id,
-		m:     m,
-		d:     d,
-		index: idx,
-		ds:    ds,
-		path:  stateDir,
+		id:          id,
+		m:           m,
+		d:           d,
+		index:       idx,
+		ds:          ds,
+		path:        stateDir,
+		saveOnClose: true,
 	}, nil
 }
 
@@ -65,7 +66,8 @@ func (f *faissIndex) IndexNode(ctx context.Context, req IndexNodeRequest) (Index
 	defer f.mu.Unlock()
 
 	index := f.index.Ntotal()
-	err := f.index.Add(req.Embeddings.ToFloat32Slice(nil))
+	x := req.Embeddings.ToFloat32Slice(nil)
+	err := f.index.Add(x)
 
 	if err != nil {
 		return IndexedItem{}, errors.Wrap(err, "failed to add to index")
@@ -92,7 +94,8 @@ func (f *faissIndex) Search(ctx context.Context, req SearchRequest) (iterators.I
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
-	distances, ids, err := f.index.Search(req.Query.ToFloat32Slice(nil), int64(req.Limit))
+	x := req.Query.ToFloat32Slice(nil)
+	distances, ids, err := f.index.Search(x, int64(req.Limit))
 
 	if err != nil {
 		return nil, err
@@ -101,6 +104,10 @@ func (f *faissIndex) Search(ctx context.Context, req SearchRequest) (iterators.I
 	hits := make([]BasicSearchHit, len(ids))
 
 	for i, id := range ids {
+		if id == -1 {
+			continue
+		}
+
 		item, err := f.retrieveItem(ctx, id)
 
 		if err != nil {
@@ -192,22 +199,21 @@ func (f *faissIndex) Load() error {
 
 func (f *faissIndex) Close() error {
 	if f.index != nil {
-
 		if f.saveOnClose {
 			if err := f.Save(); err != nil {
 				return nil
 			}
 		}
 
-		f.index.Delete()
-		f.index = nil
+		//f.index.Delete()
+		//f.index = nil
 	}
 
-	if f.ds != nil {
+	/*if f.ds != nil {
 		if err := f.ds.Close(); err != nil {
 			return err
 		}
-	}
+	}*/
 
 	return nil
 }
@@ -226,7 +232,7 @@ func (f *faissIndex) createNew() error {
 
 func (f *faissIndex) restoreSnapshot(path string) error {
 	if f.index != nil {
-		return errors.New("index already loaded")
+		f.index.Delete()
 	}
 
 	idx, err := faiss.ReadIndex(path, faiss.IOFlagMmap)

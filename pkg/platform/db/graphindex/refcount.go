@@ -48,6 +48,10 @@ func (ir *indexReference) Close() error {
 		return nil
 	}
 
+	if err := ir.faissIndex.Save(); err != nil {
+		return err
+	}
+
 	if ir.refs.Add(-1) > 0 {
 		ir.faissIndex.m.notifyIndexIdle(ir.faissIndex.id)
 	}

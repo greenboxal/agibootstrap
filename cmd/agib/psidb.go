@@ -42,7 +42,7 @@ func buildPsiDbCmd() *cobra.Command {
 		Short: "Runs the PSI database server",
 		Long:  "This command runs the PSI database server.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			server := psigw.NewGateway(project.Graph(), project.IndexManager(), project.CanonicalPath())
+			server := psigw.NewGateway(project, project.Graph(), project.IndexManager(), project.CanonicalPath())
 
 			if err := server.Start(cmd.Context()); err != nil {
 				return err

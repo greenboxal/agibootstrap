@@ -8,14 +8,19 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/google/uuid"
+	"github.com/greenboxal/aip/aip-langchain/pkg/chunkers"
+	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"github.com/ipfs/go-datastore"
 	badger "github.com/ipfs/go-ds-badger"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/greenboxal/agibootstrap/pkg/gpt"
+	"github.com/greenboxal/agibootstrap/pkg/gpt/cache"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphindex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
@@ -41,6 +46,7 @@ type Project struct {
 
 	indexedGraph *graphstore.IndexedGraph
 	indexManager *graphindex.Manager
+	embedder     llm.Embedder
 
 	ds datastore.Batching
 	fs repofs.FS
@@ -97,6 +103,8 @@ func NewBareProject(rootPath string) (*Project, error) {
 		repo: repo,
 
 		fset: token.NewFileSet(),
+
+		embedder: cache.NewCachedEmbedder(ds, gpt.GlobalEmbedder),
 	}
 
 	return p, nil
@@ -172,12 +180,6 @@ func (p *Project) Create(ctx context.Context) error {
 		return err
 	}
 
-	p.InvalidateTree()
-
-	if err := p.Update(ctx); err != nil {
-		return err
-	}
-
 	if err := p.indexedGraph.Commit(ctx); err != nil {
 		return err
 	}
@@ -242,17 +244,22 @@ func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
 	p.rootNode = vfs.NewDirectoryNode(p.fs, p.rootPath, "srcs")
 	p.rootNode.SetParent(p)
 
-	/*pathIndex, err := p.indexManager.OpenNodeIndex(ctx, "node-by-path", &graphindex.AnchoredEmbedder{
-		Base:   gpt.GlobalEmbedder,
-		Root:   p,
-		Anchor: p.rootNode,
+	pathIndex, err := p.indexManager.OpenNodeIndex(ctx, "node-by-path", &graphindex.AnchoredEmbedder{
+		Base:    p.embedder,
+		Root:    p,
+		Anchor:  p.rootNode,
+		Chunker: &chunkers.TikToken{},
 	})
+
+	if err != nil {
+		return errors.Wrap(err, "failed to open path index")
+	}
 
 	p.indexedGraph.AddListener(graphstore.IndexedGraphListenerFunc(func(node psi.Node) {
 		if err := pathIndex.IndexNode(context.Background(), node); err != nil {
 			p.logger.Error(err)
 		}
-	}))*/
+	}))
 
 	if err := p.indexedGraph.RefreshNode(ctx, p); err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
 		return errors.Wrap(err, "failed to refresh project node")
@@ -370,6 +377,7 @@ func (p *Project) LanguageProvider() *project.Registry { return p.langRegistry }
 func (p *Project) Repo() *fti.Repository { return p.repo }
 
 func (p *Project) FileSet() *token.FileSet { return p.fset }
+func (p *Project) Embedder() llm.Embedder  { return p.embedder }
 
 // Sync synchronizes the project with the file system.
 // It scans all files in the project directory and imports
@@ -437,6 +445,7 @@ func (p *Project) Reindex() error {
 }
 
 func (p *Project) Shutdown(ctx context.Context) error {
+	time.Sleep(5 * time.Second)
 	if err := p.indexManager.Close(); err != nil {
 		return errors.Wrap(err, "failed to close index manager")
 	}

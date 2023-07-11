@@ -88,7 +88,7 @@ func (ns *NodeState) WriteTo(writer io.Writer) (total int64, err error) {
 func (ns *NodeState) Update(renderer *PruningRenderer) error {
 	ns.Reset(renderer.Tokenizer)
 
-	_, err := renderer.Write(ns.Buffer, ns.Node)
+	err := renderer.Write(ns.Buffer, ns.Node)
 
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ type PruningRenderer struct {
 
 	Tokenizer tokenizers.BasicTokenizer
 	Weight    func(state *NodeState, node psi.Node) float32
-	Write     func(w *TokenBuffer, node psi.Node) (int, error)
+	Write     func(w *TokenBuffer, node psi.Node) error
 }
 
 func (r *PruningRenderer) Render(node psi.Node, writer io.Writer) (total int64, err error) {

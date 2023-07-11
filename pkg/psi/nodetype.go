@@ -50,6 +50,8 @@ type NodeType interface {
 
 	CreateInstance() Node
 	InitializeNode(n Node)
+
+	String() string
 }
 
 type TypedNodeType[T Node] interface {
@@ -69,6 +71,7 @@ func (nt *nodeType) Name() string                   { return nt.def.Name }
 func (nt *nodeType) Type() typesystem.Type          { return nt.typ }
 func (nt *nodeType) RuntimeType() reflect.Type      { return nt.typ.RuntimeType() }
 func (nt *nodeType) Definition() NodeTypeDefinition { return nt.def }
+func (nt *nodeType) String() string                 { return nt.Name() }
 
 func (nt *nodeType) CreateInstance() Node {
 	return reflect.New(nt.typ.RuntimeType()).Interface().(Node)

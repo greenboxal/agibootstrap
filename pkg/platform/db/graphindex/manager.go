@@ -2,6 +2,7 @@ package graphindex
 
 import (
 	"context"
+	"path"
 	"sync"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
@@ -47,7 +48,6 @@ func (m *Manager) OpenBasicIndex(ctx context.Context, id string, d int) (result 
 	defer func() {
 		if err == nil && isNew {
 			err = result.Load()
-
 		}
 
 		if err != nil {
@@ -62,7 +62,7 @@ func (m *Manager) OpenBasicIndex(ctx context.Context, id string, d int) (result 
 		return idx, nil
 	}
 
-	idx, err := newFaissIndex(m, m.basePath, id, d)
+	idx, err := newFaissIndex(m, path.Join(m.basePath, id), id, d)
 
 	if err != nil {
 		return nil, err

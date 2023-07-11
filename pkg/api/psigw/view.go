@@ -1,35 +1,12 @@
 package psigw
 
 import (
-	"fmt"
 	"html/template"
-	"net/url"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
 )
 
-var nodeEdgeListTemplate = template.Must(template.New("node-edge-list").Funcs(template.FuncMap{
-	"psiPathEscape": func(v any) string {
-		switch v := v.(type) {
-		case psi.EdgeReference:
-			return url.PathEscape(v.GetKey().String())
-
-		case psi.PathElement:
-			return url.PathEscape(v.String())
-
-		case *psi.Path:
-			return v.Format(true)
-
-		case psi.Path:
-			return v.Format(true)
-
-		case string:
-			return url.PathEscape(v)
-		}
-
-		panic(fmt.Errorf("invalid type %T", v))
-	},
-}).Parse(`
+var nodeEdgeListTemplate = template.Must(template.New("node-edge-list").Funcs(themes.GenericTemplateHelpers).Parse(`
 {{ $ctx := . }}
 <html>
 	<head>

@@ -1,16 +1,21 @@
 package graphindex
 
 import (
+	"bytes"
 	"context"
 
+	"github.com/greenboxal/aip/aip-langchain/pkg/chunkers"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
+	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
 )
 
 type AnchoredEmbedder struct {
-	Base llm.Embedder
+	Base    llm.Embedder
+	Chunker chunkers.Chunker
 
 	Root   psi.Node
 	Anchor psi.Node
@@ -26,12 +31,23 @@ func (a *AnchoredEmbedder) Dimensions() int {
 
 func (a *AnchoredEmbedder) EmbeddingsForNode(ctx context.Context, n psi.Node) (GraphEmbeddingIterator, error) {
 	baseEmbedding := GraphEmbedding{}
-	baseEmbedding.Depth = n.CanonicalPath().Depth()
-	baseEmbedding.TreeDistance = a.calculateTreeDistance(a.Anchor, n)
-	baseEmbedding.ReferenceDistance = a.calculateReferenceDistance(a.Anchor, n)
-	baseEmbedding.Time = a.calculateTimeMetric(a.Anchor, n)
+	//baseEmbedding.Depth = n.CanonicalPath().Depth()
+	//baseEmbedding.TreeDistance = a.calculateTreeDistance(a.Anchor, n)
+	//baseEmbedding.ReferenceDistance = a.calculateReferenceDistance(a.Anchor, n)
+	//baseEmbedding.Time = a.calculateTimeMetric(a.Anchor, n)
 
-	chunks := []string{n.CanonicalPath().String() + "\n" + n.String()}
+	buffer := bytes.NewBuffer(nil)
+
+	if err := rendering.RenderNodeWithTheme(buffer, themes.GlobalTheme, "text/markdown", "", n); err != nil {
+		return nil, err
+	}
+
+	chunks, err := a.Chunker.SplitTextIntoStrings(ctx, buffer.String(), a.Base.MaxTokensPerChunk(), a.Base.MaxTokensPerChunk()/10)
+
+	if err != nil {
+		return nil, err
+	}
+
 	embeddings, err := a.Base.GetEmbeddings(ctx, chunks)
 
 	if err != nil {

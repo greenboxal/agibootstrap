@@ -27,44 +27,42 @@ func TestPruningRenderer(t *testing.T) {
 			return 1
 		},
 
-		Write: func(w *TokenBuffer, node psi.Node) (total int, err error) {
-			if node.IsContainer() {
+		Write: func(w *TokenBuffer, node psi.Node) error {
+,,			if node.IsContainer() {
 				n, err := w.Write([]byte(node.String() + " {\n"))
 
 				if err != nil {
-					return total, err
+					return err
 				}
-
-				total += n
 
 				for _, c := range node.Children() {
-					n, err = w.WriteNode(pr, c)
+					_, err = w.WriteNode(pr, c)
 
 					if err != nil {
-						return total, err
+						return err
 					}
 
-					total += n
-
-					n, err = w.Write([]byte(";\n"))
+					_, err = w.Write([]byte(";\n"))
 
 					if err != nil {
-						return total, err
+						return err
 					}
 				}
 
-				n, err = w.Write([]byte("\n}\n"))
+				_, err = w.Write([]byte("\n}\n"))
 
 				if err != nil {
-					return total, err
+					return err
 				}
-
-				total += n
 			} else {
-				return w.Write([]byte(node.String()))
+				_, err := w.Write([]byte(node.String()))
+
+				if err != nil {
+					return err
+				}
 			}
 
-			return
+			return nil
 		},
 	}
 

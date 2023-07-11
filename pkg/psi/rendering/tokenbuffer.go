@@ -2,6 +2,7 @@ package rendering
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/tokenizers"
@@ -249,4 +250,12 @@ func (w *TokenBuffer) WriteToTruncated(writer io.Writer) (total int64, err error
 	total += int64(n)
 
 	return
+}
+
+func (w *TokenBuffer) WriteString(str string) (int, error) {
+	return w.Write([]byte(str))
+}
+
+func (w *TokenBuffer) WriteFormat(format string, args ...any) (int, error) {
+	return fmt.Fprintf(w, format, args...)
 }

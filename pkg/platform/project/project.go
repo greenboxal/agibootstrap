@@ -4,6 +4,8 @@ import (
 	"context"
 	"go/token"
 
+	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
+
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
@@ -25,6 +27,7 @@ type Project interface {
 	FileSet() *token.FileSet
 	Graph() *graphstore.IndexedGraph
 	LanguageProvider() *Registry
+	Embedder() llm.Embedder
 
 	Sync(ctx context.Context) error
 	Commit() error

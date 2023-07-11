@@ -17,6 +17,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphindex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
+	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -25,17 +26,20 @@ var logger = logging.GetLogger("api/psigw")
 type Gateway struct {
 	router       chi.Router
 	server       http.Server
+	project      project.Project
 	graph        *graphstore.IndexedGraph
 	indexManager *graphindex.Manager
 	rootPath     psi.Path
 }
 
 func NewGateway(
+	prj project.Project,
 	graph *graphstore.IndexedGraph,
 	indexManager *graphindex.Manager,
 	root psi.Path,
 ) *Gateway {
 	gw := &Gateway{
+		project:      prj,
 		graph:        graph,
 		indexManager: indexManager,
 		rootPath:     root,
@@ -50,6 +54,7 @@ func NewGateway(
 	gw.router.Use(middleware.Recoverer)
 
 	gw.router.Get("/_objects/{cid}", gw.handleObjectStoreGet)
+	gw.router.HandleFunc("/_search", gw.handleSearch)
 
 	gw.router.Route("/psi", func(r chi.Router) {
 		r.Use(func(next http.Handler) http.Handler {
