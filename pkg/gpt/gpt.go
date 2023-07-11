@@ -5,7 +5,7 @@ import (
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
 	// Register the providers.
-	_ "github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
+	_ "github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
 // PrepareContext prepares the context for the given request.

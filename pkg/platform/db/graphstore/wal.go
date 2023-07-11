@@ -3,6 +3,7 @@ package graphstore
 import (
 	"encoding/binary"
 	"fmt"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -102,6 +103,10 @@ type WriteAheadLog struct {
 }
 
 func NewWriteAheadLog(path string) (*WriteAheadLog, error) {
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return nil, err
+	}
+
 	opts := *wal.DefaultOptions
 	opts.LogFormat = wal.Binary
 

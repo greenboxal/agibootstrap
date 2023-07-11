@@ -1,7 +1,7 @@
 package singularity
 
 import (
-	"github.com/greenboxal/agibootstrap/pkg/agents"
+	"github.com/greenboxal/agibootstrap/pkg/gpt/agents"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/featureextractors"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 )

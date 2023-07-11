@@ -2,6 +2,7 @@ package psi
 
 import (
 	"fmt"
+	"net/url"
 	"path"
 	"strconv"
 	"strings"
@@ -22,6 +23,10 @@ func MustParsePath(path string) Path {
 }
 
 func ParsePath(s string) (Path, error) {
+	return ParsePathEx(s, false)
+}
+
+func ParsePathEx(s string, escaped bool) (Path, error) {
 	var err error
 
 	rootSepIndex := strings.Index(s, "//")
@@ -34,7 +39,7 @@ func ParsePath(s string) (Path, error) {
 		path = s[rootSepIndex+2:]
 	}
 
-	components, err := ParsePathElements(path)
+	components, err := ParsePathElements(path, escaped)
 
 	if err != nil {
 		return Path{}, err
@@ -54,6 +59,9 @@ type Path struct {
 	root       string
 	components []PathElement
 }
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) Depth() int { return len(p.components) }
 
 //goland:noinspection GoMixedReceiverTypes
 func (p Path) IsEmpty() bool { return len(p.components) == 0 && p.relative }
@@ -154,8 +162,13 @@ func (p Path) Child(name PathElement) Path {
 
 //goland:noinspection GoMixedReceiverTypes
 func (p Path) String() (res string) {
+	return p.Format(false)
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) Format(escaped bool) (res string) {
 	for _, component := range p.components {
-		res = path.Join(res, component.String())
+		res = path.Join(res, url.PathEscape(component.String()))
 	}
 
 	if !p.relative {
@@ -201,6 +214,44 @@ func (p Path) MarshalBinary() (data []byte, err error) { return p.MarshalText() 
 //goland:noinspection GoMixedReceiverTypes
 func (p *Path) UnmarshalBinary(data []byte) error { return p.UnmarshalText(data) }
 
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) GetCommonAncestor(other Path) (Path, bool) {
+	if p.root != other.root {
+		return Path{}, false
+	}
+
+	components := make([]PathElement, 0, len(p.components))
+
+	for i := 0; i < len(p.components) && i < len(other.components); i++ {
+		if p.components[i] != other.components[i] {
+			break
+		}
+
+		components = append(components, p.components[i])
+	}
+
+	return PathFromElements(p.root, p.relative && other.relative, components...), true
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) IsAncestorOf(child Path) bool {
+	if p.root != child.root {
+		return false
+	}
+
+	if len(p.components) >= len(child.components) {
+		return false
+	}
+
+	for i, component := range p.components {
+		if child.components[i] != component {
+			return false
+		}
+	}
+
+	return true
+}
+
 // PathElement is a string of the form:
 //
 //	:<kind>#<name>@<index>
@@ -231,7 +282,7 @@ type PathElement struct {
 func (p PathElement) String() string {
 	str := ""
 
-	if p.Kind == EdgeKindChild && p.Name != "" && p.Index == 0 {
+	if p.Kind == EdgeKindChild && p.Name != "" {
 		return p.Name
 	}
 
@@ -266,7 +317,7 @@ func (p PathElement) AsEdgeKey() EdgeKey {
 	}
 }
 
-func ParsePathElements(s string) (result []PathElement, err error) {
+func ParsePathElements(s string, escaped bool) (result []PathElement, err error) {
 	s = strings.TrimSpace(s)
 	s = strings.TrimRight(s, "/")
 
@@ -285,6 +336,14 @@ func ParsePathElements(s string) (result []PathElement, err error) {
 				continue
 			} else {
 				return nil, errors.New("empty Path component")
+			}
+		}
+
+		if escaped {
+			part, err = url.PathUnescape(part)
+
+			if err != nil {
+				return nil, err
 			}
 		}
 

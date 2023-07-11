@@ -7,8 +7,8 @@ import (
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/stretchr/testify/require"
 
-	"github.com/greenboxal/agibootstrap/pkg/agents"
-	"github.com/greenboxal/agibootstrap/pkg/agents/profiles"
+	"github.com/greenboxal/agibootstrap/pkg/gpt/agents"
+	"github.com/greenboxal/agibootstrap/pkg/gpt/agents/profiles"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 )
 

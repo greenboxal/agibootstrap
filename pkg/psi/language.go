@@ -3,8 +3,8 @@ package psi
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
+	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
 type LanguageID string

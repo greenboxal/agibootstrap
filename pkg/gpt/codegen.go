@@ -11,15 +11,15 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
 	"github.com/hashicorp/go-multierror"
 
-	mdutils2 "github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
+	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
 type CodeGeneratorRequest struct {
 	Chain     chain.Chain
 	Context   ContextBag
 	Objective string
-	Document  mdutils2.CodeBlock
-	Focus     mdutils2.CodeBlock
+	Document  mdutils.CodeBlock
+	Focus     mdutils.CodeBlock
 	Language  string
 	Plan      string
 
@@ -27,7 +27,7 @@ type CodeGeneratorRequest struct {
 }
 type CodeGeneratorResponse struct {
 	MessageLog chat.Message
-	CodeBlocks []mdutils2.CodeBlock
+	CodeBlocks []mdutils.CodeBlock
 }
 
 type CodeGenerator struct {
@@ -117,7 +117,7 @@ type CodeGeneratorContext struct {
 	state CodeGeneratorState
 
 	chatHistory []chat.Message
-	codeBlocks  []mdutils2.CodeBlock
+	codeBlocks  []mdutils.CodeBlock
 
 	errors []error
 }
@@ -221,9 +221,9 @@ func (s *CodeGeneratorContext) stepVerify(ctx context.Context) {
 func (s *CodeGeneratorContext) processResult(result chat.Message) {
 	reply := result.Entries[0].Text
 	reply = s.sanitizeCodeBlockReply(reply)
-	replyRoot := mdutils2.ParseMarkdown([]byte(reply))
+	replyRoot := mdutils.ParseMarkdown([]byte(reply))
 
-	blocks := mdutils2.ExtractCodeBlocks(replyRoot)
+	blocks := mdutils.ExtractCodeBlocks(replyRoot)
 
 	s.codeBlocks = append(s.codeBlocks, blocks...)
 

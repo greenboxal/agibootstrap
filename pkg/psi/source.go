@@ -5,8 +5,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
+	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
 type SourceFile interface {

@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
-	"github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
 type Library struct {

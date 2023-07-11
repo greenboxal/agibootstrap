@@ -27,22 +27,6 @@ func Resolve(ctx context.Context, root Node, path string) (Node, error) {
 }
 
 func ResolvePath(ctx context.Context, root Node, path Path) (Node, error) {
-	rootPath := root.CanonicalPath()
-
-	if !path.IsRelative() {
-		rel, err := path.RelativeTo(rootPath)
-
-		if err != nil {
-			return nil, err
-		}
-
-		path = rel
-	}
-
-	if root == nil {
-		return nil, ErrNodeNotFound
-	}
-
 	result := root
 
 	for i, component := range path.components {

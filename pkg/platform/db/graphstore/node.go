@@ -244,7 +244,16 @@ func (c *cachedNode) Commit(ctx context.Context, batch datastore.Batch) error {
 
 	c.g.logger.Debugw("Commit node", "path", c.node.CanonicalPath().String(), "link", link.String())
 
-	return c.commitIndex(ctx, batch)
+	if err := c.commitIndex(ctx, batch); err != nil {
+		return err
+	}
+
+	c.g.nodeUpdateQueue <- nodeUpdateRequest{
+		Fence: rid,
+		Node:  c.node,
+	}
+
+	return nil
 }
 
 func (c *cachedNode) update() {

@@ -5,10 +5,10 @@ import (
 
 	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multihash"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/psids"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -20,11 +20,15 @@ type edgeWrapper struct {
 	Edge psi.Edge `json:"edge"`
 }
 
-var graphLastFenceKey = datastore.NewKey("_graphstore/_lastFence")
-var graphBitmapKey = datastore.NewKey("_graphstore/_bitmap")
-var graphRootUuidKey = datastore.NewKey("_graphstore/_rootUuid")
-var graphRootPathKey = datastore.NewKey("_graphstore/_rootPath")
-var graphRootSnapKey = datastore.NewKey("_graphstore/_rootSnap")
+var dsKeyLastFence = psids.Key[uint64]("_graphstore/_lastFence")
+var dsKeyBitmap = psids.Key[SerializedBitmapIndex]("_graphstore/_bitmap")
+var dsKeyRootUuid = psids.Key[string]("_graphstore/_rootUuid")
+var dsKeyRootPath = psids.Key[psi.Path]("_graphstore/_rootPath")
+var dsKeyRootSnapshot = psids.Key[cidlink.Link]("_graphstore/_rootSnap")
+
+var dsKeyNodeHead = psids.KeyTemplate[cidlink.Link]("refs/heads/%s")
+var dsKeyEdge = psids.KeyTemplate[cidlink.Link]("refs/edges/%s!/%s")
+var dsKeyEdgePrefix = psids.KeyTemplate[cidlink.Link]("refs/edges/%s!")
 
 var frozenNodeType = typesystem.TypeFrom(reflect.TypeOf((*psi.FrozenNode)(nil)).Elem())
 var frozenEdgeType = typesystem.TypeFrom(reflect.TypeOf((*psi.FrozenEdge)(nil)).Elem())

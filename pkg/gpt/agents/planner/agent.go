@@ -1,27 +1,27 @@
 package planner
 
 import (
-	"github.com/greenboxal/agibootstrap/pkg/agents"
+	agents2 "github.com/greenboxal/agibootstrap/pkg/gpt/agents"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/featureextractors"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 )
 
 type Agent struct {
-	agents.AgentBase
+	agents2.AgentBase
 }
 
 type WorldState interface {
-	agents.WorldState
+	agents2.WorldState
 
 	GetPlan() *featureextractors.Plan
 	UpdatePlan(plan *featureextractors.Plan)
 }
 
 func NewAgent(
-	profile *agents.Profile,
+	profile *agents2.Profile,
 	repo thoughtdb.Resolver,
 	log *thoughtdb.ThoughtLog,
-	worldState agents.WorldState,
+	worldState agents2.WorldState,
 ) *Agent {
 	a := &Agent{}
 

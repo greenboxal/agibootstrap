@@ -12,10 +12,10 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/analysis"
+	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
 const EdgeKindDeclarations psi.EdgeKind = "Decls"

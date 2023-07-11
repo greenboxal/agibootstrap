@@ -10,8 +10,8 @@ import (
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 
-	agents "github.com/greenboxal/agibootstrap/pkg/agents"
-	"github.com/greenboxal/agibootstrap/pkg/agents/profiles"
+	agents2 "github.com/greenboxal/agibootstrap/pkg/gpt/agents"
+	"github.com/greenboxal/agibootstrap/pkg/gpt/agents/profiles"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/featureextractors"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -20,11 +20,11 @@ import (
 type Singularity struct {
 	psi.NodeBase
 
-	self agents.Agent
+	self agents2.Agent
 
-	world      *agents.Colab
+	world      *agents2.Colab
 	worldState *WorldState
-	scheduler  *agents.RoundRobinScheduler
+	scheduler  *agents2.RoundRobinScheduler
 }
 
 func NewSingularity(lm *thoughtdb.Repo) (*Singularity, error) {
@@ -32,20 +32,20 @@ func NewSingularity(lm *thoughtdb.Repo) (*Singularity, error) {
 
 	s := &Singularity{
 		worldState: NewWorldState(),
-		scheduler:  &agents.RoundRobinScheduler{},
+		scheduler:  &agents2.RoundRobinScheduler{},
 	}
 
 	s.Init(s)
 
 	globalLog := lm.CreateBranch()
 
-	allProfiles := []*agents.Profile{profiles.SingularityProfile}
+	allProfiles := []*agents2.Profile{profiles.SingularityProfile}
 	allProfiles = append(allProfiles, profiles.MajorArcanas...)
 
-	allAgents := make([]agents.Agent, len(allProfiles))
+	allAgents := make([]agents2.Agent, len(allProfiles))
 
 	for i, profile := range allProfiles {
-		a := &agents.AgentBase{}
+		a := &agents2.AgentBase{}
 
 		al := lm.CreateBranch()
 
@@ -54,7 +54,7 @@ func NewSingularity(lm *thoughtdb.Repo) (*Singularity, error) {
 		allAgents[i] = a
 	}
 
-	s.world, err = agents.NewColab(
+	s.world, err = agents2.NewColab(
 		s.worldState,
 		globalLog,
 		s.scheduler,
@@ -71,8 +71,8 @@ func NewSingularity(lm *thoughtdb.Repo) (*Singularity, error) {
 	return s, nil
 }
 
-func (s *Singularity) Router() agents.Router         { return s.world.Router() }
-func (s *Singularity) WorldState() agents.WorldState { return s.worldState }
+func (s *Singularity) Router() agents2.Router         { return s.world.Router() }
+func (s *Singularity) WorldState() agents2.WorldState { return s.worldState }
 
 func (s *Singularity) Step(ctx context.Context) ([]*thoughtdb.Thought, error) {
 	s.worldState.Cycle++
@@ -83,7 +83,7 @@ func (s *Singularity) Step(ctx context.Context) ([]*thoughtdb.Thought, error) {
 		return nil, err
 	}
 
-	plan := agents.GetState(s.worldState, profiles.CtxPlannerPlan)
+	plan := agents2.GetState(s.worldState, profiles.CtxPlannerPlan)
 
 	if len(plan.Steps) == 0 {
 		if err := s.runSteps(
@@ -106,10 +106,10 @@ func (s *Singularity) Step(ctx context.Context) ([]*thoughtdb.Thought, error) {
 		return s.Router().OutgoingMessages(), err
 	}
 
-	agents.SetState(s.worldState, profiles.CtxGlobalObjective, obj)
+	agents2.SetState(s.worldState, profiles.CtxGlobalObjective, obj)
 
 	for {
-		progress := agents.GetState(s.worldState, profiles.CtxGoalStatus)
+		progress := agents2.GetState(s.worldState, profiles.CtxGoalStatus)
 
 		if progress.Completed {
 			break

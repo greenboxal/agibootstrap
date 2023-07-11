@@ -3,21 +3,18 @@ package graphstore
 import (
 	"context"
 	"fmt"
-	"os"
-	"strconv"
 	"sync"
 
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/codec/dagcbor"
+	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
-	"gonum.org/v1/gonum/graph/multi"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/psids"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -40,7 +37,6 @@ type IndexedGraph struct {
 	store *Store
 	wal   *WriteAheadLog
 
-	g   *multi.DirectedGraph
 	bmp *SparseBitmapIndex
 
 	nodeIdMap map[psi.NodeID]*cachedNode
@@ -53,10 +49,6 @@ type IndexedGraph struct {
 }
 
 func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.UniqueNode) (*IndexedGraph, error) {
-	if err := os.MkdirAll(walPath, 0755); err != nil {
-		return nil, err
-	}
-
 	wal, err := NewWriteAheadLog(walPath)
 
 	if err != nil {
@@ -68,7 +60,6 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.UniqueNode)
 	g := &IndexedGraph{
 		logger: logging.GetLogger("graphstore"),
 
-		g:   multi.NewDirectedGraph(),
 		bmp: NewSparseBitmapIndex(),
 
 		ds:    ds,
@@ -89,30 +80,76 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.UniqueNode)
 	return g, nil
 }
 
-func (g *IndexedGraph) Root() psi.UniqueNode { return g.root }
-func (g *IndexedGraph) Store() *Store        { return g.store }
+func (g *IndexedGraph) Root() psi.UniqueNode            { return g.root }
+func (g *IndexedGraph) Store() *Store                   { return g.store }
+func (g *IndexedGraph) LinkSystem() *linking.LinkSystem { return &g.store.lsys }
+func (g *IndexedGraph) DataStore() datastore.Batching   { return g.store.ds }
 
 func (g *IndexedGraph) NextNodeID() int64      { return int64(g.bmp.Allocate()) }
 func (g *IndexedGraph) NextEdgeID() psi.EdgeID { return psi.EdgeID(g.bmp.Allocate()) }
 
 func (g *IndexedGraph) ResolveNode(ctx context.Context, path psi.Path) (n psi.Node, err error) {
+	needsTraversal := false
+
 	if path.IsRelative() {
 		path = g.root.CanonicalPath().Join(path)
 	}
 
-	entry := g.getCacheEntry(path, true)
+	for path := path; !path.IsEmpty(); path = path.Parent() {
+		entry := g.getCacheEntry(path, true)
 
-	if err := entry.Load(ctx); err != nil {
-		return nil, err
+		if err := entry.Load(ctx); err != nil {
+			return nil, err
+		}
+
+		n = entry.Node()
+
+		if n != nil {
+			break
+		}
+
+		needsTraversal = true
 	}
 
-	n = entry.Node()
+	if needsTraversal {
+		rel, err := path.RelativeTo(n.CanonicalPath())
+
+		if err != nil {
+			return nil, err
+		}
+
+		return psi.ResolvePath(ctx, n, rel)
+	}
 
 	if n == nil {
 		return nil, psi.ErrNodeNotFound
 	}
 
 	return n, nil
+}
+
+func (g *IndexedGraph) ResolveEdge(ctx context.Context, e *psi.FrozenEdge) (psi.Node, error) {
+	if e.ToPath != nil {
+		return g.ResolveNode(ctx, *e.ToPath)
+	}
+
+	if e.ToLink != nil {
+		fn, err := g.store.GetNodeByCid(ctx, *e.ToLink)
+
+		if err != nil {
+			return nil, err
+		}
+
+		n, err := g.LoadNode(ctx, fn)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return n, nil
+	}
+
+	return nil, fmt.Errorf("edge has no ToPath or ToLink")
 }
 
 func (g *IndexedGraph) ListNodeChildren(ctx context.Context, path psi.Path) (result []psi.Path, err error) {
@@ -172,18 +209,6 @@ func (g *IndexedGraph) Remove(n psi.Node) {
 		panic(err)
 	}
 }
-
-/*func (g *BaseGraph) Add(n Node) {
-	n.PsiNodeBase().AttachToGraph(g.self)
-	g.g.AddNode(n)
-	g.nodeIdMap[n.CanonicalPath().String()] = n.ID()
-}
-
-func (g *BaseGraph) Remove(n Node) {
-	g.g.RemoveNode(n.ID())
-	n.PsiNodeBase().DetachFromGraph(g.self)
-	delete(g.nodeIdMap, n.CanonicalPath().String())
-}*/
 
 func (g *IndexedGraph) SetEdge(e psi.Edge) {
 }
@@ -262,22 +287,16 @@ func (g *IndexedGraph) Commit(ctx context.Context) error {
 }
 
 func (g *IndexedGraph) flushRoot(ctx context.Context, batch datastore.Batch) error {
-	rootPath, err := g.root.CanonicalPath().MarshalBinary()
-
-	if err != nil {
+	if err := psids.Put(ctx, batch, dsKeyRootPath, g.root.CanonicalPath()); err != nil {
 		return err
 	}
 
-	if err := batch.Put(ctx, graphRootPathKey, rootPath); err != nil {
-		return err
-	}
-
-	if err := batch.Put(ctx, graphRootUuidKey, []byte(g.root.UUID())); err != nil {
+	if err := psids.Put(ctx, batch, dsKeyRootUuid, g.root.UUID()); err != nil {
 		return err
 	}
 
 	if snap := g.root.PsiNodeBase().GetSnapshot(); snap != nil {
-		if err := batch.Put(ctx, graphRootSnapKey, []byte(snap.CommitLink().Binary())); err != nil {
+		if err := psids.Put(ctx, batch, dsKeyRootSnapshot, snap.CommitLink().(cidlink.Link)); err != nil {
 			return err
 		}
 	}
@@ -286,30 +305,10 @@ func (g *IndexedGraph) flushRoot(ctx context.Context, batch datastore.Batch) err
 }
 
 func (g *IndexedGraph) loadBitmap(ctx context.Context) error {
-	data, err := g.ds.Get(ctx, graphBitmapKey)
-
-	if err != nil {
-		if err == datastore.ErrNotFound {
-			return nil
-		}
-
-		return err
-	}
-
-	if data == nil {
-		return nil
-	}
-
-	decoded, err := ipld.DecodeUsingPrototype(data, dagcbor.Decode, serializedBitmapIndexType.IpldPrototype())
+	snapshot, err := psids.Get(ctx, g.ds, dsKeyBitmap)
 
 	if err != nil {
 		return err
-	}
-
-	snapshot, ok := typesystem.TryUnwrap[SerializedBitmapIndex](decoded)
-
-	if !ok {
-		return fmt.Errorf("unexpected type: %T", decoded)
 	}
 
 	g.bmp.LoadSnapshot(snapshot)
@@ -320,13 +319,7 @@ func (g *IndexedGraph) loadBitmap(ctx context.Context) error {
 func (g *IndexedGraph) flushBitmap(ctx context.Context, batch datastore.Batch) error {
 	serialized := g.bmp.Snapshot()
 
-	data, err := ipld.Encode(typesystem.Wrap(&serialized), dagcbor.Encode)
-
-	if err != nil {
-		return err
-	}
-
-	return batch.Put(ctx, graphBitmapKey, data)
+	return psids.Put(ctx, g.ds, dsKeyBitmap, serialized)
 }
 
 func (g *IndexedGraph) OnNodeInvalidated(n psi.Node) {
@@ -395,19 +388,13 @@ func (g *IndexedGraph) run(proc goprocess.Process) {
 }
 
 func (g *IndexedGraph) recoverFromWal(ctx context.Context) error {
-	lastFenceData, err := g.ds.Get(ctx, graphLastFenceKey)
-
-	if err != nil && err != datastore.ErrNotFound {
-		return err
-	}
-
-	if len(lastFenceData) == 0 {
-		return nil
-	}
-
-	lastFence, err := strconv.ParseUint(string(lastFenceData), 10, 64)
+	lastFence, err := psids.Get(ctx, g.ds, dsKeyLastFence)
 
 	if err != nil {
+		if err == psi.ErrNodeNotFound {
+			return nil
+		}
+
 		return err
 	}
 
@@ -461,11 +448,13 @@ func (g *IndexedGraph) recoverFromWal(ctx context.Context) error {
 }
 
 func (g *IndexedGraph) processQueueItem(ctx context.Context, item nodeUpdateRequest) error {
-	err := g.ds.Put(ctx, graphLastFenceKey, []byte(strconv.FormatUint(item.Fence, 10)))
+	err := psids.Put(ctx, g.ds, dsKeyLastFence, item.Fence)
 
 	if err != nil {
 		return err
 	}
+
+	g.notifyNodeUpdated(ctx, item.Node)
 
 	return nil
 }
@@ -572,28 +561,4 @@ func (g *IndexedGraph) dispatchListeners(node psi.Node) {
 			l.queue <- node
 		}
 	}
-}
-
-func (g *IndexedGraph) ResolveEdge(ctx context.Context, e *psi.FrozenEdge) (psi.Node, error) {
-	if e.ToPath != nil {
-		return g.ResolveNode(ctx, *e.ToPath)
-	}
-
-	if e.ToLink != nil {
-		fn, err := g.store.GetNodeByCid(ctx, *e.ToLink)
-
-		if err != nil {
-			return nil, err
-		}
-
-		n, err := g.LoadNode(ctx, fn)
-
-		if err != nil {
-			return nil, err
-		}
-
-		return n, nil
-	}
-
-	return nil, fmt.Errorf("edge has no ToPath or ToLink")
 }

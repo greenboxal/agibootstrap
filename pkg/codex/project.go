@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphindex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
@@ -38,7 +39,8 @@ type Project struct {
 	uuid   string
 	config project.Config
 
-	g *graphstore.IndexedGraph
+	indexedGraph *graphstore.IndexedGraph
+	indexManager *graphindex.Manager
 
 	ds datastore.Batching
 	fs repofs.FS
@@ -58,7 +60,7 @@ type Project struct {
 
 var ProjectType = psi.DefineNodeType[*Project](psi.WithRuntimeOnly())
 
-func NewBareProject(ctx context.Context, rootPath string) (*Project, error) {
+func NewBareProject(rootPath string) (*Project, error) {
 	rootFs, err := repofs.NewFS(rootPath)
 
 	if err != nil {
@@ -73,7 +75,7 @@ func NewBareProject(ctx context.Context, rootPath string) (*Project, error) {
 
 	dsOpts := badger.DefaultOptions
 
-	dsPath := repo.ResolveDbPath("codex", "datastore")
+	dsPath := repo.ResolveDbPath("codex", "db")
 
 	if err := os.MkdirAll(dsPath, 0755); err != nil {
 		return nil, errors.Wrap(err, "failed to create datastore directory")
@@ -104,7 +106,7 @@ func NewBareProject(ctx context.Context, rootPath string) (*Project, error) {
 // It initializes the project file system, repository, and other required data structures.
 // It returns a pointer to the created Project object and an error if any.
 func LoadProject(ctx context.Context, rootPath string) (*Project, error) {
-	p, err := NewBareProject(ctx, rootPath)
+	p, err := NewBareProject(rootPath)
 
 	if err != nil {
 		return nil, err
@@ -176,7 +178,7 @@ func (p *Project) Create(ctx context.Context) error {
 		return err
 	}
 
-	if err := p.g.Commit(ctx); err != nil {
+	if err := p.indexedGraph.Commit(ctx); err != nil {
 		return err
 	}
 
@@ -218,24 +220,20 @@ func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
 		return err
 	}
 
-	walPath := p.repo.ResolveDbPath("codex", "wal")
-
-	if err := os.MkdirAll(walPath, 0755); err != nil {
-		return errors.Wrap(err, "failed to create datastore directory")
-	}
-
-	p.g, err = graphstore.NewIndexedGraph(p.ds, walPath, p)
+	p.indexedGraph, err = graphstore.NewIndexedGraph(p.ds, p.repo.ResolveDbPath("codex", "wal"), p)
 
 	if err != nil {
 		return errors.Wrap(err, "failed to create graph")
 	}
+
+	p.indexManager = graphindex.NewManager(p.indexedGraph, p.repo.ResolveDbPath("codex", "index"))
 
 	p.langRegistry = project.NewRegistry(p)
 
 	p.tm = tasks.NewManager()
 	p.tm.SetParent(p)
 
-	p.lm = thoughtdb.NewRepo(p.g)
+	p.lm = thoughtdb.NewRepo(p.indexedGraph)
 	p.lm.SetParent(p)
 
 	p.sm = NewSyncManager(p)
@@ -244,13 +242,23 @@ func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
 	p.rootNode = vfs.NewDirectoryNode(p.fs, p.rootPath, "srcs")
 	p.rootNode.SetParent(p)
 
-	p.g.AddListener(&analysisListener{p: p})
+	/*pathIndex, err := p.indexManager.OpenNodeIndex(ctx, "node-by-path", &graphindex.AnchoredEmbedder{
+		Base:   gpt.GlobalEmbedder,
+		Root:   p,
+		Anchor: p.rootNode,
+	})
 
-	if err := p.g.RefreshNode(ctx, p); err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
+	p.indexedGraph.AddListener(graphstore.IndexedGraphListenerFunc(func(node psi.Node) {
+		if err := pathIndex.IndexNode(context.Background(), node); err != nil {
+			p.logger.Error(err)
+		}
+	}))*/
+
+	if err := p.indexedGraph.RefreshNode(ctx, p); err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
 		return errors.Wrap(err, "failed to refresh project node")
 	}
 
-	if err := p.g.RefreshNode(ctx, p.lm); err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
+	if err := p.indexedGraph.RefreshNode(ctx, p.lm); err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
 		return errors.Wrap(err, "failed to refresh thoughtdb node")
 	}
 
@@ -343,9 +351,10 @@ func (p *Project) loadConfig(ctx context.Context) error {
 	return nil
 }
 
-func (p *Project) UUID() string                { return p.uuid }
-func (p *Project) TaskManager() *tasks.Manager { return p.tm }
-func (p *Project) LogManager() *thoughtdb.Repo { return p.lm }
+func (p *Project) UUID() string                      { return p.uuid }
+func (p *Project) TaskManager() *tasks.Manager       { return p.tm }
+func (p *Project) LogManager() *thoughtdb.Repo       { return p.lm }
+func (p *Project) IndexManager() *graphindex.Manager { return p.indexManager }
 
 // RootPath returns the root path of the project.
 func (p *Project) RootPath() string   { return p.rootPath }
@@ -355,7 +364,7 @@ func (p *Project) RootNode() psi.Node { return p.rootNode }
 // It provides methods for managing the project's files and directories.
 func (p *Project) FS() repofs.FS { return p.fs }
 
-func (p *Project) Graph() *graphstore.IndexedGraph     { return p.g }
+func (p *Project) Graph() *graphstore.IndexedGraph     { return p.indexedGraph }
 func (p *Project) LanguageProvider() *project.Registry { return p.langRegistry }
 
 func (p *Project) Repo() *fti.Repository { return p.repo }
@@ -428,7 +437,11 @@ func (p *Project) Reindex() error {
 }
 
 func (p *Project) Shutdown(ctx context.Context) error {
-	if err := p.g.Shutdown(ctx); err != nil {
+	if err := p.indexManager.Close(); err != nil {
+		return errors.Wrap(err, "failed to close index manager")
+	}
+
+	if err := p.indexedGraph.Shutdown(ctx); err != nil {
 		return errors.Wrap(err, "failed to close graph")
 	}
 

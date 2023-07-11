@@ -36,7 +36,7 @@ func initializeProject(ctx context.Context, load bool) error {
 	}
 
 	if projectRoot != "" {
-		p, err := codex.NewBareProject(ctx, projectRoot)
+		p, err := codex.NewBareProject(projectRoot)
 
 		if err != nil {
 			return err

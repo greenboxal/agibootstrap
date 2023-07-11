@@ -15,3 +15,9 @@ type listenerSlot struct {
 type IndexedGraphListener interface {
 	OnNodeUpdated(node psi.Node)
 }
+
+type IndexedGraphListenerFunc func(node psi.Node)
+
+func (f IndexedGraphListenerFunc) OnNodeUpdated(node psi.Node) {
+	f(node)
+}

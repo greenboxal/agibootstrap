@@ -9,9 +9,9 @@ import (
 	"github.com/gomarkdown/markdown/ast"
 	"github.com/pkg/errors"
 
-	mdutils2 "github.com/greenboxal/agibootstrap/pkg/platform/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
 type SourceFile struct {
@@ -109,7 +109,7 @@ func (sf *SourceFile) Parse(ctx context.Context, filename string, sourceCode str
 		}
 	}()
 
-	parsed := mdutils2.ParseMarkdown([]byte(sourceCode))
+	parsed := mdutils.ParseMarkdown([]byte(sourceCode))
 
 	if sf.root == nil {
 		if err := sf.SetRoot(ctx, parsed); err != nil {
@@ -122,12 +122,12 @@ func (sf *SourceFile) Parse(ctx context.Context, filename string, sourceCode str
 	return AstToPsi(parsed), nil
 }
 
-func (sf *SourceFile) ToCode(node psi.Node) (mdutils2.CodeBlock, error) {
-	txt := string(mdutils2.FormatMarkdown(node.(Node).Ast()))
+func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
+	txt := string(mdutils.FormatMarkdown(node.(Node).Ast()))
 	txt = strings.TrimSpace(txt)
 	txt = strings.TrimRight(txt, "\n")
 
-	return mdutils2.CodeBlock{
+	return mdutils.CodeBlock{
 		Language: string(LanguageID),
 		Code:     txt,
 		Filename: sf.Name(),

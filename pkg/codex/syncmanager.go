@@ -44,7 +44,7 @@ func NewSyncManager(p *Project) *SyncManager {
 	}
 
 	sm.Init(sm, psi.WithNodeType(SyncManagerType))
-	sm.p.g.AddListener(sm)
+	sm.p.indexedGraph.AddListener(sm)
 
 	sm.proc = goprocess.Go(sm.run)
 

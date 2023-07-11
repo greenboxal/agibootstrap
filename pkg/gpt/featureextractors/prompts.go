@@ -5,7 +5,7 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 
-	"github.com/greenboxal/agibootstrap/pkg/agents"
+	"github.com/greenboxal/agibootstrap/pkg/gpt/agents"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 )
 

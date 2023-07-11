@@ -12,12 +12,12 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 
-	"github.com/greenboxal/agibootstrap/pkg/agents"
-	"github.com/greenboxal/agibootstrap/pkg/agents/profiles"
-	"github.com/greenboxal/agibootstrap/pkg/agents/singularity"
 	"github.com/greenboxal/agibootstrap/pkg/build"
 	"github.com/greenboxal/agibootstrap/pkg/build/codegen"
 	"github.com/greenboxal/agibootstrap/pkg/build/fiximports"
+	"github.com/greenboxal/agibootstrap/pkg/gpt/agents"
+	"github.com/greenboxal/agibootstrap/pkg/gpt/agents/profiles"
+	singularity2 "github.com/greenboxal/agibootstrap/pkg/gpt/agents/singularity"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/tasks"
@@ -68,7 +68,7 @@ func NewVisor(p project.Project) *Visor {
 
 		widget.NewButton("Boot", func() {
 			v.p.TaskManager().SpawnTask(context.Background(), func(tctx tasks.TaskProgress) error {
-				s, err := singularity.NewSingularity(p.LogManager())
+				s, err := singularity2.NewSingularity(p.LogManager())
 
 				if err != nil {
 					return err
@@ -86,7 +86,7 @@ Create a Pytorch model based on the human brain cytoarchitecture.
 
 				s.Router().ReceiveIncomingMessage(tctx.Context(), request)
 
-				st := s.WorldState().(*singularity.WorldState)
+				st := s.WorldState().(*singularity2.WorldState)
 
 				for {
 					fmt.Printf("Singularity: Step (epoch = %d, cycle = %d, step = %d)", st.Epoch, st.Cycle, st.Step)

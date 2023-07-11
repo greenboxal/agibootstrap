@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
+	"syscall"
 
 	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	fusefs "github.com/hanwen/go-fuse/v2/fs"
@@ -15,7 +17,8 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/spf13/cobra"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/psifuse"
+	"github.com/greenboxal/agibootstrap/pkg/api/psigw"
+	"github.com/greenboxal/agibootstrap/pkg/platform/api/psifuse"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -31,6 +34,32 @@ func buildPsiDbCmd() *cobra.Command {
 
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
 			return teardownProject(cmd.Context())
+		},
+	}
+
+	serverCmd := &cobra.Command{
+		Use:   "server",
+		Short: "Runs the PSI database server",
+		Long:  "This command runs the PSI database server.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			server := psigw.NewGateway(project.Graph(), project.IndexManager(), project.CanonicalPath())
+
+			if err := server.Start(cmd.Context()); err != nil {
+				return err
+			}
+
+			defer func() {
+				if err := server.Shutdown(cmd.Context()); err != nil {
+					_, _ = fmt.Fprintf(os.Stderr, "Failed to shutdown server: %v\n", err)
+				}
+			}()
+
+			signalCh := make(chan os.Signal, 1)
+			signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGKILL)
+
+			<-signalCh
+
+			return nil
 		},
 	}
 
@@ -179,7 +208,7 @@ func buildPsiDbCmd() *cobra.Command {
 		},
 	}
 
-	rootCmd.AddCommand(listCmd, dumpFrozenNode, dumpFrozenEdge, mountFuse)
+	rootCmd.AddCommand(listCmd, dumpFrozenNode, dumpFrozenEdge, mountFuse, serverCmd)
 
 	return rootCmd
 }

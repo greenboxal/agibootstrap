@@ -108,8 +108,6 @@ func NewPsiTreeWidget(resolutionRoot *graphstore.IndexedGraph) *PsiTreeWidget {
 
 	ptw.Tree.ExtendBaseWidget(ptw.Tree)
 
-	ptw.SetRootItem(resolutionRoot.Root().CanonicalPath())
-
 	return ptw
 }
 

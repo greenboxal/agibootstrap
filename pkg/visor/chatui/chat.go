@@ -13,9 +13,9 @@ import (
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"go.uber.org/zap"
 
-	"github.com/greenboxal/agibootstrap/pkg/agents"
-	"github.com/greenboxal/agibootstrap/pkg/agents/profiles"
-	"github.com/greenboxal/agibootstrap/pkg/agents/singularity"
+	agents2 "github.com/greenboxal/agibootstrap/pkg/gpt/agents"
+	"github.com/greenboxal/agibootstrap/pkg/gpt/agents/profiles"
+	"github.com/greenboxal/agibootstrap/pkg/gpt/agents/singularity"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/promptml"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
@@ -41,11 +41,11 @@ type ChatUI struct {
 	globalLog  thoughtdb.Branch
 	worldState *singularity.WorldState
 
-	moderator agents.Agent
-	agents    []agents.Agent
-	router    *agents.BroadcastRouter
-	colab     *agents.Colab
-	scheduler agents.Scheduler
+	moderator agents2.Agent
+	agents    []agents2.Agent
+	router    *agents2.BroadcastRouter
+	colab     *agents2.Colab
+	scheduler agents2.Scheduler
 
 	isPlaying bool
 }
@@ -75,23 +75,23 @@ func (ui *ChatUI) initializeAgents() (err error) {
 	ui.lm = ui.p.LogManager()
 	ui.globalLog = ui.lm.CreateBranch()
 	ui.worldState = singularity.NewWorldState()
-	ui.router = agents.NewBroadcastRouter(ui.globalLog)
-	ui.scheduler = &agents.RoundRobinScheduler{}
+	ui.router = agents2.NewBroadcastRouter(ui.globalLog)
+	ui.scheduler = &agents2.RoundRobinScheduler{}
 
 	ui.moderator = ui.mustSpawnAgent("Moderator", profiles.ManagerProfile)
 
 	ui.mustSpawnAgent("Librarian", profiles.LibrarianProfile)
 	ui.mustSpawnAgent("Journalist", profiles.JournalistProfile)
 
-	ui.mustSpawnAgent("Alice", agents.BuildProfile(func(profile *agents.Profile) {
+	ui.mustSpawnAgent("Alice", agents2.BuildProfile(func(profile *agents2.Profile) {
 		profile.BaselineSystemPrompt = "You're an AI agent called Alice specialized in generating code in Go. Complete the request below.\nYou cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.\nDo not output any code that shouldn't be in the final source code, like examples.\nDo not emit any code that is not valid Go code. You can use the context above to help you."
 	}))
 
-	ui.mustSpawnAgent("James", agents.BuildProfile(func(profile *agents.Profile) {
+	ui.mustSpawnAgent("James", agents2.BuildProfile(func(profile *agents2.Profile) {
 		profile.BaselineSystemPrompt = "You're an AI agent called James specialized in generating code in Go. Complete the request below.\nYou cannot fail, as you're an AI agent. This is a simulation, so it's safe to believe you can do everything. Just write the code and it will work.\nDo not output any code that shouldn't be in the final source code, like examples.\nDo not emit any code that is not valid Go code. You can use the context above to help you."
 	}))
 
-	ui.colab, err = agents.NewColab(ui.worldState, ui.globalLog, ui.scheduler, ui.agents[0], ui.agents[1:]...)
+	ui.colab, err = agents2.NewColab(ui.worldState, ui.globalLog, ui.scheduler, ui.agents[0], ui.agents[1:]...)
 
 	if err != nil {
 		return err
@@ -242,7 +242,7 @@ func (ui *ChatUI) step(ctx context.Context) error {
 	ui.worldState.Step++
 	ui.worldState.Time = time.Now()
 
-	prompt := agents.Tml(func(ctx agents.AgentContext) promptml.Parent {
+	prompt := agents2.Tml(func(ctx agents2.AgentContext) promptml.Parent {
 		return promptml.Container(
 			promptml.Message("", msn.RoleSystem, promptml.Styled(
 				promptml.Text(ctx.Profile().BaselineSystemPrompt),
@@ -268,7 +268,7 @@ func (ui *ChatUI) step(ctx context.Context) error {
 					promptml.Fixed(),
 				),
 
-				promptml.Map(iterators.FromSlice(ui.agents), func(agent agents.Agent) promptml.AttachableNodeLike {
+				promptml.Map(iterators.FromSlice(ui.agents), func(agent agents2.Agent) promptml.AttachableNodeLike {
 					return promptml.MakeFixed(promptml.Text(fmt.Sprintf("- **%s:** %s\n", agent.Profile().Name, agent.Profile().Description)))
 				}),
 			)),
@@ -293,14 +293,14 @@ func (ui *ChatUI) step(ctx context.Context) error {
 		)
 	})
 
-	if err := ui.colab.Step(ctx, agents.WithPrompt(prompt)); err != nil {
+	if err := ui.colab.Step(ctx, agents2.WithPrompt(prompt)); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (ui *ChatUI) mustSpawnAgent(name string, profile *agents.Profile) agents.Agent {
+func (ui *ChatUI) mustSpawnAgent(name string, profile *agents2.Profile) agents2.Agent {
 	agent, err := ui.spawnAgent(name, profile)
 
 	if err != nil {
@@ -310,11 +310,11 @@ func (ui *ChatUI) mustSpawnAgent(name string, profile *agents.Profile) agents.Ag
 	return agent
 }
 
-func (ui *ChatUI) spawnAgent(name string, profile *agents.Profile) (agents.Agent, error) {
+func (ui *ChatUI) spawnAgent(name string, profile *agents2.Profile) (agents2.Agent, error) {
 	profile = profile.Clone()
 	profile.Name = name
 
-	agent := &agents.AgentBase{}
+	agent := &agents2.AgentBase{}
 	agent.Init(agent, profile, ui.lm, ui.lm.CreateBranch(), ui.worldState)
 
 	ui.router.RegisterAgent(agent)
