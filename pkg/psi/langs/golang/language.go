@@ -14,17 +14,17 @@ import (
 
 	project2 "github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
 var hasPackageRegex = regexp.MustCompile(`(?m)^.*package\s+([a-zA-Z0-9_]+)\n`)
 var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`)
 
-const LanguageID psi.LanguageID = "go"
+const LanguageID langs.LanguageID = "go"
 
 func init() {
-	project2.RegisterLanguage(LanguageID, func(p project2.Project) psi.Language {
+	project2.RegisterLanguage(LanguageID, func(p project2.Project) langs.Language {
 		return NewLanguage(p)
 	})
 }
@@ -39,7 +39,7 @@ func NewLanguage(p project2.Project) *Language {
 	}
 }
 
-func (l *Language) Name() psi.LanguageID {
+func (l *Language) Name() langs.LanguageID {
 	return LanguageID
 }
 
@@ -47,11 +47,11 @@ func (l *Language) Extensions() []string {
 	return []string{".go"}
 }
 
-func (l *Language) CreateSourceFile(ctx context.Context, fileName string, fileHandle repofs.FileHandle) psi.SourceFile {
+func (l *Language) CreateSourceFile(ctx context.Context, fileName string, fileHandle repofs.FileHandle) langs.SourceFile {
 	return NewSourceFile(l, fileName, fileHandle)
 }
 
-func (l *Language) Parse(ctx context.Context, fileName string, code string) (psi.SourceFile, error) {
+func (l *Language) Parse(ctx context.Context, fileName string, code string) (langs.SourceFile, error) {
 	f := l.CreateSourceFile(ctx, fileName, &BufferFileHandle{data: code})
 
 	if err := f.Load(ctx); err != nil {
@@ -65,7 +65,7 @@ func (l *Language) Parse(ctx context.Context, fileName string, code string) (psi
 // This function unescapes HTML escape sequences, modifies the package declaration,
 // and merges the resulting code with the existing AST.
 // It also handles orphan snippets by wrapping them in a pseudo function.
-func (l *Language) ParseCodeBlock(ctx context.Context, blockName string, block mdutils.CodeBlock) (psi.SourceFile, error) {
+func (l *Language) ParseCodeBlock(ctx context.Context, blockName string, block mdutils.CodeBlock) (langs.SourceFile, error) {
 	// Unescape HTML escape sequences in the code block
 	if hasHtmlEscapeRegex.MatchString(block.Code) {
 		block.Code = html.UnescapeString(block.Code)

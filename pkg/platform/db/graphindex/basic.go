@@ -1,22 +1,46 @@
 package graphindex
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/multiformats/go-multihash"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type IndexedItem struct {
-	Index      int64 `json:"index"`
-	ChunkIndex int64 `json:"chunkIndex"`
+	Index int64 `json:"index"`
 
 	Path *psi.Path     `json:"path"`
 	Link *cidlink.Link `json:"link"`
 
+	ChunkIndex int64         `json:"chunkIndex"`
+	ChunkLink  *cidlink.Link `json:"chunkLink"`
+
 	Embeddings GraphEmbedding `json:"embeddings,omitempty"`
+}
+
+func (i IndexedItem) Identity() string {
+	w := bytes.NewBuffer(nil)
+
+	fmt.Fprintf(w, "%d\000", i.Index)
+	fmt.Fprintf(w, "%s\000", i.Path)
+	fmt.Fprintf(w, "%s\000", i.Link)
+	fmt.Fprintf(w, "%d\000", i.ChunkIndex)
+	fmt.Fprintf(w, "%s\000", i.ChunkLink)
+	fmt.Fprintf(w, "%f\000", i.Embeddings.ToFloat32Slice(nil))
+
+	mh, err := multihash.Sum(w.Bytes(), multihash.SHA2_256, -1)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return mh.B58String()
 }
 
 type SearchRequest struct {
@@ -31,9 +55,11 @@ type BasicSearchHit struct {
 }
 
 type IndexNodeRequest struct {
-	Path       *psi.Path     `json:"path"`
-	Link       *cidlink.Link `json:"link"`
+	Path *psi.Path     `json:"path"`
+	Link *cidlink.Link `json:"link"`
+
 	ChunkIndex int64         `json:"chunkIndex"`
+	ChunkLink  *cidlink.Link `json:"chunkLink"`
 
 	Embeddings GraphEmbedding `json:"embeddings,omitempty"`
 }

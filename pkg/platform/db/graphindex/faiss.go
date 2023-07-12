@@ -13,6 +13,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/psids"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type faissIndex struct {
@@ -62,26 +63,40 @@ func newFaissIndex(m *Manager, stateDir string, id string, d int) (*faissIndex, 
 func (f *faissIndex) Dimensions() int { return f.d }
 
 func (f *faissIndex) IndexNode(ctx context.Context, req IndexNodeRequest) (IndexedItem, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	index := f.index.Ntotal()
-	x := req.Embeddings.ToFloat32Slice(nil)
-	err := f.index.Add(x)
-
-	if err != nil {
-		return IndexedItem{}, errors.Wrap(err, "failed to add to index")
-	}
-
-	f.isDirty = true
-
 	item := IndexedItem{
-		Index:      index,
 		ChunkIndex: req.ChunkIndex,
+		ChunkLink:  req.ChunkLink,
 		Path:       req.Path,
 		Link:       req.Link,
 		Embeddings: req.Embeddings,
 	}
+
+	x := req.Embeddings.ToFloat32Slice(nil)
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	existingIndex, err := f.retrieveItemIndex(ctx, item)
+
+	if err != nil {
+		if err == psi.ErrNodeNotFound {
+			existingIndex = 0xFFFFFFFFFFFFFFFF
+		} else {
+			return IndexedItem{}, err
+		}
+	}
+
+	if existingIndex != 0xFFFFFFFFFFFFFFFF {
+		item.Index = int64(existingIndex)
+	} else {
+		item.Index = f.index.Ntotal()
+
+		if err := f.index.Add(x); err != nil {
+			return IndexedItem{}, errors.Wrap(err, "failed to add to index")
+		}
+	}
+
+	f.isDirty = true
 
 	if err := f.storeItem(ctx, item); err != nil {
 		return IndexedItem{}, err
@@ -260,9 +275,27 @@ func (f *faissIndex) getSnapshotPath() string {
 }
 
 func (f *faissIndex) storeItem(ctx context.Context, item IndexedItem) error {
-	return psids.Put(ctx, f.ds, dsKeyIndexItem(f.id, item.Index), item)
+	batch, err := f.ds.Batch(ctx)
+
+	if err != nil {
+		return err
+	}
+
+	if err := psids.Put(ctx, f.ds, dsKeyIndexItem(f.id, item.Index), item); err != nil {
+		return err
+	}
+
+	if err := psids.Put(ctx, f.ds, dsKeyInvertedIndex(item.Identity()), uint64(item.Index)); err != nil {
+		return err
+	}
+
+	return batch.Commit(ctx)
 }
 
 func (f *faissIndex) retrieveItem(ctx context.Context, id int64) (IndexedItem, error) {
 	return psids.Get(ctx, f.ds, dsKeyIndexItem(f.id, id))
+}
+
+func (f *faissIndex) retrieveItemIndex(ctx context.Context, item IndexedItem) (uint64, error) {
+	return psids.Get(ctx, f.ds, dsKeyInvertedIndex(f.id, item.Identity()))
 }

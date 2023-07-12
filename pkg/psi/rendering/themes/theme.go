@@ -62,7 +62,7 @@ var GlobalTheme = rendering.BuildTheme(
 
 			defer reader.Close()
 
-			if _, err := ctx.Buffer.WriteFormat("**%s:**```\n", node.Path()); err != nil {
+			if _, err := ctx.Buffer.WriteFormat("**%s:**\n```\n", node.Path()); err != nil {
 				return err
 			}
 

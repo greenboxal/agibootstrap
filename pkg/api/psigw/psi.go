@@ -13,6 +13,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
 )
 
 func (gw *Gateway) handlePsiDb(writer http.ResponseWriter, request *http.Request) {
@@ -67,6 +68,12 @@ func (gw *Gateway) handlePsiDbGet(
 		return nil
 	} else if err != nil {
 		return err
+	}
+
+	if request.URL.Query().Get("render") == "true" {
+		skin := request.URL.Query().Get("skin")
+
+		return rendering.RenderNodeResponse(writer, request, ApiTheme, skin, n)
 	}
 
 	return Negotiate(request, writer, "application/json", map[string]func() error{

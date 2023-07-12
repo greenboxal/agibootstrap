@@ -4,19 +4,20 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
 )
 
 type Module struct {
 	project.ModuleBase
 
 	p      *Project
-	lang   psi.Language
+	lang   langs.Language
 	config project.ModuleConfig
 }
 
 var ModuleType = psi.DefineNodeType[*Module](psi.WithRuntimeOnly())
 
-func NewModule(p *Project, cfg project.ModuleConfig, lang psi.Language, root *vfs.Directory) (*Module, error) {
+func NewModule(p *Project, cfg project.ModuleConfig, lang langs.Language, root *vfs.Directory) (*Module, error) {
 	m := &Module{}
 	m.p = p
 	m.lang = lang

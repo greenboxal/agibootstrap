@@ -12,6 +12,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
 func RenderNodeResponse(writer http.ResponseWriter, request *http.Request, theme Theme, skinName string, node psi.Node) error {
@@ -149,9 +150,8 @@ func getSkinAlternatives(t Theme, contentType string, skinName string, node psi.
 		}
 
 	case "text/html":
-		// TODO: Wrap and render markdown to HTML
 		if skin := t.SkinForNode("text/markdown", skinName, node); skin != nil {
-			return skin
+			return &markdownToHtmlSkin{SkinRenderer: skin}
 		}
 
 		if skin := t.SkinForNode("text/plain", skinName, node); skin != nil {
@@ -189,4 +189,24 @@ func getSkinAlternatives(t Theme, contentType string, skinName string, node psi.
 			return nil
 		},
 	}
+}
+
+type markdownToHtmlSkin struct {
+	SkinRenderer
+}
+
+func (m *markdownToHtmlSkin) GetContentType() string { return "text/html" }
+func (m *markdownToHtmlSkin) RenderNode(ctx SkinRendererContext, node psi.Node) error {
+	patchedCtx := ctx
+	patchedCtx.Buffer = NewTokenBuffer(ctx.Buffer.tokenizer, ctx.Buffer.tokenLimit)
+
+	if err := m.SkinRenderer.RenderNode(patchedCtx, node); err != nil {
+		return err
+	}
+
+	html := mdutils.MarkdownToHtml(patchedCtx.Buffer.Bytes())
+
+	_, err := ctx.Buffer.Write(html)
+
+	return err
 }

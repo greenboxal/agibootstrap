@@ -10,6 +10,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/pkg/errors"
 
+	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
 	"github.com/greenboxal/agibootstrap/pkg/psi/langs/clang/cparser"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 
@@ -47,12 +48,12 @@ func NewSourceFile(l *Language, name string, handle repofs.FileHandle) *SourceFi
 	return sf
 }
 
-func (sf *SourceFile) Name() string           { return sf.name }
-func (sf *SourceFile) Language() psi.Language { return sf.l }
-func (sf *SourceFile) Path() string           { return sf.name }
-func (sf *SourceFile) OriginalText() string   { return sf.original }
-func (sf *SourceFile) Root() psi.Node         { return sf.root }
-func (sf *SourceFile) Error() error           { return sf.err }
+func (sf *SourceFile) Name() string             { return sf.name }
+func (sf *SourceFile) Language() langs.Language { return sf.l }
+func (sf *SourceFile) Path() string             { return sf.name }
+func (sf *SourceFile) OriginalText() string     { return sf.original }
+func (sf *SourceFile) Root() psi.Node           { return sf.root }
+func (sf *SourceFile) Error() error             { return sf.err }
 
 func (sf *SourceFile) Load(ctx context.Context) error {
 	file, err := sf.handle.Get()
@@ -176,7 +177,7 @@ func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
 	}, nil
 }
 
-func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope psi.Scope, cursor psi.Cursor, newSource psi.SourceFile, newAst psi.Node) error {
+func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope langs.Scope, cursor psi.Cursor, newSource langs.SourceFile, newAst psi.Node) error {
 	cursor.Replace(newAst)
 
 	return nil

@@ -12,6 +12,16 @@ var ApiTheme = rendering.BuildTheme(
 	rendering.InheritTheme(themes.GlobalTheme),
 
 	rendering.WithSkinFunc(
+		SearchQueryType,
+		"text/markdown",
+		"",
+		func(ctx rendering.SkinRendererContext, node *SearchQuery) error {
+			_, err := ctx.Buffer.WriteString(node.Query)
+			return err
+		},
+	),
+
+	rendering.WithSkinFunc(
 		SearchResultListType,
 		"text/html",
 		"",
@@ -33,6 +43,7 @@ var searchResultListTemplate = template.Must(template.New("search-result-list").
 				<th>Score</th>	
 				<th>Path</th>
 				<th>Link</th>
+				<th>Embeddings</th>
 			</tr>
 		</thead>
 		<tbody>	

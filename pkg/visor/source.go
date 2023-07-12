@@ -9,13 +9,14 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
 	"github.com/greenboxal/agibootstrap/pkg/visor/guifx"
 )
 
 type SourceFileEditor struct {
 	project     project.Project
 	elementPath psi.Path
-	element     psi.SourceFile
+	element     langs.SourceFile
 
 	root fyne.CanvasObject
 }
@@ -29,7 +30,7 @@ func NewSourceFileEditor(p project.Project, elementPath psi.Path, element psi.No
 	tle := &SourceFileEditor{
 		project:     p,
 		elementPath: elementPath,
-		element:     element.(psi.SourceFile),
+		element:     element.(langs.SourceFile),
 	}
 
 	textArea := widget.NewRichText()

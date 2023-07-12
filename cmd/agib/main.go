@@ -112,21 +112,6 @@ func main() {
 		},
 	}
 
-	var reindexCmd = &cobra.Command{
-		Use:   "reindex",
-		Short: "Reindex the project",
-		Long:  "This command reindex the project.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.SilenceUsage = true
-
-			if err := project.Load(cmd.Context()); err != nil {
-				return err
-			}
-
-			return project.Reindex()
-		},
-	}
-
 	var generateCmd = &cobra.Command{
 		Use:   "generate",
 		Short: "Generate a new file",
@@ -155,6 +140,33 @@ func main() {
 			}
 
 			return err
+		},
+	}
+
+	var analyzeCmd = &cobra.Command{
+		Use:   "analyze [path]",
+		Short: "Analyze a specific file or directory",
+		Long:  "This command analyzes a specific file or directory.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+
+			if err := project.Load(cmd.Context()); err != nil {
+				return err
+			}
+
+			/*targetPath := project.CanonicalPath()
+
+			if len(args) > 0 {
+				p, err := psi.ParsePath(args[0])
+
+				if err != nil {
+					return err
+				}
+
+				targetPath = p
+			}*/
+
+			return project.Reindex()
 		},
 	}
 
@@ -213,7 +225,7 @@ func main() {
 
 	psiDbCmd := buildPsiDbCmd()
 
-	rootCmd.AddCommand(initCmd, reindexCmd, generateCmd, commitCmd, debugCmd, chatCmd, psiDbCmd)
+	rootCmd.AddCommand(initCmd, analyzeCmd, generateCmd, commitCmd, debugCmd, chatCmd, psiDbCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: %s\n", err)

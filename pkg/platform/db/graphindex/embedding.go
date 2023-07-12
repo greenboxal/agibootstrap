@@ -1,6 +1,9 @@
 package graphindex
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 type Embedding interface {
 	Dimensions() int
@@ -15,17 +18,23 @@ type GraphEmbedding struct {
 	Semantic          []float32 `json:"semantic,omitempty"`
 }
 
+func (g GraphEmbedding) String() string {
+	return fmt.Sprintf("Md=%v Mtd=%v Mr=%v Mt=%v Msema=%v", g.Depth, g.TreeDistance, g.ReferenceDistance, g.Time, g.Semantic)
+}
+
 func (g GraphEmbedding) Dimensions() int {
 	return len(g.Semantic) + 8
 }
 
 func (g GraphEmbedding) ToFloat32Slice(dst []float32) []float32 {
-	md1, md2 := rotary(int64(g.Depth), 10, 2)
-	mtd1, mtd2 := rotary(int64(g.TreeDistance), 10, 2)
-	mr1, mr2 := rotary(int64(g.ReferenceDistance), 10, 2)
-	mt1, mt2 := rotary(g.Time, 10, 2)
+	md1, md2 := rotary(int64(g.Depth), int64(len(g.Semantic)), 10000)
+	mtd1, mtd2 := rotary(int64(g.TreeDistance), int64(len(g.Semantic)), 10000)
+	mr1, mr2 := rotary(int64(g.ReferenceDistance), int64(len(g.Semantic)), 10000)
+	mt1, mt2 := rotary(g.Time, int64(len(g.Semantic)), 10000)
 
-	dst = append(dst, md1, md2, mtd1, mtd2, mr1, mr2, mt1, mt2)
+	scale := float32(len(g.Semantic)) + 1
+
+	dst = append(dst, md1/scale, md2/scale, mtd1/scale, mtd2/scale, mr1/scale, mr2/scale, mt1/scale, mt2/scale)
 	dst = append(dst, g.Semantic...)
 
 	return dst

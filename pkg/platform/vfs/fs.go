@@ -1,6 +1,8 @@
 package vfs
 
 import (
+	"context"
+	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -9,30 +11,44 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/jbenet/goprocess"
+	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 )
 
-type FS interface {
+type FileSystem interface {
 	fs.FS
+
+	WriteFile(p string, src io.Reader) error
+}
+
+type FileSystemOption func(*fileSystem)
+
+func WithPathFilter(pathFilter func(string) bool) FileSystemOption {
+	return func(fsys *fileSystem) {
+		fsys.pathFilter = pathFilter
+	}
 }
 
 type fileSystem struct {
 	logger *zap.SugaredLogger
 
-	root string
+	root    string
+	manager *Manager
 
-	mu       sync.Mutex
-	watchMap map[string]Node
-	watcher  *fsnotify.Watcher
-	proc     goprocess.Process
+	mu      sync.Mutex
+	nodeMap map[string]Node
+	watcher *fsnotify.Watcher
+	proc    goprocess.Process
 
 	stopCh chan struct{}
+
+	pathFilter func(string) bool
 }
 
-func NewFS(rootPath string) (FS, error) {
+func newLocalFS(m *Manager, rootPath string, options ...FileSystemOption) (*fileSystem, error) {
 	if _, err := os.Stat(rootPath); err != nil {
 		return nil, errors.Wrap(err, "invalid root path")
 	}
@@ -46,12 +62,17 @@ func NewFS(rootPath string) (FS, error) {
 	bfs := &fileSystem{
 		logger: logging.GetLogger("vfs"),
 
-		root: rootPath,
+		root:    rootPath,
+		manager: m,
 
-		watchMap: map[string]Node{},
-		watcher:  w,
+		nodeMap: map[string]Node{},
+		watcher: w,
 
 		stopCh: make(chan struct{}),
+	}
+
+	for _, option := range options {
+		option(bfs)
 	}
 
 	bfs.proc = goprocess.Go(bfs.run)
@@ -59,39 +80,70 @@ func NewFS(rootPath string) (FS, error) {
 	return bfs, nil
 }
 
-func (bfs *fileSystem) Watch(node Node) error {
+func (bfs *fileSystem) GetNodeForPath(ctx context.Context, path string) (n Node, err error) {
+	ok, err := isChildPath(bfs.root, path)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !ok {
+		return nil, fs.ErrNotExist
+	}
+
+	if bfs.pathFilter != nil && !bfs.pathFilter(path) {
+		return nil, fs.ErrNotExist
+	}
+
 	bfs.mu.Lock()
 	defer bfs.mu.Unlock()
 
-	if err := bfs.watcher.Add(node.Path()); err != nil {
-		return err
-	}
-
-	bfs.watchMap[node.Path()] = node
-
-	return nil
+	return bfs.getNodeForPathUnlocked(ctx, path)
 }
 
-func (bfs *fileSystem) Unwatch(node Node) error {
-	bfs.mu.Lock()
-	defer bfs.mu.Unlock()
-
-	if _, ok := bfs.watchMap[node.Path()]; !ok {
-		return nil
+func (bfs *fileSystem) getNodeForPathUnlocked(ctx context.Context, path string) (n Node, err error) {
+	if n = bfs.nodeMap[path]; n != nil {
+		return n, nil
 	}
 
-	if err := bfs.watcher.Remove(node.Path()); err != nil {
-		return err
+	stat, err := os.Stat(path)
+
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	if stat.IsDir() {
+		n = newDirectoryNode(bfs, path, "")
+	} else if stat.Mode().Type() == os.ModeSymlink {
+		n = newFileNode(bfs, path)
+	}
+
+	parentPath := filepath.Dir(path)
+
+	if ok, err := isChildPath(bfs.root, parentPath); err == nil && ok && parentPath != bfs.root {
+		parent, err := bfs.getNodeForPathUnlocked(ctx, parentPath)
+
+		if err != nil {
+			return nil, err
+		}
+
+		n.SetParent(parent)
+	}
+
+	if err := n.Update(ctx); err != nil {
+		return nil, err
+	}
+
+	bfs.nodeMap[path] = n
+
+	return n, nil
 }
 
 func (bfs *fileSystem) Open(name string) (fs.File, error) {
 	fullname, err := bfs.join(name)
 
 	if err != nil {
-		return nil, &fs.PathError{Op: "stat", Path: name, Err: err}
+		return nil, &fs.PathError{Op: "lastStat", Path: name, Err: err}
 	}
 
 	f, err := os.Open(fullname)
@@ -108,11 +160,27 @@ func (bfs *fileSystem) Open(name string) (fs.File, error) {
 	return f, nil
 }
 
+func (bfs *fileSystem) WriteFile(p string, src io.Reader) error {
+	w, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE, 0644)
+
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(w, src)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (bfs *fileSystem) Stat(name string) (fs.FileInfo, error) {
 	fullname, err := bfs.join(name)
 
 	if err != nil {
-		return nil, &fs.PathError{Op: "stat", Path: name, Err: err}
+		return nil, &fs.PathError{Op: "lastStat", Path: name, Err: err}
 	}
 
 	f, err := os.Stat(fullname)
@@ -159,6 +227,11 @@ func (bfs *fileSystem) join(name string) (string, error) {
 }
 
 func (bfs *fileSystem) Close() error {
+	defer bfs.manager.notifyClose(bfs)
+
+	bfs.mu.Lock()
+	defer bfs.mu.Unlock()
+
 	if bfs.watcher != nil {
 		if err := bfs.watcher.Close(); err != nil {
 			return err
@@ -171,6 +244,8 @@ func (bfs *fileSystem) Close() error {
 }
 
 func (bfs *fileSystem) run(proc goprocess.Process) {
+	ctx := goprocessctx.OnClosingContext(proc)
+
 	for {
 		select {
 		case <-proc.Closing():
@@ -180,9 +255,17 @@ func (bfs *fileSystem) run(proc goprocess.Process) {
 			return
 
 		case ev := <-bfs.watcher.Events:
-			if err := bfs.handleEvent(ev); err != nil {
-				bfs.logger.Error(err)
-			}
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						bfs.logger.Error(r)
+					}
+				}()
+
+				if err := bfs.handleEvent(ctx, ev); err != nil {
+					bfs.logger.Error(err)
+				}
+			}()
 
 		case err := <-bfs.watcher.Errors:
 			bfs.logger.Error(err)
@@ -190,12 +273,26 @@ func (bfs *fileSystem) run(proc goprocess.Process) {
 	}
 }
 
-func (bfs *fileSystem) handleEvent(ev fsnotify.Event) error {
-	node := bfs.watchMap[ev.Name]
+func (bfs *fileSystem) handleEvent(ctx context.Context, ev fsnotify.Event) error {
+	node := bfs.nodeMap[ev.Name]
 
 	if node == nil {
 		return nil
 	}
 
-	return node.onWatchEvent(ev)
+	return node.onWatchEvent(ctx, ev)
+}
+
+func (bfs *fileSystem) addWatch(nb *NodeBase) error {
+	bfs.mu.Lock()
+	defer bfs.mu.Unlock()
+
+	return bfs.watcher.Add(nb.Path())
+}
+
+func (bfs *fileSystem) removeWatch(nb *NodeBase) error {
+	bfs.mu.Lock()
+	defer bfs.mu.Unlock()
+
+	return bfs.watcher.Remove(nb.Path())
 }

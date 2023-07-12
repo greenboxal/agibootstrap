@@ -11,6 +11,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
 )
 
 // NodeScope represents the context of a function.
@@ -41,10 +42,10 @@ type NodeProcessorOption func(p *NodeProcessor)
 // It is used to configure the behavior of the NodeProcessor. Each option is a function that takes
 // a pointer to the NodeProcessor as a parameter and modifies its properties in some way.
 type NodeProcessor struct {
-	Project    project.Project // The project associated with the NodeProcessor.
-	SourceFile psi.SourceFile  // The source file being processed.
-	Root       psi.Node        // The root node of the AST being processed.
-	FuncStack  []*NodeScope    // A stack of FunctionContexts.
+	Project    project.Project  // The project associated with the NodeProcessor.
+	SourceFile langs.SourceFile // The source file being processed.
+	Root       psi.Node         // The root node of the AST being processed.
+	FuncStack  []*NodeScope     // A stack of FunctionContexts.
 
 	prepareObjective   func(p *NodeProcessor, ctx *NodeScope) (string, error)                                                              // A function to prepare the objective for GPT-3.
 	prepareContext     func(p *NodeProcessor, ctx *NodeScope, root psi.Node, baseRequest gpt.CodeGeneratorRequest) (gpt.ContextBag, error) // A function to prepare the context for GPT-3.
@@ -217,7 +218,7 @@ func (p *NodeProcessor) Step(ctx context.Context, scope *NodeScope, cursor psi.C
 	for i, block := range res.CodeBlocks {
 		block.Language = string(p.SourceFile.Language().Name())
 
-		lang := p.Project.LanguageProvider().Resolve(psi.LanguageID(block.Language))
+		lang := p.Project.LanguageProvider().Resolve(langs.LanguageID(block.Language))
 
 		blockName := fmt.Sprintf("_mergeContents_%d.%s", i, block.Language)
 

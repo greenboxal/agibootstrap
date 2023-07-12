@@ -3,31 +3,31 @@ package project
 import (
 	"path/filepath"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
 )
 
-type LanguageFactory func(p Project) psi.Language
+type LanguageFactory func(p Project) langs.Language
 
 type Registry struct {
 	project Project
 
-	langs map[psi.LanguageID]psi.Language
+	langs map[langs.LanguageID]langs.Language
 }
 
 func NewRegistry(project Project) *Registry {
 	r := &Registry{
 		project: project,
-		langs:   map[psi.LanguageID]psi.Language{},
+		langs:   map[langs.LanguageID]langs.Language{},
 	}
 
 	return r
 }
 
-func (r *Registry) Register(language psi.Language) {
+func (r *Registry) Register(language langs.Language) {
 	r.langs[language.Name()] = language
 }
 
-func (r *Registry) ResolveExtension(fileName string) psi.Language {
+func (r *Registry) ResolveExtension(fileName string) langs.Language {
 	ext := filepath.Ext(fileName)
 
 	for _, l := range r.langs {
@@ -41,20 +41,20 @@ func (r *Registry) ResolveExtension(fileName string) psi.Language {
 	return nil
 }
 
-func (r *Registry) Resolve(language psi.LanguageID) psi.Language {
+func (r *Registry) Resolve(language langs.LanguageID) langs.Language {
 	return r.langs[language]
 }
 
-func (r *Registry) GetLanguage(language psi.LanguageID) psi.Language {
+func (r *Registry) GetLanguage(language langs.LanguageID) langs.Language {
 	return r.langs[language]
 }
 
-var factories = map[psi.LanguageID]LanguageFactory{}
+var factories = map[langs.LanguageID]LanguageFactory{}
 
-func GetLanguageFactory(name psi.LanguageID) LanguageFactory {
+func GetLanguageFactory(name langs.LanguageID) LanguageFactory {
 	return factories[name]
 }
 
-func RegisterLanguage(name psi.LanguageID, factory LanguageFactory) {
+func RegisterLanguage(name langs.LanguageID, factory LanguageFactory) {
 	factories[name] = factory
 }

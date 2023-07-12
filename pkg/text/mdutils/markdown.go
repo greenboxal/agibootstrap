@@ -8,6 +8,7 @@ import (
 
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/ast"
+	"github.com/gomarkdown/markdown/html"
 	"github.com/gomarkdown/markdown/md"
 	"github.com/gomarkdown/markdown/parser"
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
@@ -95,4 +96,14 @@ func ParseMarkdown(md []byte) ast.Node {
 	p := parser.NewWithExtensions(extensions)
 
 	return p.Parse(md)
+}
+
+func MarkdownToHtml(md []byte) []byte {
+	extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.NoEmptyLineBeforeBlock
+	p := parser.NewWithExtensions(extensions)
+	doc := p.Parse(md)
+
+	renderer := html.NewRenderer(html.RendererOptions{})
+
+	return markdown.Render(doc, renderer)
 }

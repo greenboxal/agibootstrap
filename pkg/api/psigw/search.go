@@ -2,6 +2,7 @@ package psigw
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/chunkers"
 
@@ -11,6 +12,12 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
 )
 
+type SearchQuery struct {
+	psi.NodeBase
+
+	Query string `json:"query,omitempty"`
+}
+
 type SearchResultList struct {
 	psi.NodeBase
 
@@ -18,12 +25,24 @@ type SearchResultList struct {
 }
 
 var SearchResultListType = psi.DefineNodeType[*SearchResultList]()
+var SearchQueryType = psi.DefineNodeType[*SearchQuery]()
 
 func (gw *Gateway) handleSearch(writer http.ResponseWriter, request *http.Request) {
+	var err error
 	var anchor psi.Node
 
 	q := request.URL.Query().Get("q")
 	indexName := request.URL.Query().Get("index")
+	limit := uint64(10)
+
+	if str := request.URL.Query().Get("limit"); str != "" {
+		limit, err = strconv.ParseUint(str, 10, 64)
+
+		if err != nil {
+			http.Error(writer, "invalid limit", http.StatusBadRequest)
+			return
+		}
+	}
 
 	if q == "" {
 		http.Error(writer, "missing query", http.StatusBadRequest)
@@ -67,19 +86,27 @@ func (gw *Gateway) handleSearch(writer http.ResponseWriter, request *http.Reques
 
 	defer index.Close()
 
-	sema, err := gw.project.Embedder().GetEmbeddings(request.Context(), []string{q})
+	queryNode := &SearchQuery{
+		Query: q,
+	}
+
+	queryNode.Init(queryNode)
+
+	emb, err := index.Embedder().EmbeddingsForNode(request.Context(), queryNode)
 
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	results, err := index.Search(request.Context(), graphindex.SearchRequest{
-		Query: graphindex.GraphEmbedding{
-			Semantic: sema[0].Embeddings,
-		},
+	if !emb.Next() {
+		http.Error(writer, "no embeddings", http.StatusBadRequest)
+		return
+	}
 
-		Limit: 10,
+	results, err := index.Search(request.Context(), graphindex.SearchRequest{
+		Query: emb.Value(),
+		Limit: int(limit),
 	})
 
 	if err != nil {

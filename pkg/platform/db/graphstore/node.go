@@ -262,6 +262,10 @@ func (c *cachedNode) update() {
 	}
 
 	if c.id == -1 {
+		if c.frozen != nil {
+			c.id = c.frozen.Index
+		}
+
 		c.id = int64(c.g.bmp.Allocate())
 	}
 

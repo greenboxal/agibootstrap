@@ -11,6 +11,7 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
@@ -42,7 +43,6 @@ type IndexedGraph struct {
 	nodeIdMap map[psi.NodeID]*cachedNode
 
 	proc            goprocess.Process
-	closeCh         chan struct{}
 	nodeUpdateQueue chan nodeUpdateRequest
 
 	listeners []*listenerSlot
@@ -69,7 +69,6 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.UniqueNode)
 
 		nodeIdMap: map[psi.NodeID]*cachedNode{},
 
-		closeCh:         make(chan struct{}),
 		nodeUpdateQueue: make(chan nodeUpdateRequest, 256),
 	}
 
@@ -308,6 +307,10 @@ func (g *IndexedGraph) loadBitmap(ctx context.Context) error {
 	snapshot, err := psids.Get(ctx, g.ds, dsKeyBitmap)
 
 	if err != nil {
+		if errors.Is(err, psi.ErrNodeNotFound) {
+			return nil
+		}
+
 		return err
 	}
 
@@ -336,6 +339,12 @@ func (g *IndexedGraph) getCacheEntry(path psi.Path, create bool) *cachedNode {
 		panic(fmt.Errorf("path must be absolute"))
 	}
 
+	key := path.String()
+
+	if n := g.nodeIdMap[key]; n != nil {
+		return n
+	}
+
 	if create {
 		g.mu.Lock()
 		defer g.mu.Unlock()
@@ -344,7 +353,6 @@ func (g *IndexedGraph) getCacheEntry(path psi.Path, create bool) *cachedNode {
 		defer g.mu.RUnlock()
 	}
 
-	key := path.String()
 	entry := g.nodeIdMap[key]
 
 	if entry == nil && create {
@@ -363,19 +371,32 @@ func (g *IndexedGraph) getCacheEntry(path psi.Path, create bool) *cachedNode {
 func (g *IndexedGraph) run(proc goprocess.Process) {
 	ctx := goprocessctx.OnClosingContext(proc)
 
+	defer func() {
+		var wg sync.WaitGroup
+
+		for _, listener := range g.listeners {
+			wg.Add(1)
+
+			go func(listener *listenerSlot) {
+				if err := listener.proc.Close(); err != nil {
+					g.logger.Error(err)
+				}
+			}(listener)
+		}
+
+		wg.Wait()
+	}()
+
 	if err := g.recoverFromWal(ctx); err != nil {
 		panic(err)
 	}
 
 	if err := g.loadBitmap(ctx); err != nil {
-
+		panic(err)
 	}
 
 	for {
 		select {
-		case <-g.closeCh:
-			return
-
 		case <-ctx.Done():
 			return
 
@@ -524,14 +545,8 @@ func (g *IndexedGraph) Shutdown(ctx context.Context) error {
 		return err
 	}
 
-	if g.proc != nil {
-		close(g.closeCh)
-
-		if err := g.proc.CloseAfterChildren(); err != nil {
-			return err
-		}
-
-		g.proc = nil
+	if err := g.proc.Close(); err != nil {
+		return err
 	}
 
 	g.mu.Lock()

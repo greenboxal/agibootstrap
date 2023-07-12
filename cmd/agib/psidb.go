@@ -37,32 +37,6 @@ func buildPsiDbCmd() *cobra.Command {
 		},
 	}
 
-	serverCmd := &cobra.Command{
-		Use:   "server",
-		Short: "Runs the PSI database server",
-		Long:  "This command runs the PSI database server.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			server := psigw.NewGateway(project, project.Graph(), project.IndexManager(), project.CanonicalPath())
-
-			if err := server.Start(cmd.Context()); err != nil {
-				return err
-			}
-
-			defer func() {
-				if err := server.Shutdown(cmd.Context()); err != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "Failed to shutdown server: %v\n", err)
-				}
-			}()
-
-			signalCh := make(chan os.Signal, 1)
-			signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGKILL)
-
-			<-signalCh
-
-			return nil
-		},
-	}
-
 	listCmd := &cobra.Command{
 		Use:   "list [path]",
 		Short: "List PSI nodes",
@@ -165,6 +139,32 @@ func buildPsiDbCmd() *cobra.Command {
 			}
 
 			fmt.Printf("%s\n", dumpJson(fe))
+
+			return nil
+		},
+	}
+
+	serverCmd := &cobra.Command{
+		Use:   "server",
+		Short: "Runs the PSI database server",
+		Long:  "This command runs the PSI database server.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			server := psigw.NewGateway(project, project.Graph(), project.IndexManager(), project.CanonicalPath())
+
+			if err := server.Start(cmd.Context()); err != nil {
+				return err
+			}
+
+			defer func() {
+				if err := server.Shutdown(cmd.Context()); err != nil {
+					_, _ = fmt.Fprintf(os.Stderr, "Failed to shutdown server: %v\n", err)
+				}
+			}()
+
+			signalCh := make(chan os.Signal, 1)
+			signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGKILL)
+
+			<-signalCh
 
 			return nil
 		},

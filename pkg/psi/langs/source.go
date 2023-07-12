@@ -1,4 +1,4 @@
-package psi
+package langs
 
 import (
 	"context"
@@ -6,41 +6,38 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
 type SourceFile interface {
-	Node
+	psi.Node
 
 	Name() string
 	Language() Language
 
-	Root() Node
+	Root() psi.Node
 	Error() error
 
 	Load(ctx context.Context) error
 	Replace(ctx context.Context, code string) error
 
 	OriginalText() string
-	ToCode(node Node) (mdutils.CodeBlock, error)
+	ToCode(node psi.Node) (mdutils.CodeBlock, error)
 
-	MergeCompletionResults(ctx context.Context, scope Scope, cursor Cursor, newSource SourceFile, newAst Node) error
-}
-
-type AstNode interface {
-	Node
+	MergeCompletionResults(ctx context.Context, scope Scope, cursor psi.Cursor, newSource SourceFile, newAst psi.Node) error
 }
 
 type Scope interface {
-	Root() Node
+	Root() psi.Node
 }
 
 type SourceFileBase struct {
-	NodeBase
+	psi.NodeBase
 }
 
 type FileHandleSource interface {
-	Node
+	psi.Node
 
 	Open() (repofs.FileHandle, error)
 }

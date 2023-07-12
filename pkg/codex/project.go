@@ -8,7 +8,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/google/uuid"
@@ -27,14 +26,16 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
+	"github.com/greenboxal/agibootstrap/pkg/platform/project/filetypes"
 	tasks "github.com/greenboxal/agibootstrap/pkg/platform/tasks"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/analysis"
+	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
 )
 
-const SourceFileEdge psi.TypedEdgeKind[psi.SourceFile] = "SourceFile"
+const SourceFileEdge psi.TypedEdgeKind[langs.SourceFile] = "SourceFile"
 
 type Project struct {
 	psi.NodeBase
@@ -44,12 +45,20 @@ type Project struct {
 	uuid   string
 	config project.Config
 
+	ds datastore.Batching
+
 	indexedGraph *graphstore.IndexedGraph
 	indexManager *graphindex.Manager
-	embedder     llm.Embedder
 
-	ds datastore.Batching
-	fs repofs.FS
+	embeddingManager *cache.EmbeddingCacheManager
+	embedder         llm.Embedder
+
+	vfsManager *vfs.Manager
+	rootFs     vfs.FileSystem
+	vcsFs      repofs.FS
+
+	fileTypeRegistry *filetypes.Registry
+	langRegistry     *project.Registry
 
 	repo *fti.Repository
 	tm   *tasks.Manager
@@ -57,9 +66,7 @@ type Project struct {
 	sm   *SyncManager
 
 	rootPath string
-	rootNode *vfs.Directory
-
-	langRegistry *project.Registry
+	rootNode vfs.Node
 
 	fset *token.FileSet
 }
@@ -67,12 +74,6 @@ type Project struct {
 var ProjectType = psi.DefineNodeType[*Project](psi.WithRuntimeOnly())
 
 func NewBareProject(rootPath string) (*Project, error) {
-	rootFs, err := repofs.NewFS(rootPath)
-
-	if err != nil {
-		return nil, err
-	}
-
 	repo, err := fti.NewRepository(rootPath)
 
 	if err != nil {
@@ -80,7 +81,6 @@ func NewBareProject(rootPath string) (*Project, error) {
 	}
 
 	dsOpts := badger.DefaultOptions
-
 	dsPath := repo.ResolveDbPath("codex", "db")
 
 	if err := os.MkdirAll(dsPath, 0755); err != nil {
@@ -99,12 +99,38 @@ func NewBareProject(rootPath string) (*Project, error) {
 		rootPath: rootPath,
 
 		ds:   ds,
-		fs:   rootFs,
 		repo: repo,
+	}
 
-		fset: token.NewFileSet(),
+	p.fset = token.NewFileSet()
+	p.fileTypeRegistry = filetypes.NewRegistry()
+	p.langRegistry = project.NewRegistry(p)
+	p.vfsManager = vfs.NewManager()
 
-		embedder: cache.NewCachedEmbedder(ds, gpt.GlobalEmbedder),
+	p.embeddingManager, err = cache.NewEmbeddingCacheManager(repo.ResolveDbPath("embedding-cache"))
+
+	if err != nil {
+		return nil, err
+	}
+
+	p.embedder = p.embeddingManager.GetEmbedder(gpt.GlobalEmbedder)
+
+	p.vcsFs, err = repofs.NewFS(rootPath)
+
+	if err != nil {
+		return nil, err
+	}
+
+	p.rootFs, err = p.vfsManager.CreateLocalFS(rootPath, vfs.WithPathFilter(func(p string) bool {
+		if repo.IsIgnored(p) {
+			return false
+		}
+
+		return true
+	}))
+
+	if err != nil {
+		return nil, err
 	}
 
 	return p, nil
@@ -230,8 +256,6 @@ func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
 
 	p.indexManager = graphindex.NewManager(p.indexedGraph, p.repo.ResolveDbPath("codex", "index"))
 
-	p.langRegistry = project.NewRegistry(p)
-
 	p.tm = tasks.NewManager()
 	p.tm.SetParent(p)
 
@@ -241,7 +265,12 @@ func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
 	p.sm = NewSyncManager(p)
 	p.sm.SetParent(p)
 
-	p.rootNode = vfs.NewDirectoryNode(p.fs, p.rootPath, "srcs")
+	p.rootNode, err = p.vfsManager.GetNodeForPath(ctx, p.rootPath)
+
+	if err != nil {
+		return errors.Wrap(err, "failed to get root node")
+	}
+
 	p.rootNode.SetParent(p)
 
 	pathIndex, err := p.indexManager.OpenNodeIndex(ctx, "node-by-path", &graphindex.AnchoredEmbedder{
@@ -303,7 +332,7 @@ func (p *Project) bootstrap(ctx context.Context) error {
 }
 
 func (p *Project) bootstrapLanguage(ctx context.Context, name string) error {
-	factory := project.GetLanguageFactory(psi.LanguageID(name))
+	factory := project.GetLanguageFactory(langs.LanguageID(name))
 
 	if factory == nil {
 		return errors.Errorf("language %s not found", name)
@@ -315,7 +344,7 @@ func (p *Project) bootstrapLanguage(ctx context.Context, name string) error {
 }
 
 func (p *Project) bootstrapModule(ctx context.Context, mod project.ModuleConfig) error {
-	lang := p.langRegistry.GetLanguage(psi.LanguageID(mod.Language))
+	lang := p.langRegistry.GetLanguage(langs.LanguageID(mod.Language))
 
 	if lang == nil {
 		return errors.Errorf("language %s not configured", mod.Language)
@@ -367,9 +396,9 @@ func (p *Project) IndexManager() *graphindex.Manager { return p.indexManager }
 func (p *Project) RootPath() string   { return p.rootPath }
 func (p *Project) RootNode() psi.Node { return p.rootNode }
 
-// FS returns the file system interface of the project.
+// VcsFileSystem returns the file system interface of the project.
 // It provides methods for managing the project's files and directories.
-func (p *Project) FS() repofs.FS { return p.fs }
+func (p *Project) VcsFileSystem() repofs.FS { return p.vcsFs }
 
 func (p *Project) Graph() *graphstore.IndexedGraph     { return p.indexedGraph }
 func (p *Project) LanguageProvider() *project.Registry { return p.langRegistry }
@@ -391,7 +420,7 @@ func (p *Project) Sync(ctx context.Context) error {
 
 // GetSourceFile retrieves the source file with the given filename from the project.
 // It returns a pointer to the psi.SourceFile and any error that occurred during the process.
-func (p *Project) GetSourceFile(ctx context.Context, filename string) (_ psi.SourceFile, err error) {
+func (p *Project) GetSourceFile(ctx context.Context, filename string) (_ langs.SourceFile, err error) {
 	relPath, err := filepath.Rel(p.rootPath, filename)
 
 	if err != nil {
@@ -419,7 +448,7 @@ func (p *Project) GetSourceFile(ctx context.Context, filename string) (_ psi.Sou
 		}
 
 		existing = lang.CreateSourceFile(ctx, filename, &repofs.FsFileHandle{
-			FS:   p.fs,
+			FS:   p.vcsFs,
 			Path: strings.TrimPrefix(filename, p.rootPath+"/"),
 		})
 
@@ -445,13 +474,20 @@ func (p *Project) Reindex() error {
 }
 
 func (p *Project) Shutdown(ctx context.Context) error {
-	time.Sleep(5 * time.Second)
 	if err := p.indexManager.Close(); err != nil {
 		return errors.Wrap(err, "failed to close index manager")
 	}
 
 	if err := p.indexedGraph.Shutdown(ctx); err != nil {
 		return errors.Wrap(err, "failed to close graph")
+	}
+
+	if err := p.vfsManager.Shutdown(ctx); err != nil {
+		return errors.Wrap(err, "failed to close vfs manager")
+	}
+
+	if err := p.embeddingManager.Close(); err != nil {
+		return errors.Wrap(err, "failed to close embedding manager")
 	}
 
 	return p.ds.Close()

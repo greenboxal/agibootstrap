@@ -26,15 +26,15 @@ func (a *AnchoredEmbedder) Dimensions() int {
 		return 8
 	}
 
-	return a.Base.Dimensions() + 8
+	return a.Base.Dimensions() + 5
 }
 
 func (a *AnchoredEmbedder) EmbeddingsForNode(ctx context.Context, n psi.Node) (GraphEmbeddingIterator, error) {
 	baseEmbedding := GraphEmbedding{}
-	//baseEmbedding.Depth = n.CanonicalPath().Depth()
-	//baseEmbedding.TreeDistance = a.calculateTreeDistance(a.Anchor, n)
-	//baseEmbedding.ReferenceDistance = a.calculateReferenceDistance(a.Anchor, n)
-	//baseEmbedding.Time = a.calculateTimeMetric(a.Anchor, n)
+	baseEmbedding.Depth = n.CanonicalPath().Depth()
+	baseEmbedding.TreeDistance = a.calculateTreeDistance(a.Anchor, n)
+	baseEmbedding.ReferenceDistance = a.calculateReferenceDistance(a.Anchor, n)
+	baseEmbedding.Time = a.calculateTimeMetric(a.Anchor, n)
 
 	buffer := bytes.NewBuffer(nil)
 

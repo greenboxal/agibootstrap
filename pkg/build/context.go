@@ -89,7 +89,7 @@ func (bctx *Context) runBuild(ctx context.Context) error {
 		}
 
 		// Stage all the totalChanges in the file system
-		if err := bctx.project.FS().StageAll(); err != nil {
+		if err := bctx.project.VcsFileSystem().StageAll(); err != nil {
 			return err
 		}
 
@@ -112,7 +112,7 @@ func (bctx *Context) runBuild(ctx context.Context) error {
 	}
 
 	// Push the totalChanges to the remote repository
-	if err := bctx.project.FS().Push(); err != nil {
+	if err := bctx.project.VcsFileSystem().Push(); err != nil {
 		return err
 	}
 

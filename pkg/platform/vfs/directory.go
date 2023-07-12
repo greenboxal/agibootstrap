@@ -1,6 +1,7 @@
 package vfs
 
 import (
+	"context"
 	"io/fs"
 	"path"
 	"path/filepath"
@@ -22,7 +23,7 @@ var DirectoryType = psi.DefineNodeType[*Directory](psi.WithRuntimeOnly())
 
 // NewDirectoryNode creates a new DirectoryNode with the specified path.
 // The key of the DirectoryNode is set to the lowercase version of the path.
-func NewDirectoryNode(fs FS, path string, name string) *Directory {
+func newDirectoryNode(fs *fileSystem, path string, name string) *Directory {
 	dn := &Directory{}
 
 	if name == "" {
@@ -77,9 +78,9 @@ func (dn *Directory) Sync(filterFn func(path string) bool) error {
 
 		if n == nil {
 			if file.IsDir() {
-				n = NewDirectoryNode(dn.fs, fullPath, file.Name())
+				n = newDirectoryNode(dn.fs, fullPath, file.Name())
 			} else {
-				n = NewFileNode(dn.fs, fullPath)
+				n = newFileNode(dn.fs, fullPath)
 			}
 
 			n.SetParent(dn)
@@ -105,12 +106,14 @@ func (dn *Directory) Sync(filterFn func(path string) bool) error {
 	return nil
 }
 
-func (dn *Directory) onWatchEvent(ev fsnotify.Event) error {
+func (dn *Directory) onWatchEvent(ctx context.Context, ev fsnotify.Event) error {
 	if ev.Has(fsnotify.Remove) {
 		dn.SetParent(nil)
+	} else {
+		if err := dn.Sync(nil); err != nil {
+			return err
+		}
 	}
 
-	dn.Invalidate()
-
-	return nil
+	return dn.Update(ctx)
 }

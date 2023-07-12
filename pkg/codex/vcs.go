@@ -11,7 +11,7 @@ import (
 // and then performs the commit. If there are no changes, it returns nil.
 // It returns an error if any occurs during the commit process.
 func (p *Project) Commit() error {
-	isDirty, err := p.fs.IsDirty()
+	isDirty, err := p.vcsFs.IsDirty()
 
 	if err != nil {
 		return err
@@ -21,7 +21,7 @@ func (p *Project) Commit() error {
 		return nil
 	}
 
-	diff, err := p.fs.GetStagedChanges()
+	diff, err := p.vcsFs.GetStagedChanges()
 
 	if err != nil {
 		return err
@@ -33,7 +33,7 @@ func (p *Project) Commit() error {
 		return err
 	}
 
-	commitId, err := p.fs.Commit(commitMessage)
+	commitId, err := p.vcsFs.Commit(commitMessage)
 
 	if err != nil {
 		return err
