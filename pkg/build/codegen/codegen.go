@@ -11,7 +11,6 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
@@ -32,7 +31,7 @@ func (bs *BuildStep) Process(ctx context.Context, bctx *build.Context) (result b
 				cursor.WalkChildren()
 
 			case *vfs.File:
-				filePath := n.Path()
+				filePath := n.GetPath()
 				lang := langRegistry.ResolveExtension(filePath)
 
 				if lang == nil {
@@ -99,7 +98,7 @@ func (bs *BuildStep) processFile(ctx context.Context, bctx *build.Context, fsPat
 }
 
 // ProcessNode processes the given node and returns the updated node.
-func (bs *BuildStep) ProcessNode(ctx context.Context, bctx *build.Context, sf langs.SourceFile, root psi.Node, opts ...NodeProcessorOption) (psi.Node, error) {
+func (bs *BuildStep) ProcessNode(ctx context.Context, bctx *build.Context, sf project.SourceFile, root psi.Node, opts ...NodeProcessorOption) (psi.Node, error) {
 	processor := &NodeProcessor{
 		Project:    bctx.Project(),
 		SourceFile: sf,

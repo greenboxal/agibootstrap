@@ -29,7 +29,7 @@ func (s *BuildStep) Process(ctx context.Context, bctx *build.Context) (result bu
 				cursor.WalkChildren()
 
 			case *vfs.File:
-				if !strings.HasSuffix(n.Path(), ".go") {
+				if !strings.HasSuffix(n.GetPath(), ".go") {
 					break
 				}
 
@@ -42,7 +42,7 @@ func (s *BuildStep) Process(ctx context.Context, bctx *build.Context) (result bu
 					Fragment:   false,
 				}
 
-				sf, err := bctx.Project().GetSourceFile(ctx, n.Path())
+				sf, err := bctx.Project().GetSourceFile(ctx, n.GetPath())
 
 				if err != nil {
 					return err
@@ -54,7 +54,7 @@ func (s *BuildStep) Process(ctx context.Context, bctx *build.Context) (result bu
 					return err
 				}
 
-				newCode, err := imports.Process(n.Path(), []byte(code.Code), opt)
+				newCode, err := imports.Process(n.GetPath(), []byte(code.Code), opt)
 
 				if err != nil {
 					return err

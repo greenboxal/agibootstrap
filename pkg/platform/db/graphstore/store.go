@@ -215,6 +215,10 @@ func (s *Store) FreezeEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge,
 		return nil, nil, err
 	}
 
+	if edge == nil || edge.From() == nil {
+		panic("wtf")
+	}
+
 	fe := &psi.FrozenEdge{
 		Data:     dataLink.(cidlink.Link),
 		Key:      edge.Key().GetKey(),

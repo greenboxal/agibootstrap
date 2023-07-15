@@ -1,6 +1,8 @@
 package rendering
 
 import (
+	"reflect"
+
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
@@ -56,9 +58,56 @@ type SkinKey struct {
 	SkinName    string
 }
 
+type SkinKeyPattern struct {
+	NodeType    *psi.NodeType
+	ContentType *string
+	SkinName    *string
+	Renderer    SkinRenderer
+
+	NodeFilterFn func(node psi.Node, contentType, skinName string) bool
+}
+
+func (skp SkinKeyPattern) MatchKey(key SkinKey) bool {
+	if skp.NodeType != nil && *skp.NodeType != key.NodeType {
+		return false
+	}
+
+	if skp.ContentType != nil && *skp.ContentType != key.ContentType {
+		return false
+	}
+
+	if skp.SkinName != nil && *skp.SkinName != key.SkinName {
+		return false
+	}
+
+	return true
+}
+
+func (skp SkinKeyPattern) MatchNode(n psi.Node, contentType, skinName string) bool {
+	if skp.NodeType != nil && *skp.NodeType != n.PsiNodeType() {
+		return false
+	}
+
+	if skp.ContentType != nil && *skp.ContentType != contentType {
+		return false
+	}
+
+	if skp.SkinName != nil && *skp.SkinName != skinName {
+		return false
+	}
+
+	if skp.NodeFilterFn != nil && !skp.NodeFilterFn(n, contentType, skinName) {
+		return false
+	}
+
+	return true
+}
+
 type ThemeBase struct {
 	Parent Theme
-	Skins  map[SkinKey]SkinRenderer
+
+	Skins    map[SkinKey]SkinRenderer
+	Patterns []SkinKeyPattern
 }
 
 func (t *ThemeBase) lookup(contentType, skinName string, node psi.Node) SkinRenderer {
@@ -76,6 +125,12 @@ func (t *ThemeBase) SkinForNode(contentType, skinName string, node psi.Node) Ski
 
 	if skin != nil {
 		return skin
+	}
+
+	for _, pattern := range t.Patterns {
+		if pattern.MatchNode(node, contentType, skinName) {
+			return pattern.Renderer
+		}
 	}
 
 	if t.Parent != nil {
@@ -108,14 +163,74 @@ func WithSkinFunc[T psi.Node](nodeType psi.TypedNodeType[T], contentType, skinNa
 		SkinName:    skinName,
 	}
 
-	return func(theme *ThemeBase) {
-		theme.Skins[key] = &SkinBase[T]{
-			Name:        skinName,
-			ContentType: contentType,
-			RenderFn:    skin,
-			NodeType:    nodeType,
-		}
+	sb := &SkinBase[T]{
+		Name:        skinName,
+		ContentType: contentType,
+		RenderFn:    skin,
+		NodeType:    nodeType,
 	}
+
+	return func(theme *ThemeBase) {
+		theme.Skins[key] = sb
+	}
+}
+
+func WithSuperclassSkinFunc[Super psi.Node](contentType, skinName string, skin SkinFunc[Super]) ThemeOption {
+	superTyp := reflect.TypeOf((*Super)(nil)).Elem()
+
+	sb := &SkinBase[Super]{
+		Name:        skinName,
+		ContentType: contentType,
+		RenderFn:    skin,
+	}
+
+	return WithSkinPattern(SkinKeyPattern{
+		ContentType: &contentType,
+		SkinName:    &skinName,
+		Renderer:    sb,
+
+		NodeFilterFn: func(node psi.Node, contentType, skinName string) bool {
+			return reflect.ValueOf(node).Type().AssignableTo(superTyp)
+		},
+	})
+}
+
+func WithSkinPattern(pattern SkinKeyPattern) ThemeOption {
+	return func(theme *ThemeBase) {
+		theme.Patterns = append(theme.Patterns, pattern)
+	}
+}
+
+func WithSkinPatternFunc[T psi.Node](nodeType *psi.TypedNodeType[T], contentType, skinName *string, skin SkinFunc[T]) ThemeOption {
+	key := SkinKeyPattern{
+		ContentType: contentType,
+		SkinName:    skinName,
+	}
+
+	if nodeType != nil {
+		nt := psi.NodeType(*nodeType)
+		key.NodeType = &nt
+	}
+
+	sb := &SkinBase[T]{
+		RenderFn: skin,
+	}
+
+	if contentType != nil {
+		sb.ContentType = *contentType
+	}
+
+	if skinName != nil {
+		sb.Name = *skinName
+	}
+
+	if key.NodeType != nil {
+		sb.NodeType = *key.NodeType
+	}
+
+	key.Renderer = sb
+
+	return WithSkinPattern(key)
 }
 
 func InheritTheme(parent Theme) ThemeOption {

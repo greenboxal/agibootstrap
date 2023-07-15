@@ -6,16 +6,17 @@ import (
 	"go/parser"
 	"go/token"
 	"io"
+	"reflect"
 
 	"github.com/dave/dst"
 	"github.com/dave/dst/decorator"
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/analysis"
-	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
@@ -31,7 +32,7 @@ type SourceFile struct {
 	fset *token.FileSet
 	dec  *decorator.Decorator
 
-	root   psi.Node
+	root   Node
 	parsed *dst.File
 	err    error
 
@@ -60,7 +61,7 @@ func NewSourceFile(l *Language, name string, handle repofs.FileHandle) *SourceFi
 }
 
 func (sf *SourceFile) Name() string                    { return sf.name }
-func (sf *SourceFile) Language() langs.Language        { return sf.l }
+func (sf *SourceFile) Language() project.Language      { return sf.l }
 func (sf *SourceFile) Decorator() *decorator.Decorator { return sf.dec }
 func (sf *SourceFile) Path() string                    { return sf.name }
 func (sf *SourceFile) FileSet() *token.FileSet         { return sf.fset }
@@ -112,7 +113,7 @@ func (sf *SourceFile) SetRoot(ctx context.Context, node *dst.File) error {
 	sf.root = AstToPsi(sf.scope, sf.parsed)
 	sf.root.SetParent(sf)
 
-	return sf.OnUpdate(ctx)
+	return sf.Update(ctx)
 }
 
 func (sf *SourceFile) Parse(ctx context.Context, filename string, sourceCode string) (result psi.Node, err error) {
@@ -152,6 +153,35 @@ func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
 	var buf bytes.Buffer
 
 	n := node.(Node).Ast()
+
+	f := sf.root.Ast().(*dst.File)
+
+	fset, root, err := decorator.RestoreFile(f)
+
+	if err != nil {
+		return mdutils.CodeBlock{}, err
+	}
+
+	targetNode := root
+
+	rel, err := node.CanonicalPath().RelativeTo(sf.root.CanonicalPath())
+
+	if err != nil {
+		panic(err)
+	}
+
+	for _, key := range rel.Components() {
+		if key.Kind != GoAstSlotEdge.Kind() {
+			panic("invalid path")
+		}
+
+		v := reflect.ValueOf(targetNode)
+
+	}
+
+	start := fset.Position(root.Pos()).Offset
+	end := fset.Position(root.End()).Offset
+
 	f, ok := n.(*dst.File)
 
 	if !ok {
@@ -223,7 +253,7 @@ func (sf *SourceFile) ToCode(node psi.Node) (mdutils.CodeBlock, error) {
 // 4. If the declaration matches, replace the current declaration at the cursor position with the new declaration by calling the ReplaceDeclarationAt function.
 // 5. If the declaration doesn't match, merge the new declaration with the existing declarations by calling the MergeDeclarations function.
 // 6. Return nil, indicating that there were no errors during the merging process.
-func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope langs.Scope, cursor psi.Cursor, newSource langs.SourceFile, newAst psi.Node) error {
+func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope project.Scope, cursor psi.Cursor, newSource project.SourceFile, newAst psi.Node) error {
 	MergeFiles(sf.root.(Node).Ast().(*dst.File), newAst.(Node).Ast().(*dst.File))
 
 	scopeRootFn, hasScopeRootFn := scope.Root().(Node).Ast().(*dst.FuncDecl)

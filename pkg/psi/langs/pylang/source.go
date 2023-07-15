@@ -11,7 +11,7 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/tokenizers"
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
+	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi/langs/pylang/pyparser"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 
@@ -51,12 +51,12 @@ func NewSourceFile(l *Language, name string, handle repofs.FileHandle) *SourceFi
 	return sf
 }
 
-func (sf *SourceFile) Name() string             { return sf.name }
-func (sf *SourceFile) Language() langs.Language { return sf.l }
-func (sf *SourceFile) Path() string             { return sf.name }
-func (sf *SourceFile) OriginalText() string     { return sf.original }
-func (sf *SourceFile) Root() psi.Node           { return sf.root }
-func (sf *SourceFile) Error() error             { return sf.err }
+func (sf *SourceFile) Name() string               { return sf.name }
+func (sf *SourceFile) Language() project.Language { return sf.l }
+func (sf *SourceFile) Path() string               { return sf.name }
+func (sf *SourceFile) OriginalText() string       { return sf.original }
+func (sf *SourceFile) Root() psi.Node             { return sf.root }
+func (sf *SourceFile) Error() error               { return sf.err }
 
 func (sf *SourceFile) Load(ctx context.Context) error {
 	file, err := sf.handle.Get()
@@ -109,7 +109,7 @@ func (sf *SourceFile) SetRoot(ctx context.Context, node antlr.ParserRuleContext,
 	sf.root = AstToPsi(sf, sf.parsed)
 	sf.root.SetParent(sf)
 
-	return sf.OnUpdate(ctx)
+	return sf.Update(ctx)
 }
 
 func (sf *SourceFile) Parse(ctx context.Context, filename string, sourceCode string) (result psi.Node, err error) {
@@ -233,7 +233,7 @@ func (sf *SourceFile) GetAdjustedTokenInterval(n Node) antlr.Interval {
 	return interval
 }
 
-func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope langs.Scope, cursor psi.Cursor, newSource langs.SourceFile, newAst psi.Node) error {
+func (sf *SourceFile) MergeCompletionResults(ctx context.Context, scope project.Scope, cursor psi.Cursor, newSource project.SourceFile, newAst psi.Node) error {
 
 	return nil
 }

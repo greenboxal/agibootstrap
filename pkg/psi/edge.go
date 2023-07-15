@@ -182,21 +182,21 @@ func (l *LazyEdge) Invalidate() {
 type SimpleEdge struct {
 	EdgeBase
 
-	from Node
-	to   Node
+	from *NodeBase
+	to   *NodeBase
 }
 
 func NewSimpleEdge(key EdgeReference, from Node, to Node) Edge {
 	se := &SimpleEdge{}
 	se.key = key
-	se.from = from
-	se.to = to
+	se.from = from.PsiNodeBase()
+	se.to = to.PsiNodeBase()
 	se.Init(se)
 	return se
 }
 
-func (e *SimpleEdge) From() Node { return e.from }
-func (e *SimpleEdge) To() Node   { return e.to }
+func (e *SimpleEdge) From() Node { return e.from.PsiNode() }
+func (e *SimpleEdge) To() Node   { return e.to.PsiNode() }
 
 func (e *SimpleEdge) ResolveTo(ctx context.Context) (Node, error) { return e.To(), nil }
 

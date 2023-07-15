@@ -14,7 +14,7 @@ import (
 
 // Directory is a directory in the virtual file system.
 type Directory struct {
-	NodeBase
+	NodeBase `ipld:",inline"`
 
 	mu sync.RWMutex
 }
@@ -31,12 +31,16 @@ func newDirectoryNode(fs *fileSystem, path string, name string) *Directory {
 	}
 
 	dn.fs = fs
-	dn.name = name
-	dn.path = path
+	dn.Name = name
+	dn.Path = path
 
-	dn.Init(dn, psi.WithNodeType(DirectoryType))
+	dn.Init(dn)
 
 	return dn
+}
+
+func (dn *Directory) Init(self psi.Node) {
+	dn.NodeBase.Init(self, DirectoryType)
 }
 
 // Sync synchronizes the DirectoryNode with the underlying filesystem.
@@ -46,7 +50,7 @@ func (dn *Directory) Sync(filterFn func(path string) bool) error {
 	dn.mu.Lock()
 	defer dn.mu.Unlock()
 
-	files, err := fs.ReadDir(dn.fs, dn.path)
+	files, err := fs.ReadDir(dn.fs, dn.Path)
 
 	if err != nil {
 		return err
@@ -57,7 +61,7 @@ func (dn *Directory) Sync(filterFn func(path string) bool) error {
 	for _, file := range files {
 		var n Node
 
-		fullPath := path.Join(dn.path, file.Name())
+		fullPath := path.Join(dn.Path, file.Name())
 
 		if filterFn != nil && !filterFn(fullPath) {
 			continue
@@ -70,7 +74,7 @@ func (dn *Directory) Sync(filterFn func(path string) bool) error {
 				continue
 			}
 
-			if child.Path() == fullPath {
+			if child.GetPath() == fullPath {
 				n = child
 				break
 			}
@@ -96,7 +100,7 @@ func (dn *Directory) Sync(filterFn func(path string) bool) error {
 			continue
 		}
 
-		if _, ok := changes[child.Name()]; !ok {
+		if _, ok := changes[child.GetName()]; !ok {
 			child.SetParent(nil)
 
 			continue

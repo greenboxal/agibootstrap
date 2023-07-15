@@ -1,4 +1,4 @@
-package filetypes
+package project
 
 import (
 	"strings"
@@ -9,21 +9,21 @@ import (
 
 var logger = logging.GetLogger("filetypes")
 
-type Registry struct {
+type FileTypeProvider struct {
 	mu sync.RWMutex
 
 	byName      map[string]FileType
 	byExtension map[string]FileType
 }
 
-func NewRegistry() *Registry {
-	return &Registry{
+func NewFileTypeProvider() *FileTypeProvider {
+	return &FileTypeProvider{
 		byName:      make(map[string]FileType),
 		byExtension: map[string]FileType{},
 	}
 }
 
-func (r *Registry) Register(fileType FileType) {
+func (r *FileTypeProvider) Register(fileType FileType) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -42,14 +42,14 @@ func (r *Registry) Register(fileType FileType) {
 	}
 }
 
-func (r *Registry) GetByName(name string) FileType {
+func (r *FileTypeProvider) GetByName(name string) FileType {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	return r.byName[name]
 }
 
-func (r *Registry) GetForPath(fileName string) FileType {
+func (r *FileTypeProvider) GetForPath(fileName string) FileType {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 

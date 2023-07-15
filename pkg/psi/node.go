@@ -279,18 +279,11 @@ func (n *NodeBase) ID() int64 {
 	return 0
 }
 
-func (n *NodeBase) IsContainer() bool  { return true }
-func (n *NodeBase) IsLeaf() bool       { return false }
-func (n *NodeBase) IsValid() bool      { return n.valid }
-func (n *NodeBase) Comments() []string { return nil }
-
-func (n *NodeBase) CanonicalPath() Path {
-	if n.snap != nil {
-		return n.snap.Path()
-	}
-
-	return n.path
-}
+func (n *NodeBase) IsContainer() bool   { return true }
+func (n *NodeBase) IsLeaf() bool        { return false }
+func (n *NodeBase) IsValid() bool       { return n.valid }
+func (n *NodeBase) Comments() []string  { return nil }
+func (n *NodeBase) CanonicalPath() Path { return n.path }
 
 func (n *NodeBase) Parent() Node                                { return n.parent.Value() }
 func (n *NodeBase) ParentProperty() obsfx.ObservableValue[Node] { return &n.parent }
@@ -429,6 +422,10 @@ func (n *NodeBase) InsertChildrenAt(idx int, child Node) {
 		panic("child is nil")
 	}
 
+	if idx > n.children.Len() {
+		idx = n.children.Len()
+	}
+
 	n.children.Remove(child)
 	n.children.InsertAt(idx, child)
 }
@@ -522,7 +519,7 @@ func (n *NodeBase) SetEdge(key EdgeReference, to Node) {
 	e, _ := n.edges.Get(key.GetKey())
 
 	if e == nil {
-		e = NewSimpleEdge(key, n.self, to)
+		e = NewSimpleEdge(key, n, to)
 	} else {
 		if e.To() == to {
 			return
@@ -684,6 +681,10 @@ func (n *NodeBase) updatePath() {
 	}
 
 	n.path = parentPath.Child(self)
+
+	for it := n.children.Iterator(); it.Next(); {
+		it.Item().PsiNodeBase().updatePath()
+	}
 }
 
 func (n *NodeBase) InvalidateTree() {

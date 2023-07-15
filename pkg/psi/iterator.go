@@ -3,15 +3,20 @@ package psi
 import (
 	"gonum.org/v1/gonum/graph"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 )
 
 type NodeIterator interface {
+	iterators.Iterator[Node]
+
 	Value() Node
 	Next() bool
 }
 
 type EdgeIterator interface {
+	iterators.Iterator[Edge]
+
 	Next() bool
 	Value() Edge
 	Edge() Edge

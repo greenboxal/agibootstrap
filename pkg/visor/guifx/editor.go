@@ -10,7 +10,6 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
 )
 
 type Editor interface {
@@ -51,7 +50,7 @@ func GetPsiNodeDescription(v psi.Node) PsiNodeDescription {
 			Icon:        theme.FileIcon(),
 		}
 
-	case langs.SourceFile:
+	case project.SourceFile:
 		return PsiNodeDescription{
 			Name:        fmt.Sprintf("Source File (%s)", v.Language().Name()),
 			Description: v.String(),

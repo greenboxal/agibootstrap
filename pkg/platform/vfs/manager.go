@@ -3,20 +3,37 @@ package vfs
 import (
 	"context"
 	"io/fs"
+	"os"
 	"sync"
+
+	"github.com/ipfs/go-datastore"
+	badger "github.com/ipfs/go-ds-badger"
 )
 
 type Manager struct {
 	fs FileSystem
+	ds datastore.Batching
 
 	mu    sync.RWMutex
 	fsMap map[string]*fileSystem
 }
 
-func NewManager() *Manager {
-	return &Manager{
-		fsMap: map[string]*fileSystem{},
+func NewManager(cachePath string) (*Manager, error) {
+	if err := os.MkdirAll(cachePath, 0755); err != nil {
+		return nil, err
 	}
+
+	opts := badger.DefaultOptions
+	ds, err := badger.NewDatastore(cachePath, &opts)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &Manager{
+		ds:    ds,
+		fsMap: map[string]*fileSystem{},
+	}, nil
 }
 
 func (m *Manager) CreateLocalFS(path string, options ...FileSystemOption) (FileSystem, error) {
@@ -64,7 +81,7 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 		}
 	}
 
-	return nil
+	return m.ds.Close()
 }
 
 func (m *Manager) notifyClose(fs FileSystem) {

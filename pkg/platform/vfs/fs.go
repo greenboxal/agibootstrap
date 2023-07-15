@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type FileSystem interface {
@@ -33,6 +34,8 @@ func WithPathFilter(pathFilter func(string) bool) FileSystemOption {
 }
 
 type fileSystem struct {
+	psi.NodeBase
+
 	logger *zap.SugaredLogger
 
 	root    string
@@ -48,9 +51,15 @@ type fileSystem struct {
 	pathFilter func(string) bool
 }
 
+var FileSystemType = psi.DefineNodeType[*fileSystem](psi.WithRuntimeOnly())
+
+func (bfs *fileSystem) Init(self psi.Node) {
+	bfs.NodeBase.Init(self, psi.WithNodeType(FileSystemType))
+}
+
 func newLocalFS(m *Manager, rootPath string, options ...FileSystemOption) (*fileSystem, error) {
 	if _, err := os.Stat(rootPath); err != nil {
-		return nil, errors.Wrap(err, "invalid root path")
+		return nil, errors.Wrap(err, "invalid root Path")
 	}
 
 	w, err := fsnotify.NewWatcher()
@@ -74,6 +83,8 @@ func newLocalFS(m *Manager, rootPath string, options ...FileSystemOption) (*file
 	for _, option := range options {
 		option(bfs)
 	}
+
+	bfs.Init(bfs)
 
 	bfs.proc = goprocess.Go(bfs.run)
 
@@ -232,6 +243,16 @@ func (bfs *fileSystem) Close() error {
 	bfs.mu.Lock()
 	defer bfs.mu.Unlock()
 
+	if bfs.proc != nil {
+		close(bfs.stopCh)
+
+		if err := bfs.proc.Close(); err != nil {
+			return err
+		}
+
+		bfs.proc = nil
+	}
+
 	if bfs.watcher != nil {
 		if err := bfs.watcher.Close(); err != nil {
 			return err
@@ -287,12 +308,12 @@ func (bfs *fileSystem) addWatch(nb *NodeBase) error {
 	bfs.mu.Lock()
 	defer bfs.mu.Unlock()
 
-	return bfs.watcher.Add(nb.Path())
+	return bfs.watcher.Add(nb.GetPath())
 }
 
 func (bfs *fileSystem) removeWatch(nb *NodeBase) error {
 	bfs.mu.Lock()
 	defer bfs.mu.Unlock()
 
-	return bfs.watcher.Remove(nb.Path())
+	return bfs.watcher.Remove(nb.GetPath())
 }

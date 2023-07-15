@@ -9,11 +9,10 @@ import (
 
 	project2 "github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
-	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
-const LanguageID langs.LanguageID = "markdown"
+const LanguageID project2.LanguageID = "markdown"
 
 func init() {
 	project2.RegisterLanguage(LanguageID, NewLanguage)
@@ -23,13 +22,13 @@ type Language struct {
 	project project2.Project
 }
 
-func NewLanguage(p project2.Project) langs.Language {
+func NewLanguage(p project2.Project) project2.Language {
 	return &Language{
 		project: p,
 	}
 }
 
-func (l *Language) Name() langs.LanguageID {
+func (l *Language) Name() project2.LanguageID {
 	return LanguageID
 }
 
@@ -37,11 +36,11 @@ func (l *Language) Extensions() []string {
 	return []string{".md"}
 }
 
-func (l *Language) CreateSourceFile(ctx context.Context, fileName string, fileHandle repofs.FileHandle) langs.SourceFile {
+func (l *Language) CreateSourceFile(ctx context.Context, fileName string, fileHandle repofs.FileHandle) project2.SourceFile {
 	return NewSourceFile(l, fileName, fileHandle)
 }
 
-func (l *Language) Parse(ctx context.Context, fileName string, code string) (langs.SourceFile, error) {
+func (l *Language) Parse(ctx context.Context, fileName string, code string) (project2.SourceFile, error) {
 	f := l.CreateSourceFile(ctx, fileName, &BufferFileHandle{data: code})
 
 	if err := f.Load(ctx); err != nil {
@@ -51,7 +50,7 @@ func (l *Language) Parse(ctx context.Context, fileName string, code string) (lan
 	return f, nil
 }
 
-func (l *Language) ParseCodeBlock(ctx context.Context, blockName string, block mdutils.CodeBlock) (langs.SourceFile, error) {
+func (l *Language) ParseCodeBlock(ctx context.Context, blockName string, block mdutils.CodeBlock) (project2.SourceFile, error) {
 	return l.Parse(ctx, blockName, block.Code)
 }
 

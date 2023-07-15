@@ -252,6 +252,56 @@ func (p Path) IsAncestorOf(child Path) bool {
 	return true
 }
 
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) ForEachElement(f func(pe PathElement)) {
+	for _, component := range p.components {
+		f(component)
+	}
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) ForEachNode(f func(pe Path)) {
+	for i := range p.components {
+		f(p.Slice(0, i+1))
+	}
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (p Path) Slice(first int, last int) Path {
+	if last == -1 {
+		last = len(p.components)
+	}
+
+	if first == 0 && last == len(p.components) {
+		return p
+	}
+
+	if first < 0 {
+		panic("first must be >= 0")
+	}
+
+	if last < 0 {
+		panic("last must be >= 0")
+	}
+
+	if first > last {
+		panic("first must be <= last")
+	}
+
+	root := ""
+	relative := p.relative || first > 0
+
+	if !p.relative && first == 0 {
+		root = p.root
+	}
+
+	return PathFromElements(root, relative, p.components[first:last]...)
+}
+
+func (p Path) Len() int {
+	return len(p.components)
+}
+
 // PathElement is a string of the form:
 //
 //	:<kind>#<name>@<index>

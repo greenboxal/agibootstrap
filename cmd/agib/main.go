@@ -13,12 +13,13 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/build/codegen"
 	"github.com/greenboxal/agibootstrap/pkg/build/fiximports"
 	"github.com/greenboxal/agibootstrap/pkg/codex"
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/visor"
 	"github.com/greenboxal/agibootstrap/pkg/visor/chatui"
 
 	// Register languages
 	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/clang"
-	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/golang"
+	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/golang/v2"
 	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/mdlang"
 	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/pylang"
 )
@@ -147,6 +148,7 @@ func main() {
 		Use:   "analyze [path]",
 		Short: "Analyze a specific file or directory",
 		Long:  "This command analyzes a specific file or directory.",
+		Args:  cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 
@@ -154,7 +156,7 @@ func main() {
 				return err
 			}
 
-			/*targetPath := project.CanonicalPath()
+			targetPath := project.CanonicalPath()
 
 			if len(args) > 0 {
 				p, err := psi.ParsePath(args[0])
@@ -164,9 +166,15 @@ func main() {
 				}
 
 				targetPath = p
-			}*/
+			}
 
-			return project.Reindex()
+			targetRoot, err := project.Graph().ResolveNode(cmd.Context(), targetPath)
+
+			if err != nil {
+				return err
+			}
+
+			return project.AnalysisManager().Analyze(cmd.Context(), targetRoot)
 		},
 	}
 

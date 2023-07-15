@@ -9,20 +9,24 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/ipld/go-ipld-prime"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type File struct {
-	NodeBase
+	NodeBase `ipld:",inline"`
 
 	mu sync.Mutex
 
 	lastStat   fs.FileInfo
 	lastSyncAt time.Time
 
-	isCached bool
+	isCached        bool
+	cachedTimestamp time.Time
+	cachedLink      ipld.Link
+
 	openRefs int
 }
 
@@ -32,12 +36,16 @@ func newFileNode(fs *fileSystem, path string) *File {
 	fn := &File{}
 
 	fn.fs = fs
-	fn.name = filepath.Base(path)
-	fn.path = path
+	fn.Name = filepath.Base(path)
+	fn.Path = path
 
-	fn.Init(fn, psi.WithNodeType(FileType))
+	fn.Init(fn)
 
 	return fn
+}
+
+func (f *File) Init(self psi.Node) {
+	f.NodeBase.Init(self, FileType)
 }
 
 func (f *File) Open() (repofs.FileHandle, error) {
@@ -45,6 +53,11 @@ func (f *File) Open() (repofs.FileHandle, error) {
 	defer f.mu.Unlock()
 
 	f.openRefs++
+
+	if !f.isCached {
+		f.isCached = true
+		f.updateCache()
+	}
 
 	fh := &fileHandle{file: f}
 
@@ -55,18 +68,19 @@ func (f *File) Sync() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	stat, err := fs.Stat(f.fs, f.path)
+	stat, err := fs.Stat(f.fs, f.Path)
 
 	if err != nil {
 		return err
 	}
 
-	if f.lastStat.ModTime() != stat.ModTime() {
-		f.onChanged()
-	}
-
+	previousStat := f.lastStat
 	f.lastStat = stat
 	f.lastSyncAt = time.Now()
+
+	if stat.ModTime() != previousStat.ModTime() {
+		f.updateCache()
+	}
 
 	return nil
 }
@@ -94,7 +108,10 @@ func (f *File) notifyClose(fh *fileHandle) {
 	}
 }
 
-func (f *File) onChanged() {
+func (f *File) updateCache() {
+	if !f.isCached {
+		return
+	}
 }
 
 type fileHandle struct {
@@ -104,11 +121,11 @@ type fileHandle struct {
 }
 
 func (fh *fileHandle) Get() (io.ReadCloser, error) {
-	return fh.file.fs.Open(fh.file.path)
+	return fh.file.fs.Open(fh.file.Path)
 }
 
 func (fh *fileHandle) Put(src io.Reader) error {
-	return fh.file.fs.WriteFile(fh.file.path, src)
+	return fh.file.fs.WriteFile(fh.file.Path, src)
 }
 
 func (fh *fileHandle) Close() error {

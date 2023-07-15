@@ -44,6 +44,7 @@ type IndexedGraph struct {
 
 	proc            goprocess.Process
 	nodeUpdateQueue chan nodeUpdateRequest
+	closeCh         chan struct{}
 
 	listeners []*listenerSlot
 }
@@ -69,7 +70,8 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.UniqueNode)
 
 		nodeIdMap: map[psi.NodeID]*cachedNode{},
 
-		nodeUpdateQueue: make(chan nodeUpdateRequest, 256),
+		closeCh:         make(chan struct{}),
+		nodeUpdateQueue: make(chan nodeUpdateRequest, 8192),
 	}
 
 	g.Add(root)
@@ -190,8 +192,12 @@ func (g *IndexedGraph) Add(n psi.Node) {
 
 	entry := g.getCacheEntry(n.CanonicalPath(), true)
 
-	if err := entry.updateNode(n); err != nil {
-		panic(err)
+	if entry.node == nil {
+		if err := entry.updateNode(n); err != nil {
+			panic(err)
+		}
+	} else if entry.node != n {
+		panic(fmt.Errorf("node already exists in graph: %s", n.CanonicalPath()))
 	}
 
 	n.PsiNodeBase().AttachToGraph(g)
@@ -216,21 +222,9 @@ func (g *IndexedGraph) UnsetEdge(self psi.Edge) {
 }
 
 func (g *IndexedGraph) RefreshNode(ctx context.Context, n psi.Node) error {
+	g.Add(n)
+
 	entry := g.getCacheEntry(n.CanonicalPath(), true)
-
-	if entry.node == nil {
-		if err := entry.updateNode(n); err != nil {
-			return err
-		}
-	} else if entry.node != n {
-		return fmt.Errorf("node already exists in graph: %s", n.CanonicalPath())
-	}
-
-	if entry.frozen == nil {
-		if err := entry.Preload(ctx); err != nil {
-			return err
-		}
-	}
 
 	return entry.Refresh(ctx)
 }
@@ -246,11 +240,9 @@ func (g *IndexedGraph) LoadNode(ctx context.Context, fn *psi.FrozenNode) (psi.No
 }
 
 func (g *IndexedGraph) CommitNode(ctx context.Context, node psi.Node) (ipld.Link, error) {
-	entry := g.getCacheEntry(node.CanonicalPath(), true)
+	g.Add(node)
 
-	if err := entry.updateNode(node); err != nil {
-		return nil, err
-	}
+	entry := g.getCacheEntry(node.CanonicalPath(), true)
 
 	if err := entry.Commit(ctx, nil); err != nil {
 		return nil, err
@@ -381,6 +373,8 @@ func (g *IndexedGraph) run(proc goprocess.Process) {
 				if err := listener.proc.Close(); err != nil {
 					g.logger.Error(err)
 				}
+
+				wg.Done()
 			}(listener)
 		}
 
@@ -399,6 +393,19 @@ func (g *IndexedGraph) run(proc goprocess.Process) {
 		select {
 		case <-ctx.Done():
 			return
+
+		case <-g.closeCh:
+			for {
+				select {
+				case item := <-g.nodeUpdateQueue:
+					if err := g.processQueueItem(ctx, item); err != nil {
+						g.logger.Error(err)
+					}
+
+				default:
+					return
+				}
+			}
 
 		case item := <-g.nodeUpdateQueue:
 			if err := g.processQueueItem(ctx, item); err != nil {
@@ -541,6 +548,11 @@ func (g *IndexedGraph) RemoveListener(l IndexedGraphListener) {
 }
 
 func (g *IndexedGraph) Shutdown(ctx context.Context) error {
+	if g.closeCh != nil {
+		close(g.closeCh)
+		g.closeCh = nil
+	}
+
 	if err := g.Commit(ctx); err != nil {
 		return err
 	}
@@ -568,6 +580,10 @@ func (g *IndexedGraph) notifyNodeUpdated(ctx context.Context, node psi.Node) {
 }
 
 func (g *IndexedGraph) dispatchListeners(node psi.Node) {
+	if node == nil {
+		return
+	}
+
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 

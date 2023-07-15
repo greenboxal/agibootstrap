@@ -13,8 +13,8 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/greenboxal/agibootstrap/pkg/codex"
+	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
 )
 
 type BuildError struct {
@@ -63,7 +63,7 @@ func (s *FixBuildStep) Process(ctx context.Context, p *codex.Project) (result co
 // The 'prepareObjective' function is responsible for generating a string that describes what needs to be done to fix a build error.
 // The expected input parameters are the psi.SourceFile 'sf' and pointer to the BuildError 'buildError' that needs to be fixed.
 // The expected output parameter is an error, which is nil if the process finishes successfully.
-func (s *FixBuildStep) ProcessFix(ctx context.Context, p *codex.Project, sf langs.SourceFile, buildError *BuildError) error {
+func (s *FixBuildStep) ProcessFix(ctx context.Context, p *codex.Project, sf project.SourceFile, buildError *BuildError) error {
 	fmt.Printf("Fixing build error: %s\n", buildError.String())
 
 	updated, err := p.ProcessNodes(ctx, sf, func(p *NodeProcessor) {

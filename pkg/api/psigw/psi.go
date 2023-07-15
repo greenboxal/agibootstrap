@@ -103,11 +103,17 @@ func (gw *Gateway) handlePsiDbGet(
 			} else {
 				t := table.NewWriter()
 				t.SetOutputMirror(writer)
-				t.AppendHeader(table.Row{"Ino", "Name", "Path", "Link"})
+				t.AppendHeader(table.Row{"Ino", "Name", "Type", "Path", "Link"})
 				for edges.Next() {
 					e := edges.Value()
+					cn, err := gw.graph.ResolveEdge(ctx, e)
 
-					t.AppendRow([]interface{}{e.ToIndex, e.Key, e.ToPath, e.ToLink})
+					if err != nil {
+						logger.Warn(err)
+						continue
+					}
+
+					t.AppendRow([]interface{}{e.ToIndex, e.Key, cn.PsiNodeType(), cn.CanonicalPath(), e.ToLink})
 				}
 				t.AppendSeparator()
 				t.Render()
@@ -124,14 +130,32 @@ func (gw *Gateway) handlePsiDbGet(
 			}
 
 			edgeList := iterators.ToSlice(edges)
+			edgeDescriptions := make([]EdgeDescription, len(edgeList))
+
+			for i, e := range edgeList {
+				cn, err := gw.graph.ResolveEdge(ctx, e)
+
+				if err != nil {
+					logger.Warn(err)
+					continue
+				}
+
+				edgeDescriptions[i] = EdgeDescription{
+					Ino:      e.ToIndex,
+					Key:      e.Key,
+					ToPath:   cn.CanonicalPath(),
+					ToLink:   e.ToLink,
+					NodeType: cn.PsiNodeType().Name(),
+				}
+			}
 
 			return nodeEdgeListTemplate.Execute(writer, struct {
 				CurrentPath psi.Path
 				Node        psi.Node
-				Edges       []*psi.FrozenEdge
+				Edges       []EdgeDescription
 			}{
 				CurrentPath: path,
-				Edges:       edgeList,
+				Edges:       edgeDescriptions,
 				Node:        n,
 			})
 		},

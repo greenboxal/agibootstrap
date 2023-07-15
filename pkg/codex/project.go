@@ -26,16 +26,14 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
-	"github.com/greenboxal/agibootstrap/pkg/platform/project/filetypes"
 	tasks "github.com/greenboxal/agibootstrap/pkg/platform/tasks"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/analysis"
-	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
 )
 
-const SourceFileEdge psi.TypedEdgeKind[langs.SourceFile] = "SourceFile"
+const SourceFileEdge psi.TypedEdgeKind[project.SourceFile] = "SourceFile"
 
 type Project struct {
 	psi.NodeBase
@@ -57,13 +55,14 @@ type Project struct {
 	rootFs     vfs.FileSystem
 	vcsFs      repofs.FS
 
-	fileTypeRegistry *filetypes.Registry
-	langRegistry     *project.Registry
+	fileTypeRegistry *project.FileTypeProvider
+	langRegistry     *project.LanguageProvider
 
-	repo *fti.Repository
-	tm   *tasks.Manager
-	lm   *thoughtdb.Repo
-	sm   *SyncManager
+	repo            *fti.Repository
+	thoughtRepo     *thoughtdb.Repo
+	taskManager     *tasks.Manager
+	syncManager     *SyncManager
+	analysisManager *AnalysisManager
 
 	rootPath string
 	rootNode vfs.Node
@@ -103,9 +102,15 @@ func NewBareProject(rootPath string) (*Project, error) {
 	}
 
 	p.fset = token.NewFileSet()
-	p.fileTypeRegistry = filetypes.NewRegistry()
-	p.langRegistry = project.NewRegistry(p)
-	p.vfsManager = vfs.NewManager()
+	p.fileTypeRegistry = project.NewFileTypeProvider()
+	p.langRegistry = project.NewLanguageProvider(p)
+	p.analysisManager = NewAnalysisManager(p)
+
+	p.vfsManager, err = vfs.NewManager(repo.ResolveDbPath("vfs-cache"))
+
+	if err != nil {
+		return nil, err
+	}
 
 	p.embeddingManager, err = cache.NewEmbeddingCacheManager(repo.ResolveDbPath("embedding-cache"))
 
@@ -157,10 +162,6 @@ func (p *Project) Init(self psi.Node, projectUuid string) {
 	p.uuid = projectUuid
 
 	p.NodeBase.Init(self, psi.WithNodeType(ProjectType))
-
-	scope := analysis.NewScope(p)
-	scope.SetParent(p)
-	analysis.SetNodeScope(p, scope)
 }
 
 func (p *Project) IsProjectValid(ctx context.Context) (bool, error) {
@@ -225,7 +226,7 @@ func (p *Project) Load(ctx context.Context) error {
 	}
 
 	if len(projectUuid) == 0 {
-		return errors.Wrap(err, "project uuid not found")
+		return p.Create(ctx)
 	}
 
 	if err := p.Initialize(ctx, string(projectUuid)); err != nil {
@@ -256,14 +257,17 @@ func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
 
 	p.indexManager = graphindex.NewManager(p.indexedGraph, p.repo.ResolveDbPath("codex", "index"))
 
-	p.tm = tasks.NewManager()
-	p.tm.SetParent(p)
+	p.taskManager = tasks.NewManager()
+	p.taskManager.SetParent(p)
+	p.indexedGraph.Add(p.taskManager)
 
-	p.lm = thoughtdb.NewRepo(p.indexedGraph)
-	p.lm.SetParent(p)
+	p.thoughtRepo = thoughtdb.NewRepo(p.indexedGraph)
+	p.thoughtRepo.SetParent(p)
+	p.indexedGraph.Add(p.thoughtRepo)
 
-	p.sm = NewSyncManager(p)
-	p.sm.SetParent(p)
+	p.syncManager = NewSyncManager(p)
+	p.syncManager.SetParent(p)
+	p.indexedGraph.Add(p.syncManager)
 
 	p.rootNode, err = p.vfsManager.GetNodeForPath(ctx, p.rootPath)
 
@@ -272,6 +276,7 @@ func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
 	}
 
 	p.rootNode.SetParent(p)
+	p.indexedGraph.Add(p.rootNode)
 
 	pathIndex, err := p.indexManager.OpenNodeIndex(ctx, "node-by-path", &graphindex.AnchoredEmbedder{
 		Base:    p.embedder,
@@ -285,6 +290,13 @@ func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
 	}
 
 	p.indexedGraph.AddListener(graphstore.IndexedGraphListenerFunc(func(node psi.Node) {
+		switch node.(type) {
+		case project.AstNode:
+			if analysis.GetDirectNodeScope(node) == nil {
+				return
+			}
+		}
+
 		if err := pathIndex.IndexNode(context.Background(), node); err != nil {
 			p.logger.Error(err)
 		}
@@ -294,7 +306,7 @@ func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
 		return errors.Wrap(err, "failed to refresh project node")
 	}
 
-	if err := p.indexedGraph.RefreshNode(ctx, p.lm); err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
+	if err := p.indexedGraph.RefreshNode(ctx, p.thoughtRepo); err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
 		return errors.Wrap(err, "failed to refresh thoughtdb node")
 	}
 
@@ -306,7 +318,7 @@ func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
 }
 
 func (p *Project) bootstrap(ctx context.Context) error {
-	if err := p.sm.RequestSync(ctx, true); err != nil {
+	if err := p.syncManager.RequestSync(ctx, true); err != nil {
 		return err
 	}
 
@@ -322,7 +334,7 @@ func (p *Project) bootstrap(ctx context.Context) error {
 		}
 	}*/
 
-	if err := p.sm.WaitForInitialSync(ctx); err != nil {
+	if err := p.syncManager.WaitForInitialSync(ctx); err != nil {
 		return err
 	}
 
@@ -332,7 +344,7 @@ func (p *Project) bootstrap(ctx context.Context) error {
 }
 
 func (p *Project) bootstrapLanguage(ctx context.Context, name string) error {
-	factory := project.GetLanguageFactory(langs.LanguageID(name))
+	factory := project.GetLanguageFactory(project.LanguageID(name))
 
 	if factory == nil {
 		return errors.Errorf("language %s not found", name)
@@ -344,7 +356,7 @@ func (p *Project) bootstrapLanguage(ctx context.Context, name string) error {
 }
 
 func (p *Project) bootstrapModule(ctx context.Context, mod project.ModuleConfig) error {
-	lang := p.langRegistry.GetLanguage(langs.LanguageID(mod.Language))
+	lang := p.langRegistry.GetLanguage(project.LanguageID(mod.Language))
 
 	if lang == nil {
 		return errors.Errorf("language %s not configured", mod.Language)
@@ -387,10 +399,16 @@ func (p *Project) loadConfig(ctx context.Context) error {
 	return nil
 }
 
-func (p *Project) UUID() string                      { return p.uuid }
-func (p *Project) TaskManager() *tasks.Manager       { return p.tm }
-func (p *Project) LogManager() *thoughtdb.Repo       { return p.lm }
-func (p *Project) IndexManager() *graphindex.Manager { return p.indexManager }
+func (p *Project) UUID() string { return p.uuid }
+
+func (p *Project) Graph() *graphstore.IndexedGraph             { return p.indexedGraph }
+func (p *Project) LanguageProvider() *project.LanguageProvider { return p.langRegistry }
+func (p *Project) FileTypeProvider() *project.FileTypeProvider { return p.fileTypeRegistry }
+func (p *Project) TaskManager() *tasks.Manager                 { return p.taskManager }
+func (p *Project) LogManager() *thoughtdb.Repo                 { return p.thoughtRepo }
+func (p *Project) IndexManager() *graphindex.Manager           { return p.indexManager }
+func (p *Project) AnalysisManager() *AnalysisManager           { return p.analysisManager }
+func (p *Project) Repo() *fti.Repository                       { return p.repo }
 
 // RootPath returns the root path of the project.
 func (p *Project) RootPath() string   { return p.rootPath }
@@ -399,11 +417,6 @@ func (p *Project) RootNode() psi.Node { return p.rootNode }
 // VcsFileSystem returns the file system interface of the project.
 // It provides methods for managing the project's files and directories.
 func (p *Project) VcsFileSystem() repofs.FS { return p.vcsFs }
-
-func (p *Project) Graph() *graphstore.IndexedGraph     { return p.indexedGraph }
-func (p *Project) LanguageProvider() *project.Registry { return p.langRegistry }
-
-func (p *Project) Repo() *fti.Repository { return p.repo }
 
 func (p *Project) FileSet() *token.FileSet { return p.fset }
 func (p *Project) Embedder() llm.Embedder  { return p.embedder }
@@ -415,12 +428,12 @@ func (p *Project) Embedder() llm.Embedder  { return p.embedder }
 // slice. The function returns an error if any occurs during
 // the sync process.
 func (p *Project) Sync(ctx context.Context) error {
-	return p.sm.RequestSync(ctx, false)
+	return p.syncManager.RequestSync(ctx, false)
 }
 
 // GetSourceFile retrieves the source file with the given filename from the project.
 // It returns a pointer to the psi.SourceFile and any error that occurred during the process.
-func (p *Project) GetSourceFile(ctx context.Context, filename string) (_ langs.SourceFile, err error) {
+func (p *Project) GetSourceFile(ctx context.Context, filename string) (_ project.SourceFile, err error) {
 	relPath, err := filepath.Rel(p.rootPath, filename)
 
 	if err != nil {
@@ -474,6 +487,10 @@ func (p *Project) Reindex() error {
 }
 
 func (p *Project) Shutdown(ctx context.Context) error {
+	if err := p.analysisManager.Close(); err != nil {
+		return errors.Wrap(err, "failed to close analysis manager")
+	}
+
 	if err := p.indexManager.Close(); err != nil {
 		return errors.Wrap(err, "failed to close index manager")
 	}

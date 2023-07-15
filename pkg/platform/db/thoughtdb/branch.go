@@ -87,7 +87,7 @@ func (b *repoBranch) Commit(ctx context.Context, head *Thought) error {
 
 	head.Invalidate()
 
-	return head.OnUpdate(ctx)
+	return head.Update(ctx)
 }
 
 func (b *repoBranch) Fork() Branch {

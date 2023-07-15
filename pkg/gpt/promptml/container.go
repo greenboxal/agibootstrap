@@ -51,7 +51,7 @@ func (n *ContainerBase) RequestLayout() {
 func (n *ContainerBase) Layout(ctx context.Context) error {
 	n.RequestLayout()
 
-	return n.OnUpdate(ctx)
+	return n.Update(ctx)
 }
 
 func (n *ContainerBase) LayoutChildren(ctx context.Context) error {

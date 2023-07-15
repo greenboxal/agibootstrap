@@ -207,7 +207,7 @@ func (a *AgentBase) Introspect(ctx context.Context, prompt AgentPrompt, options 
 
 		reply.Invalidate()
 
-		if err := reply.OnUpdate(ctx); err != nil {
+		if err := reply.Update(ctx); err != nil {
 			return nil, err
 		}
 	}

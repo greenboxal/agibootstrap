@@ -23,7 +23,7 @@ type ModuleBase struct {
 }
 
 func (m *ModuleBase) PsiNodeName() string           { return m.GetName() }
-func (m *ModuleBase) PsiNodeScope() *analysis.Scope { return analysis.GetNodeScope(m) }
+func (m *ModuleBase) PsiNodeScope() *analysis.Scope { return analysis.GetEffectiveNodeScope(m) }
 
 func (m *ModuleBase) GetName() string { return m.Name }
 
@@ -57,7 +57,7 @@ type PackageBase struct {
 }
 
 func (p *PackageBase) PsiNodeName() string           { return p.GetName() }
-func (p *PackageBase) PsiNodeScope() *analysis.Scope { return analysis.GetNodeScope(p) }
+func (p *PackageBase) PsiNodeScope() *analysis.Scope { return analysis.GetEffectiveNodeScope(p) }
 
 func (p *PackageBase) GetName() string { return p.Name }
 

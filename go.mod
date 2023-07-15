@@ -46,6 +46,7 @@ require (
 	github.com/RoaringBitmap/roaring v1.3.0 // indirect
 	github.com/abcum/lcp v0.0.0-20201209214815-7a3f3840be81 // indirect
 	github.com/adrianbrad/queue v1.2.1 // indirect
+	github.com/alitto/pond v1.8.3 // indirect
 	github.com/antonmedv/expr v1.12.5 // indirect
 	github.com/arl/statsviz v0.5.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

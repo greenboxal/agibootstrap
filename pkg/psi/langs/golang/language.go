@@ -14,17 +14,16 @@ import (
 
 	project2 "github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
-	"github.com/greenboxal/agibootstrap/pkg/psi/langs"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
 var hasPackageRegex = regexp.MustCompile(`(?m)^.*package\s+([a-zA-Z0-9_]+)\n`)
 var hasHtmlEscapeRegex = regexp.MustCompile(`&lt;|&gt;|&amp;|&quot;|&#[0-9]{2};`)
 
-const LanguageID langs.LanguageID = "go"
+const LanguageID project2.LanguageID = "go"
 
 func init() {
-	project2.RegisterLanguage(LanguageID, func(p project2.Project) langs.Language {
+	project2.RegisterLanguage(LanguageID, func(p project2.Project) project2.Language {
 		return NewLanguage(p)
 	})
 }
@@ -33,13 +32,22 @@ type Language struct {
 	project project2.Project
 }
 
+func (l *Language) OnEnabled(p project2.Project) {
+	ft := project2.LanguageFileTypeBase{}
+	ft.Name = "Go"
+	ft.Language = l
+	ft.Extensions = []string{".go"}
+
+	p.FileTypeProvider().Register(&ft)
+}
+
 func NewLanguage(p project2.Project) *Language {
 	return &Language{
 		project: p,
 	}
 }
 
-func (l *Language) Name() langs.LanguageID {
+func (l *Language) Name() project2.LanguageID {
 	return LanguageID
 }
 
@@ -47,11 +55,11 @@ func (l *Language) Extensions() []string {
 	return []string{".go"}
 }
 
-func (l *Language) CreateSourceFile(ctx context.Context, fileName string, fileHandle repofs.FileHandle) langs.SourceFile {
+func (l *Language) CreateSourceFile(ctx context.Context, fileName string, fileHandle repofs.FileHandle) project2.SourceFile {
 	return NewSourceFile(l, fileName, fileHandle)
 }
 
-func (l *Language) Parse(ctx context.Context, fileName string, code string) (langs.SourceFile, error) {
+func (l *Language) Parse(ctx context.Context, fileName string, code string) (project2.SourceFile, error) {
 	f := l.CreateSourceFile(ctx, fileName, &BufferFileHandle{data: code})
 
 	if err := f.Load(ctx); err != nil {
@@ -65,7 +73,7 @@ func (l *Language) Parse(ctx context.Context, fileName string, code string) (lan
 // This function unescapes HTML escape sequences, modifies the package declaration,
 // and merges the resulting code with the existing AST.
 // It also handles orphan snippets by wrapping them in a pseudo function.
-func (l *Language) ParseCodeBlock(ctx context.Context, blockName string, block mdutils.CodeBlock) (langs.SourceFile, error) {
+func (l *Language) ParseCodeBlock(ctx context.Context, blockName string, block mdutils.CodeBlock) (project2.SourceFile, error) {
 	// Unescape HTML escape sequences in the code block
 	if hasHtmlEscapeRegex.MatchString(block.Code) {
 		block.Code = html.UnescapeString(block.Code)

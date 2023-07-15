@@ -23,40 +23,53 @@ type DeclarationNode interface {
 	PsiNodeDeclaration() *Symbol
 }
 
+func DefineNodeScope(node psi.Node) *Scope {
+	scope := GetDirectNodeScope(node)
+
+	if scope == nil {
+		scope = NewScope()
+
+		if p := node.Parent(); p != nil {
+			if parentScope := GetEffectiveNodeScope(p); parentScope != nil {
+				scope.SetParent(parentScope)
+			}
+		} else {
+			scope.SetParent(node)
+		}
+
+		SetNodeScope(node, scope)
+	}
+
+	return scope
+}
+
 func DefineNodeSymbol(node psi.Node, name string) *Symbol {
-	if sym := GetNodeSymbol(node); sym != nil && sym.Name == name {
-		return sym
+	if node.Parent() == nil {
+		panic("cannot define symbol without parent scope")
 	}
 
-	scope := GetNodeScope(node)
-	sym := scope.GetOrCreateSymbol(name)
+	scope := GetEffectiveNodeScope(node.Parent())
 
-	SetNodeSymbol(node, sym)
-
-	return sym
-}
-
-func SetNodeSymbol(node psi.Node, sym *Symbol) {
-	sym.UpdateDefinition(node)
-}
-
-func GetNodeSymbol(node psi.Node) *Symbol {
-	if decl, ok := node.(DeclarationNode); ok {
-		return decl.PsiNodeDeclaration()
+	if scope == nil {
+		panic("cannot define symbol without parent scope")
 	}
 
-	sym, _ := psi.GetEdge[*Symbol](node, EdgeKindSymbol.Singleton())
-
-	return sym
+	return scope.GetOrCreateSymbol(name)
 }
 
 func SetNodeScope(node psi.Node, scope *Scope) {
 	psi.UpdateEdge(node, EdgeKindScope.Singleton(), scope)
 }
 
-func GetNodeScope(node psi.Node) (s *Scope) {
+func GetDirectNodeScope(node psi.Node) (s *Scope) {
+	s, _ = psi.GetEdge[*Scope](node, EdgeKindScope.Singleton())
+
+	return s
+}
+
+func GetEffectiveNodeScope(node psi.Node) (s *Scope) {
 	for node != nil {
-		s, _ = psi.GetEdge[*Scope](node, EdgeKindScope.Singleton())
+		s = GetDirectNodeScope(node)
 
 		if s != nil {
 			break

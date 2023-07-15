@@ -1,4 +1,4 @@
-package langs
+package project
 
 import (
 	"context"

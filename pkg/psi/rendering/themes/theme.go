@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/url"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
@@ -62,7 +63,7 @@ var GlobalTheme = rendering.BuildTheme(
 
 			defer reader.Close()
 
-			if _, err := ctx.Buffer.WriteFormat("**%s:**\n```\n", node.Path()); err != nil {
+			if _, err := ctx.Buffer.WriteFormat("**%s:**\n```\n", node.GetPath()); err != nil {
 				return err
 			}
 
@@ -83,7 +84,7 @@ var GlobalTheme = rendering.BuildTheme(
 		"text/markdown",
 		"",
 		func(ctx rendering.SkinRendererContext, node *vfs.Directory) error {
-			if _, err := ctx.Buffer.WriteFormat("**%s:**\n", node.Path()); err != nil {
+			if _, err := ctx.Buffer.WriteFormat("**%s:**\n", node.GetPath()); err != nil {
 				return err
 			}
 
@@ -94,12 +95,33 @@ var GlobalTheme = rendering.BuildTheme(
 					continue
 				}
 
-				if _, err := ctx.Buffer.WriteFormat("* %s\n", fsNode.Name()); err != nil {
+				if _, err := ctx.Buffer.WriteFormat("* %s\n", fsNode.GetName()); err != nil {
 					return err
 				}
 			}
 
 			return nil
+		},
+	),
+
+	rendering.WithSuperclassSkinFunc[project.AstNode](
+		"text/markdown",
+		"",
+		func(ctx rendering.SkinRendererContext, node project.AstNode) error {
+			src := node.GetSourceFile()
+			code, err := src.ToCode(node)
+
+			if err != nil {
+				return err
+			}
+
+			if node == src.Root() {
+				_, err = fmt.Fprintf(ctx.Buffer, "**%s:**\n```%s\n%s\n```\n", code.Filename, code.Language, code.Code)
+			} else {
+				_, err = fmt.Fprintf(ctx.Buffer, "**%s (partial):**\n```%s\n%s\n```\n", code.Filename, code.Language, code.Code)
+			}
+
+			return err
 		},
 	),
 )

@@ -1,5 +1,7 @@
 package psi
 
+import "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
+
 func GetEdge[T Node](n Node, key TypedEdgeReference[T]) (def T, ok bool) {
 	e := n.GetEdge(key)
 
@@ -46,6 +48,32 @@ func GetEdgeOrDefault[T Node](n Node, key TypedEdgeReference[T], def T) T {
 	v := e.To().(T)
 
 	return v
+}
+
+func GetEdges[T Node](n Node, kind TypedEdgeKind[T]) []T {
+	filtered := iterators.Filter(n.Edges(), func(e Edge) bool {
+		return e.Kind() == kind.Kind()
+	})
+
+	mapped := iterators.Map(filtered, func(e Edge) T {
+		return e.To().(T)
+	})
+
+	return iterators.ToSlice(mapped)
+}
+
+func UpdateEdges[T Node](n Node, kind TypedEdgeKind[T], values []T) {
+	filtered := iterators.Filter(n.Edges(), func(e Edge) bool {
+		return e.Kind() == kind.Kind()
+	})
+
+	for filtered.Next() {
+		n.UnsetEdge(filtered.Value().Key())
+	}
+
+	for i, v := range values {
+		n.SetEdge(kind.Indexed(int64(i)), v)
+	}
 }
 
 func UpdateEdge[K TypedEdgeReference[T], T Node](n Node, key K, value T) (isNew bool) {

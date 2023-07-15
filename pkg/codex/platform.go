@@ -33,7 +33,7 @@ type Platform struct {
 	tm   *tasks.Manager
 	lm   *thoughtdb.Repo
 
-	langRegistry *project.Registry
+	langRegistry *project.FileTypeProvider
 	fset         *token.FileSet
 
 	databasePath string

@@ -197,7 +197,7 @@ func (r *Repository) IterateFiles(ctx context.Context) Iterator[FileCursor] {
 // Init initializes the repository by creating the necessary directories and configuration file.
 // It creates the .fti directory and writes the default configuration to the config.json file.
 func (r *Repository) Init() error {
-	err := os.Mkdir(r.ftiPath, 0755)
+	err := os.MkdirAll(r.ftiPath, 0755)
 	if err != nil {
 		return err
 	}

@@ -1,6 +1,4 @@
-package filetypes
-
-import "github.com/greenboxal/agibootstrap/pkg/psi/langs"
+package project
 
 type FileType interface {
 	GetName() string
@@ -11,12 +9,14 @@ type FileType interface {
 	IsReadOnly() bool
 
 	GetExtensions() []string
+
+	String() error
 }
 
 type LanguageFileType interface {
 	FileType
 
-	GetLanguage() langs.Language
+	GetLanguage() Language
 }
 
 type FileTypeBase struct {
@@ -32,14 +32,22 @@ type FileTypeBase struct {
 
 func (l *FileTypeBase) GetName() string         { return l.Name }
 func (l *FileTypeBase) GetDescription() string  { return l.Description }
+func (l *FileTypeBase) GetIcon() string         { return l.Icon }
 func (l *FileTypeBase) GetExtensions() []string { return l.Extensions }
 func (l *FileTypeBase) IsBinary() bool          { return l.Binary }
 func (l *FileTypeBase) IsReadOnly() bool        { return l.ReadOnly }
 
+func (l *FileTypeBase) String() string { return l.Name }
+
 type LanguageFileTypeBase struct {
 	FileTypeBase
 
-	Language langs.Language
+	Language Language
 }
 
-func (l *LanguageFileTypeBase) GetLanguage() langs.Language { return l.Language }
+func (l *LanguageFileTypeBase) String() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (l *LanguageFileTypeBase) GetLanguage() Language { return l.Language }

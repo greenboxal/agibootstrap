@@ -18,8 +18,7 @@ import (
 type cachedNode struct {
 	mu sync.Mutex
 
-	g      *IndexedGraph
-	parent *cachedNode
+	g *IndexedGraph
 
 	id   int64
 	path psi.Path
@@ -48,19 +47,31 @@ func (c *cachedNode) Load(ctx context.Context) error {
 		return err
 	}
 
-	if err := c.Refresh(ctx); err != nil {
-		return err
-	}
-
 	if c.node == nil {
 		return psi.ErrNodeNotFound
+	}
+
+	if !c.initialized {
+		if c.path.Len() > 0 {
+			parentEntry := c.g.getCacheEntry(c.path.Parent(), true)
+
+			if parentEntry.node == nil {
+				if err := parentEntry.Load(ctx); err != nil {
+					panic(err)
+				}
+			}
+		}
+
+		if err := c.Refresh(ctx); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
 func (c *cachedNode) Preload(ctx context.Context) error {
-	defer c.update()
+	defer c.update(ctx)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -118,16 +129,6 @@ func (c *cachedNode) Preload(ctx context.Context) error {
 		}
 
 		c.node = n
-
-		if len(c.path.Parent().Components()) > 1 {
-			c.parent = c.g.getCacheEntry(c.path.Parent(), true)
-
-			if err := c.parent.Preload(ctx); err != nil {
-				return err
-			}
-
-			c.node.SetParent(c.parent.node)
-		}
 	}
 
 	if c.node != nil {
@@ -138,7 +139,7 @@ func (c *cachedNode) Preload(ctx context.Context) error {
 }
 
 func (c *cachedNode) Refresh(ctx context.Context) error {
-	defer c.update()
+	defer c.update(ctx)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -256,7 +257,7 @@ func (c *cachedNode) Commit(ctx context.Context, batch datastore.Batch) error {
 	return nil
 }
 
-func (c *cachedNode) update() {
+func (c *cachedNode) update(ctx context.Context) {
 	if c.node == nil || c.node.PsiNode() == nil {
 		return
 	}
@@ -275,7 +276,7 @@ func (c *cachedNode) update() {
 }
 
 func (c *cachedNode) updateNode(node psi.Node) error {
-	defer c.update()
+	defer c.update(context.Background())
 
 	if c.node == node {
 		return nil
@@ -388,18 +389,4 @@ func (c *cachedNode) resolveEdge(ctx context.Context, g psi.Graph, from psi.Node
 func (c *cachedNode) invalidate() {
 	c.loaded = false
 	c.initialized = false
-}
-
-func getNodeUniqueRoot(node psi.Node) psi.UniqueNode {
-	nodeRoot := node
-
-	for parent := nodeRoot; parent != nil; parent = parent.Parent() {
-		nodeRoot = parent
-	}
-
-	if nodeRoot, ok := nodeRoot.(psi.UniqueNode); ok {
-		return nodeRoot
-	}
-
-	return nil
 }

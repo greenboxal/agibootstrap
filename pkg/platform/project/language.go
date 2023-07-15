@@ -1,4 +1,4 @@
-package langs
+package project
 
 import (
 	"context"
@@ -8,6 +8,9 @@ import (
 )
 
 type LanguageID string
+
+func (l LanguageID) Name() string   { return string(l) }
+func (l LanguageID) String() string { return l.Name() }
 
 type Language interface {
 	Name() LanguageID

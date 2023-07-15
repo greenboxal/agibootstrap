@@ -9,19 +9,20 @@ import (
 	"github.com/dave/dst/dstutil"
 	"github.com/zeroflucs-given/generics/collections/stack"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/analysis"
 )
 
 type Node interface {
-	psi.Node
+	project.AstNode
 
 	Ast() dst.Node
 	Initialize(self Node)
 }
 
 type NodeBase[T dst.Node] struct {
-	psi.NodeBase
+	project.AstNodeBase
 
 	node     T
 	comments []string
@@ -92,6 +93,8 @@ type Leaf struct {
 func (f *Leaf) IsContainer() bool { return false }
 func (f *Leaf) IsLeaf() bool      { return true }
 
+var GoAstSlotEdge = psi.DefineEdgeType[Node]("go-ast-slot")
+
 func getEdgeName(parent dst.Node, kind string, index int) psi.EdgeKey {
 	name := ""
 
@@ -99,10 +102,7 @@ func getEdgeName(parent dst.Node, kind string, index int) psi.EdgeKey {
 		name = strconv.FormatInt(int64(index), 10)
 	}
 
-	return psi.EdgeKey{
-		Kind: psi.EdgeKind(kind),
-		Name: name,
-	}
+	return GoAstSlotEdge.NamedIndexed(name, int64(index)).GetKey()
 }
 
 func AstToPsi(rootScope *analysis.Scope, root dst.Node) (result Node) {
@@ -118,33 +118,12 @@ func AstToPsi(rootScope *analysis.Scope, root dst.Node) (result Node) {
 		_, parent := containerStack.Peek()
 
 		wrapped := NewNodeFor(node)
+		wrapped.SetParent(parent)
 
 		if parent != nil {
-			wrapped.SetParent(parent)
-
 			key := getEdgeName(node, cursor.Name(), cursor.Index())
 
 			parent.SetEdge(key, wrapped)
-
-			if isScopedNode(node) && node != root {
-				var scope *analysis.Scope
-
-				if parent != nil {
-					parentScope := analysis.GetNodeScope(parent)
-
-					if parentScope != nil {
-						scope = parentScope.NewChildScope(wrapped)
-					} else {
-						scope = rootScope
-					}
-				} else {
-					scope = analysis.NewScope(wrapped)
-				}
-
-				analysis.SetNodeScope(wrapped, scope)
-			}
-		} else {
-			analysis.SetNodeScope(wrapped, rootScope)
 		}
 
 		if wrapped.IsContainer() {
@@ -160,21 +139,6 @@ func AstToPsi(rootScope *analysis.Scope, root dst.Node) (result Node) {
 
 		if hasWrapped && wrapped.Ast() == node {
 			_, result = containerStack.Pop()
-
-			parent := wrapped.Parent()
-
-			if parent != nil {
-				parentScope := analysis.GetNodeScope(wrapped)
-
-				if parentScope != nil {
-					switch node := node.(type) {
-					case *dst.FuncDecl:
-						sym := parentScope.GetOrCreateSymbol(node.Name.Name)
-
-						analysis.SetNodeSymbol(wrapped, sym)
-					}
-				}
-			}
 		}
 
 		return true

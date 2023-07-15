@@ -33,7 +33,7 @@ func (t *taskContext) Update(current, total int) {
 
 	t.t.Invalidate()
 
-	if err := t.t.OnUpdate(t.ctx); err != nil {
+	if err := t.t.Update(t.ctx); err != nil {
 		panic(err)
 	}
 }
@@ -81,7 +81,7 @@ func (t *taskContext) onComplete() {
 	t.ctx = nil
 	t.complete = true
 
-	if err := t.t.OnUpdate(t.ctx); err != nil {
+	if err := t.t.Update(t.ctx); err != nil {
 		panic(err)
 	}
 }
