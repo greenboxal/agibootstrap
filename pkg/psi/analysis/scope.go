@@ -3,28 +3,48 @@ package analysis
 import (
 	"context"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphindex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
-func NewScope() *Scope {
+func NewScope(root psi.Node) *Scope {
 	s := &Scope{}
 
-	s.Init(s, psi.WithNodeType(ScopeType))
+	s.Init(s)
+
+	psi.UpdateEdge(s, ScopeRootEdge, root)
 
 	return s
 }
 
+var ScopeRootEdge = psi.DefineEdgeType[psi.Node]("scope-root").Singleton()
+
 type Scope struct {
 	psi.NodeBase
+
+	index graphindex.NodeIndex
 }
 
-func (s *Scope) NewChildScope() *Scope {
-	child := NewScope()
+func (s *Scope) Init(self psi.Node) {
+	s.NodeBase.Init(self, psi.WithNodeType(ScopeType))
 
-	s.AddChildNode(child)
+	/*root := psi.GetEdgeOrNil[psi.Node](s, ScopeRootEdge)
+	proj := inject.Inject[project.Project](platform.ServiceProvider())
+	indexManager := inject.Inject[*graphindex.Manager](platform.ServiceProvider())
 
-	return child
+	index, err := indexManager.OpenNodeIndex(context.Background(), "", &AnchoredEmbedder{
+		Base:    proj.Embedder(),
+		Root:    proj,
+		Anchor:  root,
+		Chunker: &chunkers.TikToken{},
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	s.index = index*/
 }
 
 func (s *Scope) ParentScope() *Scope {

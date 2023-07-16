@@ -27,7 +27,7 @@ func DefineNodeScope(node psi.Node) *Scope {
 	scope := GetDirectNodeScope(node)
 
 	if scope == nil {
-		scope = NewScope()
+		scope = NewScope(node)
 
 		if p := node.Parent(); p != nil {
 			if parentScope := GetEffectiveNodeScope(p); parentScope != nil {

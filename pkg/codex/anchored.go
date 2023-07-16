@@ -1,4 +1,4 @@
-package graphindex
+package codex
 
 import (
 	"bytes"
@@ -7,6 +7,7 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/chunkers"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphindex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
@@ -29,8 +30,8 @@ func (a *AnchoredEmbedder) Dimensions() int {
 	return a.Base.Dimensions() + 5
 }
 
-func (a *AnchoredEmbedder) EmbeddingsForNode(ctx context.Context, n psi.Node) (GraphEmbeddingIterator, error) {
-	baseEmbedding := GraphEmbedding{}
+func (a *AnchoredEmbedder) EmbeddingsForNode(ctx context.Context, n psi.Node) (graphindex.GraphEmbeddingIterator, error) {
+	baseEmbedding := graphindex.GraphEmbedding{}
 	baseEmbedding.Depth = n.CanonicalPath().Depth()
 	baseEmbedding.TreeDistance = a.calculateTreeDistance(a.Anchor, n)
 	baseEmbedding.ReferenceDistance = a.calculateReferenceDistance(a.Anchor, n)
@@ -56,7 +57,7 @@ func (a *AnchoredEmbedder) EmbeddingsForNode(ctx context.Context, n psi.Node) (G
 
 	embeddingIterator := iterators.FromSlice(embeddings)
 
-	return iterators.NewIterator(func() (ge GraphEmbedding, ok bool) {
+	return iterators.NewIterator(func() (ge graphindex.GraphEmbedding, ok bool) {
 		if !embeddingIterator.Next() {
 			return ge, false
 		}

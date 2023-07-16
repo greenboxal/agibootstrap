@@ -13,6 +13,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/build/codegen"
 	"github.com/greenboxal/agibootstrap/pkg/build/fiximports"
 	"github.com/greenboxal/agibootstrap/pkg/codex"
+	"github.com/greenboxal/agibootstrap/pkg/platform/runtime"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/visor"
 	"github.com/greenboxal/agibootstrap/pkg/visor/chatui"
@@ -28,6 +29,8 @@ var projectRoot string
 var project *codex.Project
 
 func initializeProject(ctx context.Context, load bool) error {
+	runtime.Initialize()
+
 	if projectRoot == "" {
 		root, err := findProjectRoot()
 

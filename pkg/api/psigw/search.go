@@ -6,6 +6,7 @@ import (
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/chunkers"
 
+	"github.com/greenboxal/agibootstrap/pkg/codex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphindex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -72,7 +73,7 @@ func (gw *Gateway) handleSearch(writer http.ResponseWriter, request *http.Reques
 		anchor = gw.graph.Root()
 	}
 
-	index, err := gw.indexManager.OpenNodeIndex(request.Context(), indexName, &graphindex.AnchoredEmbedder{
+	index, err := gw.indexManager.OpenNodeIndex(request.Context(), indexName, &codex.AnchoredEmbedder{
 		Base:    gw.project.Embedder(),
 		Root:    gw.graph.Root(),
 		Anchor:  anchor,

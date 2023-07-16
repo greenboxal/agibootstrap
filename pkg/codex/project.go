@@ -20,10 +20,12 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/cache"
+	"github.com/greenboxal/agibootstrap/pkg/platform"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphindex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
+	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	tasks "github.com/greenboxal/agibootstrap/pkg/platform/tasks"
@@ -259,15 +261,12 @@ func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
 
 	p.taskManager = tasks.NewManager()
 	p.taskManager.SetParent(p)
-	p.indexedGraph.Add(p.taskManager)
 
 	p.thoughtRepo = thoughtdb.NewRepo(p.indexedGraph)
 	p.thoughtRepo.SetParent(p)
-	p.indexedGraph.Add(p.thoughtRepo)
 
 	p.syncManager = NewSyncManager(p)
 	p.syncManager.SetParent(p)
-	p.indexedGraph.Add(p.syncManager)
 
 	p.rootNode, err = p.vfsManager.GetNodeForPath(ctx, p.rootPath)
 
@@ -276,9 +275,20 @@ func (p *Project) Initialize(ctx context.Context, projectUuid string) error {
 	}
 
 	p.rootNode.SetParent(p)
+
+	p.indexedGraph.Add(p.taskManager)
+	p.indexedGraph.Add(p.thoughtRepo)
+	p.indexedGraph.Add(p.syncManager)
 	p.indexedGraph.Add(p.rootNode)
 
-	pathIndex, err := p.indexManager.OpenNodeIndex(ctx, "node-by-path", &graphindex.AnchoredEmbedder{
+	inject.RegisterInstance[project.Project](platform.ServiceProvider(), p)
+	inject.RegisterInstance[*graphstore.IndexedGraph](platform.ServiceProvider(), p.indexedGraph)
+	inject.RegisterInstance[*graphindex.Manager](platform.ServiceProvider(), p.indexManager)
+	inject.RegisterInstance[*tasks.Manager](platform.ServiceProvider(), p.taskManager)
+	inject.RegisterInstance[*SyncManager](platform.ServiceProvider(), p.syncManager)
+	inject.RegisterInstance[*AnalysisManager](platform.ServiceProvider(), p.analysisManager)
+
+	pathIndex, err := p.indexManager.OpenNodeIndex(ctx, "node-by-path", &AnchoredEmbedder{
 		Base:    p.embedder,
 		Root:    p,
 		Anchor:  p.rootNode,

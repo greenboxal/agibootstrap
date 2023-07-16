@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 	"io"
+	"reflect"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -37,6 +38,13 @@ type serviceProvider struct {
 	registrations map[ServiceKey]*serviceRegistration
 
 	shutdownHooks []func(ctx context.Context) error
+}
+
+func NewServiceProvider() ServiceProvider {
+	return &serviceProvider{
+		definitions:   make(map[ServiceKey]*ServiceDefinition),
+		registrations: make(map[ServiceKey]*serviceRegistration),
+	}
 }
 
 func (sp *serviceProvider) getDefinition(key ServiceKey) *ServiceDefinition {
@@ -301,4 +309,44 @@ type CloseContext interface {
 
 type ShutdownContext interface {
 	Shutdown(ctx context.Context) error
+}
+
+func Inject[T any](sp ServiceProvider) T {
+	result, err := sp.GetService(ServiceKeyOf[T]())
+
+	if err != nil {
+		panic(err)
+	}
+
+	return result.(T)
+}
+
+func RegisterInstance[T any](sp ServiceProvider, instance T) {
+	sp.RegisterService(ProvideInstance[T](instance))
+}
+
+func ProvideInstance[T any](instance T) ServiceDefinition {
+	return Provide[T](func(ctx ResolutionContext) (T, error) {
+		return instance, nil
+	})
+}
+
+func Register[T any](sp ServiceProvider, factory func(ctx ResolutionContext) (T, error)) {
+	sp.RegisterService(Provide[T](factory))
+}
+
+func Provide[T any](factory func(ctx ResolutionContext) (T, error)) ServiceDefinition {
+	return ServiceDefinition{
+		Key:          ServiceKeyOf[T](),
+		Dependencies: []ServiceKey{},
+		Factory: func(ctx ResolutionContext, deps []any) (any, error) {
+			return factory(ctx)
+		},
+	}
+}
+
+func ServiceKeyOf[T any]() ServiceKey {
+	return ServiceKey{
+		Type: reflect.TypeOf((*T)(nil)).Elem(),
+	}
 }
