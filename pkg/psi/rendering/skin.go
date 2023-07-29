@@ -1,6 +1,8 @@
 package rendering
 
 import (
+	"context"
+	"net/url"
 	"reflect"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -21,6 +23,9 @@ type Skin[T psi.Node] interface {
 }
 
 type SkinRendererContext struct {
+	Context context.Context
+	Query   url.Values
+
 	Renderer *PruningRenderer
 	Theme    Theme
 	Buffer   *TokenBuffer

@@ -30,6 +30,8 @@ type Edge interface {
 type EdgeSnapshot struct {
 	Frozen *FrozenEdge
 	Link   ipld.Link
+	Node   Node
+	Index  int64
 }
 
 type EdgeBase struct {
@@ -37,18 +39,16 @@ type EdgeBase struct {
 	self Edge
 	snap EdgeSnapshot
 
-	id  EdgeID
-	key EdgeReference
+	id EdgeID
 }
 
 func (e *EdgeBase) ID() EdgeID             { return e.id }
-func (e *EdgeBase) Key() EdgeReference     { return e.key }
-func (e *EdgeBase) Kind() EdgeKind         { return e.key.GetKind() }
+func (e *EdgeBase) Kind() EdgeKind         { return e.self.Key().GetKind() }
 func (e *EdgeBase) Graph() Graph           { return e.g }
 func (e *EdgeBase) PsiEdgeBase() *EdgeBase { return e }
 
 func (e *EdgeBase) String() string {
-	return fmt.Sprintf("Edge(%d, %s)", e.id, e.key)
+	return fmt.Sprintf("Edge(%d, %s)", e.id, e.self.Key())
 }
 
 func (e *EdgeBase) Init(self Edge) {
@@ -75,19 +75,8 @@ func (e *EdgeBase) attachToGraph(g Graph) {
 
 	e.g = g
 
-	from := e.self.From()
-	to := e.self.To()
-
-	if to != nil {
-		to.PsiNodeBase().AttachToGraph(g)
-	}
-
 	if e.g != nil {
 		e.id = g.NextEdgeID()
-
-		if from != nil && to != nil {
-			e.g.SetEdge(e.self)
-		}
 	}
 }
 
@@ -115,6 +104,8 @@ type LazyEdge struct {
 
 	mu   sync.RWMutex
 	cond *sync.Cond
+
+	key  EdgeReference
 	from Node
 	to   Node
 
@@ -133,7 +124,8 @@ func NewLazyEdge(g Graph, key EdgeReference, from Node, resolver ResolveEdgeFunc
 	return le
 }
 
-func (l *LazyEdge) From() Node { return l.from }
+func (l *LazyEdge) Key() EdgeReference { return l.key }
+func (l *LazyEdge) From() Node         { return l.from }
 
 func (l *LazyEdge) To() Node {
 	n, err := l.ResolveTo(context.Background())
@@ -161,6 +153,7 @@ func (l *LazyEdge) ResolveTo(ctx context.Context) (Node, error) {
 		}
 
 		l.to = n
+		l.valid = true
 	}
 
 	return l.to, nil
@@ -182,6 +175,7 @@ func (l *LazyEdge) Invalidate() {
 type SimpleEdge struct {
 	EdgeBase
 
+	key  EdgeReference
 	from *NodeBase
 	to   *NodeBase
 }
@@ -195,8 +189,9 @@ func NewSimpleEdge(key EdgeReference, from Node, to Node) Edge {
 	return se
 }
 
-func (e *SimpleEdge) From() Node { return e.from.PsiNode() }
-func (e *SimpleEdge) To() Node   { return e.to.PsiNode() }
+func (e *SimpleEdge) Key() EdgeReference { return e.key }
+func (e *SimpleEdge) From() Node         { return e.from.PsiNode() }
+func (e *SimpleEdge) To() Node           { return e.to.PsiNode() }
 
 func (e *SimpleEdge) ResolveTo(ctx context.Context) (Node, error) { return e.To(), nil }
 

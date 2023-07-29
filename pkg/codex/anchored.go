@@ -39,7 +39,7 @@ func (a *AnchoredEmbedder) EmbeddingsForNode(ctx context.Context, n psi.Node) (g
 
 	buffer := bytes.NewBuffer(nil)
 
-	if err := rendering.RenderNodeWithTheme(buffer, themes.GlobalTheme, "text/markdown", "", n); err != nil {
+	if err := rendering.RenderNodeWithTheme(ctx, buffer, themes.GlobalTheme, "text/markdown", "", n); err != nil {
 		return nil, err
 	}
 

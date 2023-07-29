@@ -42,7 +42,7 @@ type SourceFile struct {
 	Contents string `json:"contents"`
 }
 
-var SourceFileType = psi.DefineNodeType[*SourceFile]()
+var SourceFileType = psi.DefineNodeType[*SourceFile](psi.WithStubNodeType())
 
 func (sf *SourceFile) Init(self psi.Node) {
 	if sf.fset == nil {

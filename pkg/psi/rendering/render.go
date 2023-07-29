@@ -1,9 +1,13 @@
 package rendering
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
@@ -15,7 +19,13 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )
 
-func RenderNodeResponse(writer http.ResponseWriter, request *http.Request, theme Theme, skinName string, node psi.Node) error {
+func RenderNodeResponse(
+	writer http.ResponseWriter,
+	request *http.Request,
+	theme Theme,
+	skinName string,
+	node psi.Node,
+) error {
 	var renderer *PruningRenderer
 
 	accept := request.Header.Get("Accept")
@@ -67,9 +77,11 @@ func RenderNodeResponse(writer http.ResponseWriter, request *http.Request, theme
 				}
 
 				return skin.RenderNode(SkinRendererContext{
+					Context:  request.Context(),
 					Renderer: renderer,
 					Buffer:   w,
 					Theme:    theme,
+					Query:    request.URL.Query(),
 				}, node)
 			},
 		}
@@ -77,9 +89,13 @@ func RenderNodeResponse(writer http.ResponseWriter, request *http.Request, theme
 		writer.Header().Set("Content-Type", contentType)
 		writer.WriteHeader(http.StatusOK)
 
-		_, err := renderer.Render(node, writer)
+		tb := NewTokenBuffer(renderer.Tokenizer, 0)
 
-		if err != nil {
+		if err := renderer.Write(tb, node); err != nil {
+			return err
+		}
+
+		if _, err := tb.WriteTo(writer); err != nil {
 			return err
 		}
 
@@ -89,7 +105,13 @@ func RenderNodeResponse(writer http.ResponseWriter, request *http.Request, theme
 	return fmt.Errorf("no skin found for node type: %s (%T)", node.PsiNodeType(), node)
 }
 
-func RenderNodeWithTheme(writer io.Writer, theme Theme, contentType, skinName string, node psi.Node) error {
+func RenderNodeWithTheme(
+	ctx context.Context,
+	writer io.Writer,
+	theme Theme,
+	contentType, skinName string,
+	node psi.Node,
+) error {
 	var renderer *PruningRenderer
 
 	skin := theme.SkinForNode(contentType, skinName, node)
@@ -121,6 +143,8 @@ func RenderNodeWithTheme(writer io.Writer, theme Theme, contentType, skinName st
 			}
 
 			return skin.RenderNode(SkinRendererContext{
+				Context:  ctx,
+				Query:    url.Values{},
 				Renderer: renderer,
 				Buffer:   w,
 				Theme:    theme,
@@ -135,6 +159,91 @@ func RenderNodeWithTheme(writer io.Writer, theme Theme, contentType, skinName st
 	}
 
 	return nil
+}
+
+type NodeSnapshotEdge struct {
+	Key     string        `json:"key"`
+	ToIndex int64         `json:"to_index"`
+	ToPath  *psi.Path     `json:"to_path"`
+	ToLink  ipld.Link     `json:"to_link"`
+	ToNode  *NodeSnapshot `json:"to_node,omitempty"`
+}
+
+type NodeSnapshot struct {
+	ID      int64     `json:"id"`
+	Path    psi.Path  `json:"path"`
+	Link    ipld.Link `json:"link"`
+	Version int64     `json:"version"`
+
+	Edges []NodeSnapshotEdge `json:"edges,omitempty"`
+}
+
+type GraphSnapshot struct {
+	Nodes map[int64]*NodeSnapshot `json:"nodes"`
+}
+
+func buildSnapshot(ctx context.Context, node psi.Node, maxDepth int, nested bool) (gs *GraphSnapshot) {
+	var buildNode func(node psi.Node, depth int) *NodeSnapshot
+
+	buildNode = func(node psi.Node, depth int) (ns *NodeSnapshot) {
+		snap := node.PsiNodeBase().GetSnapshot()
+
+		if snap == nil {
+			return
+		}
+
+		if gs.Nodes[snap.ID()] != nil {
+			return
+		}
+
+		ns = &NodeSnapshot{}
+		ns.ID = snap.ID()
+		ns.Path = snap.Path()
+		ns.Link = snap.CommitLink()
+		ns.Version = snap.CommitVersion()
+
+		gs.Nodes[snap.ID()] = ns
+
+		edges, err := node.PsiNodeBase().Graph().ListNodeEdges(ctx, node.CanonicalPath())
+
+		if err != nil {
+			panic(err)
+		}
+
+		for _, fe := range edges {
+			es := NodeSnapshotEdge{}
+
+			es.Key = fe.Key.String()
+			es.ToIndex = fe.ToIndex
+			es.ToPath = fe.ToPath
+			es.ToLink = fe.ToLink
+
+			if depth < maxDepth {
+				to, err := node.PsiNodeBase().Graph().ResolveNode(ctx, node.CanonicalPath().Child(fe.Key.AsPathElement()))
+
+				if err != nil {
+					continue
+				}
+
+				n := buildNode(to, depth+1)
+
+				if nested && fe.Key.GetKind() == psi.EdgeKindChild {
+					es.ToNode = n
+				}
+			}
+
+			ns.Edges = append(ns.Edges, es)
+		}
+
+		return
+	}
+
+	gs = &GraphSnapshot{}
+	gs.Nodes = make(map[int64]*NodeSnapshot)
+
+	buildNode(node, 0)
+
+	return
 }
 
 func getSkinAlternatives(t Theme, contentType string, skinName string, node psi.Node) SkinRenderer {
@@ -159,13 +268,53 @@ func getSkinAlternatives(t Theme, contentType string, skinName string, node psi.
 		}
 
 	case "application/json":
-		return &SkinBase[psi.Node]{
-			Name:        skinName,
-			ContentType: contentType,
-			NodeType:    node.PsiNodeType(),
-			RenderFn: func(ctx SkinRendererContext, node psi.Node) error {
-				return ipld.EncodeStreaming(ctx.Buffer, typesystem.Wrap(node), dagjson.Encode)
-			},
+		switch skinName {
+		case "psi-snapshot":
+			return &SkinBase[psi.Node]{
+				Name:        skinName,
+				ContentType: contentType,
+				NodeType:    node.PsiNodeType(),
+				RenderFn: func(ctx SkinRendererContext, node psi.Node) error {
+					maxDepth := 1
+					nested := false
+
+					if d := ctx.Query.Get("nested"); len(d) > 0 {
+						nested = d == "true"
+					}
+
+					if d := ctx.Query.Get("depth"); len(d) > 0 {
+						md, err := strconv.Atoi(d)
+
+						if err != nil {
+							return err
+						}
+
+						maxDepth = md
+					}
+
+					snap := buildSnapshot(ctx.Context, node, maxDepth, nested)
+
+					if snap == nil {
+						return fmt.Errorf("no snapshot found for node: %s (%T)", node.PsiNodeType(), node)
+					}
+
+					if nested {
+						return json.NewEncoder(ctx.Buffer).Encode(snap.Nodes[node.ID()])
+					} else {
+						return json.NewEncoder(ctx.Buffer).Encode(snap)
+					}
+				},
+			}
+
+		default:
+			return &SkinBase[psi.Node]{
+				Name:        skinName,
+				ContentType: contentType,
+				NodeType:    node.PsiNodeType(),
+				RenderFn: func(ctx SkinRendererContext, node psi.Node) error {
+					return ipld.EncodeStreaming(ctx.Buffer, typesystem.Wrap(node), dagjson.Encode)
+				},
+			}
 		}
 	}
 

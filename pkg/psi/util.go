@@ -9,9 +9,11 @@ func GetEdge[T Node](n Node, key TypedEdgeReference[T]) (def T, ok bool) {
 		return def, false
 	}
 
-	v := e.To().(T)
+	if v := e.To(); v != nil {
+		return v.(T), true
+	}
 
-	return v, true
+	return def, false
 }
 
 func LoadEdge[K TypedEdgeReference[T], T Node](n Node, key K, dst *T) *T {
@@ -21,7 +23,11 @@ func LoadEdge[K TypedEdgeReference[T], T Node](n Node, key K, dst *T) *T {
 		return nil
 	}
 
-	*dst = e.To().(T)
+	if v := e.To(); v != nil {
+		*dst = e.To().(T)
+	} else {
+		return nil
+	}
 
 	return dst
 }
@@ -33,9 +39,11 @@ func GetEdgeOrNil[T Node](n Node, key TypedEdgeReference[T]) (def T) {
 		return def
 	}
 
-	v := e.To().(T)
+	if v := e.To(); v != nil {
+		return v.(T)
+	}
 
-	return v
+	return def
 }
 
 func GetEdgeOrDefault[T Node](n Node, key TypedEdgeReference[T], def T) T {
@@ -45,9 +53,11 @@ func GetEdgeOrDefault[T Node](n Node, key TypedEdgeReference[T], def T) T {
 		return def
 	}
 
-	v := e.To().(T)
+	if v := e.To(); v != nil {
+		return v.(T)
+	}
 
-	return v
+	return def
 }
 
 func GetEdges[T Node](n Node, kind TypedEdgeKind[T]) []T {

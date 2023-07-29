@@ -20,9 +20,16 @@ type NodeTypeDefinition struct {
 	Class NodeClass `json:"class"`
 
 	IsRuntimeOnly bool `json:"is_runtime_only"`
+	IsStub        bool `json:"is_stub"`
 }
 
 type NodeTypeOption func(*nodeType)
+
+func WithStubNodeType() NodeTypeOption {
+	return func(nt *nodeType) {
+		nt.def.IsStub = true
+	}
+}
 
 func WithTypeName(name string) NodeTypeOption {
 	return func(nt *nodeType) {
@@ -91,4 +98,10 @@ type baseNodeInitializer interface {
 
 type baseNodeInitializerWithOptions interface {
 	Init(n Node, options ...NodeInitOption)
+}
+
+type baseNodeOnInitialize interface {
+	NodeType
+
+	OnInitNode(n Node)
 }

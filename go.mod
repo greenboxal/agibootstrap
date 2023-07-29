@@ -149,6 +149,7 @@ require (
 	github.com/tidwall/tinylru v1.2.1 // indirect
 	github.com/tidwall/wal v1.1.7 // indirect
 	github.com/yuin/goldmark v1.5.4 // indirect
+	gitlab.com/jamietanna/content-negotiation-go v0.2.0 // indirect
 	go.mongodb.org/mongo-driver v1.11.7 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib v1.17.0 // indirect

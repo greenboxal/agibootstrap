@@ -5,30 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/dgraph-io/sroar"
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 )
-
-type SerializableBitmap struct {
-	*sroar.Bitmap
-}
-
-func (b *SerializableBitmap) MarshalBinary() ([]byte, error) {
-	return b.ToBufferWithCopy(), nil
-}
-
-func (b *SerializableBitmap) UnmarshalBinary(data []byte) error {
-	b.Bitmap = sroar.FromBufferWithCopy(data)
-
-	return nil
-}
-
-type SerializedBitmapIndex struct {
-	LastID   uint64 `json:"lastID"`
-	FreeList []byte `json:"freeList"`
-	UsedList []byte `json:"usedList"`
-}
-
-var serializedBitmapIndexType = typesystem.TypeOf(SerializedBitmapIndex{})
 
 type SparseBitmapIndex struct {
 	mu sync.RWMutex
@@ -38,6 +15,12 @@ type SparseBitmapIndex struct {
 	freeList  *sroar.Bitmap
 }
 
+type BitmapSnapshot struct {
+	LastID   uint64 `json:"lastID"`
+	FreeList []byte `json:"freeList"`
+	UsedList []byte `json:"usedList"`
+}
+
 func NewSparseBitmapIndex() *SparseBitmapIndex {
 	return &SparseBitmapIndex{
 		freeList: sroar.NewBitmap(),
@@ -45,18 +28,18 @@ func NewSparseBitmapIndex() *SparseBitmapIndex {
 	}
 }
 
-func (b *SparseBitmapIndex) Snapshot() SerializedBitmapIndex {
+func (b *SparseBitmapIndex) Snapshot() BitmapSnapshot {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
-	return SerializedBitmapIndex{
+	return BitmapSnapshot{
 		LastID:   b.idCounter.Load(),
 		FreeList: b.freeList.ToBufferWithCopy(),
 		UsedList: b.usedList.ToBufferWithCopy(),
 	}
 }
 
-func (b *SparseBitmapIndex) LoadSnapshot(snap SerializedBitmapIndex) {
+func (b *SparseBitmapIndex) LoadSnapshot(snap BitmapSnapshot) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -119,4 +102,18 @@ func (b *SparseBitmapIndex) IsFree(id uint64) bool {
 	defer b.mu.RUnlock()
 
 	return b.freeList.Contains(id)
+}
+
+type SerializableBitmap struct {
+	*sroar.Bitmap
+}
+
+func (b *SerializableBitmap) MarshalBinary() ([]byte, error) {
+	return b.ToBufferWithCopy(), nil
+}
+
+func (b *SerializableBitmap) UnmarshalBinary(data []byte) error {
+	b.Bitmap = sroar.FromBufferWithCopy(data)
+
+	return nil
 }

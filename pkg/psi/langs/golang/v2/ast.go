@@ -3317,7 +3317,6 @@ var EdgeKindFileDoc = psi.DefineEdgeType[*CommentGroup]("GoFileDoc")
 var EdgeKindFileName = psi.DefineEdgeType[*Ident]("GoFileName")
 var EdgeKindFileDecls = psi.DefineEdgeType[Decl]("GoFileDecls")
 var EdgeKindFileImports = psi.DefineEdgeType[*ImportSpec]("GoFileImports")
-var EdgeKindFileUnresolved = psi.DefineEdgeType[*Ident]("GoFileUnresolved")
 var EdgeKindFileComments = psi.DefineEdgeType[*CommentGroup]("GoFileComments")
 
 func (n *File) GetDoc() *CommentGroup {
@@ -3330,8 +3329,6 @@ func (n *File) GetDecls() []Decl                  { return psi.GetEdges(n, EdgeK
 func (n *File) SetDecls(nodes []Decl)             { psi.UpdateEdges(n, EdgeKindFileDecls, nodes) }
 func (n *File) GetImports() []*ImportSpec         { return psi.GetEdges(n, EdgeKindFileImports) }
 func (n *File) SetImports(nodes []*ImportSpec)    { psi.UpdateEdges(n, EdgeKindFileImports, nodes) }
-func (n *File) GetUnresolved() []*Ident           { return psi.GetEdges(n, EdgeKindFileUnresolved) }
-func (n *File) SetUnresolved(nodes []*Ident)      { psi.UpdateEdges(n, EdgeKindFileUnresolved, nodes) }
 func (n *File) GetComments() []*CommentGroup      { return psi.GetEdges(n, EdgeKindFileComments) }
 func (n *File) SetComments(nodes []*CommentGroup) { psi.UpdateEdges(n, EdgeKindFileComments, nodes) }
 func NewFromFile(fset *token.FileSet, node *ast.File) *File {
@@ -3370,12 +3367,6 @@ func (n *File) CopyFromGoAst(fset *token.FileSet, src *ast.File) {
 		psi.UpdateEdge(n, EdgeKindFileImports.Indexed(int64(i)), tmpImports)
 	}
 
-	for i, v := range src.Unresolved {
-		tmpUnresolved := NewFromIdent(fset, v)
-		tmpUnresolved.SetParent(n)
-		psi.UpdateEdge(n, EdgeKindFileUnresolved.Indexed(int64(i)), tmpUnresolved)
-	}
-
 	for i, v := range src.Comments {
 		tmpComments := NewFromCommentGroup(fset, v)
 		tmpComments.SetParent(n)
@@ -3410,12 +3401,6 @@ func (n *File) ToGoFile(dst *ast.File) *ast.File {
 	dst.Imports = make([]*ast.ImportSpec, len(tmpImports))
 	for i, v := range tmpImports {
 		dst.Imports[i] = v.ToGoAst().(*ast.ImportSpec)
-	}
-
-	tmpUnresolved := psi.GetEdges(n, EdgeKindFileUnresolved)
-	dst.Unresolved = make([]*ast.Ident, len(tmpUnresolved))
-	for i, v := range tmpUnresolved {
-		dst.Unresolved[i] = v.ToGoAst().(*ast.Ident)
 	}
 
 	tmpComments := psi.GetEdges(n, EdgeKindFileComments)

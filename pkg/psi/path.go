@@ -302,6 +302,18 @@ func (p Path) Len() int {
 	return len(p.components)
 }
 
+func (p Path) Name() EdgeKey {
+	if len(p.components) == 0 {
+		return EdgeKey{}
+	}
+
+	return p.components[len(p.components)-1].AsEdgeKey()
+}
+
+func (p Path) Equals(p2 Path) bool {
+	return p.String() == p2.String()
+}
+
 // PathElement is a string of the form:
 //
 //	:<kind>#<name>@<index>

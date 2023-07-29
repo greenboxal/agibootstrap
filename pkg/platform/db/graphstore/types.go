@@ -12,16 +12,12 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
-type nodeWrapper struct {
-	Node psi.Node `json:"node"`
-}
-
 type edgeWrapper struct {
 	Edge psi.Edge `json:"edge"`
 }
 
 var dsKeyLastFence = psids.Key[uint64]("_graphstore/_lastFence")
-var dsKeyBitmap = psids.Key[SerializedBitmapIndex]("_graphstore/_bitmap")
+var dsKeyBitmap = psids.Key[BitmapSnapshot]("_graphstore/_bitmap")
 var dsKeyRootUuid = psids.Key[string]("_graphstore/_rootUuid")
 var dsKeyRootPath = psids.Key[psi.Path]("_graphstore/_rootPath")
 var dsKeyRootSnapshot = psids.Key[cidlink.Link]("_graphstore/_rootSnap")
@@ -40,16 +36,4 @@ var defaultLinkPrototype = cidlink.LinkPrototype{
 		MhType:   multihash.SHA2_256,
 		Version:  1,
 	},
-}
-
-var NoDataCid cid.Cid
-
-func init() {
-	mh, err := multihash.Sum(nil, multihash.SHA2_256, -1)
-
-	if err != nil {
-		panic(err)
-	}
-
-	NoDataCid = cid.NewCidV1(cid.Raw, mh)
 }

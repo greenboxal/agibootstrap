@@ -44,6 +44,8 @@ func (s *Symbol) UpdateDefinition(node psi.Node) {
 
 	psi.UpdateEdge(s, EdgeKindDefinition.Singleton(), node)
 	psi.UpdateEdge(node, EdgeKindSymbol.Singleton(), s)
+
+	s.Invalidate()
 }
 
 func (s *Symbol) Resolve(ctx context.Context) (bool, error) {

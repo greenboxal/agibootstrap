@@ -28,7 +28,7 @@ type Graph interface {
 	CommitNode(ctx context.Context, node Node) (ipld.Link, error)
 
 	ResolveNode(ctx context.Context, path Path) (n Node, err error)
-	ListNodeChildren(ctx context.Context, path Path) (result []Path, err error)
+	ListNodeEdges(ctx context.Context, path Path) (result []*FrozenEdge, err error)
 }
 
 type BaseGraph struct {

@@ -11,7 +11,6 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/jedib0t/go-pretty/v6/table"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
 )
@@ -71,9 +70,9 @@ func (gw *Gateway) handlePsiDbGet(
 	}
 
 	if request.URL.Query().Get("render") == "true" {
-		skin := request.URL.Query().Get("skin")
+		view := request.URL.Query().Get("view")
 
-		return rendering.RenderNodeResponse(writer, request, ApiTheme, skin, n)
+		return rendering.RenderNodeResponse(writer, request, ApiTheme, view, n)
 	}
 
 	return Negotiate(request, writer, "application/json", map[string]func() error{
@@ -88,25 +87,22 @@ func (gw *Gateway) handlePsiDbGet(
 		"text/plain": func() error {
 			porcelain := request.URL.Query().Get("porcelain") == "true"
 
-			edges, err := gw.graph.Store().ListNodeEdges(ctx, n.CanonicalPath())
+			edges, err := gw.graph.ListNodeEdges(ctx, path)
 
 			if err != nil {
 				return err
 			}
 
 			if porcelain {
-				for edges.Next() {
-					e := edges.Value()
-
+				for _, e := range edges {
 					_, _ = fmt.Fprintf(writer, "%d\t%s\t%s\t%s\n", e.ToIndex, e.Key, e.ToPath, e.ToLink)
 				}
 			} else {
 				t := table.NewWriter()
 				t.SetOutputMirror(writer)
 				t.AppendHeader(table.Row{"Ino", "Name", "Type", "Path", "Link"})
-				for edges.Next() {
-					e := edges.Value()
-					cn, err := gw.graph.ResolveEdge(ctx, e)
+				for _, e := range edges {
+					cn, err := gw.graph.ResolveNode(ctx, path.Child(e.Key.AsPathElement()))
 
 					if err != nil {
 						logger.Warn(err)
@@ -123,17 +119,17 @@ func (gw *Gateway) handlePsiDbGet(
 		},
 
 		"text/html": func() error {
-			edges, err := gw.graph.Store().ListNodeEdges(ctx, n.CanonicalPath())
+			edges, err := gw.graph.ListNodeEdges(ctx, path)
 
 			if err != nil {
 				return err
 			}
 
-			edgeList := iterators.ToSlice(edges)
-			edgeDescriptions := make([]EdgeDescription, len(edgeList))
+			edgeDescriptions := make([]EdgeDescription, len(edges))
 
-			for i, e := range edgeList {
-				cn, err := gw.graph.ResolveEdge(ctx, e)
+			for i, e := range edges {
+				cp := path.Child(e.Key.AsPathElement())
+				cn, err := gw.graph.ResolveNode(ctx, cp)
 
 				if err != nil {
 					logger.Warn(err)

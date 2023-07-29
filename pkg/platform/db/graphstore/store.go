@@ -127,10 +127,9 @@ func (s *Store) RemoveEdgeFromIndex(ctx context.Context, batch datastore.Batch, 
 
 func (s *Store) FreezeNode(ctx context.Context, n psi.Node) (*psi.FrozenNode, []*psi.FrozenEdge, ipld.Link, error) {
 	fn := &psi.FrozenNode{
-		Path:       n.CanonicalPath(),
-		Type:       n.PsiNodeType().Name(),
-		Version:    n.PsiNodeVersion(),
-		Attributes: n.Attributes(),
+		Path:    n.CanonicalPath(),
+		Type:    n.PsiNodeType().Name(),
+		Version: n.PsiNodeVersion(),
 	}
 
 	edges := make([]*psi.FrozenEdge, 0)
@@ -219,8 +218,9 @@ func (s *Store) FreezeEdge(ctx context.Context, edge psi.Edge) (*psi.FrozenEdge,
 		panic("wtf")
 	}
 
+	dl := dataLink.(cidlink.Link)
 	fe := &psi.FrozenEdge{
-		Data:     dataLink.(cidlink.Link),
+		Data:     &dl,
 		Key:      edge.Key().GetKey(),
 		FromPath: edge.From().CanonicalPath(),
 		ToIndex:  edge.To().ID(),

@@ -17,7 +17,11 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/psids"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/graphfs"
+	"github.com/greenboxal/agibootstrap/psidb/online"
+	"github.com/greenboxal/agibootstrap/psidb/storage/psidsadapter"
 )
 
 type nodeUpdateRequest struct {
@@ -39,6 +43,8 @@ type IndexedGraph struct {
 	wal   *WriteAheadLog
 
 	bmp *SparseBitmapIndex
+	vg  *graphfs.VirtualGraph
+	lg  *online.LiveGraph
 
 	nodeIdMap map[psi.NodeID]*cachedNode
 
@@ -74,6 +80,14 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.UniqueNode)
 		nodeUpdateQueue: make(chan nodeUpdateRequest, 8192),
 	}
 
+	sb := psidsadapter.NewDataStoreSuperBlock(ds, root.UUID())
+
+	g.vg = graphfs.NewVirtualGraph(func(ctx context.Context, uuid string) (graphfs.SuperBlock, error) {
+		return sb, nil
+	})
+
+	g.lg = online.NewLiveGraph(g.vg)
+
 	g.Add(root)
 
 	g.proc = goprocess.Go(g.run)
@@ -90,7 +104,9 @@ func (g *IndexedGraph) NextNodeID() int64      { return int64(g.bmp.Allocate()) 
 func (g *IndexedGraph) NextEdgeID() psi.EdgeID { return psi.EdgeID(g.bmp.Allocate()) }
 
 func (g *IndexedGraph) ResolveNode(ctx context.Context, path psi.Path) (n psi.Node, err error) {
-	needsTraversal := false
+	return g.lg.ResolveNode(ctx, path)
+
+	/*needsTraversal := false
 
 	if path.IsRelative() {
 		path = g.root.CanonicalPath().Join(path)
@@ -100,6 +116,10 @@ func (g *IndexedGraph) ResolveNode(ctx context.Context, path psi.Path) (n psi.No
 		entry := g.getCacheEntry(path, true)
 
 		if err := entry.Load(ctx); err != nil {
+			if err == psi.ErrNodeNotFound {
+				break
+			}
+
 			return nil, err
 		}
 
@@ -126,55 +146,27 @@ func (g *IndexedGraph) ResolveNode(ctx context.Context, path psi.Path) (n psi.No
 		return nil, psi.ErrNodeNotFound
 	}
 
-	return n, nil
+	return n, nil*/
 }
 
-func (g *IndexedGraph) ResolveEdge(ctx context.Context, e *psi.FrozenEdge) (psi.Node, error) {
-	if e.ToPath != nil {
-		return g.ResolveNode(ctx, *e.ToPath)
-	}
-
-	if e.ToLink != nil {
-		fn, err := g.store.GetNodeByCid(ctx, *e.ToLink)
-
-		if err != nil {
-			return nil, err
-		}
-
-		n, err := g.LoadNode(ctx, fn)
-
-		if err != nil {
-			return nil, err
-		}
-
-		return n, nil
-	}
-
-	return nil, fmt.Errorf("edge has no ToPath or ToLink")
-}
-
-func (g *IndexedGraph) ListNodeChildren(ctx context.Context, path psi.Path) (result []psi.Path, err error) {
+func (g *IndexedGraph) ListNodeEdges(ctx context.Context, path psi.Path) (result []*psi.FrozenEdge, err error) {
 	if path.IsRelative() {
 		return nil, fmt.Errorf("path must be absolute")
 	}
 
-	edges, err := g.store.ListNodeEdges(ctx, path)
+	edges, err := g.vg.ReadEdges(ctx, path)
 
 	if err != nil {
 		return nil, err
 	}
 
-	for edges.Next() {
-		fe := edges.Value()
-
-		if fe.Key.Kind != psi.EdgeKindChild {
-			continue
+	result = iterators.ToSlice(iterators.Map(edges, func(edge *graphfs.SerializedEdge) *psi.FrozenEdge {
+		return &psi.FrozenEdge{
+			Key:     edge.Key,
+			ToPath:  edge.ToPath,
+			ToIndex: edge.ToIndex,
 		}
-
-		p := fe.FromPath.Child(fe.Key.AsPathElement())
-
-		result = append(result, p)
-	}
+	}))
 
 	return result, nil
 }
@@ -184,35 +176,18 @@ func (g *IndexedGraph) Add(n psi.Node) {
 		panic("node is not initialized")
 	}
 
-	snap := n.PsiNodeBase().GetSnapshot()
+	_, err := g.lg.Add(context.Background(), n)
 
-	if snap != nil {
-		return
-	}
-
-	entry := g.getCacheEntry(n.CanonicalPath(), true)
-
-	if entry.node == nil {
-		if err := entry.updateNode(n); err != nil {
-			panic(err)
-		}
-	} else if entry.node != n {
-		panic(fmt.Errorf("node already exists in graph: %s", n.CanonicalPath()))
+	if err != nil {
+		panic(err)
 	}
 
 	n.PsiNodeBase().AttachToGraph(g)
 }
 
 func (g *IndexedGraph) Remove(n psi.Node) {
-	entry := g.getCacheEntry(n.CanonicalPath(), false)
+	g.lg.Remove(context.Background(), n)
 
-	if entry == nil {
-		return
-	}
-
-	if err := entry.Remove(context.Background(), n); err != nil {
-		panic(err)
-	}
 }
 
 func (g *IndexedGraph) SetEdge(e psi.Edge) {
@@ -222,11 +197,23 @@ func (g *IndexedGraph) UnsetEdge(self psi.Edge) {
 }
 
 func (g *IndexedGraph) RefreshNode(ctx context.Context, n psi.Node) error {
-	g.Add(n)
+	snap, err := g.lg.Add(ctx, n)
 
-	entry := g.getCacheEntry(n.CanonicalPath(), true)
+	if err != nil {
+		return err
+	}
 
-	return entry.Refresh(ctx)
+	return snap.Load(ctx)
+}
+
+func (g *IndexedGraph) CommitNode(ctx context.Context, node psi.Node) (ipld.Link, error) {
+	err := g.lg.CommitNode(ctx, node)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
 
 func (g *IndexedGraph) LoadNode(ctx context.Context, fn *psi.FrozenNode) (psi.Node, error) {
@@ -237,18 +224,6 @@ func (g *IndexedGraph) LoadNode(ctx context.Context, fn *psi.FrozenNode) (psi.No
 	}
 
 	return entry.Node(), nil
-}
-
-func (g *IndexedGraph) CommitNode(ctx context.Context, node psi.Node) (ipld.Link, error) {
-	g.Add(node)
-
-	entry := g.getCacheEntry(node.CanonicalPath(), true)
-
-	if err := entry.Commit(ctx, nil); err != nil {
-		return nil, err
-	}
-
-	return entry.CommitLink(), nil
 }
 
 func (g *IndexedGraph) Commit(ctx context.Context) error {
@@ -284,12 +259,6 @@ func (g *IndexedGraph) flushRoot(ctx context.Context, batch datastore.Batch) err
 
 	if err := psids.Put(ctx, batch, dsKeyRootUuid, g.root.UUID()); err != nil {
 		return err
-	}
-
-	if snap := g.root.PsiNodeBase().GetSnapshot(); snap != nil {
-		if err := psids.Put(ctx, batch, dsKeyRootSnapshot, snap.CommitLink().(cidlink.Link)); err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -500,28 +469,12 @@ func (g *IndexedGraph) AddListener(l IndexedGraphListener) {
 	}
 
 	s := &listenerSlot{
+		g:        g,
 		listener: l,
 		queue:    make(chan psi.Node, 128),
 	}
 
-	s.proc = goprocess.SpawnChild(g.proc, func(proc goprocess.Process) {
-		for {
-			select {
-			case <-proc.Closing():
-				return
-			case n := <-s.queue:
-				func() {
-					defer func() {
-						if r := recover(); r != nil {
-							g.logger.Error("panic in graph listener", "err", r)
-						}
-					}()
-
-					l.OnNodeUpdated(n)
-				}()
-			}
-		}
-	})
+	s.proc = goprocess.SpawnChild(g.proc, s.run)
 
 	g.listeners = append(g.listeners, s)
 }
@@ -583,9 +536,6 @@ func (g *IndexedGraph) dispatchListeners(node psi.Node) {
 	if node == nil {
 		return
 	}
-
-	g.mu.RLock()
-	defer g.mu.RUnlock()
 
 	for _, l := range g.listeners {
 		if l.queue != nil {

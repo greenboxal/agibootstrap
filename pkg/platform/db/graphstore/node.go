@@ -34,13 +34,14 @@ type cachedNode struct {
 	lastFenceId uint64
 }
 
-func (c *cachedNode) ID() int64                   { return c.id }
-func (c *cachedNode) Path() psi.Path              { return c.path }
-func (c *cachedNode) FrozenNode() *psi.FrozenNode { return c.frozen }
-func (c *cachedNode) Node() psi.Node              { return c.node }
-func (c *cachedNode) CommitVersion() int64        { return c.frozen.Version }
-func (c *cachedNode) CommitLink() ipld.Link       { return c.link }
-func (c *cachedNode) LastFenceID() uint64         { return c.lastFenceId }
+func (c *cachedNode) ID() int64                      { return c.id }
+func (c *cachedNode) Path() psi.Path                 { return c.path }
+func (c *cachedNode) FrozenNode() *psi.FrozenNode    { return c.frozen }
+func (c *cachedNode) FrozenEdges() []*psi.FrozenEdge { return c.edges }
+func (c *cachedNode) Node() psi.Node                 { return c.node }
+func (c *cachedNode) CommitVersion() int64           { return c.frozen.Version }
+func (c *cachedNode) CommitLink() ipld.Link          { return c.link }
+func (c *cachedNode) LastFenceID() uint64            { return c.lastFenceId }
 
 func (c *cachedNode) Load(ctx context.Context) error {
 	if err := c.Preload(ctx); err != nil {
@@ -204,13 +205,37 @@ func (c *cachedNode) Refresh(ctx context.Context) error {
 	return nil
 }
 
+func (c *cachedNode) Update(ctx context.Context, node psi.Node) error {
+
+	node.PsiNodeBase().SetSnapshot(c)
+
+	return nil
+}
+
 func (c *cachedNode) Commit(ctx context.Context, batch datastore.Batch) error {
+	if err := c.g.lg.CommitNode(ctx, c.node); err != nil {
+		return err
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.node == nil {
 		return nil
 	}
+
+	/*var parentStub psi.Node
+
+	for parent := c.node; parent != nil; parent = parent.Parent() {
+		if parent.PsiNodeType().Definition().IsStub {
+			parentStub = parent
+			break
+		}
+	}
+
+	if parentStub != nil && parentStub != c.node {
+		return nil
+	}*/
 
 	fn, edges, link, err := c.g.store.FreezeNode(ctx, c.node)
 
@@ -372,18 +397,6 @@ func (c *cachedNode) Remove(ctx context.Context, n psi.Node) error {
 }
 
 func (c *cachedNode) resolveEdge(ctx context.Context, g psi.Graph, from psi.Node, key psi.EdgeKey) (psi.Node, error) {
-	for _, e := range c.edges {
-		if e.Key != key {
-			continue
-		}
-
-		if n, err := c.g.ResolveEdge(ctx, e); err == nil {
-			return n, nil
-		}
-
-		break
-	}
-
 	return nil, psi.ErrNodeNotFound
 }
 func (c *cachedNode) invalidate() {

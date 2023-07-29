@@ -58,15 +58,13 @@ func buildPsiDbCmd() *cobra.Command {
 			}
 
 			g := project.Graph()
-			edges, err := g.Store().ListNodeEdges(cmd.Context(), rootPath)
+			edges, err := g.ListNodeEdges(cmd.Context(), rootPath)
 
 			if err != nil {
 				return err
 			}
 
-			for edges.Next() {
-				edge := edges.Value()
-
+			for _, edge := range edges {
 				if edge.Key.Kind == psi.EdgeKindChild {
 					cmd.Printf("%s\n", edge.Key)
 				} else {

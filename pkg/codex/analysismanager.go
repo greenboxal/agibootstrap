@@ -10,6 +10,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/analysis"
 )
 
 type AnalysisManager struct {
@@ -49,7 +50,11 @@ func (am *AnalysisManager) analyzeFile(ctx context.Context, n *vfs.File) error {
 		return err
 	}
 
-	return src.Load(ctx)
+	if err := src.Load(ctx); err != nil {
+		return err
+	}
+
+	return am.postParseAnalysis(ctx, src)
 }
 
 func (am *AnalysisManager) Analyze(ctx context.Context, root psi.Node) error {
@@ -86,4 +91,34 @@ func (am *AnalysisManager) Close() error {
 	am.workerPool.StopAndWait()
 
 	return nil
+}
+
+func (am *AnalysisManager) postParseAnalysis(ctx context.Context, src project.SourceFile) error {
+	scope := analysis.GetDirectNodeScope(src)
+
+	if scope == nil {
+		return nil
+	}
+
+	return psi.Walk(scope, func(cursor psi.Cursor, entering bool) error {
+		if !entering {
+			return nil
+		}
+
+		switch n := cursor.Value().(type) {
+		case *analysis.Scope:
+			cursor.WalkChildren()
+
+		case *analysis.Symbol:
+			if _, err := n.Resolve(ctx); err != nil {
+				return err
+			}
+
+		default:
+			cursor.SkipEdges()
+			cursor.SkipChildren()
+		}
+
+		return nil
+	})
 }

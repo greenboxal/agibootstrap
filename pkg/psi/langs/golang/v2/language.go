@@ -10,7 +10,8 @@ import (
 
 var LanguageID project.LanguageID = "go"
 
-type Language struct{}
+type Language struct {
+}
 
 func (l *Language) Name() project.LanguageID { return LanguageID }
 func (l *Language) Extensions() []string     { return []string{".go"} }

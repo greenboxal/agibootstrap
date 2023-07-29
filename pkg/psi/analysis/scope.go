@@ -92,10 +92,6 @@ func (s *Scope) resolveLocal(name string) *Symbol {
 		return nil
 	}
 
-	if !sym.IsResolved {
-		return nil
-	}
-
 	return sym
 }
 
