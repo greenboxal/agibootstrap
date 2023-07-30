@@ -15,6 +15,7 @@ import (
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
+	"github.com/greenboxal/agibootstrap/pkg/api/rest"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphindex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
@@ -67,13 +68,9 @@ func NewGateway(
 
 	gw.router.Get("/_objects/{cid}", gw.handleObjectStoreGet)
 	gw.router.HandleFunc("/_search", gw.handleSearch)
+	gw.router.Mount("/v1", http.StripPrefix("/v1", rest.NewRouter(graph.LiveGraph())))
 
 	gw.router.Route("/psi", func(r chi.Router) {
-		r.Use(func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			})
-		})
-
 		r.NotFound(func(writer http.ResponseWriter, request *http.Request) {
 			request.URL.Path = strings.TrimPrefix(request.URL.Path, "/psi")
 			request.URL.Path = strings.TrimPrefix(request.URL.Path, "/")

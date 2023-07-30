@@ -24,7 +24,6 @@ type Graph interface {
 	OnNodeInvalidated(n Node)
 
 	RefreshNode(ctx context.Context, n Node) error
-	LoadNode(ctx context.Context, fn *FrozenNode) (Node, error)
 	CommitNode(ctx context.Context, node Node) (ipld.Link, error)
 
 	ResolveNode(ctx context.Context, path Path) (n Node, err error)

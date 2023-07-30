@@ -43,6 +43,25 @@ func (dn *Directory) Init(self psi.Node) {
 	dn.NodeBase.Init(self, DirectoryType)
 }
 
+func (dn *Directory) Lookup(name string) (Node, error) {
+	dn.mu.RLock()
+	defer dn.mu.RUnlock()
+
+	for it := dn.ChildrenIterator(); it.Next(); {
+		child, ok := it.Value().(Node)
+
+		if !ok {
+			continue
+		}
+
+		if child.GetName() == name {
+			return child, nil
+		}
+	}
+
+	return nil, psi.ErrNodeNotFound
+}
+
 // Sync synchronizes the DirectoryNode with the underlying filesystem.
 // It scans the directory and updates the children nodes to reflect the current state of the filesystem.
 // Any nodes that no longer exist in the filesystem are removed.
@@ -120,4 +139,23 @@ func (dn *Directory) onWatchEvent(ctx context.Context, ev fsnotify.Event) error 
 	}
 
 	return dn.Update(ctx)
+}
+
+func (dn *Directory) GetOrCreateFile(ctx context.Context, name string) (*File, error) {
+	existing, err := dn.Lookup(name)
+
+	if err == nil {
+		return existing.(*File), nil
+	}
+
+	if err != psi.ErrNodeNotFound {
+		return nil, err
+	}
+
+	f := newFileNode(dn.fs, path.Join(dn.Path, name))
+	f.SetParent(dn)
+
+	dn.fs.nodeMap[f.Path] = f
+
+	return f, nil
 }

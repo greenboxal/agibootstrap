@@ -4,8 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/ipld/go-ipld-prime"
-
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -16,14 +14,20 @@ type VirtualGraph struct {
 	spb SuperBlockProvider
 
 	mu          sync.RWMutex
+	txm         *TransactionManager
 	superBlocks map[string]SuperBlock
 }
 
-func NewVirtualGraph(spb SuperBlockProvider) *VirtualGraph {
-	return &VirtualGraph{
-		spb:         spb,
+func NewVirtualGraph(spb SuperBlockProvider, journal *Journal, checkpoint Checkpoint) *VirtualGraph {
+	vg := &VirtualGraph{
+		spb: spb,
+
 		superBlocks: map[string]SuperBlock{},
 	}
+
+	vg.txm = NewTransactionManager(vg, journal, checkpoint)
+
+	return vg
 }
 
 func (vg *VirtualGraph) GetSuperBlock(ctx context.Context, uuid string) (SuperBlock, error) {
@@ -88,11 +92,11 @@ func (vg *VirtualGraph) Read(ctx context.Context, path psi.Path) (*SerializedNod
 	return nh.Read(ctx)
 }
 
-func (vg *VirtualGraph) Write(ctx context.Context, path psi.Path, node *SerializedNode) (ipld.Link, error) {
+func (vg *VirtualGraph) Write(ctx context.Context, path psi.Path, node *SerializedNode) error {
 	nh, err := vg.Open(ctx, path)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer nh.Close()
@@ -122,4 +126,21 @@ func (vg *VirtualGraph) ReadEdges(ctx context.Context, path psi.Path) (iterators
 	defer nh.Close()
 
 	return nh.ReadEdges(ctx)
+}
+
+func (vg *VirtualGraph) Close(ctx context.Context) error {
+	if vg.txm != nil {
+		if err := vg.txm.Close(ctx); err != nil {
+			return err
+		}
+		vg.txm = nil
+	}
+
+	for _, sb := range vg.superBlocks {
+		if err := sb.Close(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

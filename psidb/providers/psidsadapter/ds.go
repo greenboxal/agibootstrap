@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/ipfs/go-datastore"
-	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/storage/dsadapter"
@@ -122,7 +121,7 @@ func (sb *DataStoreSuperBlock) Create(ctx context.Context, self *graphfs.CacheEn
 		self.Instantiate(ino)
 	}
 
-	return graphfs.NewNodeHandle(ino, self, options), nil
+	return graphfs.NewNodeHandle(ctx, ino, self, options)
 }
 
 func (sb *DataStoreSuperBlock) Lookup(ctx context.Context, self *graphfs.INode, dentry *graphfs.CacheEntry) (*graphfs.CacheEntry, error) {
@@ -148,15 +147,15 @@ func (sb *DataStoreSuperBlock) Read(ctx context.Context, nh graphfs.NodeHandle) 
 	return psids.Get(ctx, sb.ds, k)
 }
 
-func (sb *DataStoreSuperBlock) Write(ctx context.Context, nh graphfs.NodeHandle, fe *graphfs.SerializedNode) (ipld.Link, error) {
+func (sb *DataStoreSuperBlock) Write(ctx context.Context, nh graphfs.NodeHandle, fe *graphfs.SerializedNode) error {
 	writer := GetBatchWriter(ctx, sb.ds)
 	k := dsKeyNodeData(nh.Inode().ID())
 
 	if err := psids.Put(ctx, writer, k, fe); err != nil {
-		return nil, err
+		return err
 	}
 
-	return nil, nil
+	return nil
 }
 
 func (sb *DataStoreSuperBlock) SetEdge(ctx context.Context, nh graphfs.NodeHandle, edge *graphfs.SerializedEdge) error {
@@ -183,4 +182,8 @@ func (sb *DataStoreSuperBlock) ReadEdges(ctx context.Context, nh graphfs.NodeHan
 	k := dsKeyEdgePrefix(nh.Inode().ID())
 
 	return psids.List(ctx, sb.ds, k)
+}
+
+func (sb *DataStoreSuperBlock) Close(ctx context.Context) error {
+	return sb.ds.Close()
 }

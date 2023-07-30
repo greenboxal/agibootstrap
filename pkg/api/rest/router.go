@@ -4,19 +4,28 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	contentnegotiation "gitlab.com/jamietanna/content-negotiation-go"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
+	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
 	"github.com/greenboxal/agibootstrap/psidb/online"
 )
 
 var logger = logging.GetLogger("api/rest")
+
+var decoderMap = map[string]ipld.Decoder{
+	"application/json": dagjson.Decode,
+	"application/cbor": dagcbor.Decode,
+}
 
 type Request struct {
 	*http.Request
@@ -46,23 +55,48 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		}
 	}()
 
-	res, err := r.handleRequest(writer, req)
+	res, err := r.handleRequest(req)
 
 	if err != nil {
 		r.handleError(writer, req, err)
 		return
 	}
 
+	if n, ok := res.(psi.Node); ok {
+		writer.Header().Set("X-Psi-Path", n.CanonicalPath().String())
+		writer.Header().Set("X-Psi-Node-Type", n.PsiNodeType().Name())
+		writer.Header().Set("X-Psi-Node-Version", strconv.FormatInt(n.PsiNodeVersion(), 10))
+		writer.Header().Set("X-Psi-Node-Index", strconv.FormatInt(n.ID(), 10))
+	}
+
 	writer.WriteHeader(http.StatusOK)
 
 	if res != nil {
-		if err := ipld.EncodeStreaming(writer, typesystem.Wrap(res), dagjson.Encode); err != nil {
-			logger.Error(err)
+		view := request.URL.Query().Get("view")
+
+		if request.Method != http.MethodHead {
+			if n, ok := res.(psi.Node); ok {
+				if request.Header.Get("Accept") == "" {
+					request.Header.Set("Accept", "application/json")
+				}
+
+				err := rendering.RenderNodeResponse(writer, request, themes.GlobalTheme, view, n)
+
+				if err != nil {
+					logger.Error(err)
+				}
+			} else {
+				writer.Header().Set("Content-Type", "application/json")
+
+				if err := ipld.EncodeStreaming(writer, typesystem.Wrap(res), dagjson.Encode); err != nil {
+					logger.Error(err)
+				}
+			}
 		}
 	}
 }
 
-func (r *Router) handleRequest(writer http.ResponseWriter, req *Request) (any, error) {
+func (r *Router) handleRequest(req *Request) (any, error) {
 	req.AcceptedFormats = contentnegotiation.ParseAcceptHeaders(req.Header.Values("Accept")...)
 
 	if s := req.Header.Get("Content-Type"); s != "" {
@@ -107,6 +141,10 @@ func (r *Router) handlePost(request *Request) (any, error) {
 	var dataReader io.Reader
 	var nodeType psi.NodeType
 
+	if request.ContentType == nil {
+		return nil, ErrBadRequest
+	}
+
 	if request.ContentType.GetType() == "multipart" && request.ContentType.GetSubType() == "form-data" {
 		if err := request.ParseMultipartForm(32 << 20); err != nil {
 			return nil, err
@@ -134,12 +172,45 @@ func (r *Router) handlePost(request *Request) (any, error) {
 	}
 
 	if nodeType == vfs.FileType {
-
-	} else {
-		panic("not implemented")
+		return r.handlePostFile(request, dataReader)
 	}
 
-	return nil, nil
+	if nodeType.Definition().IsRuntimeOnly {
+		return nil, NewHttpError(http.StatusBadRequest, "cannot create runtime-only node")
+	}
+
+	decoder := decoderMap[request.ContentType.String()]
+
+	if decoder == nil {
+		return nil, NewHttpError(http.StatusBadRequest, "invalid content type")
+	}
+
+	wrapped, err := ipld.DecodeStreamingUsingPrototype(dataReader, decoder, nodeType.Type().IpldPrototype())
+
+	if err != nil {
+		return nil, err
+	}
+
+	node, ok := typesystem.TryUnwrap[psi.Node](wrapped)
+
+	if !ok {
+		return nil, NewHttpError(http.StatusBadRequest, "invalid node type")
+	}
+
+	parentPath := request.PsiPath.Parent()
+	parent, err := r.lg.ResolveNode(request.Context(), parentPath)
+
+	if err != nil {
+		return nil, err
+	}
+
+	node.SetParent(parent)
+
+	if err := node.Update(request.Context()); err != nil {
+		return nil, err
+	}
+
+	return node, nil
 }
 
 func (r *Router) handlePut(request *Request) (any, error) {
@@ -182,4 +253,54 @@ func (r *Router) handleError(writer http.ResponseWriter, request *Request, e any
 	}
 
 	writer.WriteHeader(status)
+}
+
+func (r *Router) handlePostFile(request *Request, reader io.Reader) (any, error) {
+	f, err := r.lg.ResolveNode(request.Context(), request.PsiPath)
+
+	if err == psi.ErrNodeNotFound {
+		parentPath := request.PsiPath.Parent()
+		parent, err := r.lg.ResolveNode(request.Context(), parentPath)
+
+		if err != nil {
+			return nil, err
+		}
+
+		d, ok := parent.(*vfs.Directory)
+
+		if !ok {
+			return nil, fmt.Errorf("parent node is not a directory")
+		}
+
+		f, err = d.GetOrCreateFile(request.Context(), request.PsiPath.Name().Name)
+
+		if err != nil {
+			return nil, err
+		}
+	} else if err != nil {
+		return nil, err
+	}
+
+	if f == nil {
+		return nil, ErrNotFound
+	}
+
+	vf := f.(*vfs.File)
+	fh, err := vf.Open()
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer fh.Close()
+
+	if err := fh.Put(reader); err != nil {
+		return nil, err
+	}
+
+	if err := f.Update(request.Context()); err != nil {
+		return nil, err
+	}
+
+	return f, nil
 }

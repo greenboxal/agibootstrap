@@ -26,4 +26,5 @@ func NewHttpError(code int, msg string) HttpError {
 }
 
 var ErrNotFound = NewHttpError(http.StatusNotFound, "not found")
+var ErrBadRequest = NewHttpError(http.StatusBadRequest, "bad request")
 var ErrMethodNotAllowed = NewHttpError(http.StatusMethodNotAllowed, "method not allowed")

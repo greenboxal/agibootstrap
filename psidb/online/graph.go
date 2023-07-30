@@ -37,6 +37,7 @@ func (g *LiveGraph) Add(ctx context.Context, node psi.Node) (ln *LiveNode, err e
 
 func (g *LiveGraph) Remove(ctx context.Context, n psi.Node) error {
 	// TODO: Implement this
+	return nil
 }
 
 func (g *LiveGraph) CommitNode(ctx context.Context, node psi.Node) error {

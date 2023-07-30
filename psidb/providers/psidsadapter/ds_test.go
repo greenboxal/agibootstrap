@@ -57,7 +57,7 @@ func TestNewDataStoreSuperBlock(t *testing.T) {
 	require.NotNil(t, nh)
 
 	fe := &psi.FrozenNode{}
-	_, err = nh.Write(ctx, fe)
+	err = nh.Write(ctx, fe)
 
 	require.NoError(t, err)
 

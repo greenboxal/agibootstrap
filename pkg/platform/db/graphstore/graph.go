@@ -3,12 +3,13 @@ package graphstore
 import (
 	"context"
 	"fmt"
+	"os"
+	"path"
 	"sync"
 
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/linking"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/pkg/errors"
@@ -21,7 +22,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/graphfs"
 	"github.com/greenboxal/agibootstrap/psidb/online"
-	"github.com/greenboxal/agibootstrap/psidb/storage/psidsadapter"
+	"github.com/greenboxal/agibootstrap/psidb/providers/psidsadapter"
 )
 
 type nodeUpdateRequest struct {
@@ -38,15 +39,13 @@ type IndexedGraph struct {
 
 	root psi.UniqueNode
 
-	ds    datastore.Batching
-	store *Store
-	wal   *WriteAheadLog
+	ds         datastore.Batching
+	journal    *graphfs.Journal
+	checkpoint graphfs.Checkpoint
 
 	bmp *SparseBitmapIndex
 	vg  *graphfs.VirtualGraph
 	lg  *online.LiveGraph
-
-	nodeIdMap map[psi.NodeID]*cachedNode
 
 	proc            goprocess.Process
 	nodeUpdateQueue chan nodeUpdateRequest
@@ -56,35 +55,44 @@ type IndexedGraph struct {
 }
 
 func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.UniqueNode) (*IndexedGraph, error) {
-	wal, err := NewWriteAheadLog(walPath)
+	if err := os.MkdirAll(walPath, 0755); err != nil {
+		return nil, err
+	}
+
+	journal, err := graphfs.OpenJournal(walPath)
 
 	if err != nil {
 		return nil, err
 	}
 
-	store := NewStore(ds, wal, root)
+	checkpoint, err := graphfs.OpenFileCheckpoint(path.Join(walPath, "ckpt"))
+
+	if err != nil {
+		return nil, err
+	}
+
+	sb := psidsadapter.NewDataStoreSuperBlock(ds, root.UUID())
+
+	spb := graphfs.SuperBlockProvider(func(ctx context.Context, uuid string) (graphfs.SuperBlock, error) {
+		return sb, nil
+	})
+
+	vg := graphfs.NewVirtualGraph(spb, journal, checkpoint)
 
 	g := &IndexedGraph{
 		logger: logging.GetLogger("graphstore"),
 
 		bmp: NewSparseBitmapIndex(),
 
-		ds:    ds,
-		wal:   wal,
-		store: store,
-		root:  root,
-
-		nodeIdMap: map[psi.NodeID]*cachedNode{},
+		root:       root,
+		ds:         ds,
+		vg:         vg,
+		journal:    journal,
+		checkpoint: checkpoint,
 
 		closeCh:         make(chan struct{}),
 		nodeUpdateQueue: make(chan nodeUpdateRequest, 8192),
 	}
-
-	sb := psidsadapter.NewDataStoreSuperBlock(ds, root.UUID())
-
-	g.vg = graphfs.NewVirtualGraph(func(ctx context.Context, uuid string) (graphfs.SuperBlock, error) {
-		return sb, nil
-	})
 
 	g.lg = online.NewLiveGraph(g.vg)
 
@@ -96,9 +104,9 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.UniqueNode)
 }
 
 func (g *IndexedGraph) Root() psi.UniqueNode            { return g.root }
-func (g *IndexedGraph) Store() *Store                   { return g.store }
-func (g *IndexedGraph) LinkSystem() *linking.LinkSystem { return &g.store.lsys }
-func (g *IndexedGraph) DataStore() datastore.Batching   { return g.store.ds }
+func (g *IndexedGraph) Store() *Store                   { return nil }
+func (g *IndexedGraph) LinkSystem() *linking.LinkSystem { return nil }
+func (g *IndexedGraph) DataStore() datastore.Batching   { return g.ds }
 
 func (g *IndexedGraph) NextNodeID() int64      { return int64(g.bmp.Allocate()) }
 func (g *IndexedGraph) NextEdgeID() psi.EdgeID { return psi.EdgeID(g.bmp.Allocate()) }
@@ -216,16 +224,6 @@ func (g *IndexedGraph) CommitNode(ctx context.Context, node psi.Node) (ipld.Link
 	return nil, nil
 }
 
-func (g *IndexedGraph) LoadNode(ctx context.Context, fn *psi.FrozenNode) (psi.Node, error) {
-	entry := g.getCacheEntry(fn.Path, true)
-
-	if err := entry.Load(ctx); err != nil {
-		return nil, err
-	}
-
-	return entry.Node(), nil
-}
-
 func (g *IndexedGraph) Commit(ctx context.Context) error {
 	if err := g.root.Update(ctx); err != nil {
 		return err
@@ -295,40 +293,6 @@ func (g *IndexedGraph) OnNodeUpdated(n psi.Node) {
 	}
 }
 
-func (g *IndexedGraph) getCacheEntry(path psi.Path, create bool) *cachedNode {
-	if path.IsRelative() {
-		panic(fmt.Errorf("path must be absolute"))
-	}
-
-	key := path.String()
-
-	if n := g.nodeIdMap[key]; n != nil {
-		return n
-	}
-
-	if create {
-		g.mu.Lock()
-		defer g.mu.Unlock()
-	} else {
-		g.mu.RLock()
-		defer g.mu.RUnlock()
-	}
-
-	entry := g.nodeIdMap[key]
-
-	if entry == nil && create {
-		entry = &cachedNode{
-			g:    g,
-			id:   -1,
-			path: path,
-		}
-
-		g.nodeIdMap[key] = entry
-	}
-
-	return entry
-}
-
 func (g *IndexedGraph) run(proc goprocess.Process) {
 	ctx := goprocessctx.OnClosingContext(proc)
 
@@ -349,10 +313,6 @@ func (g *IndexedGraph) run(proc goprocess.Process) {
 
 		wg.Wait()
 	}()
-
-	if err := g.recoverFromWal(ctx); err != nil {
-		panic(err)
-	}
 
 	if err := g.loadBitmap(ctx); err != nil {
 		panic(err)
@@ -382,66 +342,6 @@ func (g *IndexedGraph) run(proc goprocess.Process) {
 			}
 		}
 	}
-}
-
-func (g *IndexedGraph) recoverFromWal(ctx context.Context) error {
-	lastFence, err := psids.Get(ctx, g.ds, dsKeyLastFence)
-
-	if err != nil {
-		if err == psi.ErrNodeNotFound {
-			return nil
-		}
-
-		return err
-	}
-
-	for i := lastFence; i <= g.wal.LastRecordIndex(); i++ {
-		rec, err := g.wal.ReadRecord(i)
-
-		if err != nil {
-			return err
-		}
-
-		if rec.Op != WalOpUpdateNode {
-			continue
-		}
-
-		if rec.Payload == nil {
-			continue
-		}
-
-		fnLink := cidlink.Link{Cid: *rec.Payload}
-		fn, err := g.store.GetNodeByCid(ctx, fnLink)
-
-		if err != nil {
-			return err
-		}
-
-		edges := make([]*psi.FrozenEdge, len(fn.Edges))
-
-		for i, edgeLink := range fn.Edges {
-			edge, err := g.store.GetEdgeByCid(ctx, edgeLink)
-
-			if err != nil {
-				return err
-			}
-
-			edges[i] = edge
-		}
-
-		item := nodeUpdateRequest{
-			Fence:  rec.Counter,
-			Frozen: fn,
-			Edges:  edges,
-			Link:   fnLink,
-		}
-
-		if err := g.processQueueItem(ctx, item); err != nil {
-			g.logger.Error(err)
-		}
-	}
-
-	return nil
 }
 
 func (g *IndexedGraph) processQueueItem(ctx context.Context, item nodeUpdateRequest) error {
@@ -517,12 +417,28 @@ func (g *IndexedGraph) Shutdown(ctx context.Context) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	if g.wal != nil {
-		if err := g.wal.Close(); err != nil {
+	if g.journal != nil {
+		if err := g.journal.Close(); err != nil {
 			return err
 		}
 
-		g.wal = nil
+		g.journal = nil
+	}
+
+	if g.checkpoint != nil {
+		if err := g.checkpoint.Close(); err != nil {
+			return err
+		}
+
+		g.checkpoint = nil
+	}
+
+	if g.vg != nil {
+		if err := g.vg.Close(ctx); err != nil {
+			return err
+		}
+
+		g.vg = nil
 	}
 
 	return nil
@@ -543,3 +459,5 @@ func (g *IndexedGraph) dispatchListeners(node psi.Node) {
 		}
 	}
 }
+
+func (g *IndexedGraph) LiveGraph() *online.LiveGraph { return g.lg }

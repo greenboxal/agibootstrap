@@ -23,6 +23,8 @@ type SuperBlock interface {
 
 	INodeOperations() INodeOperations
 	NodeHandleOperations() NodeHandleOperations
+
+	Close(ctx context.Context) error
 }
 
 type SuperBlockBase struct {

@@ -8,6 +8,8 @@ const (
 	NodeFlagNone NodeFlag = iota
 	NodeFlagHasData
 	NodeFlagHasDataLink
+
+	NodeFlagRemoved NodeFlag = 1 << 30
 )
 
 type SerializedNode struct {
@@ -26,6 +28,8 @@ const (
 	EdgeFlagNone EdgeFlag = iota
 	EdgeFlagRegular
 	EdgeFlagLink
+
+	EdgeFlagRemoved EdgeFlag = 1 << 30
 )
 
 type SerializedEdge struct {
@@ -39,4 +43,7 @@ type SerializedEdge struct {
 	ToPath  *psi.Path `json:"toPath,omitempty"`
 
 	Data []byte `json:"data,omitempty"`
+
+	Xmin uint64 `json:"xmin"`
+	Xmax uint64 `json:"xmax"`
 }

@@ -232,7 +232,7 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 		}
 	}
 
-	if _, err := nh.Write(ctx, ln.frozen); err != nil {
+	if err := nh.Write(ctx, ln.frozen); err != nil {
 		return err
 	}
 
