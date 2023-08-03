@@ -207,7 +207,7 @@ func buildSnapshot(ctx context.Context, node psi.Node, maxDepth int, nested bool
 		edges, err := node.PsiNodeBase().Graph().ListNodeEdges(ctx, node.CanonicalPath())
 
 		if err != nil {
-			panic(err)
+			return
 		}
 
 		for _, fe := range edges {

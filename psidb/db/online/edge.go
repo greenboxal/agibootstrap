@@ -111,7 +111,13 @@ func (le *LiveEdge) Save(ctx context.Context, nh graphfs.NodeHandle) error {
 		le.frozen.Key = key
 	}
 
-	le.frozen.Flags |= graphfs.EdgeFlagRegular
+	if le.key.Kind == "" || le.key.Kind == psi.EdgeKindChild {
+		le.frozen.Flags &= ^graphfs.EdgeFlagModes
+		le.frozen.Flags |= graphfs.EdgeFlagRegular
+	} else {
+		le.frozen.Flags &= ^graphfs.EdgeFlagModes
+		le.frozen.Flags |= graphfs.EdgeFlagLink
+	}
 
 	if le.to != nil {
 		le.frozen.ToIndex = le.to.cachedIndex

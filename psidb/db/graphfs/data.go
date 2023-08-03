@@ -33,6 +33,7 @@ const (
 	EdgeFlagNone EdgeFlag = iota
 	EdgeFlagRegular
 	EdgeFlagLink
+	EdgeFlagModes = EdgeFlagRegular | EdgeFlagLink
 
 	EdgeFlagRemoved EdgeFlag = 1 << 30
 )

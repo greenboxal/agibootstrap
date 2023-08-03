@@ -8,6 +8,11 @@ import (
 
 type Scope struct {
 	psi.NodeBase
+
+	IndexManager *Manager `inject:"" json:"-"`
+
+	Index    NodeIndex    `json:"-"`
+	Embedder NodeEmbedder `json:"-"`
 }
 
 var ScopeType = psi.DefineNodeType[*Scope]()
@@ -30,8 +35,18 @@ func (scp *Scope) GetRoot() psi.Node {
 }
 
 func (scp *Scope) Upsert(ctx context.Context, node psi.Node) error {
-
 	return nil
+	/*if scp.Index == nil {
+		idx, err := scp.IndexManager.OpenNodeIndex(ctx, scp.CanonicalPath().String(), scp.Embedder)
+
+		if err != nil {
+			return err
+		}
+
+		scp.Index = idx
+	}
+
+	return scp.Index.IndexNode(ctx, node)*/
 }
 
 func GetNodeScope(node psi.Node) *Scope {

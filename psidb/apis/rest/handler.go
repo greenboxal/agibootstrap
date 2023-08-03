@@ -90,8 +90,6 @@ func (r *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("X-Psi-Node-Index", strconv.FormatInt(n.ID(), 10))
 	}
 
-	writer.WriteHeader(http.StatusOK)
-
 	if result != nil {
 		view := request.URL.Query().Get("view")
 
@@ -108,6 +106,7 @@ func (r *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 				}
 			} else {
 				writer.Header().Set("Content-Type", "application/json")
+				writer.WriteHeader(http.StatusOK)
 
 				if err := ipld.EncodeStreaming(writer, typesystem.Wrap(result), dagjson.Encode); err != nil {
 					logger.Error(err)
