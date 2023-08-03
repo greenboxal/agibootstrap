@@ -61,14 +61,13 @@ func (le *LiveEdge) ResolveTo(ctx context.Context) (psi.Node, error) {
 	return le.to.Get(ctx)
 }
 
-func NewLiveEdge(from *LiveNode, key psi.EdgeKey, dentry *graphfs.CacheEntry) *LiveEdge {
+func NewLiveEdge(from *LiveNode, key psi.EdgeKey) *LiveEdge {
 	le := &LiveEdge{
 		key:  key,
 		from: from,
 	}
 
 	le.Init(le)
-	le.updateDentry(dentry)
 
 	return le
 }
@@ -87,6 +86,8 @@ func (le *LiveEdge) invalidate() {
 
 func (le *LiveEdge) update(se *graphfs.SerializedEdge) {
 	le.frozen = se
+	le.dirty = false
+	le.to = nil
 }
 
 func (le *LiveEdge) updateDentry(dentry *graphfs.CacheEntry) {
@@ -110,11 +111,7 @@ func (le *LiveEdge) Save(ctx context.Context, nh graphfs.NodeHandle) error {
 		le.frozen.Key = key
 	}
 
-	if key.Kind == psi.EdgeKindChild {
-		le.frozen.Flags = graphfs.EdgeFlagRegular
-	} else {
-		le.frozen.Flags = graphfs.EdgeFlagLink
-	}
+	le.frozen.Flags |= graphfs.EdgeFlagRegular
 
 	if le.to != nil {
 		le.frozen.ToIndex = le.to.cachedIndex

@@ -236,6 +236,7 @@ func (r *Handler) handlePost(request *Request) (any, error) {
 	}
 
 	node.SetParent(parent)
+	parent.SetEdge(request.PsiPath.Name().GetKey(), node)
 
 	if err := parent.Update(request.Context()); err != nil {
 		return nil, err

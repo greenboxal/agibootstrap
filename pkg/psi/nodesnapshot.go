@@ -32,6 +32,8 @@ type NodeSnapshot interface {
 	OnAttributeRemoved(key string, removed any)
 
 	OnParentChange(newParent Node)
+
+	Lookup(key EdgeReference) Edge
 }
 
 func GetNodeSnapshot(node Node) NodeSnapshot { return node.PsiNodeBase().GetSnapshot() }

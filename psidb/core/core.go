@@ -206,6 +206,11 @@ func (c *Core) Start(ctx context.Context) error {
 
 			tx.Add(r)
 
+			scp := indexing.NewScope()
+			scp.SetParent(r)
+
+			indexing.SetNodeScope(r, scp)
+
 			if err := r.Update(ctx); err != nil {
 				return err
 			}

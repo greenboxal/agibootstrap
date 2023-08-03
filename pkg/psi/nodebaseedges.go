@@ -44,7 +44,13 @@ func (n *NodeBase) UnsetEdge(key EdgeReference) {
 }
 
 func (n *NodeBase) GetEdge(key EdgeReference) Edge {
-	v, _ := n.edges.Get(key.GetKey())
+	v, ok := n.edges.Get(key.GetKey())
+
+	if !ok || v == nil {
+		if n.snap != nil {
+			return n.snap.Lookup(key)
+		}
+	}
 
 	return v
 }

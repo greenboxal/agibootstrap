@@ -407,15 +407,19 @@ func (ln *LiveNode) prefetchEdge(ctx context.Context, key psi.EdgeKey, frozen *g
 		return e, nil
 	}
 
-	dentry, err := ln.dentry.Lookup(ctx, key.AsPathElement())
-
-	if err != nil {
-		return nil, err
-	}
-
-	e := NewLiveEdge(ln, key, dentry)
+	e := NewLiveEdge(ln, key)
 
 	ln.edges[key] = e
+
+	if ln.dentry != nil {
+		dentry, err := ln.dentry.Lookup(ctx, key.AsPathElement())
+
+		if err != nil {
+			return nil, err
+		}
+
+		e.updateDentry(dentry)
+	}
 
 	if frozen == nil {
 		f, err := ln.handle.ReadEdge(ctx, key)
@@ -511,7 +515,12 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 	}
 
 	for _, v := range ln.node.Children() {
-		k := v.CanonicalPath().Name()
+		k := v.SelfIdentity().Name()
+
+		if k.Name == "" && (k.Kind == "" || k.Kind == psi.EdgeKindChild) {
+			continue
+		}
+
 		le, err := ln.prefetchEdge(ctx, k, nil)
 
 		if err != nil {
@@ -522,7 +531,7 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 	}
 
 	for _, le := range ln.edges {
-		if le.dentry == nil {
+		if le.dentry == nil && ln.dentry != nil {
 			ce, err := ln.dentry.Lookup(ctx, le.key.AsPathElement())
 
 			if err != nil {
@@ -779,10 +788,13 @@ func (ln *LiveNode) OnAttributeRemoved(key string, removed any) {
 func (ln *LiveNode) OnEdgeAdded(added psi.Edge) {
 	if le, ok := added.(*LiveEdge); ok && le.from == ln {
 		ln.edges[le.key] = le
-		return
-	}
+	} else {
+		le := NewLiveEdge(ln, added.Key().GetKey())
+		edge := le.ReplaceTo(added.To())
 
-	ln.markEdgeDirty(added.Key().GetKey())
+		ln.node.UpsertEdge(edge)
+		ln.edges[le.key] = le
+	}
 }
 
 func (ln *LiveNode) OnEdgeRemoved(removed psi.Edge) {
@@ -821,7 +833,7 @@ func (ln *LiveNode) markEdgeDirty(key psi.EdgeKey) {
 	e := ln.edges[key]
 
 	if e == nil {
-		e = NewLiveEdge(ln, key, nil)
+		e = NewLiveEdge(ln, key)
 
 		ln.edges[key] = e
 	}
@@ -833,4 +845,14 @@ func (ln *LiveNode) markEdgeDirty(key psi.EdgeKey) {
 	if ln.node != nil {
 		ln.g.markDirty(ln.node)
 	}
+}
+
+func (ln *LiveNode) Lookup(key psi.EdgeReference) psi.Edge {
+	k := key.GetKey()
+
+	if le := ln.edges[k]; le != nil {
+		return le
+	}
+
+	return nil
 }
