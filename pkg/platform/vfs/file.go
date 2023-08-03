@@ -30,7 +30,7 @@ type File struct {
 	openRefs int
 }
 
-var FileType = psi.DefineNodeType[*File](psi.WithRuntimeOnly())
+var FileType = psi.DefineNodeType[*File]()
 
 func newFileNode(fs *fileSystem, path string) *File {
 	fn := &File{}

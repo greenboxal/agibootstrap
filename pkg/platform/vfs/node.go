@@ -33,9 +33,21 @@ type NodeBase struct {
 
 	Name string `json:"name,omitempty"`
 	Path string `json:"path,omitempty"`
+
+	VFSM *Manager `inject:"" json:"-"`
 }
 
 func (nb *NodeBase) Init(n psi.Node, typ psi.NodeType) {
+	if nb.fs == nil && nb.VFSM != nil {
+		fsys, err := nb.VFSM.getFsForPath(nb.Path)
+
+		if err != nil {
+			panic(err)
+		}
+
+		nb.fs = fsys
+	}
+
 	nb.NodeBase.Init(n, psi.WithNodeType(typ))
 }
 

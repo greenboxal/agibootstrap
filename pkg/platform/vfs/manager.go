@@ -38,7 +38,7 @@ func (m *Manager) CreateLocalFS(path string, options ...FileSystemOption) (FileS
 	return fsys, nil
 }
 
-func (m *Manager) GetNodeForPath(ctx context.Context, p string) (n Node, err error) {
+func (m *Manager) getFsForPath(p string) (n *fileSystem, err error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -50,11 +50,21 @@ func (m *Manager) GetNodeForPath(ctx context.Context, p string) (n Node, err err
 		}
 
 		if ok {
-			return fsys.GetNodeForPath(ctx, p)
+			return fsys, nil
 		}
 	}
 
 	return nil, fs.ErrNotExist
+}
+
+func (m *Manager) GetNodeForPath(ctx context.Context, p string) (n Node, err error) {
+	fsys, err := m.getFsForPath(p)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return fsys.GetNodeForPath(ctx, p)
 }
 
 func (m *Manager) Shutdown(ctx context.Context) error {

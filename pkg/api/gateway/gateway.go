@@ -1,24 +1,17 @@
 package gateway
 
 import (
-	"context"
 	"fmt"
-	"net"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
 	cid2 "github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphindex"
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
-	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/apis/rest"
 	"github.com/greenboxal/agibootstrap/psidb/core"

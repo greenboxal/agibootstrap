@@ -9,3 +9,7 @@ type Collection struct {
 }
 
 var CollectionType = psi.DefineNodeType[*Collection]()
+
+func (c *Collection) PsiNodeName() string {
+	return c.Name
+}

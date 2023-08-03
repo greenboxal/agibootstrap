@@ -17,11 +17,9 @@ type Directory struct {
 	NodeBase `ipld:",inline"`
 
 	mu sync.RWMutex
-
-	vfsm *Manager `inject:""`
 }
 
-var DirectoryType = psi.DefineNodeType[*Directory](psi.WithRuntimeOnly())
+var DirectoryType = psi.DefineNodeType[*Directory]()
 
 // NewDirectoryNode creates a new DirectoryNode with the specified path.
 // The key of the DirectoryNode is set to the lowercase version of the path.
@@ -42,6 +40,7 @@ func newDirectoryNode(fs *fileSystem, path string, name string) *Directory {
 }
 
 func (dn *Directory) Init(self psi.Node) {
+
 	dn.NodeBase.Init(self, DirectoryType)
 }
 

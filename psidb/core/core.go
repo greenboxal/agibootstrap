@@ -13,6 +13,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
@@ -36,8 +37,7 @@ type Core struct {
 
 	sp inject.ServiceProvider
 
-	ctx    context.Context
-	cancel context.CancelFunc
+	rootFs vfs.FileSystem
 }
 
 func NewCore(
@@ -48,7 +48,9 @@ func NewCore(
 	journal *graphfs.Journal,
 	checkpoint graphfs.Checkpoint,
 	blockManager *BlockManager,
+	vfsm *vfs.Manager,
 ) (*Core, error) {
+
 	dsa := &dsadapter.Adapter{
 		Wrapped: ds,
 
@@ -108,6 +110,17 @@ func NewCore(
 	inject.RegisterInstance[*coreapi.Config](core.sp, core.cfg)
 	inject.RegisterInstance[*indexing.Manager](core.sp, core.indexManager)
 	inject.RegisterInstance[*linking.LinkSystem](core.sp, &core.lsys)
+	inject.RegisterInstance[*vfs.Manager](core.sp, vfsm)
+
+	rootFs, err := vfsm.CreateLocalFS(cfg.ProjectDir, vfs.WithPathFilter(func(p string) bool {
+		/*if core.repo.IsIgnored(p) {
+			return false
+		}*/
+
+		return true
+	}))
+
+	core.rootFs = rootFs
 
 	return core, nil
 }

@@ -13,8 +13,9 @@ import (
 )
 
 type Config struct {
-	RootUUID string
-	DataDir  string
+	RootUUID   string
+	DataDir    string
+	ProjectDir string
 }
 
 type DataStore interface {

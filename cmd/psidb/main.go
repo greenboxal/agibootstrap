@@ -1,41 +1,36 @@
 package main
 
 import (
+	"os"
+
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/api/apimachinery"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
-	"github.com/greenboxal/agibootstrap/psidb/apis/rest"
-	"github.com/greenboxal/agibootstrap/psidb/apis/rpc"
-	rpcv1 "github.com/greenboxal/agibootstrap/psidb/apis/rpc/v1"
-	"github.com/greenboxal/agibootstrap/psidb/core"
+	"github.com/greenboxal/agibootstrap/psidb"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
-	"github.com/greenboxal/agibootstrap/psidb/modules"
-)
-
-var BaseModules = fx.Options(
-	logging.Module,
-	apimachinery.Module,
-	core.Module,
-	modules.Module,
-	rest.Module,
-	rpc.Module,
-	rpcv1.Module,
 )
 
 func main() {
+	wd, err := os.Getwd()
+
+	if err != nil {
+		panic(err)
+	}
+
 	app := fx.New(
 		fx.WithLogger(func() fxevent.Logger {
 			return &fxevent.ZapLogger{Logger: logging.GetRootLogger()}
 		}),
 
-		BaseModules,
+		psidb.BaseModules,
 
 		fx.Provide(func() *coreapi.Config {
 			cfg := &coreapi.Config{}
 			cfg.DataDir = "./.fti/psi"
 			cfg.RootUUID = "QmYXZ"
+			cfg.ProjectDir = wd
 
 			return cfg
 		}),

@@ -222,31 +222,50 @@ func (ln *LiveNode) populateNode(ctx context.Context) error {
 	}
 
 	if ln.flags&liveNodeFlagInjected == 0 {
-		v := reflect.ValueOf(ln.Node())
-		v = reflect.Indirect(v)
-		t := v.Type()
+		var walkFields func(v reflect.Value) error
 
-		for i := 0; i < t.NumField(); i++ {
-			def := t.Field(i)
+		walkFields = func(v reflect.Value) error {
+			t := v.Type()
 
-			tag := def.Tag.Get("inject")
+			for i := 0; i < t.NumField(); i++ {
+				def := t.Field(i)
 
-			if tag == "" {
-				continue
-			}
-
-			vf := v.Field(i)
-
-			if vf.CanSet() {
-				key := inject.ServiceKeyFor(def.Type)
-				resolved, err := ln.g.sp.GetService(key)
-
-				if err != nil {
-					return err
+				if !def.IsExported() {
+					continue
 				}
 
-				vf.Set(reflect.ValueOf(resolved))
+				vf := v.Field(i)
+
+				if def.Anonymous && def.Type.Kind() == reflect.Struct {
+					if err := walkFields(vf); err != nil {
+						return err
+					}
+				} else {
+					_, ok := def.Tag.Lookup("inject")
+
+					if !ok {
+						continue
+					}
+
+					key := inject.ServiceKeyFor(def.Type)
+					resolved, err := ln.g.sp.GetService(key)
+
+					if err != nil {
+						return err
+					}
+
+					vf.Set(reflect.ValueOf(resolved))
+				}
 			}
+
+			return nil
+		}
+
+		v := reflect.ValueOf(ln.Node())
+		v = reflect.Indirect(v)
+
+		if err := walkFields(v); err != nil {
+			return err
 		}
 
 		ln.flags |= liveNodeFlagInjected
