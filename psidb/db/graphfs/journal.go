@@ -110,29 +110,35 @@ func (j *Journal) Read(index uint64, dst *JournalEntry) (*JournalEntry, error) {
 	return dst, nil
 }
 
-func (j *Journal) Write(op JournalEntry) (JournalEntry, error) {
+func (j *Journal) Write(op *JournalEntry) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
 	idx := j.nextIndex
 
-	if op.Op == JournalOpBegin && op.Xid == 0 {
-		op.Xid = idx
+	if op.Xid == 0 {
+		if op.Op == JournalOpBegin {
+			op.Xid = idx
+		} else {
+			panic("invalid journal entry")
+		}
 	}
+
+	op.Rid = idx
 
 	data, err := ipld.Encode(typesystem.Wrap(op), dagcbor.Encode)
 
 	if err != nil {
-		return op, err
+		return err
 	}
 
 	if err := j.wal.Write(idx, data); err != nil {
-		return op, err
+		return err
 	}
 
 	j.nextIndex++
 
-	return op, nil
+	return nil
 }
 
 func (j *Journal) Close() error {
@@ -145,6 +151,7 @@ func (j *Journal) Close() error {
 type JournalEntry struct {
 	Ts    int64           `json:"ts"`
 	Op    JournalOp       `json:"op"`
+	Rid   uint64          `json:"rid"`
 	Xid   uint64          `json:"xid"`
 	Inode int64           `json:"inode"`
 	Path  *psi.Path       `json:"path,omitempty"`

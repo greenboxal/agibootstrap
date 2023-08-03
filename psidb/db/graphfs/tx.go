@@ -105,7 +105,16 @@ func (tx *Transaction) append(entry JournalEntry) error {
 		entry.Ts = time.Now().UnixNano()
 	}
 
+	if tx.journal != nil && !tx.isReadOnly {
+		if err := tx.journal.Write(&entry); err != nil {
+			return err
+		}
+	}
+
 	switch entry.Op {
+	case JournalOpBegin:
+		tx.xid = entry.Xid
+
 	case JournalOpWrite:
 		n := tx.getStagedNode(entry.Inode)
 		n.Frozen = *entry.Node
@@ -126,12 +135,6 @@ func (tx *Transaction) append(entry JournalEntry) error {
 		e.Flags |= EdgeFlagRemoved
 
 		n.Edges[k] = e
-	}
-
-	if tx.journal != nil && !tx.isReadOnly {
-		if _, err := tx.journal.Write(entry); err != nil {
-			return err
-		}
 	}
 
 	tx.log = append(tx.log, &entry)

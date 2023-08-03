@@ -445,15 +445,8 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 
 	typ := ln.node.PsiNodeType()
 
-	ln.frozen.Index = ln.cachedIndex
-	ln.frozen.Path = ln.node.CanonicalPath()
 	ln.frozen.Type = typ.Name()
-
-	if ln.parent != nil {
-		ln.frozen.Parent = ln.parent.cachedIndex
-	} else {
-		ln.frozen.Parent = -1
-	}
+	ln.frozen.Path = ln.path
 
 	if !typ.Definition().IsRuntimeOnly {
 		wrapped := typesystem.Wrap(ln.node)
@@ -490,6 +483,14 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 		return err
 	}
 
+	ln.frozen.Index = ln.cachedIndex
+
+	if ln.parent != nil {
+		ln.frozen.Parent = ln.parent.cachedIndex
+	} else {
+		ln.frozen.Parent = -1
+	}
+
 	for _, v := range ln.node.Children() {
 		k := v.CanonicalPath().Name()
 		le, err := ln.prefetchEdge(ctx, k, nil)
@@ -499,10 +500,6 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 		}
 
 		ln.node.UpsertEdge(le.ReplaceTo(v))
-
-		if err := le.Save(ctx, nh); err != nil {
-			return err
-		}
 	}
 
 	for _, le := range ln.edges {
@@ -745,9 +742,19 @@ func (ln *LiveNode) OnAfterInitialize(node psi.Node) {
 }
 
 func (ln *LiveNode) OnAttributeChanged(key string, added any) {
+	ln.flags |= liveNodeFlagDirty
+
+	if ln.node != nil {
+		ln.g.markDirty(ln.node)
+	}
 }
 
 func (ln *LiveNode) OnAttributeRemoved(key string, removed any) {
+	ln.flags |= liveNodeFlagDirty
+
+	if ln.node != nil {
+		ln.g.markDirty(ln.node)
+	}
 }
 
 func (ln *LiveNode) OnEdgeAdded(added psi.Edge) {
@@ -780,6 +787,8 @@ func (ln *LiveNode) OnParentChange(newParent psi.Node) {
 }
 
 func (ln *LiveNode) OnInvalidated() {
+	ln.flags |= liveNodeFlagDirty
+
 	if ln.node != nil {
 		ln.g.markDirty(ln.node)
 	}
@@ -799,4 +808,10 @@ func (ln *LiveNode) markEdgeDirty(key psi.EdgeKey) {
 	}
 
 	e.dirty = true
+
+	ln.flags |= liveNodeFlagDirty
+
+	if ln.node != nil {
+		ln.g.markDirty(ln.node)
+	}
 }

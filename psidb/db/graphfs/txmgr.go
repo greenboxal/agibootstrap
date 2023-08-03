@@ -55,7 +55,7 @@ func (txm *TransactionManager) Recover(ctx context.Context) error {
 		if entry.Op == JournalOpBegin {
 			tx = txm.newTransaction(true)
 
-			recoveredTransactions[tx.xid] = tx
+			recoveredTransactions[entry.Xid] = tx
 		} else {
 			tx = recoveredTransactions[entry.Xid]
 		}
@@ -161,11 +161,17 @@ func (txm *TransactionManager) updateTransaction(tx *Transaction) {
 }
 
 func (txm *TransactionManager) commitTransaction(ctx context.Context, tx *Transaction) error {
+	if len(tx.log) == 0 {
+		return nil
+	}
+
 	ctx = WithTransaction(ctx, nil)
 
 	if err := txm.graph.applyTransaction(ctx, tx); err != nil {
 		return err
 	}
 
-	return txm.checkpoint.Update(tx.xid)
+	last := tx.log[len(tx.log)-1]
+
+	return txm.checkpoint.Update(last.Rid)
 }
