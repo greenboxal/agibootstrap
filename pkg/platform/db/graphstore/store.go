@@ -171,7 +171,7 @@ func (s *Store) FreezeNode(ctx context.Context, n psi.Node) (*psi.FrozenNode, []
 	}
 
 	for it := n.Edges(); it.Next(); {
-		fe, feLink, err := s.FreezeEdge(ctx, it.Edge())
+		fe, feLink, err := s.FreezeEdge(ctx, it.Value())
 
 		if err != nil {
 			return nil, nil, nil, err

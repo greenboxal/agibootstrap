@@ -17,6 +17,8 @@ type Directory struct {
 	NodeBase `ipld:",inline"`
 
 	mu sync.RWMutex
+
+	vfsm *Manager `inject:""`
 }
 
 var DirectoryType = psi.DefineNodeType[*Directory](psi.WithRuntimeOnly())

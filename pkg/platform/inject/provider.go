@@ -346,7 +346,11 @@ func Provide[T any](factory func(ctx ResolutionContext) (T, error)) ServiceDefin
 }
 
 func ServiceKeyOf[T any]() ServiceKey {
+	return ServiceKeyFor(reflect.TypeOf((*T)(nil)).Elem())
+}
+
+func ServiceKeyFor(typ reflect.Type) ServiceKey {
 	return ServiceKey{
-		Type: reflect.TypeOf((*T)(nil)).Elem(),
+		Type: typ,
 	}
 }

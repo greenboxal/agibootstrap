@@ -5,6 +5,7 @@ import (
 
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -35,7 +36,7 @@ type NodeIndex interface {
 }
 
 type nodeIndex struct {
-	graph    psi.Graph
+	graph    *graphstore.IndexedGraph
 	embedder NodeEmbedder
 	index    BasicIndex
 }
@@ -100,7 +101,8 @@ func (ni *nodeIndex) Search(ctx context.Context, req SearchRequest) (iterators.I
 			}
 
 			if hit.Path != nil {
-				hit.Node, err = ni.graph.ResolveNode(ctx, *hit.Path)
+				//hit.Node, err = ni.graph.ResolveNode(ctx, *hit.Path)
+				panic("fix me")
 			}
 
 			if err != nil {

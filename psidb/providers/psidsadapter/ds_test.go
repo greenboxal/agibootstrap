@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/psidb/graphfs"
+	graphfs2 "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
 
 func TestNewDataStoreSuperBlock(t *testing.T) {
@@ -18,7 +18,7 @@ func TestNewDataStoreSuperBlock(t *testing.T) {
 	ds := datastore.NewMapDatastore()
 	sb := NewDataStoreSuperBlock(ds, "uuid")
 
-	vfs := graphfs.NewVirtualGraph(func(ctx context.Context, uuid string) (graphfs.SuperBlock, error) {
+	vfs := graphfs2.NewVirtualGraph(func(ctx context.Context, uuid string) (graphfs2.SuperBlock, error) {
 		if uuid == "uuid" {
 			return sb, nil
 		}
@@ -51,7 +51,7 @@ func TestNewDataStoreSuperBlock(t *testing.T) {
 	require.NotNil(t, ce)
 	require.True(t, ce.IsNegative())
 
-	nh, err := vfs.Open(ctx, childPath, graphfs.WithOpenNodeFlag(graphfs.OpenNodeFlagsCreate))
+	nh, err := vfs.Open(ctx, childPath, graphfs2.WithOpenNodeFlag(graphfs2.OpenNodeFlagsCreate))
 
 	require.NoError(t, err)
 	require.NotNil(t, nh)

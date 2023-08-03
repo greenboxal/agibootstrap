@@ -78,6 +78,10 @@ type mutableSetIterator[K comparable] struct {
 	keys  []K
 }
 
+func (it *mutableSetIterator[T]) Value() T {
+	return it.Item()
+}
+
 func (it *mutableSetIterator[T]) Item() T {
 	if it.index > len(it.keys) {
 		panic("out of range")

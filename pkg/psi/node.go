@@ -3,7 +3,6 @@ package psi
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
 	collectionsfx "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 )
 
@@ -18,11 +17,10 @@ type NodeLike interface {
 
 // Node represents a PSI element in the graph.
 type Node interface {
-	obsfx.Observable
-
 	NodeLike
 
 	ID() int64
+	SelfIdentity() Path
 	CanonicalPath() Path
 
 	Parent() Node
@@ -109,12 +107,6 @@ type NodeInitOption func(*NodeBase)
 func WithNodeType(typ NodeType) NodeInitOption {
 	return func(n *NodeBase) {
 		n.typ = typ
-	}
-}
-
-func WithNodeVersion(version int64) NodeInitOption {
-	return func(n *NodeBase) {
-		n.version = version
 	}
 }
 

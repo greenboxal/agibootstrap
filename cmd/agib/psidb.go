@@ -17,9 +17,9 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/spf13/cobra"
 
-	"github.com/greenboxal/agibootstrap/pkg/api/psigw"
 	"github.com/greenboxal/agibootstrap/pkg/platform/api/psifuse"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/apis/gateway"
 )
 
 func buildPsiDbCmd() *cobra.Command {
@@ -147,7 +147,7 @@ func buildPsiDbCmd() *cobra.Command {
 		Short: "Runs the PSI database server",
 		Long:  "This command runs the PSI database server.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			server := psigw.NewGateway(project, project.Graph(), project.IndexManager(), project.CanonicalPath())
+			server := gateway.NewGateway(project, project.Graph(), project.IndexManager(), project.CanonicalPath())
 
 			if err := server.Start(cmd.Context()); err != nil {
 				return err

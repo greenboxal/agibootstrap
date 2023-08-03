@@ -29,11 +29,13 @@ type KeyValuePair[K comparable, V any] struct {
 }
 
 type MapIterator[K comparable, V any] interface {
-	Iterator[KeyValuePair[K, V]]
-
 	Key() K
 	Value() V
 	Pair() (K, V)
+	Next() bool
+	Reset()
+
+	AsIterator() Iterator[KeyValuePair[K, V]]
 }
 
 type ObservableMap[K comparable, V any] interface {

@@ -1,6 +1,9 @@
 package logging
 
-import "go.uber.org/zap"
+import (
+	"go.uber.org/fx"
+	"go.uber.org/zap"
+)
 
 var rootLogger *zap.Logger
 
@@ -23,6 +26,12 @@ func GetRootLogger() *zap.Logger {
 	return rootLogger
 }
 
+func GetRootSugaredLogger(logger *zap.Logger) *zap.SugaredLogger {
+	return logger.Sugar()
+}
+
 func GetLogger(name string) *zap.SugaredLogger {
 	return rootLogger.Sugar().Named(name)
 }
+
+var Module = fx.Module("logging", fx.Provide(GetRootLogger), fx.Provide(GetRootSugaredLogger))

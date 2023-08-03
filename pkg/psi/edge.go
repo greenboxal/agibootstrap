@@ -74,10 +74,6 @@ func (e *EdgeBase) attachToGraph(g Graph) {
 	}
 
 	e.g = g
-
-	if e.g != nil {
-		e.id = g.NextEdgeID()
-	}
 }
 
 func (e *EdgeBase) detachFromGraph(g Graph) {
@@ -89,11 +85,7 @@ func (e *EdgeBase) detachFromGraph(g Graph) {
 		return
 	}
 
-	oldGraph := e.g
-
 	e.g = nil
-
-	oldGraph.UnsetEdge(e.self)
 }
 
 func (e *EdgeBase) GetSnapshot() EdgeSnapshot     { return e.snap }

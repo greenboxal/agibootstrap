@@ -1,7 +1,9 @@
 package psi
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
@@ -57,13 +59,58 @@ func ReflectNodeType(typ typesystem.Type) NodeType {
 	return nt
 }
 
+var packageTypeNameMap = map[string]string{
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs": "vfs",
+	"github.com/greenboxal/agibootstrap/pkg/":             "agib.",
+	"github.com/greenboxal/agibootstrap/psidb/modules/":   "",
+}
+
+func rewritePackageName(pkg string) string {
+	longest := ""
+
+	for k := range packageTypeNameMap {
+		if strings.HasPrefix(pkg, k) && len(k) > len(longest) {
+			longest = k
+		}
+	}
+
+	if longest == "" {
+		return pkg
+	}
+
+	return packageTypeNameMap[longest] + strings.TrimPrefix(pkg, longest)
+}
+
+func formatTypeName(typName typesystem.TypeName) string {
+	pkg := typName.Package
+	name := typName.Name
+	args := ""
+
+	pkg = rewritePackageName(pkg)
+	pkg = strings.ReplaceAll(pkg, "/", ".")
+
+	if len(typName.Parameters) > 0 {
+		args = "["
+		for i, param := range typName.Parameters {
+			if i > 0 {
+				args += ", "
+			}
+
+			args += formatTypeName(param)
+		}
+		args += "]"
+	}
+
+	return fmt.Sprintf("%s.%s%s", pkg, name, args)
+}
+
 func reflectNodeType(typ typesystem.Type, options ...NodeTypeOption) *nodeType {
 	nt := &nodeType{
 		typ: typ,
 	}
 
-	nt.def.Name = nt.typ.Name().NormalizedFullNameWithArguments()
 	nt.def.Class = NodeClassGeneric
+	nt.def.Name = formatTypeName(typ.Name())
 
 	for _, opt := range options {
 		opt(nt)

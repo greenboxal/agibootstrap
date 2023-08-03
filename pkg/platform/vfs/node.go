@@ -37,18 +37,6 @@ type NodeBase struct {
 
 func (nb *NodeBase) Init(n psi.Node, typ psi.NodeType) {
 	nb.NodeBase.Init(n, psi.WithNodeType(typ))
-
-	if nb.fs == nil {
-		if p := nb.VfsParent(); p != nil {
-			if fs, ok := p.GetFileSystem().(*fileSystem); ok {
-				nb.fs = fs
-			}
-		}
-	}
-
-	if nb.fs == nil {
-		panic("vfs: node has no file system")
-	}
 }
 
 func (nb *NodeBase) VfsParent() Node {

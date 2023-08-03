@@ -5,6 +5,7 @@ type Iterable[E any] interface {
 }
 
 type Iterator[E any] interface {
+	Value() E
 	Item() E
 	Next() bool
 	Reset()

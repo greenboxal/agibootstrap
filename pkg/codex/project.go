@@ -501,21 +501,21 @@ func (p *Project) Shutdown(ctx context.Context) error {
 		return errors.Wrap(err, "failed to close analysis manager")
 	}
 
-	if err := p.indexManager.Close(); err != nil {
-		return errors.Wrap(err, "failed to close index manager")
+	if err := p.embeddingManager.Close(); err != nil {
+		return errors.Wrap(err, "failed to close embedding manager")
 	}
 
-	if err := p.indexedGraph.Shutdown(ctx); err != nil {
-		return errors.Wrap(err, "failed to close graph")
+	if err := p.indexManager.Close(); err != nil {
+		return errors.Wrap(err, "failed to close index manager")
 	}
 
 	if err := p.vfsManager.Shutdown(ctx); err != nil {
 		return errors.Wrap(err, "failed to close vfs manager")
 	}
 
-	if err := p.embeddingManager.Close(); err != nil {
-		return errors.Wrap(err, "failed to close embedding manager")
+	if err := p.indexedGraph.Shutdown(ctx); err != nil {
+		return errors.Wrap(err, "failed to close graph")
 	}
 
-	return p.ds.Close()
+	return nil
 }

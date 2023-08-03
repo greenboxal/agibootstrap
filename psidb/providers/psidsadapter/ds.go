@@ -13,7 +13,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/psids"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/psidb/graphfs"
+	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
 
 type DataStoreSuperBlock struct {
@@ -25,13 +25,19 @@ type DataStoreSuperBlock struct {
 
 	mu   sync.RWMutex
 	root *graphfs.CacheEntry
+
+	inodes map[int64]*graphfs.INode
+
+	shouldClose bool
 }
 
-func NewDataStoreSuperBlock(ds datastore.Batching, uuid string) graphfs.SuperBlock {
+func NewDataStoreSuperBlock(ds datastore.Batching, uuid string, shouldClose bool) graphfs.SuperBlock {
 	sb := &DataStoreSuperBlock{
-		ds: ds,
+		ds:          ds,
+		shouldClose: shouldClose,
 
-		bmp: NewSparseBitmapIndex(),
+		bmp:    NewSparseBitmapIndex(),
+		inodes: map[int64]*graphfs.INode{},
 	}
 
 	dsa := &dsadapter.Adapter{
@@ -75,7 +81,15 @@ func (sb *DataStoreSuperBlock) DestroyINode(ino *graphfs.INode) {
 }
 
 func (sb *DataStoreSuperBlock) MakeINode(id int64) *graphfs.INode {
-	return graphfs.AllocateInode(sb, id)
+	if ino := sb.inodes[id]; ino != nil {
+		return ino
+	}
+
+	ino := graphfs.AllocateInode(sb, id)
+
+	sb.inodes[id] = ino
+
+	return ino
 }
 
 func (sb *DataStoreSuperBlock) GetRoot(ctx context.Context) (*graphfs.CacheEntry, error) {
@@ -115,7 +129,11 @@ func (sb *DataStoreSuperBlock) Create(ctx context.Context, self *graphfs.CacheEn
 		}
 
 		if ino == nil {
-			ino = sb.AllocateINode()
+			if options.ForceInode != nil {
+				ino = sb.MakeINode(*options.ForceInode)
+			} else {
+				ino = sb.AllocateINode()
+			}
 		}
 
 		self.Instantiate(ino)
@@ -185,5 +203,9 @@ func (sb *DataStoreSuperBlock) ReadEdges(ctx context.Context, nh graphfs.NodeHan
 }
 
 func (sb *DataStoreSuperBlock) Close(ctx context.Context) error {
+	if !sb.shouldClose {
+		return nil
+	}
+
 	return sb.ds.Close()
 }

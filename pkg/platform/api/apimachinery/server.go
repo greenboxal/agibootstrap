@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -14,7 +16,7 @@ import (
 type Server struct {
 	logger *zap.SugaredLogger
 	server http.Server
-	mux    *chi.Mux
+	mux    chi.Router
 }
 
 func NewServer(
@@ -24,7 +26,24 @@ func NewServer(
 	api := &Server{}
 
 	api.logger = logger.Named("api")
-	api.mux = chi.NewMux()
+	api.mux = chi.NewRouter()
+	api.server.Handler = api.mux
+
+	api.mux.Use(middleware.RealIP)
+	api.mux.Use(middleware.RequestID)
+	api.mux.Use(middleware.Logger)
+	api.mux.Use(middleware.Recoverer)
+
+	api.mux.Use(cors.Handler(cors.Options{
+		// AllowedOrigins:   []string{"https://foo.com"}, // Use this to allow specific origin hosts
+		AllowedOrigins: []string{"https://*", "http://*"},
+		// AllowOriginFunc:  func(r *http.Request, origin string) bool { return true },
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: false,
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
+	}))
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -40,7 +59,7 @@ func NewServer(
 }
 
 func (a *Server) Mount(path string, handler http.Handler) {
-	a.mux.Mount(path, handler)
+	a.mux.Mount(path, http.StripPrefix(path, handler))
 }
 
 func (a *Server) Start(ctx context.Context) error {
@@ -60,7 +79,9 @@ func (a *Server) Start(ctx context.Context) error {
 
 	go func() {
 		if err := a.server.Serve(l); err != nil {
-			a.logger.Error(err)
+			if err != http.ErrServerClosed {
+				a.logger.Error(err)
+			}
 		}
 	}()
 

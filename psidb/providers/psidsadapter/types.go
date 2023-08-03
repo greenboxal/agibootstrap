@@ -6,7 +6,7 @@ import (
 	"github.com/multiformats/go-multihash"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/psids"
-	"github.com/greenboxal/agibootstrap/psidb/graphfs"
+	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
 
 var dsKeyBitmap = psids.Key[BitmapSnapshot]("_graph/bitmap")

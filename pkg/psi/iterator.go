@@ -19,7 +19,6 @@ type EdgeIterator interface {
 
 	Next() bool
 	Value() Edge
-	Edge() Edge
 }
 
 type nodeSliceIterator struct {

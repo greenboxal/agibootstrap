@@ -314,6 +314,30 @@ func (p Path) Equals(p2 Path) bool {
 	return p.String() == p2.String()
 }
 
+func (p Path) CompareTo(j Path) int {
+	if p.root != j.root {
+		return strings.Compare(p.root, j.root)
+	}
+
+	if p.relative != j.relative {
+		if p.relative {
+			return -1
+		} else {
+			return 1
+		}
+	}
+
+	for i := 0; i < len(p.components) && i < len(j.components); i++ {
+		cmp := p.components[i].CompareTo(j.components[i])
+
+		if cmp != 0 {
+			return cmp
+		}
+	}
+
+	return len(p.components) - len(j.components)
+}
+
 // PathElement is a string of the form:
 //
 //	:<kind>#<name>@<index>
@@ -377,6 +401,10 @@ func (p PathElement) AsEdgeKey() EdgeKey {
 		Name:  p.Name,
 		Index: p.Index,
 	}
+}
+
+func (p PathElement) CompareTo(j PathElement) int {
+	return strings.Compare(p.String(), j.String())
 }
 
 func ParsePathElements(s string, escaped bool) (result []PathElement, err error) {
@@ -471,3 +499,6 @@ func ParsePathElement(str string) (e PathElement, err error) {
 
 	return
 }
+
+var RelativePathToSelf = PathFromElements("", true, PathElement{Name: "."})
+var RelativePathToParent = PathFromElements("", true, PathElement{Name: ".."})

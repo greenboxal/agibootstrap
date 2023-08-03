@@ -70,14 +70,16 @@ func (b *repoBranch) Commit(ctx context.Context, head *Thought) error {
 	if b.head == nil {
 		head.Pointer = RootPointer()
 	} else {
-		link, err := b.repo.graph.CommitNode(ctx, b.head)
+		/*link, err := b.repo.graph.CommitNode(ctx, b.head)
 
 		if err != nil {
 			return err
 		}
 
 		head.Pointer = b.head.Pointer.Next(link)
-		head.Parents = []Pointer{b.head.Pointer}
+		head.Parents = []Pointer{b.head.Pointer}*/
+
+		panic("not implemented")
 	}
 
 	head.SetParent(b)

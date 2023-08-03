@@ -14,7 +14,7 @@ type MutableMap[K comparable, V any] struct {
 }
 
 func (o *MutableMap[K, V]) Iterator() Iterator[KeyValuePair[K, V]] {
-	return o.MapIterator()
+	return o.MapIterator().AsIterator()
 }
 
 func (o *MutableMap[K, V]) MapIterator() MapIterator[K, V] {
@@ -261,3 +261,17 @@ func (it *mutableMapIterator[K, V]) Key() K {
 func (it *mutableMapIterator[K, V]) Value() V {
 	return it.Item().Value
 }
+
+func (it *mutableMapIterator[K, V]) AsIterator() Iterator[KeyValuePair[K, V]] {
+	return mutableMapEntryIterator[K, V]{it: it}
+}
+
+type mutableMapEntryIterator[K comparable, V any] struct{ it *mutableMapIterator[K, V] }
+
+func (m mutableMapEntryIterator[K, V]) Value() KeyValuePair[K, V] { return m.it.Item() }
+
+func (m mutableMapEntryIterator[K, V]) Item() KeyValuePair[K, V] { return m.it.Item() }
+
+func (m mutableMapEntryIterator[K, V]) Next() bool { return m.it.Next() }
+
+func (m mutableMapEntryIterator[K, V]) Reset() { m.it.Reset() }

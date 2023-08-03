@@ -194,6 +194,10 @@ func (l *listIterator[T]) Index() int {
 	return l.index - 1
 }
 
+func (l *listIterator[T]) Value() T {
+	return l.Item()
+}
+
 func (l *listIterator[T]) Item() T {
 	if l.index == 0 || l.index > l.l.Len() {
 		panic("out of range")

@@ -1,6 +1,10 @@
 package psi
 
-import "github.com/ipld/go-ipld-prime"
+import (
+	"context"
+
+	"github.com/ipld/go-ipld-prime"
+)
 
 type NodeSnapshot interface {
 	ID() int64
@@ -13,6 +17,21 @@ type NodeSnapshot interface {
 	LastFenceID() uint64
 	FrozenNode() *FrozenNode
 	FrozenEdges() []*FrozenEdge
+
+	OnBeforeInitialize(node Node)
+	OnAfterInitialize(node Node)
+	OnInvalidated()
+	OnUpdated(ctx context.Context) error
+
+	Resolve(ctx context.Context, path Path) (Node, error)
+
+	OnEdgeAdded(added Edge)
+	OnEdgeRemoved(removed Edge)
+
+	OnAttributeChanged(key string, added any)
+	OnAttributeRemoved(key string, removed any)
+
+	OnParentChange(newParent Node)
 }
 
 func GetNodeSnapshot(node Node) NodeSnapshot { return node.PsiNodeBase().GetSnapshot() }
