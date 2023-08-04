@@ -42,17 +42,17 @@ type Request struct {
 	PsiPath psi.Path
 }
 
-type Handler struct {
+type ResourceHandler struct {
 	core *core.Core
 }
 
-func NewRouter(core *core.Core) *Handler {
-	return &Handler{
+func NewResourceHandler(core *core.Core) *ResourceHandler {
+	return &ResourceHandler{
 		core: core,
 	}
 }
 
-func (r *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+func (r *ResourceHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	var result any
 
 	req := &Request{Request: request}
@@ -116,7 +116,7 @@ func (r *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 }
 
-func (r *Handler) handleRequest(req *Request) (any, error) {
+func (r *ResourceHandler) handleRequest(req *Request) (any, error) {
 	req.AcceptedFormats = contentnegotiation.ParseAcceptHeaders(req.Header.Values("Accept")...)
 
 	if s := req.Header.Get("Content-Type"); s != "" {
@@ -159,11 +159,11 @@ func (r *Handler) handleRequest(req *Request) (any, error) {
 	return nil, ErrMethodNotAllowed
 }
 
-func (r *Handler) handleGet(request *Request) (any, error) {
+func (r *ResourceHandler) handleGet(request *Request) (any, error) {
 	return request.Graph.ResolveNode(request.Context(), request.PsiPath)
 }
 
-func (r *Handler) handlePost(request *Request) (any, error) {
+func (r *ResourceHandler) handlePost(request *Request) (any, error) {
 	var dataReader io.Reader
 	var nodeType psi.NodeType
 
@@ -244,15 +244,15 @@ func (r *Handler) handlePost(request *Request) (any, error) {
 	return node, nil
 }
 
-func (r *Handler) handlePut(request *Request) (any, error) {
+func (r *ResourceHandler) handlePut(request *Request) (any, error) {
 	return nil, nil
 }
 
-func (r *Handler) handlePatch(request *Request) (any, error) {
+func (r *ResourceHandler) handlePatch(request *Request) (any, error) {
 	return nil, nil
 }
 
-func (r *Handler) handleDelete(request *Request) (any, error) {
+func (r *ResourceHandler) handleDelete(request *Request) (any, error) {
 	node, err := request.Graph.ResolveNode(request.Context(), request.PsiPath)
 
 	if err != nil {
@@ -266,7 +266,7 @@ func (r *Handler) handleDelete(request *Request) (any, error) {
 	return node, nil
 }
 
-func (r *Handler) handleError(writer http.ResponseWriter, request *Request, e any) {
+func (r *ResourceHandler) handleError(writer http.ResponseWriter, request *Request, e any) {
 	err, ok := e.(error)
 
 	if !ok {
@@ -286,7 +286,7 @@ func (r *Handler) handleError(writer http.ResponseWriter, request *Request, e an
 	writer.WriteHeader(status)
 }
 
-func (r *Handler) handlePostFile(request *Request, reader io.Reader) (any, error) {
+func (r *ResourceHandler) handlePostFile(request *Request, reader io.Reader) (any, error) {
 	f, err := request.Graph.ResolveNode(request.Context(), request.PsiPath)
 
 	if err == psi.ErrNodeNotFound {

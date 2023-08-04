@@ -1,7 +1,11 @@
 package psi
 
-import "github.com/pkg/errors"
+import (
+	"io/fs"
 
-var ErrNodeNotFound = errors.New("node not found")
+	"github.com/pkg/errors"
+)
+
+var ErrNodeNotFound = errors.Wrap(fs.ErrNotExist, "node not found")
 
 var ErrAbort = errors.New("abort")

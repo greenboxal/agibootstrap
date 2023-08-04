@@ -31,6 +31,7 @@ type EdgeFlag int32
 
 const (
 	EdgeFlagNone EdgeFlag = iota
+
 	EdgeFlagRegular
 	EdgeFlagLink
 	EdgeFlagModes = EdgeFlagRegular | EdgeFlagLink

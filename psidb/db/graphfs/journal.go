@@ -148,6 +148,10 @@ func (j *Journal) Close() error {
 	return j.wal.Close()
 }
 
+func (j *Journal) GetHead() (uint64, error) {
+	return j.wal.LastIndex()
+}
+
 type JournalEntry struct {
 	Ts    int64           `json:"ts"`
 	Op    JournalOp       `json:"op"`

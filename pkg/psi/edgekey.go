@@ -86,7 +86,7 @@ func (k *TypedEdgeKey[T]) UnmarshalText(text []byte) error {
 func (k TypedEdgeKey[T]) MarshalBinary() ([]byte, error)     { return k.MarshalText() }
 func (k *TypedEdgeKey[T]) UnmarshalBinary(data []byte) error { return k.UnmarshalText(data) }
 
-func (k TypedEdgeKey[T]) MarshalJSON() ([]byte, error) { return k.MarshalText() }
+func (k TypedEdgeKey[T]) MarshalJSON() ([]byte, error) { return []byte("\"" + k.String() + "\""), nil }
 func (k *TypedEdgeKey[T]) UnmarshalJSON(data []byte) error {
 	return k.UnmarshalText(data[1 : len(data)-1])
 }
@@ -110,5 +110,5 @@ func (k *EdgeKey) UnmarshalText(text []byte) error {
 func (k EdgeKey) MarshalBinary() ([]byte, error)     { return k.MarshalText() }
 func (k *EdgeKey) UnmarshalBinary(data []byte) error { return k.UnmarshalText(data) }
 
-func (k EdgeKey) MarshalJSON() ([]byte, error)     { return k.MarshalText() }
+func (k EdgeKey) MarshalJSON() ([]byte, error)     { return []byte("\"" + k.String() + "\""), nil }
 func (k *EdgeKey) UnmarshalJSON(data []byte) error { return k.UnmarshalText(data[1 : len(data)-1]) }

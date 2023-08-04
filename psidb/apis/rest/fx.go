@@ -9,5 +9,8 @@ import (
 var Module = fx.Module(
 	"apis/rest",
 
-	apimachinery.ProvideHttpService[*Handler]("/v1", NewRouter),
+	fx.Provide(NewResourceHandler),
+	fx.Provide(NewSearchHandler),
+
+	apimachinery.ProvideHttpService[*Router]("/v1", NewRouter),
 )

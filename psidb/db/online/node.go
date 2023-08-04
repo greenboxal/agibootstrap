@@ -655,10 +655,6 @@ func (ln *LiveNode) updateInode(ino *graphfs.INode) {
 
 	if ino != nil {
 		ln.inode = ino.Get()
-
-		if ln.handle != nil && ln.handle.Inode() != ino {
-			panic("unexpected")
-		}
 	}
 }
 

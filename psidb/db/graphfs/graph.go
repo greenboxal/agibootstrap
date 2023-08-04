@@ -47,6 +47,14 @@ func NewVirtualGraph(
 	return vg, nil
 }
 
+func (vg *VirtualGraph) SetListener(listener VirtualGraphListener) {
+	if vg.listener != nil && vg.listener != listener {
+		panic("listener already set")
+	}
+
+	vg.listener = listener
+}
+
 func (vg *VirtualGraph) Recover(ctx context.Context) error {
 	return vg.txm.Recover(ctx)
 }
@@ -274,5 +282,11 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 		return errors.New("invalid transaction log")
 	}
 
-	return vg.listener.OnCommitTransaction(ctx, tx)
+	if l := vg.listener; l != nil {
+		if err := l.OnCommitTransaction(ctx, tx); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -12,7 +12,7 @@ import (
 type NodeSearchHit struct {
 	BasicSearchHit
 
-	Node psi.Node
+	Node psi.Node `json:"node"`
 }
 
 type GraphEmbeddingIterator = iterators.Iterator[GraphEmbedding]

@@ -144,6 +144,28 @@ func Get[T any](ctx context.Context, ds datastore.Read, key TypedKey[T]) (result
 	return key.Deserialize(data)
 }
 
+func GetFirst[T any](ctx context.Context, ds datastore.Read, prefix TypedKey[T], eval func(T) bool) (empty T, err error) {
+	it, err := List(ctx, ds, prefix)
+
+	if err != nil {
+		if err == datastore.ErrNotFound {
+			return empty, psi.ErrNodeNotFound
+		}
+
+		return empty, err
+	}
+
+	for it.Next() {
+		v := it.Value()
+
+		if eval(v) {
+			return v, nil
+		}
+	}
+
+	return empty, psi.ErrNodeNotFound
+}
+
 func GetOrDefault[T any](ctx context.Context, ds datastore.Read, key TypedKey[T], defaultValue T) (T, error) {
 	result, err := Get(ctx, ds, key)
 
@@ -159,8 +181,10 @@ func GetOrDefault[T any](ctx context.Context, ds datastore.Read, key TypedKey[T]
 }
 
 func List[T any](ctx context.Context, ds datastore.Read, key TypedKey[T]) (iterators.Iterator[T], error) {
-	var q query.Query
+	return Query(ctx, ds, key, query.Query{})
+}
 
+func Query[T any](ctx context.Context, ds datastore.Read, key TypedKey[T], q query.Query) (iterators.Iterator[T], error) {
 	q.Prefix = key.String()
 
 	it, err := ds.Query(ctx, q)

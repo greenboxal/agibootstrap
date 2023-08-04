@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/storage/dsadapter"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
-	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
@@ -33,11 +31,8 @@ type Core struct {
 	journal      *graphfs.Journal
 	checkpoint   graphfs.Checkpoint
 	virtualGraph *graphfs.VirtualGraph
-	indexManager *indexing.Manager
 
 	sp inject.ServiceProvider
-
-	rootFs vfs.FileSystem
 }
 
 func NewCore(
@@ -48,9 +43,7 @@ func NewCore(
 	journal *graphfs.Journal,
 	checkpoint graphfs.Checkpoint,
 	blockManager *BlockManager,
-	vfsm *vfs.Manager,
 ) (*Core, error) {
-
 	dsa := &dsadapter.Adapter{
 		Wrapped: ds,
 
@@ -74,20 +67,12 @@ func NewCore(
 	core.lsys.SetWriteStorage(dsa)
 	core.lsys.TrustedStorage = true
 
-	indexManager, err := indexing.NewIndexManager(core)
-
-	if err != nil {
-		return nil, err
-	}
-
-	core.indexManager = indexManager
-
 	virtualGraph, err := graphfs.NewVirtualGraph(
 		&core.lsys,
 		blockManager.Resolve,
 		journal,
 		checkpoint,
-		core.indexManager,
+		nil,
 	)
 
 	if err != nil {
@@ -106,36 +91,25 @@ func NewCore(
 		},
 	})
 
-	inject.RegisterInstance[coreapi.Core](core.sp, core)
-	inject.RegisterInstance[*coreapi.Config](core.sp, core.cfg)
-	inject.RegisterInstance[*indexing.Manager](core.sp, core.indexManager)
-	inject.RegisterInstance[*linking.LinkSystem](core.sp, &core.lsys)
-	inject.RegisterInstance[*vfs.Manager](core.sp, vfsm)
-
-	rootFs, err := vfsm.CreateLocalFS(cfg.ProjectDir, vfs.WithPathFilter(func(p string) bool {
-		/*if core.repo.IsIgnored(p) {
-			return false
-		}*/
-
-		return true
-	}))
-
-	core.rootFs = rootFs
-
 	return core, nil
 }
 
-func (c *Core) Config() *coreapi.Config               { return c.cfg }
-func (c *Core) DataStore() coreapi.DataStore          { return c.ds }
-func (c *Core) Journal() *graphfs.Journal             { return c.journal }
-func (c *Core) Checkpoint() graphfs.Checkpoint        { return c.checkpoint }
-func (c *Core) LinkSystem() *linking.LinkSystem       { return &c.lsys }
-func (c *Core) VirtualGraph() *graphfs.VirtualGraph   { return c.virtualGraph }
-func (c *Core) ServiceLocator() inject.ServiceLocator { return c.sp }
+func (c *Core) Config() *coreapi.Config                 { return c.cfg }
+func (c *Core) DataStore() coreapi.DataStore            { return c.ds }
+func (c *Core) Journal() *graphfs.Journal               { return c.journal }
+func (c *Core) Checkpoint() graphfs.Checkpoint          { return c.checkpoint }
+func (c *Core) LinkSystem() *linking.LinkSystem         { return &c.lsys }
+func (c *Core) VirtualGraph() *graphfs.VirtualGraph     { return c.virtualGraph }
+func (c *Core) ServiceProvider() inject.ServiceProvider { return c.sp }
 
-func (c *Core) BeginTransaction(ctx context.Context) (coreapi.Transaction, error) {
+func (c *Core) BeginTransaction(ctx context.Context, options ...coreapi.TransactionOption) (coreapi.Transaction, error) {
+	var opts coreapi.TransactionOptions
+
+	opts.Apply(options...)
+
 	tx := &transaction{
 		core: c,
+		opts: opts,
 	}
 
 	lg, err := online.NewLiveGraph(ctx, &c.lsys, c.virtualGraph, tx)
@@ -149,43 +123,8 @@ func (c *Core) BeginTransaction(ctx context.Context) (coreapi.Transaction, error
 	return tx, nil
 }
 
-func (c *Core) RunTransaction(ctx context.Context, fn func(ctx context.Context, tx coreapi.Transaction) error) (err error) {
-	tx := GetTransaction(ctx)
-
-	if tx == nil {
-		tx, err = c.BeginTransaction(ctx)
-
-		if err != nil {
-			return err
-		}
-
-		defer func() {
-			if e := recover(); e != nil {
-				if tx.IsOpen() {
-					if err := tx.Rollback(ctx); err != nil {
-						c.logger.Error(err)
-					}
-				}
-
-				panic(e)
-			}
-		}()
-	}
-
-	ctx = WithTransaction(ctx, tx)
-	err = fn(ctx, tx)
-
-	if err != nil {
-		if e := tx.Rollback(ctx); e != nil {
-			err = multierror.Append(err, e)
-		}
-	} else {
-		if e := tx.Commit(ctx); e != nil {
-			err = multierror.Append(err, e)
-		}
-	}
-
-	return
+func (c *Core) RunTransaction(ctx context.Context, fn coreapi.TransactionFunc, options ...coreapi.TransactionOption) (err error) {
+	return coreapi.RunTransaction(ctx, c, fn, options...)
 }
 
 func (c *Core) Start(ctx context.Context) error {

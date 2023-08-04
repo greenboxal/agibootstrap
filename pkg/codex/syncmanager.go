@@ -126,7 +126,7 @@ func (sm *SyncManager) performSync(ctx context.Context) error {
 			cursor.WalkChildren()
 
 			return n.Sync(func(path string) bool {
-				return !sm.p.repo.IsIgnored(path)
+				return !sm.p.Fti.IsIgnored(path)
 			})
 		} else {
 			cursor.SkipChildren()

@@ -11,6 +11,8 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+var ServiceNotFound = errors.New("service not found")
+
 type ServiceProvider interface {
 	ServiceLocator
 
@@ -98,7 +100,7 @@ func (sp *serviceProvider) GetService(key ServiceKey) (any, error) {
 	reg := sp.getRegistration(key, true)
 
 	if reg == nil {
-		return nil, errors.New("service not found")
+		return nil, ServiceNotFound
 	}
 
 	return reg.GetInstance(rootResolutionContext{serviceProvider: sp})

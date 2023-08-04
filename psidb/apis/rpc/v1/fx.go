@@ -9,6 +9,7 @@ import (
 var Module = fx.Module(
 	"apis/rpc/v1",
 
+	rpc.ProvideRpcService[*JournalService](NewJournalService, "Journal"),
 	rpc.ProvideRpcService[*NodeService](NewNodeService, "NodeService"),
 	rpc.ProvideRpcService[*ObjectStore](NewObjectStore, "ObjectStore"),
 	rpc.ProvideRpcService[*Search](NewSearch, "Search"),

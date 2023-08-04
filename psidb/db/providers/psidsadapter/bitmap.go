@@ -59,7 +59,13 @@ func (b *SparseBitmapIndex) Allocate() uint64 {
 
 		return next
 	} else {
-		next = b.idCounter.Add(1)
+		for {
+			next = b.idCounter.Add(1)
+
+			if !b.usedList.Contains(next) {
+				break
+			}
+		}
 	}
 
 	b.usedList.Set(next)
@@ -68,10 +74,6 @@ func (b *SparseBitmapIndex) Allocate() uint64 {
 }
 
 func (b *SparseBitmapIndex) Free(id uint64) bool {
-	if id == 0 {
-		panic("id cannot be 0")
-	}
-
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -94,14 +96,23 @@ func (b *SparseBitmapIndex) IsUsed(id uint64) bool {
 }
 
 func (b *SparseBitmapIndex) IsFree(id uint64) bool {
-	if id == 0 {
-		panic("id cannot be 0")
-	}
-
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
 	return b.freeList.Contains(id)
+}
+
+func (b *SparseBitmapIndex) MarkAllocated(id uint64) uint64 {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if b.freeList.Contains(id) {
+		b.freeList.Remove(id)
+	}
+
+	b.usedList.Set(id)
+
+	return id
 }
 
 type SerializableBitmap struct {

@@ -17,7 +17,6 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	graphfs2 "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
-	"github.com/greenboxal/agibootstrap/psidb/providers/psidsadapter"
 )
 
 var logger = logging.GetLogger("graphstore")
@@ -79,14 +78,7 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.UniqueNode)
 		closeCh:         make(chan struct{}),
 		nodeUpdateQueue: make(chan nodeUpdateRequest, 8192),
 	}
-
-	sb := psidsadapter.NewDataStoreSuperBlock(ds, root.UUID(), false)
-
 	spb := graphfs2.SuperBlockProvider(func(ctx context.Context, uuid string) (graphfs2.SuperBlock, error) {
-		if uuid == g.root.UUID() {
-			return sb, nil
-		}
-
 		return nil, nil
 	})
 

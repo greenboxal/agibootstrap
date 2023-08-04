@@ -33,14 +33,18 @@ func NewIndexManager(core coreapi.Core) (*Manager, error) {
 		panic(err)
 	}
 
-	return &Manager{
+	im := &Manager{
 		logger: logging.GetLogger("indexmanager"),
 
 		core:     core,
 		basePath: indexPath,
 
 		openIndexes: make(map[string]*referenceCountingIndex),
-	}, nil
+	}
+
+	core.VirtualGraph().SetListener(im)
+
+	return im, nil
 }
 
 func (im *Manager) OpenNodeIndex(ctx context.Context, id string, embedder NodeEmbedder) (NodeIndex, error) {

@@ -31,7 +31,12 @@ type DataStoreSuperBlock struct {
 	shouldClose bool
 }
 
-func NewDataStoreSuperBlock(ds datastore.Batching, uuid string, shouldClose bool) graphfs.SuperBlock {
+func NewDataStoreSuperBlock(
+	ctx context.Context,
+	ds datastore.Batching,
+	uuid string,
+	shouldClose bool,
+) (graphfs.SuperBlock, error) {
 	sb := &DataStoreSuperBlock{
 		ds:          ds,
 		shouldClose: shouldClose,
@@ -53,26 +58,17 @@ func NewDataStoreSuperBlock(ds datastore.Batching, uuid string, shouldClose bool
 	sb.lsys.SetWriteStorage(dsa)
 	sb.lsys.TrustedStorage = true
 
-	bmp, err := psids.Get(context.Background(), sb.ds, dsKeyBitmap)
-
-	if err == nil {
-		sb.bmp.LoadSnapshot(bmp)
-	}
-
 	sb.Init(sb, uuid, sb, sb)
 
-	return sb
+	if err := sb.LoadBitmap(ctx); err != nil {
+		return nil, err
+	}
+
+	return sb, nil
 }
 
 func (sb *DataStoreSuperBlock) AllocateINode() *graphfs.INode {
 	id := int64(sb.bmp.Allocate())
-
-	s := sb.bmp.Snapshot()
-
-	if err := psids.Put(context.Background(), sb.ds, dsKeyBitmap, s); err != nil {
-		panic(err)
-	}
-
 	return sb.MakeINode(id)
 }
 
@@ -129,8 +125,10 @@ func (sb *DataStoreSuperBlock) Create(ctx context.Context, self *graphfs.CacheEn
 		}
 
 		if ino == nil {
-			if options.ForceInode != nil {
-				ino = sb.MakeINode(*options.ForceInode)
+			if options.ForceInode != nil && *options.ForceInode >= 0 {
+				allocated := sb.bmp.MarkAllocated(uint64(*options.ForceInode))
+
+				ino = sb.MakeINode(int64(allocated))
 			} else {
 				ino = sb.AllocateINode()
 			}
@@ -202,7 +200,31 @@ func (sb *DataStoreSuperBlock) ReadEdges(ctx context.Context, nh graphfs.NodeHan
 	return psids.List(ctx, sb.ds, k)
 }
 
+func (sb *DataStoreSuperBlock) LoadBitmap(ctx context.Context) error {
+	bmp, err := psids.Get(ctx, sb.ds, dsKeyBitmap)
+
+	if err == nil {
+		sb.bmp.LoadSnapshot(bmp)
+	}
+
+	return nil
+}
+
+func (sb *DataStoreSuperBlock) Flush(ctx context.Context) error {
+	s := sb.bmp.Snapshot()
+
+	if err := psids.Put(ctx, sb.ds, dsKeyBitmap, s); err != nil {
+		panic(err)
+	}
+
+	return nil
+}
+
 func (sb *DataStoreSuperBlock) Close(ctx context.Context) error {
+	if err := sb.Flush(ctx); err != nil {
+		return err
+	}
+
 	if !sb.shouldClose {
 		return nil
 	}

@@ -98,6 +98,7 @@ require (
 	github.com/hanwen/go-fuse/v2 v2.3.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
+	github.com/iancoleman/strcase v0.3.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/jedib0t/go-pretty/v6 v6.4.6 // indirect
