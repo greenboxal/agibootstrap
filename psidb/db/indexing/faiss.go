@@ -64,11 +64,9 @@ func (f *faissIndex) Dimensions() int { return f.d }
 
 func (f *faissIndex) IndexNode(ctx context.Context, req IndexNodeRequest) (IndexedItem, error) {
 	item := IndexedItem{
-		ChunkIndex: req.ChunkIndex,
-		ChunkLink:  req.ChunkLink,
 		Path:       req.Path,
-		Link:       req.Link,
-		Embeddings: req.Embeddings,
+		ChunkIndex: req.ChunkIndex,
+		Embeddings: &req.Embeddings,
 	}
 
 	x := req.Embeddings.ToFloat32Slice(nil)
@@ -87,13 +85,24 @@ func (f *faissIndex) IndexNode(ctx context.Context, req IndexNodeRequest) (Index
 	}
 
 	if existingIndex != 0xFFFFFFFFFFFFFFFF {
-		item.Index = int64(existingIndex)
-	} else {
-		item.Index = f.index.Ntotal()
+		idx := int64(existingIndex)
+		sel, err := faiss.NewIDSelectorRange(idx, idx+1)
 
-		if err := f.index.Add(x); err != nil {
-			return IndexedItem{}, errors.Wrap(err, "failed to add to index")
+		if err != nil {
+			return IndexedItem{}, errors.Wrap(err, "failed to create IDSelectorRange")
 		}
+
+		defer sel.Delete()
+
+		if _, err := f.index.RemoveIDs(sel); err != nil {
+			return IndexedItem{}, errors.Wrap(err, "failed to remove from index")
+		}
+	}
+
+	item.Index = f.index.Ntotal()
+
+	if err := f.index.Add(x); err != nil {
+		return IndexedItem{}, errors.Wrap(err, "failed to add to index")
 	}
 
 	f.isDirty = true
@@ -116,26 +125,35 @@ func (f *faissIndex) Search(ctx context.Context, req SearchRequest) (iterators.I
 		return nil, err
 	}
 
-	hits := make([]BasicSearchHit, len(ids))
+	currentIndex := 0
 
-	for i, id := range ids {
+	return iterators.NewIterator(func() (BasicSearchHit, bool) {
+		i := currentIndex
+
+		if i >= len(ids) {
+			return BasicSearchHit{}, false
+		}
+
+		id := ids[i]
+
 		if id == -1 {
-			continue
+			return BasicSearchHit{}, false
 		}
 
 		item, err := f.retrieveItem(ctx, id)
 
 		if err != nil {
-			return nil, err
+			f.m.logger.Warn(err)
+			return BasicSearchHit{}, false
 		}
 
-		hits[i] = BasicSearchHit{
+		currentIndex++
+
+		return BasicSearchHit{
 			IndexedItem: item,
 			Score:       distances[i],
-		}
-	}
-
-	return iterators.FromSlice(hits), nil
+		}, true
+	}), nil
 }
 
 func (f *faissIndex) Rebuild(ctx context.Context) error {
@@ -297,5 +315,5 @@ func (f *faissIndex) retrieveItem(ctx context.Context, id int64) (IndexedItem, e
 }
 
 func (f *faissIndex) retrieveItemIndex(ctx context.Context, item IndexedItem) (uint64, error) {
-	return psids.Get(ctx, f.ds, dsKeyInvertedIndex(f.id, item.Identity()))
+	return psids.Get(ctx, f.ds, dsKeyInvertedIndex(item.Identity()))
 }

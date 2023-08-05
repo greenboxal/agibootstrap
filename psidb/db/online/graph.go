@@ -111,6 +111,10 @@ func (lg *LiveGraph) Delete(ctx context.Context, n psi.Node) error {
 	return nil
 }
 
+func (lg *LiveGraph) Resolve(ctx context.Context, path psi.Path) (psi.Node, error) {
+	return lg.ResolveNode(ctx, path)
+}
+
 func (lg *LiveGraph) ResolveNode(ctx context.Context, path psi.Path) (psi.Node, error) {
 	ln, err := lg.resolveNodeUnloaded(ctx, path)
 
@@ -155,7 +159,7 @@ func (lg *LiveGraph) ListNodeEdges(ctx context.Context, path psi.Path) (result [
 	result = iterators.ToSlice(iterators.Map(edges, func(edge *graphfs.SerializedEdge) *psi.FrozenEdge {
 		return &psi.FrozenEdge{
 			Key:     edge.Key,
-			ToPath:  edge.ToPath,
+			ToPath:  &edge.ToPath,
 			ToIndex: edge.ToIndex,
 		}
 	}))
@@ -251,4 +255,14 @@ func (lg *LiveGraph) updateNodeCache(ln *LiveNode) {
 			lg.pathCache[ln.cachedPath.String()] = ln
 		}
 	}
+}
+
+func (lg *LiveGraph) Close() error {
+	for _, n := range lg.nodeCache {
+		if err := n.Close(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

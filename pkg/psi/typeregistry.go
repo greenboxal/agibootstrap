@@ -62,6 +62,7 @@ func ReflectNodeType(typ typesystem.Type) NodeType {
 var packageTypeNameMap = map[string]string{
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs": "vfs",
 	"github.com/greenboxal/agibootstrap/pkg/":             "agib.",
+	"github.com/greenboxal/agibootstrap/psidb/db/":        "psidb.",
 	"github.com/greenboxal/agibootstrap/psidb/modules/":   "",
 }
 

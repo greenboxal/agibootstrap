@@ -168,7 +168,7 @@ func (n *NodeBase) ResolveChild(ctx context.Context, key PathElement) Node {
 
 	typ := key.Kind.Type()
 
-	if typ != nil {
+	if typ == nil {
 		return nil
 	}
 
@@ -219,15 +219,13 @@ func (n *NodeBase) OnUpdate(ctx context.Context) error {
 	return nil
 }
 func (n *NodeBase) SelfIdentity() Path {
+	var self PathElement
+
 	if n.Parent() == nil {
 		if unique, ok := n.self.(UniqueNode); ok {
 			return PathFromElements(unique.UUID(), false)
-		} else {
-			return PathFromElements("", true)
 		}
 	}
-
-	var self PathElement
 
 	if named, ok := n.self.(NamedNode); ok {
 		self = PathElement{

@@ -9,10 +9,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/greenboxal/agibootstrap/pkg/build"
-	"github.com/greenboxal/agibootstrap/pkg/build/codegen"
-	"github.com/greenboxal/agibootstrap/pkg/build/fiximports"
-	"github.com/greenboxal/agibootstrap/pkg/codex"
+	build2 "github.com/greenboxal/agibootstrap/pkg/legacy/build"
+	"github.com/greenboxal/agibootstrap/pkg/legacy/build/codegen"
+	"github.com/greenboxal/agibootstrap/pkg/legacy/build/fiximports"
+	"github.com/greenboxal/agibootstrap/pkg/legacy/codex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/runtime"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/visor"
@@ -127,11 +127,11 @@ func main() {
 				return err
 			}
 
-			builder := build.NewBuilder(project, build.Configuration{
+			builder := build2.NewBuilder(project, build2.Configuration{
 				OutputDirectory: project.RootPath(),
 				BuildDirectory:  path.Join(project.RootPath(), ".build"),
 
-				BuildSteps: []build.Step{
+				BuildSteps: []build2.Step{
 					&codegen.BuildStep{},
 					&fiximports.BuildStep{},
 				},

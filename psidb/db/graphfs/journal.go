@@ -163,6 +163,11 @@ type JournalEntry struct {
 	Edge  *SerializedEdge `json:"edge,omitempty"`
 }
 
+func (e JournalEntry) String() string {
+	return fmt.Sprintf("JournalEntry{ts=%d, op=%s, rid=%d, xid=%d, inode=%d, path=%s, node=%s, edge=%s}",
+		e.Ts, e.Op, e.Rid, e.Xid, e.Inode, e.Path, e.Node, e.Edge)
+}
+
 var JournalEntryType = typesystem.TypeOf((*JournalEntry)(nil))
 
 type JournalOp int
@@ -180,20 +185,20 @@ const (
 func (op JournalOp) String() string {
 	switch op {
 	case JournalOpInvalid:
-		return "invalid"
+		return "JOURNAL_OP_INVALID"
 	case JournalOpBegin:
-		return "begin"
+		return "JOURNAL_OP_BEGIN"
 	case JournalOpCommit:
-		return "commit"
+		return "JOURNAL_OP_COMMIT"
 	case JournalOpRollback:
-		return "rollback"
+		return "JOURNAL_OP_ROLLBACK"
 	case JournalOpWrite:
-		return "write"
+		return "JOURNAL_OP_WRITE"
 	case JournalOpSetEdge:
-		return "set_edge"
+		return "JOURNAL_OP_SET_EDGE"
 	case JournalOpRemoveEdge:
-		return "remove_edge"
+		return "JOURNAL_OP_REMOVE_EDGE"
 	default:
-		return "unknown"
+		return fmt.Sprintf("JOURNAL_OP_UNKNOWN(%d)", op)
 	}
 }

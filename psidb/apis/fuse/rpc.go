@@ -1,4 +1,4 @@
-package psifuse
+package fuse
 
 import (
 	"context"
@@ -13,23 +13,23 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
 type psiRpcDir struct {
 	fs.Inode
 
-	g    *graphstore.IndexedGraph
+	core coreapi.Core
 	path psi.Path
 
 	getNode func(ctx context.Context) (any, error)
 }
 
-func NewPsiRpcDir(g *graphstore.IndexedGraph, path psi.Path, getNode func(ctx context.Context) (any, error)) fs.InodeEmbedder {
+func NewPsiRpcDir(g coreapi.Core, path psi.Path, getNode func(ctx context.Context) (any, error)) fs.InodeEmbedder {
 	return &psiRpcDir{
-		g:       g,
+		core:    g,
 		path:    path,
 		getNode: getNode,
 	}
@@ -43,7 +43,7 @@ func (pn *psiRpcDir) Lookup(ctx context.Context, name string, out *fuse.EntryOut
 	definition := viewDefinitionsMap[name]
 
 	if definition != nil {
-		return pn.NewInode(ctx, NewPsiNodeFileView(pn.g, pn.path, definition.Prepare), fs.StableAttr{
+		return pn.NewInode(ctx, NewPsiNodeFileView(pn.core, pn.path, definition.Prepare), fs.StableAttr{
 			Mode: fuse.S_IFREG,
 		}), 0
 	}
@@ -66,7 +66,7 @@ func (pn *psiRpcDir) Lookup(ctx context.Context, name string, out *fuse.EntryOut
 		def := definitions.Value()
 
 		if def.Name == name {
-			return pn.NewInode(ctx, NewPsiNodeFileView(pn.g, pn.path, def.Prepare), fs.StableAttr{
+			return pn.NewInode(ctx, NewPsiNodeFileView(pn.core, pn.path, def.Prepare), fs.StableAttr{
 				Mode: fuse.S_IFREG,
 			}), 0
 		}

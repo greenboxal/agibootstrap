@@ -117,7 +117,7 @@ func (im *Manager) updateSingle(ctx context.Context, tx coreapi.Transaction, p p
 		return err
 	}
 
-	scp := GetHierarchyScope(node)
+	scp := GetHierarchyScope(ctx, node)
 
 	if node == scp || scp == nil {
 		return nil

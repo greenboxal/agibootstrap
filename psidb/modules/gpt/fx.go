@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/greenboxal/aip/aip-langchain/pkg/chunkers"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"go.uber.org/fx"
 
@@ -28,10 +29,13 @@ var Module = fx.Module(
 )
 
 func NewDefaultNodeEmbedder() indexing.NodeEmbedder {
-	return &DefaultEmbedder{}
+	return &DefaultEmbedder{
+		chunker: chunkers.TikToken{},
+	}
 }
 
 type DefaultEmbedder struct {
+	chunker chunkers.Chunker
 }
 
 func (d *DefaultEmbedder) Dimensions() int {
@@ -47,7 +51,11 @@ func (d *DefaultEmbedder) EmbeddingsForNode(ctx context.Context, n psi.Node) (in
 		return nil, err
 	}
 
-	texts := []string{buffer.String()}
+	texts, err := d.chunker.SplitTextIntoStrings(ctx, buffer.String(), 512, 0)
+
+	if err != nil {
+		return nil, err
+	}
 
 	chunks, err := gpt.GlobalEmbedder.GetEmbeddings(ctx, texts)
 

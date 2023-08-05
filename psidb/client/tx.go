@@ -1,4 +1,4 @@
-package core
+package client
 
 import (
 	"context"
@@ -10,9 +10,9 @@ import (
 )
 
 type transaction struct {
-	core *Core
-	lg   *online.LiveGraph
-	opts coreapi.TransactionOptions
+	client *Client
+	lg     *online.LiveGraph
+	opts   coreapi.TransactionOptions
 }
 
 func (t *transaction) IsOpen() bool                          { return t.lg.Transaction().IsOpen() }
@@ -30,7 +30,7 @@ func (t *transaction) GetService(key inject.ServiceKey) (any, error) {
 		}
 	}
 
-	return t.core.sp.GetService(key)
+	return t.client.sp.GetService(key)
 }
 
 func (t *transaction) Add(node psi.Node) {

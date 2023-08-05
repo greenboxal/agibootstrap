@@ -1,51 +1,33 @@
 package indexing
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/multiformats/go-multihash"
-
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
 type IndexedItem struct {
-	Index int64 `json:"index"`
+	Index      int64    `json:"index"`
+	Path       psi.Path `json:"path"`
+	ChunkIndex int64    `json:"chunkIndex"`
 
-	Path *psi.Path     `json:"path"`
-	Link *cidlink.Link `json:"link"`
-
-	ChunkIndex int64         `json:"chunkIndex"`
-	ChunkLink  *cidlink.Link `json:"chunkLink"`
-
-	Embeddings GraphEmbedding `json:"embeddings,omitempty"`
+	Embeddings *GraphEmbedding `json:"embeddings,omitempty"`
 }
 
 func (i IndexedItem) Identity() string {
-	w := bytes.NewBuffer(nil)
-
-	fmt.Fprintf(w, "%d\000", i.Index)
-	fmt.Fprintf(w, "%s\000", i.Path)
-	fmt.Fprintf(w, "%s\000", i.Link)
-	fmt.Fprintf(w, "%d\000", i.ChunkIndex)
-	fmt.Fprintf(w, "%s\000", i.ChunkLink)
-	fmt.Fprintf(w, "%f\000", i.Embeddings.ToFloat32Slice(nil))
-
-	mh, err := multihash.Sum(w.Bytes(), multihash.SHA2_256, -1)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return mh.B58String()
+	return fmt.Sprintf("%s\000%d", i.Path, i.ChunkIndex)
 }
 
 type SearchRequest struct {
+	Graph coreapi.GraphOperations
 	Query GraphEmbedding
 	Limit int
+
+	ReturnEmbeddings bool
+	ReturnNode       bool
 }
 
 type BasicSearchHit struct {
@@ -55,12 +37,8 @@ type BasicSearchHit struct {
 }
 
 type IndexNodeRequest struct {
-	Path *psi.Path     `json:"path"`
-	Link *cidlink.Link `json:"link"`
-
-	ChunkIndex int64         `json:"chunkIndex"`
-	ChunkLink  *cidlink.Link `json:"chunkLink"`
-
+	Path       psi.Path       `json:"path"`
+	ChunkIndex int64          `json:"chunkIndex"`
 	Embeddings GraphEmbedding `json:"embeddings,omitempty"`
 }
 

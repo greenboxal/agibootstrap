@@ -2,6 +2,7 @@ package online
 
 import (
 	"context"
+	"io"
 	"reflect"
 	"sync"
 
@@ -30,9 +31,6 @@ const (
 	liveNodeFlagInjected
 	liveNodeFlagIsInitializing
 	liveNodeFlagInitialized
-
-	liveNodeFlagReady              = liveNodeFlagLoaded | liveNodeFlagEdgesPopulated | liveNodeFlagConnected
-	liveNodeFlagNone  liveNodeFlag = 0
 )
 
 type LiveNode struct {
@@ -68,7 +66,14 @@ func NewLiveNode(g *LiveGraph) *LiveNode {
 	return ln
 }
 
-func (ln *LiveNode) ID() int64                      { return ln.inode.ID() }
+func (ln *LiveNode) ID() int64 {
+	if ln.inode == nil {
+		return -1
+	}
+
+	return ln.inode.ID()
+}
+
 func (ln *LiveNode) Node() psi.Node                 { return ln.node }
 func (ln *LiveNode) Path() psi.Path                 { return ln.path }
 func (ln *LiveNode) FrozenNode() *psi.FrozenNode    { panic("deprecated") }
@@ -281,6 +286,7 @@ func (ln *LiveNode) populateNode(ctx context.Context) error {
 			}
 
 			ln.parent = parent
+
 		}
 
 		if ln.parent != nil {
@@ -290,13 +296,15 @@ func (ln *LiveNode) populateNode(ctx context.Context) error {
 				return nil
 			}
 
-			idx := int(ln.dentry.Name().Index)
+			/*idx := int(ln.dentry.Name().Index)
 
 			if idx < 0 || idx >= parent.ChildrenList().Len() {
 				idx = parent.ChildrenList().Len()
 			}
 
-			parent.InsertChildrenAt(idx, ln.node)
+			parent.InsertChildrenAt(idx, ln.node)*/
+
+			ln.node.PsiNodeBase().SetParent(parent)
 		}
 
 		ln.flags |= liveNodeFlagConnected
@@ -722,33 +730,6 @@ func (ln *LiveNode) update() {
 	ln.g.updateNodeCache(ln)
 }
 
-func (ln *LiveNode) Close() error {
-	defer ln.update()
-
-	ln.mu.Lock()
-	defer ln.mu.Unlock()
-
-	if ln.handle != nil {
-		if err := ln.handle.Close(); err != nil {
-			return err
-		}
-	}
-
-	if ln.inode != nil {
-		ln.inode.Unref()
-		ln.inode = nil
-	}
-
-	if ln.dentry != nil {
-		ln.dentry.Unref()
-		ln.dentry = nil
-	}
-
-	ln.node = nil
-
-	return nil
-}
-
 func (ln *LiveNode) Resolve(ctx context.Context, path psi.Path) (psi.Node, error) {
 	if path.IsRelative() {
 		path = ln.Path().Join(path)
@@ -848,6 +829,41 @@ func (ln *LiveNode) Lookup(key psi.EdgeReference) psi.Edge {
 
 	if le := ln.edges[k]; le != nil {
 		return le
+	}
+
+	return nil
+}
+
+func (ln *LiveNode) Close() error {
+	ln.mu.Lock()
+	defer ln.mu.Unlock()
+
+	if ln.node != nil {
+		if closer, ok := ln.node.(io.Closer); ok {
+			if err := closer.Close(); err != nil {
+				return err
+			}
+		}
+
+		ln.node = nil
+	}
+
+	if ln.handle != nil {
+		if err := ln.handle.Close(); err != nil {
+			return err
+		}
+
+		ln.handle = nil
+	}
+
+	if ln.inode != nil {
+		ln.inode.Unref()
+		ln.inode = nil
+	}
+
+	if ln.dentry != nil {
+		ln.dentry.Unref()
+		ln.dentry = nil
 	}
 
 	return nil

@@ -1,4 +1,4 @@
-package psifuse
+package fuse
 
 import (
 	"context"
@@ -8,30 +8,45 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
 type psiNodeDir struct {
 	fs.Inode
 
-	g    *graphstore.IndexedGraph
+	core coreapi.Core
 	path psi.Path
 }
 
 var logger = logging.GetLogger("psifuse")
 
-func NewPsiNodeDir(g *graphstore.IndexedGraph, path psi.Path) fs.InodeEmbedder {
+func NewPsiNodeDir(
+	core coreapi.Core,
+	path psi.Path,
+) fs.InodeEmbedder {
 	return &psiNodeDir{
-		g:    g,
+		core: core,
 		path: path,
 	}
 }
 
-func (pn *psiNodeDir) getNode(ctx context.Context) (psi.Node, error) {
-	return pn.g.ResolveNode(ctx, pn.path)
+func (pn *psiNodeDir) getNode(ctx context.Context) (n psi.Node, _ error) {
+	err := pn.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
+		node, err := tx.Resolve(ctx, pn.path)
+
+		if err != nil {
+			return err
+		}
+
+		n = node
+
+		return nil
+	})
+
+	return n, err
 }
 
 func (pn *psiNodeDir) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
@@ -40,7 +55,7 @@ func (pn *psiNodeDir) Lookup(ctx context.Context, name string, out *fuse.EntryOu
 	}
 
 	if name == "!RPC" {
-		return pn.NewInode(ctx, NewPsiRpcDir(pn.g, pn.path, func(ctx context.Context) (any, error) {
+		return pn.NewInode(ctx, NewPsiRpcDir(pn.core, pn.path, func(ctx context.Context) (any, error) {
 			return pn.getNode(ctx)
 		}), fs.StableAttr{
 			Mode: fuse.S_IFDIR,
@@ -51,7 +66,7 @@ func (pn *psiNodeDir) Lookup(ctx context.Context, name string, out *fuse.EntryOu
 		definition := viewDefinitionsMap[name]
 
 		if definition != nil {
-			return pn.NewInode(ctx, NewPsiNodeFileView(pn.g, pn.path, definition.Prepare), fs.StableAttr{
+			return pn.NewInode(ctx, NewPsiNodeFileView(pn.core, pn.path, definition.Prepare), fs.StableAttr{
 				Mode: fuse.S_IFREG,
 			}), 0
 		}
@@ -74,7 +89,7 @@ func (pn *psiNodeDir) Lookup(ctx context.Context, name string, out *fuse.EntryOu
 			def := definitions.Value()
 
 			if def.Name == name {
-				return pn.NewInode(ctx, NewPsiNodeFileView(pn.g, pn.path, def.Prepare), fs.StableAttr{
+				return pn.NewInode(ctx, NewPsiNodeFileView(pn.core, pn.path, def.Prepare), fs.StableAttr{
 					Mode: fuse.S_IFREG,
 				}), 0
 			}
@@ -107,10 +122,22 @@ func (pn *psiNodeDir) buildDefinitions(node psi.Node) iterators.Iterator[NodeVie
 }
 
 func (pn *psiNodeDir) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
+	var edges []*psi.FrozenEdge
+
 	node, _ := pn.getNode(ctx)
 	definitions := pn.buildDefinitions(node)
 
-	edges, err := pn.g.Store().ListNodeEdges(ctx, pn.path)
+	err := pn.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
+		e, err := tx.Graph().ListNodeEdges(ctx, pn.path)
+
+		if err != nil {
+			return err
+		}
+
+		edges = e
+
+		return nil
+	})
 
 	if err != nil {
 		if errors.Is(err, psi.ErrNodeNotFound) {
@@ -129,7 +156,7 @@ func (pn *psiNodeDir) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno)
 		}
 	})
 
-	edgesIterator := iterators.Map(edges, func(edge *psi.FrozenEdge) fuse.DirEntry {
+	edgesIterator := iterators.Map(iterators.FromSlice(edges), func(edge *psi.FrozenEdge) fuse.DirEntry {
 		k := edge.Key
 
 		if k.Kind == psi.EdgeKindChild && k.Name != "" {

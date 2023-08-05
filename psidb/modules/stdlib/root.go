@@ -10,4 +10,5 @@ type RootNode struct {
 
 var RootNodeType = psi.DefineNodeType[*RootNode]()
 
-func (c *RootNode) UUID() string { return c.NodeUUID }
+func (c *RootNode) UUID() string        { return c.NodeUUID }
+func (c *RootNode) PsiNodeName() string { return c.NodeUUID }

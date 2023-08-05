@@ -3,8 +3,6 @@ package indexing
 import (
 	"context"
 
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -49,14 +47,7 @@ func (ni *nodeIndex) Embedder() NodeEmbedder {
 }
 
 func (ni *nodeIndex) IndexNode(ctx context.Context, n psi.Node) error {
-	var link *cidlink.Link
-
 	path := n.CanonicalPath()
-
-	if snap := n.PsiNodeBase().GetSnapshot(); snap != nil && snap.CommitLink() != nil {
-		l := snap.CommitLink().(cidlink.Link)
-		link = &l
-	}
 
 	embeddings, err := ni.embedder.EmbeddingsForNode(ctx, n)
 
@@ -68,8 +59,7 @@ func (ni *nodeIndex) IndexNode(ctx context.Context, n psi.Node) error {
 		embedding := embeddings.Value()
 
 		_, err = ni.index.IndexNode(ctx, IndexNodeRequest{
-			Path:       &path,
-			Link:       link,
+			Path:       path,
 			ChunkIndex: int64(i),
 			Embeddings: embedding,
 		})
@@ -99,19 +89,22 @@ func (ni *nodeIndex) Search(ctx context.Context, req SearchRequest) (iterators.I
 				BasicSearchHit: basicHits.Value(),
 			}
 
-			if hit.Path != nil {
-				//hit.Node, err = ni.graph.ResolveNode(ctx, *hit.Path)
-				panic("fix me")
+			if req.ReturnNode {
+				hit.Node, err = req.Graph.Resolve(ctx, hit.Path)
+
+				if err != nil {
+					ni.manager.logger.Warn("failed to resolve node", "err", err)
+					continue
+				}
+
+				if hit.Node == nil {
+					ni.manager.logger.Warn("failed to resolve node", "err", err)
+					continue
+				}
 			}
 
-			if err != nil {
-				ni.manager.logger.Warn("failed to resolve node", "err", err)
-				continue
-			}
-
-			if hit.Node == nil {
-				ni.manager.logger.Warn("failed to resolve node", "err", err)
-				continue
+			if !req.ReturnEmbeddings {
+				hit.Embeddings = nil
 			}
 
 			return hit, true

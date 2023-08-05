@@ -1,6 +1,8 @@
 package graphfs
 
 import (
+	"fmt"
+
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -27,6 +29,15 @@ type SerializedNode struct {
 	Link    *cidlink.Link `json:"link"`
 }
 
+func (n SerializedNode) IsRemoved() bool { return n.Flags&NodeFlagRemoved != 0 }
+
+func (n SerializedNode) String() string {
+	return fmt.Sprintf(
+		"Node{Index: %d, Parent: %d, Version: %d, Path: %s, Flags: %d, Type: %s, Data: %s, Link: %s}",
+		n.Index, n.Parent, n.Version, n.Path, n.Flags, n.Type, n.Data, n.Link,
+	)
+}
+
 type EdgeFlag int32
 
 const (
@@ -46,11 +57,17 @@ type SerializedEdge struct {
 	Flags EdgeFlag    `json:"flags"`
 	Key   psi.EdgeKey `json:"key"`
 
-	ToIndex int64     `json:"toIndex"`
-	ToPath  *psi.Path `json:"toPath,omitempty"`
+	ToIndex int64    `json:"toIndex"`
+	ToPath  psi.Path `json:"toPath,omitempty"`
 
 	Data []byte `json:"data,omitempty"`
+}
 
-	Xmin uint64 `json:"xmin"`
-	Xmax uint64 `json:"xmax"`
+func (e SerializedEdge) IsRemoved() bool { return e.Flags&EdgeFlagRemoved != 0 }
+
+func (e SerializedEdge) String() string {
+	return fmt.Sprintf(
+		"Edge{Index: %d, Version: %d, Flags: %d, Key: %s, ToIndex: %d, ToPath: %s, Data: %s}",
+		e.Index, e.Version, e.Flags, e.Key, e.ToIndex, e.ToPath, e.Data,
+	)
 }

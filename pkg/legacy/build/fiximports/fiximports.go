@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/tools/imports"
 
-	"github.com/greenboxal/agibootstrap/pkg/build"
+	build2 "github.com/greenboxal/agibootstrap/pkg/legacy/build"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -14,7 +14,7 @@ import (
 
 type BuildStep struct{}
 
-func (s *BuildStep) Process(ctx context.Context, bctx *build.Context) (result build.StepResult, err error) {
+func (s *BuildStep) Process(ctx context.Context, bctx *build2.Context) (result build2.StepResult, err error) {
 	err = psi.Walk(bctx.Project(), func(cursor psi.Cursor, entering bool) error {
 		n := cursor.Value()
 

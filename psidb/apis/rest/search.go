@@ -13,6 +13,7 @@ import (
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/indexing"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
+	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
 )
 
 type SearchRequest struct {
@@ -40,6 +41,10 @@ func NewSearchHandler(
 
 func (s *SearchHandler) handleRequest(request *SearchRequest) (psi.Node, error) {
 	var searchRequest indexing.SearchRequest
+
+	searchRequest.Graph = request.Graph
+	searchRequest.Limit = 10
+	searchRequest.ReturnNode = true
 
 	response := &SearchResponse{}
 	response.Init(response, psi.WithNodeType(SearchResponseType))
@@ -80,6 +85,21 @@ func (s *SearchHandler) handleRequest(request *SearchRequest) (psi.Node, error) 
 
 	if err != nil {
 		return nil, err
+	}
+
+	if queryStr := request.Request.URL.Query().Get("query"); queryStr != "" {
+		queryNode := stdlib.NewText(queryStr)
+		it, err := index.Embedder().EmbeddingsForNode(request.Context(), queryNode)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if !it.Next() {
+			return nil, fmt.Errorf("no embeddings for query")
+		}
+
+		searchRequest.Query = it.Value()
 	}
 
 	result, err := index.Search(request.Context(), searchRequest)

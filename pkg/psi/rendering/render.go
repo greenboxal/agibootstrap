@@ -171,6 +171,7 @@ type NodeSnapshotEdge struct {
 
 type NodeSnapshot struct {
 	ID      int64     `json:"id"`
+	Type    string    `json:"type"`
 	Path    psi.Path  `json:"path"`
 	Link    ipld.Link `json:"link"`
 	Version int64     `json:"version"`
@@ -198,6 +199,7 @@ func buildSnapshot(ctx context.Context, node psi.Node, maxDepth int, nested bool
 
 		ns = &NodeSnapshot{}
 		ns.ID = snap.ID()
+		ns.Type = node.PsiNodeType().Name()
 		ns.Path = snap.Path()
 		ns.Link = snap.CommitLink()
 		ns.Version = snap.CommitVersion()

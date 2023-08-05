@@ -17,9 +17,9 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/spf13/cobra"
 
-	"github.com/greenboxal/agibootstrap/pkg/api/gateway"
-	"github.com/greenboxal/agibootstrap/pkg/platform/api/psifuse"
+	"github.com/greenboxal/agibootstrap/pkg/legacy/api/gateway"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/apis/fuse"
 )
 
 func buildPsiDbCmd() *cobra.Command {
@@ -179,7 +179,7 @@ func buildPsiDbCmd() *cobra.Command {
 				return err
 			}
 
-			root := psifuse.NewPsiNodeDir(project.Graph(), project.Graph().Root().CanonicalPath())
+			root := fuse.NewPsiNodeDir(project.Graph(), project.Graph().Root().CanonicalPath())
 
 			_ = exec.Command("diskutil", "unmount", "force", args[0]).Run()
 

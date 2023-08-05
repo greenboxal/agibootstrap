@@ -6,8 +6,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/greenboxal/agibootstrap/pkg/build"
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
+	build2 "github.com/greenboxal/agibootstrap/pkg/legacy/build"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -16,7 +16,7 @@ import (
 
 type BuildStep struct{}
 
-func (bs *BuildStep) Process(ctx context.Context, bctx *build.Context) (result build.StepResult, err error) {
+func (bs *BuildStep) Process(ctx context.Context, bctx *build2.Context) (result build2.StepResult, err error) {
 	langRegistry := bctx.Project().LanguageProvider()
 
 	err = psi.Walk(bctx.Project(), func(cursor psi.Cursor, entering bool) error {
@@ -58,7 +58,7 @@ func (bs *BuildStep) Process(ctx context.Context, bctx *build.Context) (result b
 	return
 }
 
-func (bs *BuildStep) processFile(ctx context.Context, bctx *build.Context, fsPath string, opts ...NodeProcessorOption) (int, error) {
+func (bs *BuildStep) processFile(ctx context.Context, bctx *build2.Context, fsPath string, opts ...NodeProcessorOption) (int, error) {
 	p := bctx.Project()
 
 	//bctx.Branch().Infow("Processing file", "file", fsPath)
@@ -98,7 +98,7 @@ func (bs *BuildStep) processFile(ctx context.Context, bctx *build.Context, fsPat
 }
 
 // ProcessNode processes the given node and returns the updated node.
-func (bs *BuildStep) ProcessNode(ctx context.Context, bctx *build.Context, sf project.SourceFile, root psi.Node, opts ...NodeProcessorOption) (psi.Node, error) {
+func (bs *BuildStep) ProcessNode(ctx context.Context, bctx *build2.Context, sf project.SourceFile, root psi.Node, opts ...NodeProcessorOption) (psi.Node, error) {
 	processor := &NodeProcessor{
 		Project:    bctx.Project(),
 		SourceFile: sf,

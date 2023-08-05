@@ -1,4 +1,4 @@
-package psifuse
+package fuse
 
 import (
 	"bytes"
@@ -14,9 +14,9 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphstore"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
 type NodeViewFilterFunc func(ctx context.Context, n psi.Node) bool
@@ -61,15 +61,15 @@ var viewDefinitionsMap = iterators.ToMap(iterators.Map(iterators.FromSlice(viewD
 type psiNodeFileView struct {
 	fs.Inode
 
-	g    *graphstore.IndexedGraph
+	core coreapi.Core
 	path psi.Path
 
 	prepare NodeViewPrepareFunc
 }
 
-func NewPsiNodeFileView(g *graphstore.IndexedGraph, path psi.Path, prepare NodeViewPrepareFunc) *psiNodeFileView {
+func NewPsiNodeFileView(core coreapi.Core, path psi.Path, prepare NodeViewPrepareFunc) *psiNodeFileView {
 	return &psiNodeFileView{
-		g:       g,
+		core:    core,
 		path:    path,
 		prepare: prepare,
 	}
@@ -83,6 +83,8 @@ type psiNodeFileHandle struct {
 	node         psi.Node
 	data         bytes.Buffer
 	materialized bool
+
+	tx coreapi.Transaction
 }
 
 func (nfw *psiNodeFileView) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
@@ -90,7 +92,13 @@ func (nfw *psiNodeFileView) Open(ctx context.Context, flags uint32) (fh fs.FileH
 		return nil, 0, syscall.EROFS
 	}
 
-	n, err := nfw.g.ResolveNode(ctx, nfw.path)
+	tx, err := nfw.core.BeginTransaction(ctx)
+
+	if err != nil {
+		return nil, 0, syscall.EAGAIN
+	}
+
+	n, err := tx.Resolve(ctx, nfw.path)
 
 	if err != nil {
 		if !errors.Is(err, psi.ErrNodeNotFound) {
@@ -100,7 +108,11 @@ func (nfw *psiNodeFileView) Open(ctx context.Context, flags uint32) (fh fs.FileH
 		return nil, 0, syscall.ENOENT
 	}
 
-	fh = &psiNodeFileHandle{view: nfw, node: n}
+	fh = &psiNodeFileHandle{
+		tx:   tx,
+		view: nfw,
+		node: n,
+	}
 
 	return fh, fuse.FOPEN_DIRECT_IO, 0
 }

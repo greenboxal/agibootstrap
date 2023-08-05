@@ -12,12 +12,12 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 
-	"github.com/greenboxal/agibootstrap/pkg/build"
-	"github.com/greenboxal/agibootstrap/pkg/build/codegen"
-	"github.com/greenboxal/agibootstrap/pkg/build/fiximports"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/agents"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/agents/profiles"
 	singularity2 "github.com/greenboxal/agibootstrap/pkg/gpt/agents/singularity"
+	build2 "github.com/greenboxal/agibootstrap/pkg/legacy/build"
+	"github.com/greenboxal/agibootstrap/pkg/legacy/build/codegen"
+	"github.com/greenboxal/agibootstrap/pkg/legacy/build/fiximports"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/tasks"
@@ -46,11 +46,11 @@ func NewVisor(p project.Project) *Visor {
 	mainToolbar := container.NewHBox(
 		widget.NewButton("Build", func() {
 			v.p.TaskManager().SpawnTask(context.Background(), func(progress tasks.TaskProgress) error {
-				builder := build.NewBuilder(v.p, build.Configuration{
+				builder := build2.NewBuilder(v.p, build2.Configuration{
 					OutputDirectory: v.p.RootPath(),
 					BuildDirectory:  path.Join(v.p.RootPath(), ".build"),
 
-					BuildSteps: []build.Step{
+					BuildSteps: []build2.Step{
 						&codegen.BuildStep{},
 						&fiximports.BuildStep{},
 					},

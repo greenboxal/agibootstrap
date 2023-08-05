@@ -121,7 +121,7 @@ func (le *LiveEdge) Save(ctx context.Context, nh graphfs.NodeHandle) error {
 
 	if le.to != nil {
 		le.frozen.ToIndex = le.to.cachedIndex
-		le.frozen.ToPath = le.to.cachedPath
+		le.frozen.ToPath = le.to.path
 	}
 
 	if le.frozen.Flags&graphfs.EdgeFlagRemoved == 0 {

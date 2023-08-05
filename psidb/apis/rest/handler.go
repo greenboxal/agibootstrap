@@ -132,7 +132,8 @@ func (r *ResourceHandler) handleRequest(req *Request) (any, error) {
 	}
 
 	if parsedPath.IsRelative() {
-		parsedPath = parsedPath.WithRoot(r.core.Config().RootUUID)
+		uuid := r.core.Config().RootUUID
+		parsedPath = psi.PathFromElements(uuid, false).Join(parsedPath)
 	}
 
 	req.PsiPath = parsedPath
@@ -235,7 +236,13 @@ func (r *ResourceHandler) handlePost(request *Request) (any, error) {
 	}
 
 	node.SetParent(parent)
-	parent.SetEdge(request.PsiPath.Name().GetKey(), node)
+
+	requestKey := request.PsiPath.Name().GetKey()
+	actualKey := node.CanonicalPath().Name().GetKey()
+
+	if actualKey != requestKey && requestKey.Kind != psi.EdgeKindChild {
+		parent.SetEdge(requestKey, node)
+	}
 
 	if err := parent.Update(request.Context()); err != nil {
 		return nil, err

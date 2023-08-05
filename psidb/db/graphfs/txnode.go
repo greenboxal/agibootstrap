@@ -60,9 +60,6 @@ func (nh *txNodeHandle) SetEdge(ctx context.Context, edge *SerializedEdge) error
 		return ErrHandleClosed
 	}
 
-	edge.Xmax = 0xffffffffffffffff
-	edge.Xmin = nh.tx.xid
-
 	p := nh.dentry.Path()
 
 	return nh.tx.Append(ctx, JournalEntry{

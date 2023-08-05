@@ -12,7 +12,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/langs/golang"
 
-	"github.com/greenboxal/agibootstrap/pkg/codex"
+	"github.com/greenboxal/agibootstrap/pkg/legacy/codex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )

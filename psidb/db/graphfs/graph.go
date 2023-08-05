@@ -6,7 +6,9 @@ import (
 
 	"github.com/ipld/go-ipld-prime/linking"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -14,6 +16,8 @@ import (
 type SuperBlockProvider func(ctx context.Context, uuid string) (SuperBlock, error)
 
 type VirtualGraph struct {
+	logger *zap.SugaredLogger
+
 	lsys     *linking.LinkSystem
 	spb      SuperBlockProvider
 	listener VirtualGraphListener
@@ -35,6 +39,8 @@ func NewVirtualGraph(
 	listener VirtualGraphListener,
 ) (*VirtualGraph, error) {
 	vg := &VirtualGraph{
+		logger: logging.GetLogger("graphfs"),
+
 		lsys:     lsys,
 		spb:      spb,
 		listener: listener,
@@ -225,6 +231,8 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 	}
 
 	for _, entry := range tx.log {
+		vg.logger.Infof("applying transaction log entry:\n%s\n", entry.String())
+
 		if hasFinished {
 			return errors.New("invalid transaction log")
 		}
