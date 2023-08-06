@@ -11,6 +11,7 @@ var Module = fx.Module(
 
 	fx.Provide(NewResourceHandler),
 	fx.Provide(NewSearchHandler),
+	fx.Provide(NewRenderHandler),
 
 	apimachinery.ProvideHttpService[*Router]("/v1", NewRouter),
 )

@@ -92,13 +92,15 @@ func RunTransaction(
 	ctx = WithTransaction(ctx, tx)
 	err = fn(ctx, tx)
 
-	if err != nil {
-		if e := tx.Rollback(ctx); e != nil {
-			err = multierror.Append(err, e)
-		}
-	} else {
-		if e := tx.Commit(ctx); e != nil {
-			err = multierror.Append(err, e)
+	if tx.IsOpen() {
+		if err != nil {
+			if e := tx.Rollback(ctx); e != nil {
+				err = multierror.Append(err, e)
+			}
+		} else {
+			if e := tx.Commit(ctx); e != nil {
+				err = multierror.Append(err, e)
+			}
 		}
 	}
 

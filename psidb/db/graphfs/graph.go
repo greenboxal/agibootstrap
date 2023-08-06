@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime/linking"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -16,15 +17,18 @@ import (
 type SuperBlockProvider func(ctx context.Context, uuid string) (SuperBlock, error)
 
 type VirtualGraph struct {
+	mu     sync.RWMutex
 	logger *zap.SugaredLogger
 
 	lsys     *linking.LinkSystem
 	spb      SuperBlockProvider
 	listener VirtualGraphListener
 
-	mu          sync.RWMutex
-	txm         *TransactionManager
-	superBlocks map[string]SuperBlock
+	transactionManager *TransactionManager
+	replicationManager *replicationManager
+	superBlocks        map[string]SuperBlock
+
+	ds datastore.Batching
 }
 
 type VirtualGraphListener interface {
@@ -36,11 +40,13 @@ func NewVirtualGraph(
 	spb SuperBlockProvider,
 	journal *Journal,
 	checkpoint Checkpoint,
+	metadataStore datastore.Batching,
 	listener VirtualGraphListener,
 ) (*VirtualGraph, error) {
 	vg := &VirtualGraph{
 		logger: logging.GetLogger("graphfs"),
 
+		ds:       metadataStore,
 		lsys:     lsys,
 		spb:      spb,
 		listener: listener,
@@ -48,7 +54,8 @@ func NewVirtualGraph(
 		superBlocks: map[string]SuperBlock{},
 	}
 
-	vg.txm = NewTransactionManager(vg, journal, checkpoint)
+	vg.transactionManager = NewTransactionManager(vg, journal, checkpoint)
+	vg.replicationManager = newReplicationManager(vg)
 
 	return vg, nil
 }
@@ -62,11 +69,15 @@ func (vg *VirtualGraph) SetListener(listener VirtualGraphListener) {
 }
 
 func (vg *VirtualGraph) Recover(ctx context.Context) error {
-	return vg.txm.Recover(ctx)
+	return vg.transactionManager.Recover(ctx)
 }
 
 func (vg *VirtualGraph) BeginTransaction(ctx context.Context) (*Transaction, error) {
-	return vg.txm.BeginTransaction()
+	return vg.transactionManager.BeginTransaction(ctx)
+}
+
+func (vg *VirtualGraph) CreateReplicationSlot(ctx context.Context, name string) (ReplicationSlot, error) {
+	return vg.replicationManager.CreateReplicationSlot(ctx, name)
 }
 
 func (vg *VirtualGraph) GetSuperBlock(ctx context.Context, uuid string) (SuperBlock, error) {
@@ -176,11 +187,19 @@ func (vg *VirtualGraph) ReadEdges(ctx context.Context, path psi.Path) (iterators
 }
 
 func (vg *VirtualGraph) Close(ctx context.Context) error {
-	if vg.txm != nil {
-		if err := vg.txm.Close(ctx); err != nil {
+	if vg.replicationManager != nil {
+		if err := vg.replicationManager.Close(ctx); err != nil {
 			return err
 		}
-		vg.txm = nil
+
+		vg.replicationManager = nil
+	}
+
+	if vg.transactionManager != nil {
+		if err := vg.transactionManager.Close(ctx); err != nil {
+			return err
+		}
+		vg.transactionManager = nil
 	}
 
 	for _, sb := range vg.superBlocks {
@@ -202,7 +221,7 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 	defer func() {
 		for _, nh := range nodeByPath {
 			if err := nh.Close(); err != nil {
-				vg.txm.logger.Error(err)
+				vg.transactionManager.logger.Error(err)
 			}
 		}
 	}()
@@ -284,10 +303,6 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 				return err
 			}
 		}
-	}
-
-	if !hasBegun || !hasFinished {
-		return errors.New("invalid transaction log")
 	}
 
 	if l := vg.listener; l != nil {

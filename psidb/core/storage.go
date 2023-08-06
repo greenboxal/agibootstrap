@@ -9,7 +9,6 @@ import (
 
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
-	"github.com/greenboxal/agibootstrap/psidb/db/indexing"
 )
 
 func NewJournal(
@@ -60,10 +59,4 @@ func NewCheckpoint(
 	})
 
 	return checkpoint, nil
-}
-
-func NewIndexManager(
-	core coreapi.Core,
-) (*indexing.Manager, error) {
-	return indexing.NewIndexManager(core)
 }

@@ -19,7 +19,6 @@ var Module = fx.Module(
 	fx.Provide(NewCheckpoint),
 	fx.Provide(NewJournal),
 	fx.Provide(NewDataStore),
-	fx.Provide(NewIndexManager),
 	fx.Provide(NewBlockManager),
 	fx.Provide(NewSessionManager),
 	fx.Provide(NewCore),

@@ -48,12 +48,6 @@ func (tx *Transaction) Commit(ctx context.Context) error {
 		return tx.close()
 	}
 
-	if err := tx.append(JournalEntry{
-		Op: JournalOpCommit,
-	}); err != nil {
-		return err
-	}
-
 	if err := tx.txm.commitTransaction(ctx, tx); err != nil {
 		return err
 	}

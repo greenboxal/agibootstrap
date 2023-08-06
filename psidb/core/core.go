@@ -7,6 +7,9 @@ import (
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/storage/dsadapter"
+	"github.com/jbenet/goprocess"
+	goprocessctx "github.com/jbenet/goprocess/context"
+	"github.com/pkg/errors"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
@@ -33,6 +36,15 @@ type Core struct {
 	virtualGraph *graphfs.VirtualGraph
 
 	sp inject.ServiceProvider
+
+	proc goprocess.Process
+
+	closing bool
+	closed  bool
+	ready   bool
+
+	readyCh chan struct{}
+	closeCh chan struct{}
 }
 
 func NewCore(
@@ -60,6 +72,9 @@ func NewCore(
 		sp:         sp,
 		journal:    journal,
 		checkpoint: checkpoint,
+
+		readyCh: make(chan struct{}),
+		closeCh: make(chan struct{}),
 	}
 
 	core.lsys = cidlink.DefaultLinkSystem()
@@ -72,6 +87,7 @@ func NewCore(
 		blockManager.Resolve,
 		journal,
 		checkpoint,
+		ds,
 		nil,
 	)
 
@@ -94,6 +110,9 @@ func NewCore(
 	return core, nil
 }
 
+func (c *Core) Ready() <-chan struct{} { return c.readyCh }
+func (c *Core) IsReady() bool          { return c.ready }
+
 func (c *Core) Config() *coreapi.Config                 { return c.cfg }
 func (c *Core) DataStore() coreapi.DataStore            { return c.ds }
 func (c *Core) Journal() *graphfs.Journal               { return c.journal }
@@ -101,6 +120,14 @@ func (c *Core) Checkpoint() graphfs.Checkpoint          { return c.checkpoint }
 func (c *Core) LinkSystem() *linking.LinkSystem         { return &c.lsys }
 func (c *Core) VirtualGraph() *graphfs.VirtualGraph     { return c.virtualGraph }
 func (c *Core) ServiceProvider() inject.ServiceProvider { return c.sp }
+
+func (c *Core) CreateReplicationSlot(ctx context.Context, name string) (graphfs.ReplicationSlot, error) {
+	if err := c.waitReady(); err != nil {
+		return nil, err
+	}
+
+	return c.virtualGraph.CreateReplicationSlot(ctx, name)
+}
 
 func (c *Core) BeginTransaction(ctx context.Context, options ...coreapi.TransactionOption) (coreapi.Transaction, error) {
 	var opts coreapi.TransactionOptions
@@ -128,11 +155,31 @@ func (c *Core) RunTransaction(ctx context.Context, fn coreapi.TransactionFunc, o
 }
 
 func (c *Core) Start(ctx context.Context) error {
+	c.proc = goprocess.Go(c.run)
+
+	return nil
+}
+
+func (c *Core) Stop(ctx context.Context) error {
+	c.closing = true
+
+	close(c.closeCh)
+
+	return c.proc.CloseAfterChildren()
+}
+
+func (c *Core) run(proc goprocess.Process) {
+	defer func() {
+		c.closed = true
+	}()
+
+	ctx := goprocessctx.OnClosingContext(proc)
+
 	if err := c.virtualGraph.Recover(ctx); err != nil {
-		return err
+		panic(err)
 	}
 
-	return c.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
+	err := c.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
 		root, err := tx.Resolve(ctx, psi.PathFromElements(c.cfg.RootUUID, false))
 
 		if err != nil && err != psi.ErrNodeNotFound {
@@ -159,8 +206,27 @@ func (c *Core) Start(ctx context.Context) error {
 
 		return nil
 	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	c.ready = true
+	close(c.readyCh)
+
+	_, _ = <-c.closeCh
+
+	if err := c.virtualGraph.Close(ctx); err != nil {
+		panic(err)
+	}
 }
 
-func (c *Core) Stop(ctx context.Context) error {
-	return c.virtualGraph.Close(ctx)
+func (c *Core) waitReady() error {
+	_, _ = <-c.readyCh
+
+	if c.closed {
+		return errors.New("core closed")
+	}
+
+	return nil
 }

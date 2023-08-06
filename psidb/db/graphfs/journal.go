@@ -2,6 +2,7 @@ package graphfs
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"sync"
 
@@ -86,6 +87,10 @@ func (j *Journal) Read(index uint64, dst *JournalEntry) (*JournalEntry, error) {
 	data, err := j.wal.Read(index)
 
 	if err != nil {
+		if err == wal.ErrNotFound {
+			return nil, io.EOF
+		}
+
 		return nil, err
 	}
 

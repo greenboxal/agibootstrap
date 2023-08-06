@@ -14,7 +14,10 @@ require (
 	github.com/DataIntelligenceCrew/go-faiss v0.2.0
 	github.com/antlr4-go/antlr/v4 v4.13.0
 	github.com/dave/dst v0.27.2
+	github.com/dgraph-io/sroar v0.0.0-20220527172339-b92b7eaaf6e0
+	github.com/fsnotify/fsnotify v1.6.0
 	github.com/go-errors/errors v1.4.2
+	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/google/uuid v1.3.0
 	github.com/greenboxal/aip/aip-controller v0.0.0-20230613210128-ceee04e39305
 	github.com/greenboxal/aip/aip-forddb v0.0.0-20230613210128-ceee04e39305
@@ -34,7 +37,9 @@ require (
 	github.com/samber/lo v1.38.1
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
+	github.com/tidwall/wal v1.1.7
 	github.com/zeroflucs-given/generics v0.0.0-20230611080924-a806fa480d35
+	go.uber.org/fx v1.20.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	gonum.org/v1/gonum v0.13.0
@@ -46,6 +51,7 @@ require (
 	github.com/RoaringBitmap/roaring v1.3.0 // indirect
 	github.com/abcum/lcp v0.0.0-20201209214815-7a3f3840be81 // indirect
 	github.com/adrianbrad/queue v1.2.1 // indirect
+	github.com/alecthomas/participle/v2 v2.0.0 // indirect
 	github.com/alitto/pond v1.8.3 // indirect
 	github.com/antonmedv/expr v1.12.5 // indirect
 	github.com/arl/statsviz v0.5.2 // indirect
@@ -60,13 +66,11 @@ require (
 	github.com/dgraph-io/badger v1.6.2 // indirect
 	github.com/dgraph-io/badger/v4 v4.1.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
-	github.com/dgraph-io/sroar v0.0.0-20220527172339-b92b7eaaf6e0 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eientei/wsgraphql v1.4.2 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fredbi/uri v1.0.0 // indirect
-	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/fyne-io/gl-js v0.0.0-20230506162202-1fdaa286a934 // indirect
 	github.com/fyne-io/glfw-js v0.0.0-20220120001248-ee7290d23504 // indirect
 	github.com/fyne-io/image v0.0.0-20220602074514-4956b0afb3d2 // indirect
@@ -150,7 +154,6 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/tinylru v1.2.1 // indirect
-	github.com/tidwall/wal v1.1.7 // indirect
 	github.com/yuin/goldmark v1.5.4 // indirect
 	gitlab.com/jamietanna/content-negotiation-go v0.2.0 // indirect
 	go.mongodb.org/mongo-driver v1.11.7 // indirect
@@ -161,7 +164,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.16.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/dig v1.17.0 // indirect
-	go.uber.org/fx v1.20.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.10.0 // indirect
 	golang.org/x/image v0.8.0 // indirect

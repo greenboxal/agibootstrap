@@ -11,7 +11,9 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/apis/rpc"
 	rpcv1 "github.com/greenboxal/agibootstrap/psidb/apis/rpc/v1"
 	"github.com/greenboxal/agibootstrap/psidb/core"
+	"github.com/greenboxal/agibootstrap/psidb/db/indexing"
 	"github.com/greenboxal/agibootstrap/psidb/modules"
+	"github.com/greenboxal/agibootstrap/psidb/services"
 )
 
 var BaseModules = fx.Options(
@@ -26,7 +28,9 @@ var BaseModules = fx.Options(
 
 	apimachinery.Module,
 	core.Module,
+	indexing.Module,
 	modules.Module,
+	services.Module,
 	rest.Module,
 	rpc.Module,
 	rpcv1.Module,

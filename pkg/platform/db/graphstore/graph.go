@@ -78,21 +78,6 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.UniqueNode)
 		closeCh:         make(chan struct{}),
 		nodeUpdateQueue: make(chan nodeUpdateRequest, 8192),
 	}
-	spb := graphfs2.SuperBlockProvider(func(ctx context.Context, uuid string) (graphfs2.SuperBlock, error) {
-		return nil, nil
-	})
-
-	g.vg, err = graphfs2.NewVirtualGraph(nil, spb, journal, checkpoint, nil)
-
-	if err != nil {
-		return nil, err
-	}
-
-	g.lg, err = online.NewLiveGraph(nil, nil, g.vg, nil)
-
-	if err != nil {
-		return nil, err
-	}
 
 	return g, nil
 }

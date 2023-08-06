@@ -29,16 +29,13 @@ type faissIndex struct {
 
 	isDirty     bool
 	saveOnClose bool
+
+	nextIndex    int64
+	hasNextIndex bool
 }
 
 func newFaissIndex(m *Manager, stateDir string, id string, d int) (*faissIndex, error) {
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
-		return nil, err
-	}
-
-	idx, err := faiss.NewIndexFlatIP(d)
-
-	if err != nil {
 		return nil, err
 	}
 
@@ -53,7 +50,6 @@ func newFaissIndex(m *Manager, stateDir string, id string, d int) (*faissIndex, 
 		id:          id,
 		m:           m,
 		d:           d,
-		index:       idx,
 		ds:          ds,
 		path:        stateDir,
 		saveOnClose: true,
@@ -99,9 +95,13 @@ func (f *faissIndex) IndexNode(ctx context.Context, req IndexNodeRequest) (Index
 		}
 	}
 
-	item.Index = f.index.Ntotal()
+	item.Index, err = f.getNextIndex(ctx)
 
-	if err := f.index.Add(x); err != nil {
+	if err != nil {
+		return IndexedItem{}, err
+	}
+
+	if err := f.index.AddWithIDs(x, []int64{item.Index}); err != nil {
 		return IndexedItem{}, errors.Wrap(err, "failed to add to index")
 	}
 
@@ -252,7 +252,7 @@ func (f *faissIndex) Close() error {
 }
 
 func (f *faissIndex) createNew() error {
-	idx, err := faiss.NewIndexFlatIP(f.d)
+	idx, err := faiss.IndexFactory(f.d, "IDMap,Flat", faiss.MetricL2)
 
 	if err != nil {
 		return err
@@ -316,4 +316,28 @@ func (f *faissIndex) retrieveItem(ctx context.Context, id int64) (IndexedItem, e
 
 func (f *faissIndex) retrieveItemIndex(ctx context.Context, item IndexedItem) (uint64, error) {
 	return psids.Get(ctx, f.ds, dsKeyInvertedIndex(item.Identity()))
+}
+
+func (f *faissIndex) getNextIndex(ctx context.Context) (int64, error) {
+	var err error
+
+	if !f.hasNextIndex {
+		f.nextIndex, err = psids.Get(ctx, f.ds, dsKeyLastID())
+
+		if err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
+			return -1, err
+		}
+
+		f.hasNextIndex = true
+	}
+
+	idx := f.nextIndex
+
+	f.nextIndex++
+
+	if err := psids.Put(ctx, f.ds, dsKeyLastID(), f.nextIndex); err != nil {
+		return -1, err
+	}
+
+	return idx, nil
 }

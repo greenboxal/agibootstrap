@@ -18,6 +18,7 @@ type Core interface {
 	ServiceProvider() inject.ServiceProvider
 
 	TransactionOperations
+	graphfs.ReplicationManager
 }
 
 type DataStore interface {

@@ -4,59 +4,60 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
-	"github.com/greenboxal/agibootstrap/psidb/db/indexing"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/services"
 )
 
 type SearchRequest struct {
 	*http.Request
 
 	Graph *online.LiveGraph
-
-	Scope psi.Path
 }
 
 type SearchHandler struct {
-	core         coreapi.Core
-	indexManager *indexing.Manager
+	core   coreapi.Core
+	search *services.SearchService
 }
 
 func NewSearchHandler(
 	core coreapi.Core,
-	indexManager *indexing.Manager,
+	search *services.SearchService,
 ) *SearchHandler {
 	return &SearchHandler{
-		core:         core,
-		indexManager: indexManager,
+		core:   core,
+		search: search,
 	}
 }
 
 func (s *SearchHandler) handleRequest(request *SearchRequest) (psi.Node, error) {
-	var searchRequest indexing.SearchRequest
+	var searchRequest services.SearchRequest
 
 	searchRequest.Graph = request.Graph
 	searchRequest.Limit = 10
 	searchRequest.ReturnNode = true
 
-	response := &SearchResponse{}
-	response.Init(response, psi.WithNodeType(SearchResponseType))
-
 	if pathStr := request.Request.URL.Query().Get("scope"); pathStr != "" {
+		pathStr, err := url.QueryUnescape(pathStr)
+
+		if err != nil {
+			return nil, err
+		}
+
 		path, err := psi.ParsePath(pathStr)
 
 		if err != nil {
 			return nil, err
 		}
 
-		request.Scope = path
+		searchRequest.Scope = path
 	}
 
 	if limitStr := request.Request.URL.Query().Get("limit"); limitStr != "" {
@@ -69,48 +70,18 @@ func (s *SearchHandler) handleRequest(request *SearchRequest) (psi.Node, error) 
 		searchRequest.Limit = limit
 	}
 
-	scpNode, err := request.Graph.ResolveNode(request.Context(), request.Scope)
-
-	if err != nil {
-		return nil, err
-	}
-
-	scp, ok := scpNode.(*indexing.Scope)
-
-	if !ok {
-		return nil, fmt.Errorf("scope node is not a scope")
-	}
-
-	index, err := scp.GetIndex(request.Context())
-
-	if err != nil {
-		return nil, err
-	}
-
 	if queryStr := request.Request.URL.Query().Get("query"); queryStr != "" {
 		queryNode := stdlib.NewText(queryStr)
-		it, err := index.Embedder().EmbeddingsForNode(request.Context(), queryNode)
-
-		if err != nil {
-			return nil, err
-		}
-
-		if !it.Next() {
-			return nil, fmt.Errorf("no embeddings for query")
-		}
-
-		searchRequest.Query = it.Value()
+		searchRequest.Query = queryNode
 	}
 
-	result, err := index.Search(request.Context(), searchRequest)
+	result, err := s.search.Search(request.Context(), &searchRequest)
 
 	if err != nil {
 		return nil, err
 	}
 
-	response.Results = iterators.ToSlice(result)
-
-	return response, nil
+	return result, nil
 }
 
 func (s *SearchHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {

@@ -6,6 +6,7 @@ import (
 	"path"
 	"sync"
 
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
@@ -17,16 +18,21 @@ import (
 )
 
 type Manager struct {
+	mu     sync.RWMutex
 	logger *zap.SugaredLogger
 
 	core     coreapi.Core
 	basePath string
 
-	mu          sync.RWMutex
 	openIndexes map[string]*referenceCountingIndex
+
+	stream *coreapi.ReplicationStreamProcessor
 }
 
-func NewIndexManager(core coreapi.Core) (*Manager, error) {
+func NewIndexManager(
+	lc fx.Lifecycle,
+	core coreapi.Core,
+) (*Manager, error) {
 	indexPath := path.Join(core.Config().DataDir, "index")
 
 	if err := os.MkdirAll(indexPath, 0755); err != nil {
@@ -42,9 +48,50 @@ func NewIndexManager(core coreapi.Core) (*Manager, error) {
 		openIndexes: make(map[string]*referenceCountingIndex),
 	}
 
-	core.VirtualGraph().SetListener(im)
+	lc.Append(fx.Hook{
+		OnStart: im.Start,
+		OnStop:  im.Close,
+	})
+
+	//core.VirtualGraph().SetListener(im)
 
 	return im, nil
+}
+
+func (im *Manager) Start(ctx context.Context) error {
+	slot, err := im.core.CreateReplicationSlot(ctx, "indexmanager")
+
+	if err != nil {
+		return err
+	}
+
+	im.stream = coreapi.NewReplicationStream(slot, im.processReplicationMessage)
+
+	return nil
+}
+
+func (im *Manager) processReplicationMessage(ctx context.Context, entries []*graphfs.JournalEntry) error {
+	dirtyNodes := map[string]psi.Path{}
+
+	for _, entry := range entries {
+		if entry.Path == nil {
+			continue
+		}
+
+		dirtyNodes[entry.Path.String()] = *entry.Path
+	}
+
+	if len(dirtyNodes) == 0 {
+		return nil
+	}
+
+	keys := maps.Values(dirtyNodes)
+
+	slices.SortFunc(keys, func(i, j psi.Path) bool {
+		return i.CompareTo(j) > 0
+	})
+
+	return im.Update(ctx, keys)
 }
 
 func (im *Manager) OpenNodeIndex(ctx context.Context, id string, embedder NodeEmbedder) (NodeIndex, error) {
@@ -100,7 +147,7 @@ func (im *Manager) Update(ctx context.Context, paths []psi.Path) error {
 	return im.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
 		for _, p := range paths {
 			if err := im.updateSingle(ctx, tx, p); err != nil {
-				return err
+				im.logger.Error(err)
 			}
 		}
 
@@ -130,30 +177,7 @@ func (im *Manager) updateSingle(ctx context.Context, tx coreapi.Transaction, p p
 	return nil
 }
 
-func (im *Manager) OnCommitTransaction(ctx context.Context, tx *graphfs.Transaction) error {
-	dirtyNodes := map[int64]psi.Path{}
-
-	for _, entry := range tx.GetLog() {
-		if entry.Path == nil {
-			continue
-		}
-
-		dirtyNodes[entry.Inode] = *entry.Path
-	}
-
-	keys := maps.Values(dirtyNodes)
-
-	slices.SortFunc(keys, func(i, j psi.Path) bool {
-		return i.CompareTo(j) > 0
-	})
-
-	if err := im.Update(ctx, keys); err != nil {
-		return err
-	}
-
-	return nil
-}
-func (im *Manager) Close() error {
+func (im *Manager) Close(ctx context.Context) error {
 	im.mu.Lock()
 	defer im.mu.Unlock()
 
@@ -163,7 +187,7 @@ func (im *Manager) Close() error {
 		}
 	}
 
-	return nil
+	return im.stream.Close(ctx)
 }
 
 func (im *Manager) notifyIndexIdle(id string) {

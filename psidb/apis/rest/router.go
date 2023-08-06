@@ -13,6 +13,7 @@ type Router struct {
 func NewRouter(
 	resourceHandler *ResourceHandler,
 	searchHandler *SearchHandler,
+	renderHandler *RenderHandler,
 ) *Router {
 	router := &Router{
 		Router: chi.NewRouter(),
@@ -20,6 +21,7 @@ func NewRouter(
 
 	router.Mount("/psi", http.StripPrefix("/psi", resourceHandler))
 	router.Mount("/search", searchHandler)
+	router.Mount("/render", renderHandler)
 
 	return router
 }

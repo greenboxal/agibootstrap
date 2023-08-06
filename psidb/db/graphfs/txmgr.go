@@ -24,7 +24,7 @@ type TransactionManager struct {
 
 func NewTransactionManager(graph *VirtualGraph, journal *Journal, checkpoint Checkpoint) *TransactionManager {
 	return &TransactionManager{
-		logger:             logging.GetLogger("graphfs/txm"),
+		logger:             logging.GetLogger("graphfs/transactionManager"),
 		graph:              graph,
 		journal:            journal,
 		checkpoint:         checkpoint,
@@ -41,6 +41,14 @@ func (txm *TransactionManager) Recover(ctx context.Context) error {
 
 	if !ok {
 		return nil
+	}
+
+	if xid+1 < txm.journal.nextIndex {
+		txm.logger.Infow("Recovering recent transactions", "from", xid, "to", txm.journal.nextIndex)
+	}
+
+	if err != nil {
+		return err
 	}
 
 	it := txm.journal.Iterate(xid+1, -1)
@@ -108,7 +116,7 @@ func (txm *TransactionManager) newTransaction(isReadOnly bool) *Transaction {
 	return tx
 }
 
-func (txm *TransactionManager) BeginTransaction() (*Transaction, error) {
+func (txm *TransactionManager) BeginTransaction(ctx context.Context) (*Transaction, error) {
 	if txm.closed {
 		return nil, errors.New("transaction manager already closed")
 	}
@@ -172,6 +180,16 @@ func (txm *TransactionManager) commitTransaction(ctx context.Context, tx *Transa
 	}
 
 	last := tx.log[len(tx.log)-1]
+
+	if last.Op != JournalOpCommit {
+		if err := tx.append(JournalEntry{
+			Op: JournalOpCommit,
+		}); err != nil {
+			return err
+		}
+	}
+
+	last = tx.log[len(tx.log)-1]
 
 	return txm.checkpoint.Update(last.Rid)
 }

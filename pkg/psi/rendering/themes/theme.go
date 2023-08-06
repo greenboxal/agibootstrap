@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io"
 	"net/url"
+	"path"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
@@ -63,7 +64,7 @@ var GlobalTheme = rendering.BuildTheme(
 
 			defer reader.Close()
 
-			if _, err := ctx.Buffer.WriteFormat("**%s:**\n```\n", node.GetPath()); err != nil {
+			if _, err := ctx.Buffer.WriteFormat("```%s\n", path.Ext(node.GetPath())); err != nil {
 				return err
 			}
 
