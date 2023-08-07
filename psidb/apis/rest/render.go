@@ -8,24 +8,38 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/psi/psiml"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
-	"github.com/greenboxal/agibootstrap/psidb/services"
+	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
+	"github.com/greenboxal/agibootstrap/psidb/services/search"
 )
 
 type RenderRequest struct {
 	Text string `json:"text"`
+
+	ReturnEmbeddings bool `json:"return_embeddings"`
 }
 
 type RenderResponse struct {
-	Rendered string `json:"rendered"`
+	Rendered   string      `json:"rendered"`
+	Embeddings [][]float32 `json:"embeddings,omitempty"`
 }
 
 type RenderHandler struct {
-	core   coreapi.Core
-	search *services.SearchService
+	core     coreapi.Core
+	search   *search.SearchService
+	embedder indexing.NodeEmbedder
 }
 
-func NewRenderHandler(core coreapi.Core, search *services.SearchService) *RenderHandler {
-	return &RenderHandler{core: core, search: search}
+func NewRenderHandler(
+	core coreapi.Core,
+	search *search.SearchService,
+	embedder indexing.NodeEmbedder,
+) *RenderHandler {
+	return &RenderHandler{
+		core:     core,
+		search:   search,
+		embedder: embedder,
+	}
 }
 
 func (r *RenderHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -60,6 +74,19 @@ func (r *RenderHandler) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	if req.ReturnEmbeddings {
+		embeddings, err := r.embedder.EmbeddingsForNode(request.Context(), stdlib.NewText(res.Rendered))
+
+		if err != nil {
+			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if embeddings.Next() {
+			res.Embeddings = append(res.Embeddings, embeddings.Value().ToFloat32Slice(nil))
+		}
 	}
 
 	writer.Header().Set("Content-Type", "application/json")

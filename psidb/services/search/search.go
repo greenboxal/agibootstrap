@@ -1,4 +1,4 @@
-package services
+package search
 
 import (
 	"context"
@@ -6,8 +6,8 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/psidb/db/indexing"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
+	indexing2 "github.com/greenboxal/agibootstrap/psidb/services/indexing"
 )
 
 type SearchRequest struct {
@@ -23,7 +23,7 @@ type SearchRequest struct {
 type SearchResponse struct {
 	psi.NodeBase
 
-	Results []indexing.NodeSearchHit `json:"results"`
+	Results []indexing2.NodeSearchHit `json:"results"`
 }
 
 var SearchResponseType = psi.DefineNodeType[*SearchResponse]()
@@ -36,7 +36,7 @@ func NewSearchService() *SearchService {
 }
 
 func (s *SearchService) Search(ctx context.Context, request *SearchRequest) (*SearchResponse, error) {
-	var searchRequest indexing.SearchRequest
+	var searchRequest indexing2.SearchRequest
 
 	searchRequest.Graph = request.Graph
 	searchRequest.Limit = request.Limit
@@ -52,7 +52,7 @@ func (s *SearchService) Search(ctx context.Context, request *SearchRequest) (*Se
 		return nil, err
 	}
 
-	scp, ok := scpNode.(*indexing.Scope)
+	scp, ok := scpNode.(*indexing2.Scope)
 
 	if !ok {
 		return nil, fmt.Errorf("scope node is not a scope")

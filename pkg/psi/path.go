@@ -64,7 +64,7 @@ type Path struct {
 func (p Path) Depth() int { return len(p.components) }
 
 //goland:noinspection GoMixedReceiverTypes
-func (p Path) IsEmpty() bool { return len(p.components) == 0 && p.relative }
+func (p Path) IsEmpty() bool { return len(p.components) == 0 && p.root == "" }
 
 //goland:noinspection GoMixedReceiverTypes
 func (p Path) PrimitiveKind() typesystem.PrimitiveKind { return typesystem.PrimitiveKindString }

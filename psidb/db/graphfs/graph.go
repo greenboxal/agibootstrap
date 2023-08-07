@@ -76,8 +76,8 @@ func (vg *VirtualGraph) BeginTransaction(ctx context.Context) (*Transaction, err
 	return vg.transactionManager.BeginTransaction(ctx)
 }
 
-func (vg *VirtualGraph) CreateReplicationSlot(ctx context.Context, name string) (ReplicationSlot, error) {
-	return vg.replicationManager.CreateReplicationSlot(ctx, name)
+func (vg *VirtualGraph) CreateReplicationSlot(ctx context.Context, options ReplicationSlotOptions) (ReplicationSlot, error) {
+	return vg.replicationManager.CreateReplicationSlot(ctx, options)
 }
 
 func (vg *VirtualGraph) GetSuperBlock(ctx context.Context, uuid string) (SuperBlock, error) {

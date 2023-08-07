@@ -23,12 +23,16 @@ func (rci *referenceCountingIndex) ref() (BasicIndex, error) {
 	}, nil
 }
 
-func (rci *referenceCountingIndex) Close() error {
+func (rci *referenceCountingIndex) Close(force bool) error {
 	rci.refMutex.Lock()
 	defer rci.refMutex.Unlock()
 
 	if rci.refs.Load() > 0 {
-		rci.faissIndex.m.logger.Warn("Closing index with active references")
+		if force {
+			rci.faissIndex.m.logger.Warn("Closing index with active references")
+		} else {
+			return nil
+		}
 	}
 
 	return rci.faissIndex.Close()
@@ -42,21 +46,19 @@ type indexReference struct {
 
 func (ir *indexReference) Close() error {
 	ir.refMutex.Lock()
-	defer ir.refMutex.Unlock()
 
 	if ir.closed {
+		ir.refMutex.Unlock()
 		return nil
 	}
 
-	if err := ir.faissIndex.Save(); err != nil {
-		return err
-	}
-
-	if ir.refs.Add(-1) > 0 {
-		ir.faissIndex.m.notifyIndexIdle(ir.faissIndex.id)
-	}
-
 	ir.closed = true
+	refCount := ir.refs.Add(-1)
+	ir.refMutex.Unlock()
+
+	if refCount <= 0 {
+		ir.faissIndex.m.notifyIndexIdle(ir.faissIndex)
+	}
 
 	return nil
 }

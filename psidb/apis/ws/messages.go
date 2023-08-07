@@ -1,0 +1,40 @@
+package ws
+
+import (
+	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
+
+	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
+)
+
+type Message struct {
+	Mid     uint64 `json:"mid"`
+	ReplyTo uint64 `json:"reply_to"`
+
+	Ack         *AckMessage          `json:"ack,omitempty"`
+	Error       *ErrorMessage        `json:"error,omitempty"`
+	Subscribe   *SubscribeMessage    `json:"subscribe,omitempty"`
+	Unsubscribe *UnsubscribeMessage  `json:"unsubscribe,omitempty"`
+	Notify      *NotificationMessage `json:"notify,omitempty"`
+}
+
+var MessageType = typesystem.TypeOf(Message{})
+
+type AckMessage struct {
+}
+
+type NotificationMessage struct {
+	Notification pubsub.Notification `json:"notification"`
+}
+
+type SubscribeMessage struct {
+	Topic string `json:"topic"`
+	Depth int    `json:"depth"`
+}
+
+type UnsubscribeMessage struct {
+	Topic string `json:"topic"`
+}
+
+type ErrorMessage struct {
+	Error string `json:"error"`
+}

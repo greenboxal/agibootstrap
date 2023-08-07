@@ -13,7 +13,7 @@ import (
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
-	"github.com/greenboxal/agibootstrap/psidb/services"
+	"github.com/greenboxal/agibootstrap/psidb/services/search"
 )
 
 type SearchRequest struct {
@@ -24,12 +24,12 @@ type SearchRequest struct {
 
 type SearchHandler struct {
 	core   coreapi.Core
-	search *services.SearchService
+	search *search.SearchService
 }
 
 func NewSearchHandler(
 	core coreapi.Core,
-	search *services.SearchService,
+	search *search.SearchService,
 ) *SearchHandler {
 	return &SearchHandler{
 		core:   core,
@@ -38,7 +38,7 @@ func NewSearchHandler(
 }
 
 func (s *SearchHandler) handleRequest(request *SearchRequest) (psi.Node, error) {
-	var searchRequest services.SearchRequest
+	var searchRequest search.SearchRequest
 
 	searchRequest.Graph = request.Graph
 	searchRequest.Limit = 10

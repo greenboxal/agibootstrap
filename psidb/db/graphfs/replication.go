@@ -11,8 +11,13 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
+type ReplicationSlotOptions struct {
+	Name       string
+	Persistent bool
+}
+
 type ReplicationManager interface {
-	CreateReplicationSlot(ctx context.Context, name string) (ReplicationSlot, error)
+	CreateReplicationSlot(ctx context.Context, options ReplicationSlotOptions) (ReplicationSlot, error)
 }
 
 type replicationManager struct {
@@ -29,21 +34,29 @@ func newReplicationManager(vg *VirtualGraph) *replicationManager {
 	}
 }
 
-func (r *replicationManager) CreateReplicationSlot(ctx context.Context, name string) (ReplicationSlot, error) {
+func (r *replicationManager) CreateReplicationSlot(ctx context.Context, options ReplicationSlotOptions) (ReplicationSlot, error) {
+	if options.Name == "" {
+		return nil, errors.New("name must not be empty")
+	}
+
+	if !options.Persistent {
+		return newReplicationSlot(r.vg, r.vg.transactionManager.journal, options), nil
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if slot := r.slots[name]; slot != nil && !slot.closed {
+	if slot := r.slots[options.Name]; slot != nil && !slot.closed {
 		return slot, nil
 	}
 
-	slot := newReplicationSlot(r.vg, r.vg.transactionManager.journal, name)
+	slot := newReplicationSlot(r.vg, r.vg.transactionManager.journal, options)
 
 	if err := slot.ensureLoaded(ctx); err != nil {
 		return nil, err
 	}
 
-	r.slots[name] = slot
+	r.slots[options.Name] = slot
 
 	return slot, nil
 }
@@ -82,8 +95,8 @@ type replicationSlot struct {
 
 	vg      *VirtualGraph
 	journal *Journal
+	options ReplicationSlotOptions
 
-	name    string
 	lastLsn uint64
 
 	loaded bool
@@ -92,18 +105,17 @@ type replicationSlot struct {
 	recoveredTransactions map[uint64]*Transaction
 }
 
-func newReplicationSlot(vg *VirtualGraph, journal *Journal, name string) *replicationSlot {
+func newReplicationSlot(vg *VirtualGraph, journal *Journal, options ReplicationSlotOptions) *replicationSlot {
 	return &replicationSlot{
 		vg:      vg,
 		journal: journal,
-
-		name: name,
+		options: options,
 
 		recoveredTransactions: map[uint64]*Transaction{},
 	}
 }
 
-func (r *replicationSlot) Name() string { return r.name }
+func (r *replicationSlot) Name() string { return r.options.Name }
 
 func (r *replicationSlot) GetLastLSN(ctx context.Context) (uint64, error) {
 	if err := r.ensureLoaded(ctx); err != nil {
@@ -224,7 +236,11 @@ func (r *replicationSlot) Close(ctx context.Context) error {
 }
 
 func (r *replicationSlot) flushPosition(ctx context.Context) error {
-	return psids.Put(ctx, r.vg.ds, dsKeyReplicationSlotLSN(r.name), r.lastLsn)
+	if !r.options.Persistent {
+		return nil
+	}
+
+	return psids.Put(ctx, r.vg.ds, dsKeyReplicationSlotLSN(r.options.Name), r.lastLsn)
 }
 
 func (r *replicationSlot) ensureLoaded(ctx context.Context) error {
@@ -247,7 +263,7 @@ func (r *replicationSlot) ensureLoaded(ctx context.Context) error {
 		return nil
 	}
 
-	lsn, err := psids.Get(ctx, r.vg.ds, dsKeyReplicationSlotLSN(r.name))
+	lsn, err := psids.Get(ctx, r.vg.ds, dsKeyReplicationSlotLSN(r.options.Name))
 
 	if err == psi.ErrNodeNotFound {
 		lsn = 1

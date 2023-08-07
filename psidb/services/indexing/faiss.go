@@ -121,6 +121,7 @@ func (f *faissIndex) Search(ctx context.Context, req SearchRequest) (iterators.I
 	x := req.Query.ToFloat32Slice(nil)
 	distances, ids, err := f.index.Search(x, int64(req.Limit))
 
+
 	if err != nil {
 		return nil, err
 	}

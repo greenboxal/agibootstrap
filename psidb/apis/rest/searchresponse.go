@@ -2,7 +2,7 @@ package rest
 
 import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/psidb/db/indexing"
+	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
 )
 
 type SearchResponse struct {

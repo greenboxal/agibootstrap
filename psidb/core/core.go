@@ -18,9 +18,9 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
-	"github.com/greenboxal/agibootstrap/psidb/db/indexing"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
 )
 
 type Core struct {
@@ -121,12 +121,12 @@ func (c *Core) LinkSystem() *linking.LinkSystem         { return &c.lsys }
 func (c *Core) VirtualGraph() *graphfs.VirtualGraph     { return c.virtualGraph }
 func (c *Core) ServiceProvider() inject.ServiceProvider { return c.sp }
 
-func (c *Core) CreateReplicationSlot(ctx context.Context, name string) (graphfs.ReplicationSlot, error) {
+func (c *Core) CreateReplicationSlot(ctx context.Context, options graphfs.ReplicationSlotOptions) (graphfs.ReplicationSlot, error) {
 	if err := c.waitReady(); err != nil {
 		return nil, err
 	}
 
-	return c.virtualGraph.CreateReplicationSlot(ctx, name)
+	return c.virtualGraph.CreateReplicationSlot(ctx, options)
 }
 
 func (c *Core) BeginTransaction(ctx context.Context, options ...coreapi.TransactionOption) (coreapi.Transaction, error) {

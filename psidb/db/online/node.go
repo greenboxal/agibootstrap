@@ -477,7 +477,14 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 	typ := ln.node.PsiNodeType()
 
 	ln.frozen.Type = typ.Name()
-	ln.frozen.Path = ln.path
+
+	if p := ln.Node().Parent(); p != nil {
+		ln.frozen.Path = p.CanonicalPath().Join(ln.node.SelfIdentity())
+		ln.frozen.Parent = ln.g.nodeForNode(p).cachedIndex
+	} else {
+		ln.frozen.Path = ln.node.SelfIdentity()
+		ln.frozen.Parent = -1
+	}
 
 	if !typ.Definition().IsRuntimeOnly {
 		wrapped := typesystem.Wrap(ln.node)

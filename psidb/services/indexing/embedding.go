@@ -23,11 +23,14 @@ func (g GraphEmbedding) String() string {
 }
 
 func (g GraphEmbedding) Dimensions() int {
-	return len(g.Semantic) + 8
+	return len(g.Semantic) // + 8
 }
 
 func (g GraphEmbedding) ToFloat32Slice(dst []float32) []float32 {
-	md1, md2 := rotary(int64(g.Depth), int64(len(g.Semantic)), 10000)
+	dst = append(dst, g.Semantic...)
+
+	return dst
+	/*md1, md2 := rotary(int64(g.Depth), int64(len(g.Semantic)), 10000)
 	mtd1, mtd2 := rotary(int64(g.TreeDistance), int64(len(g.Semantic)), 10000)
 	mr1, mr2 := rotary(int64(g.ReferenceDistance), int64(len(g.Semantic)), 10000)
 	mt1, mt2 := rotary(g.Time, int64(len(g.Semantic)), 10000)
@@ -37,7 +40,7 @@ func (g GraphEmbedding) ToFloat32Slice(dst []float32) []float32 {
 	dst = append(dst, md1/scale, md2/scale, mtd1/scale, mtd2/scale, mr1/scale, mr2/scale, mt1/scale, mt2/scale)
 	dst = append(dst, g.Semantic...)
 
-	return dst
+	return dst*/
 }
 
 func rotary(position, d, base int64) (float32, float32) {

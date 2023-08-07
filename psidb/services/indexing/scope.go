@@ -31,6 +31,8 @@ func NewScope() *Scope {
 	return scp
 }
 
+func (scp *Scope) PsiNodeName() string { return scp.IndexName }
+
 func (scp *Scope) SetRoot(root psi.Node) {
 	scp.SetEdge(ScopeRootEdge.Singleton(), root)
 }

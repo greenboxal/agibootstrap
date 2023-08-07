@@ -38,13 +38,8 @@ type nodeIndex struct {
 	index    BasicIndex
 }
 
-func (ni *nodeIndex) Index() BasicIndex {
-	return ni.index
-}
-
-func (ni *nodeIndex) Embedder() NodeEmbedder {
-	return ni.embedder
-}
+func (ni *nodeIndex) Index() BasicIndex      { return ni.index }
+func (ni *nodeIndex) Embedder() NodeEmbedder { return ni.embedder }
 
 func (ni *nodeIndex) IndexNode(ctx context.Context, n psi.Node) error {
 	path := n.CanonicalPath()

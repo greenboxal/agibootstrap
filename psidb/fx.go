@@ -10,10 +10,12 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/apis/rest"
 	"github.com/greenboxal/agibootstrap/psidb/apis/rpc"
 	rpcv1 "github.com/greenboxal/agibootstrap/psidb/apis/rpc/v1"
+	"github.com/greenboxal/agibootstrap/psidb/apis/ws"
 	"github.com/greenboxal/agibootstrap/psidb/core"
-	"github.com/greenboxal/agibootstrap/psidb/db/indexing"
 	"github.com/greenboxal/agibootstrap/psidb/modules"
-	"github.com/greenboxal/agibootstrap/psidb/services"
+	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
+	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
+	"github.com/greenboxal/agibootstrap/psidb/services/search"
 )
 
 var BaseModules = fx.Options(
@@ -30,8 +32,10 @@ var BaseModules = fx.Options(
 	core.Module,
 	indexing.Module,
 	modules.Module,
-	services.Module,
+	search.Module,
+	pubsub.Module,
 	rest.Module,
+	ws.Module,
 	rpc.Module,
 	rpcv1.Module,
 )

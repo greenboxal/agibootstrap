@@ -6,6 +6,7 @@ import (
 	"path"
 	"sync"
 
+	"github.com/alitto/pond"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
@@ -27,6 +28,8 @@ type Manager struct {
 	openIndexes map[string]*referenceCountingIndex
 
 	stream *coreapi.ReplicationStreamProcessor
+
+	pool *pond.WorkerPool
 }
 
 func NewIndexManager(
@@ -46,6 +49,8 @@ func NewIndexManager(
 		basePath: indexPath,
 
 		openIndexes: make(map[string]*referenceCountingIndex),
+
+		pool: pond.New(8, 1024),
 	}
 
 	lc.Append(fx.Hook{
@@ -53,13 +58,13 @@ func NewIndexManager(
 		OnStop:  im.Close,
 	})
 
-	//core.VirtualGraph().SetListener(im)
-
 	return im, nil
 }
 
 func (im *Manager) Start(ctx context.Context) error {
-	slot, err := im.core.CreateReplicationSlot(ctx, "indexmanager")
+	slot, err := im.core.CreateReplicationSlot(ctx, graphfs.ReplicationSlotOptions{
+		Name: "indexmanager",
+	})
 
 	if err != nil {
 		return err
@@ -78,7 +83,16 @@ func (im *Manager) processReplicationMessage(ctx context.Context, entries []*gra
 			continue
 		}
 
-		dirtyNodes[entry.Path.String()] = *entry.Path
+		switch entry.Op {
+		case graphfs.JournalOpWrite:
+			fallthrough
+		case graphfs.JournalOpSetEdge:
+			dirtyNodes[entry.Path.String()] = *entry.Path
+
+		case graphfs.JournalOpRemoveEdge:
+			delete(dirtyNodes, entry.Path.String())
+		}
+
 	}
 
 	if len(dirtyNodes) == 0 {
@@ -125,7 +139,7 @@ func (im *Manager) OpenBasicIndex(ctx context.Context, id string, d int) (result
 	defer im.mu.Unlock()
 
 	if idx, ok := im.openIndexes[id]; ok {
-		return idx, nil
+		return idx.ref()
 	}
 
 	idx, err := newFaissIndex(im, path.Join(im.basePath, id), id, d)
@@ -144,15 +158,23 @@ func (im *Manager) OpenBasicIndex(ctx context.Context, id string, d int) (result
 }
 
 func (im *Manager) Update(ctx context.Context, paths []psi.Path) error {
-	return im.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
-		for _, p := range paths {
-			if err := im.updateSingle(ctx, tx, p); err != nil {
-				im.logger.Error(err)
-			}
-		}
+	tg, gctx := im.pool.GroupContext(ctx)
 
-		return nil
-	})
+	for _, p := range paths {
+		p := p
+
+		tg.Submit(func() error {
+			return im.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
+				if err := im.updateSingle(gctx, tx, p); err != nil {
+					im.logger.Error(err)
+				}
+
+				return nil
+			}, coreapi.WithReadOnly())
+		})
+	}
+
+	return tg.Wait()
 }
 
 func (im *Manager) updateSingle(ctx context.Context, tx coreapi.Transaction, p psi.Path) error {
@@ -178,17 +200,26 @@ func (im *Manager) updateSingle(ctx context.Context, tx coreapi.Transaction, p p
 }
 
 func (im *Manager) Close(ctx context.Context) error {
+	im.pool.StopAndWait()
+
 	im.mu.Lock()
 	defer im.mu.Unlock()
 
 	for _, idx := range im.openIndexes {
-		if err := idx.Close(); err != nil {
+		if err := idx.Close(true); err != nil {
 			return err
 		}
 	}
 
-	return im.stream.Close(ctx)
+	if err := im.stream.Close(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (im *Manager) notifyIndexIdle(id string) {
+func (im *Manager) notifyIndexIdle(ir *faissIndex) {
+	if err := ir.Save(); err != nil {
+		im.logger.Error(err)
+	}
 }

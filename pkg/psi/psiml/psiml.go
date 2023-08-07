@@ -9,23 +9,21 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/exp/slices"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
-	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
-	"github.com/greenboxal/agibootstrap/psidb/services"
+	"github.com/greenboxal/agibootstrap/psidb/services/search"
 )
 
 type TextProcessor struct {
 	lg     *online.LiveGraph
-	search *services.SearchService
+	search *search.SearchService
 }
 
 func NewTextProcessor(
 	lg *online.LiveGraph,
-	search *services.SearchService,
+	search *search.SearchService,
 
 ) *TextProcessor {
 	return &TextProcessor{lg: lg, search: search}
@@ -77,16 +75,8 @@ func (tp *TextProcessor) renderNode(ctx context.Context, node *ast.CodeBlock) (a
 	return node, nil
 }
 
-type Query struct {
-	From  psi.Path `json:"from"`
-	Query string   `json:"query"`
-	Limit int      `json:"limit"`
-
-	View string `json:"view"`
-}
-
 func (tp *TextProcessor) renderPsi(ctx context.Context, content string) (ast.Node, error) {
-	var q Query
+	var q Search
 
 	if err := yaml.Unmarshal([]byte(content), &q); err != nil {
 		return nil, err
@@ -96,9 +86,15 @@ func (tp *TextProcessor) renderPsi(ctx context.Context, content string) (ast.Nod
 		q.Limit = 10
 	}
 
-	result, err := tp.search.Search(ctx, &services.SearchRequest{
+	query, err := q.Query.Resolve(ctx, tp.lg)
+
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := tp.search.Search(ctx, &search.SearchRequest{
 		Graph: tp.lg,
-		Query: stdlib.NewText(q.Query),
+		Query: query,
 		Limit: q.Limit,
 		Scope: q.From,
 
