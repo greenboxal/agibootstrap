@@ -158,14 +158,17 @@ func (j *Journal) GetHead() (uint64, error) {
 }
 
 type JournalEntry struct {
-	Ts    int64           `json:"ts"`
-	Op    JournalOp       `json:"op"`
-	Rid   uint64          `json:"rid"`
-	Xid   uint64          `json:"xid"`
-	Inode int64           `json:"inode"`
-	Path  *psi.Path       `json:"path,omitempty"`
-	Node  *SerializedNode `json:"node,omitempty"`
-	Edge  *SerializedEdge `json:"edge,omitempty"`
+	Ts  int64     `json:"ts"`
+	Op  JournalOp `json:"op"`
+	Rid uint64    `json:"rid"`
+	Xid uint64    `json:"xid"`
+
+	Inode int64     `json:"inode"`
+	Path  *psi.Path `json:"path,omitempty"`
+
+	Node         *SerializedNode   `json:"node,omitempty"`
+	Edge         *SerializedEdge   `json:"edge,omitempty"`
+	Notification *psi.Notification `json:"notification,omitempty"`
 }
 
 func (e JournalEntry) String() string {
@@ -185,6 +188,7 @@ const (
 	JournalOpWrite
 	JournalOpSetEdge
 	JournalOpRemoveEdge
+	JournalOpNotify
 )
 
 func (op JournalOp) String() string {
@@ -203,6 +207,8 @@ func (op JournalOp) String() string {
 		return "JOURNAL_OP_SET_EDGE"
 	case JournalOpRemoveEdge:
 		return "JOURNAL_OP_REMOVE_EDGE"
+	case JournalOpNotify:
+		return "JOURNAL_OP_NOTIFY"
 	default:
 		return fmt.Sprintf("JOURNAL_OP_UNKNOWN(%d)", op)
 	}

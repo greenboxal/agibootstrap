@@ -46,6 +46,8 @@ func WithServiceLocator(sl inject.ServiceLocator) TransactionOption {
 type Transaction interface {
 	GraphOperations
 
+	Notify(ctx context.Context, not psi.Notification) error
+
 	IsOpen() bool
 	Graph() *online.LiveGraph
 	Commit(ctx context.Context) error

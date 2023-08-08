@@ -234,6 +234,5 @@ func (c *Core) waitReady() error {
 
 func (c *Core) OnCommitTransaction(ctx context.Context, tx *graphfs.Transaction) error {
 
-
 	return nil
 }

@@ -34,14 +34,19 @@ type NodeActionDefinition struct {
 
 func (d NodeActionDefinition) ValidateImplementation(impl NodeAction) error {
 	requestCompatible := d.RequestType.AssignableTo(impl.RequestType())
-	responseCompatible := impl.ResponseType().AssignableTo(d.ResponseType)
 
 	if !requestCompatible {
 		return fmt.Errorf("request type %s is not assignable to %s", impl.RequestType(), d.RequestType)
 	}
 
-	if !responseCompatible {
-		return fmt.Errorf("response type %s is not assignable to %s", impl.ResponseType(), d.ResponseType)
+	if d.ResponseType != nil || impl.ResponseType() != nil {
+		responseCompatible := impl.ResponseType() != nil && impl.ResponseType().AssignableTo(d.ResponseType)
+
+		if !responseCompatible {
+			return fmt.Errorf("response type %s is not assignable to %s", impl.ResponseType(), d.ResponseType)
+		}
+
+		return nil
 	}
 
 	return nil

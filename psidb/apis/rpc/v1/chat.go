@@ -2,8 +2,6 @@ package rpcv1
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/chat"
@@ -18,6 +16,7 @@ func NewChat(svc *chat.Service) *Chat {
 }
 
 type SendMessageRequest struct {
+	From  psi.Path `json:"from"`
 	Topic psi.Path `json:"topic"`
 
 	Message struct {
@@ -29,12 +28,10 @@ type SendMessageResponse struct {
 }
 
 func (c *Chat) SendMessage(ctx context.Context, req *SendMessageRequest) (*SendMessageResponse, error) {
-	msg := &chat.Message{
-		Ts:      fmt.Sprintf("%d", time.Now().UnixNano()),
+	msg := &chat.PostMessageRequest{
+		From:    req.From,
 		Content: req.Message.Content,
 	}
-
-	msg.Init(msg)
 
 	if err := c.svc.SendMessage(ctx, req.Topic, msg); err != nil {
 		return nil, err

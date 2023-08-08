@@ -4,8 +4,11 @@ import (
 	"context"
 	"sync"
 
+	"github.com/alitto/pond"
+	"github.com/hashicorp/go-multierror"
 	"go.uber.org/fx"
 
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 	"github.com/greenboxal/agibootstrap/psidb/services/migrations"
@@ -17,6 +20,8 @@ type Manager struct {
 	roots    map[string]*Topic
 	stream   *coreapi.ReplicationStreamProcessor
 	migrator *migrations.Manager
+
+	workerPool *pond.WorkerPool
 }
 
 func NewManager(
@@ -28,6 +33,8 @@ func NewManager(
 		core:     core,
 		migrator: migrator,
 		roots:    map[string]*Topic{},
+
+		workerPool: core.Config().Workers.Build(),
 	}
 
 	lc.Append(fx.Hook{
@@ -43,8 +50,8 @@ func NewManager(
 	return m
 }
 
-func (m *Manager) Subscribe(pattern SubscriptionPattern, handler func(notification Notification)) *Subscription {
-	root := m.getOrCreateRoot(pattern.Path.Root(), true)
+func (pm *Manager) Subscribe(pattern SubscriptionPattern, handler func(notification Notification)) *Subscription {
+	root := pm.getOrCreateRoot(pattern.Path.Root(), true)
 
 	for _, el := range pattern.Path.Components() {
 		root = root.Topic(el.String(), true)
@@ -53,8 +60,8 @@ func (m *Manager) Subscribe(pattern SubscriptionPattern, handler func(notificati
 	return root.Subscribe(pattern, handler)
 }
 
-func (m *Manager) Start(ctx context.Context) error {
-	slot, err := m.core.CreateReplicationSlot(ctx, graphfs.ReplicationSlotOptions{
+func (pm *Manager) Start(ctx context.Context) error {
+	slot, err := pm.core.CreateReplicationSlot(ctx, graphfs.ReplicationSlotOptions{
 		Name:       "pubsub",
 		Persistent: false,
 	})
@@ -63,17 +70,17 @@ func (m *Manager) Start(ctx context.Context) error {
 		return err
 	}
 
-	m.stream = coreapi.NewReplicationStream(slot, m.processReplicationMessage)
+	pm.stream = coreapi.NewReplicationStream(slot, pm.processReplicationMessage)
 
-	if err := m.migrator.Migrate(ctx, migrationSet); err != nil {
+	if err := pm.migrator.Migrate(ctx, migrationSet); err != nil {
 		return err
 	}
 
-	return m.LoadPersistentState(ctx)
+	return pm.LoadPersistentState(ctx)
 }
 
-func (m *Manager) LoadPersistentState(ctx context.Context) error {
-	/*return m.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
+func (pm *Manager) LoadPersistentState(ctx context.Context) error {
+	/*return pm.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
 		root, err := tx.Resolve(ctx, RootPath)
 
 		if err != nil {
@@ -103,10 +110,20 @@ func (m *Manager) LoadPersistentState(ctx context.Context) error {
 	return nil
 }
 
-func (m *Manager) processReplicationMessage(ctx context.Context, entries []*graphfs.JournalEntry) error {
+func (pm *Manager) processReplicationMessage(ctx context.Context, entries []*graphfs.JournalEntry) error {
 	var wg sync.WaitGroup
 
+	notifications := make(map[string][]*psi.Notification)
+
 	for _, entry := range entries {
+		if entry.Op == graphfs.JournalOpNotify {
+			key := entry.Notification.Notified.String()
+
+			notifications[key] = append(notifications[key], entry.Notification)
+
+			continue
+		}
+
 		if entry.Path == nil {
 			continue
 		}
@@ -121,7 +138,7 @@ func (m *Manager) processReplicationMessage(ctx context.Context, entries []*grap
 				Path: *entry.Path,
 			}
 
-			root := m.getOrCreateRoot(entry.Path.Root(), false)
+			root := pm.getOrCreateRoot(entry.Path.Root(), false)
 
 			if root == nil {
 				return
@@ -143,44 +160,89 @@ func (m *Manager) processReplicationMessage(ctx context.Context, entries []*grap
 
 	wg.Wait()
 
+	if len(notifications) > 0 {
+		if err := pm.dispatchNotify(ctx, notifications); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (m *Manager) getOrCreateRoot(name string, create bool) *Topic {
+func (pm *Manager) getOrCreateRoot(name string, create bool) *Topic {
 	if name == "" {
 		panic("empty topic name")
 	}
 
 	if !create {
-		m.mu.RLock()
-		defer m.mu.RUnlock()
+		pm.mu.RLock()
+		defer pm.mu.RUnlock()
 
-		return m.roots[name]
+		return pm.roots[name]
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
 
-	if t := m.roots[name]; t != nil {
+	if t := pm.roots[name]; t != nil {
 		return t
 	}
 
-	t := NewTopic(m, name)
+	t := NewTopic(pm, name)
 
-	m.roots[t.name] = t
+	pm.roots[t.name] = t
 
 	return t
 }
 
-func (m *Manager) Close() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (pm *Manager) Close() error {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
 
-	for _, t := range m.roots {
+	for _, t := range pm.roots {
 		if err := t.Close(); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (pm *Manager) dispatchNotify(ctx context.Context, notifications map[string][]*psi.Notification) error {
+	var merr error
+
+	wg, gctx := pm.workerPool.GroupContext(ctx)
+
+	for _, notifications := range notifications {
+		if len(notifications) == 0 {
+			continue
+		}
+
+		notifications := notifications
+		targetPath := notifications[0].Notified
+
+		wg.Submit(func() error {
+			return pm.core.RunTransaction(gctx, func(ctx context.Context, tx coreapi.Transaction) error {
+				target, err := tx.Resolve(ctx, targetPath)
+
+				if err != nil {
+					return err
+				}
+
+				for _, not := range notifications {
+					if err := not.Apply(ctx, target); err != nil {
+						merr = multierror.Append(merr, err)
+					}
+				}
+
+				return nil
+			})
+		})
+	}
+
+	if err := wg.Wait(); err != nil {
+		return nil
+	}
+
+	return merr
 }

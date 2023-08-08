@@ -36,6 +36,9 @@ func main() {
 			cfg.DataDir = path.Join(cfg.ProjectDir, ".fti/psi")
 			cfg.UseTLS = true
 
+			cfg.Workers.MaxWorkers = 32
+			cfg.Workers.MaxCapacity = 1024
+
 			return cfg
 		}),
 

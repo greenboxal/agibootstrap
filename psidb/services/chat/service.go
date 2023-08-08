@@ -32,10 +32,10 @@ func NewService(
 	return svc
 }
 
-func (s *Service) SendMessage(ctx context.Context, topic psi.Path, message *Message) error {
+func (s *Service) SendMessage(ctx context.Context, path psi.Path, req *PostMessageRequest) error {
 	return s.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
-		topicNode, err := psi.ResolveOrCreate(ctx, tx.Graph(), topic, func() *Topic {
-			t := &Topic{Name: topic.Name().Name}
+		topic, err := psi.ResolveOrCreate[*Topic](ctx, tx.Graph(), path, func() *Topic {
+			t := &Topic{Name: path.Name().Name}
 			t.Init(t)
 			return t
 		})
@@ -44,9 +44,13 @@ func (s *Service) SendMessage(ctx context.Context, topic psi.Path, message *Mess
 			return err
 		}
 
-		message.SetParent(topicNode)
+		_, err = topic.PostMessage(ctx, req)
 
-		return topicNode.Update(ctx)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	})
 }
 

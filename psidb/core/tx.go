@@ -6,6 +6,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
 )
 
@@ -43,6 +44,13 @@ func (t *transaction) Remove(n psi.Node) {
 
 func (t *transaction) Resolve(ctx context.Context, path psi.Path) (psi.Node, error) {
 	return t.lg.ResolveNode(ctx, path)
+}
+
+func (t *transaction) Notify(ctx context.Context, not psi.Notification) error {
+	return t.lg.Transaction().Append(ctx, graphfs.JournalEntry{
+		Op:           graphfs.JournalOpNotify,
+		Notification: &not,
+	})
 }
 
 func (t *transaction) Commit(ctx context.Context) error {
