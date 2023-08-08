@@ -6,25 +6,28 @@ import (
 
 	"go.uber.org/fx"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
+	"github.com/greenboxal/agibootstrap/psidb/services/migrations"
 )
 
 type Manager struct {
-	mu     sync.RWMutex
-	core   coreapi.Core
-	roots  map[string]*Topic
-	stream *coreapi.ReplicationStreamProcessor
+	mu       sync.RWMutex
+	core     coreapi.Core
+	roots    map[string]*Topic
+	stream   *coreapi.ReplicationStreamProcessor
+	migrator *migrations.Manager
 }
 
 func NewManager(
 	lc fx.Lifecycle,
 	core coreapi.Core,
+	migrator *migrations.Manager,
 ) *Manager {
 	m := &Manager{
-		core:  core,
-		roots: map[string]*Topic{},
+		core:     core,
+		migrator: migrator,
+		roots:    map[string]*Topic{},
 	}
 
 	lc.Append(fx.Hook{
@@ -38,12 +41,6 @@ func NewManager(
 	})
 
 	return m
-}
-
-type SubscriptionPattern struct {
-	ID    string   `json:"id"`
-	Path  psi.Path `json:"path"`
-	Depth int      `json:"depth"`
 }
 
 func (m *Manager) Subscribe(pattern SubscriptionPattern, handler func(notification Notification)) *Subscription {
@@ -67,6 +64,41 @@ func (m *Manager) Start(ctx context.Context) error {
 	}
 
 	m.stream = coreapi.NewReplicationStream(slot, m.processReplicationMessage)
+
+	if err := m.migrator.Migrate(ctx, migrationSet); err != nil {
+		return err
+	}
+
+	return m.LoadPersistentState(ctx)
+}
+
+func (m *Manager) LoadPersistentState(ctx context.Context) error {
+	/*return m.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
+		root, err := tx.Resolve(ctx, RootPath)
+
+		if err != nil {
+			return err
+		}
+
+		for edges := root.Edges(); edges.Next(); {
+			edge := edges.Value()
+			to, err := edge.ResolveTo(ctx)
+
+			if err != nil {
+				return err
+			}
+
+			ps, ok := to.(*PersistentSubscription)
+
+			if !ok {
+				continue
+			}
+
+
+		}
+
+		return nil
+	})*/
 
 	return nil
 }

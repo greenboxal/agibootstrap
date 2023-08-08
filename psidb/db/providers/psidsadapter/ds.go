@@ -68,15 +68,28 @@ func NewDataStoreSuperBlock(
 }
 
 func (sb *DataStoreSuperBlock) AllocateINode() *graphfs.INode {
-	id := int64(sb.bmp.Allocate())
-	return sb.MakeINode(id)
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+
+	return sb.makeInodeLocked(-1)
 }
 
-func (sb *DataStoreSuperBlock) DestroyINode(ino *graphfs.INode) {
+func (sb *DataStoreSuperBlock) destroyInode(ino *graphfs.INode) {
 	sb.bmp.Free(uint64(ino.ID()))
 }
 
-func (sb *DataStoreSuperBlock) MakeINode(id int64) *graphfs.INode {
+func (sb *DataStoreSuperBlock) MakeInode(id int64) *graphfs.INode {
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+
+	return sb.makeInodeLocked(id)
+}
+
+func (sb *DataStoreSuperBlock) makeInodeLocked(id int64) *graphfs.INode {
+	if id == -1 {
+		id = int64(sb.bmp.Allocate())
+	}
+
 	if ino := sb.inodes[id]; ino != nil {
 		return ino
 	}
@@ -97,7 +110,7 @@ func (sb *DataStoreSuperBlock) GetRoot(ctx context.Context) (*graphfs.CacheEntry
 	defer sb.mu.Unlock()
 
 	if sb.root == nil {
-		rootInode := sb.MakeINode(0)
+		rootInode := sb.makeInodeLocked(0)
 
 		sb.root = graphfs.AllocCacheEntryRoot(sb)
 		sb.root.Add(rootInode)
@@ -120,7 +133,7 @@ func (sb *DataStoreSuperBlock) Create(ctx context.Context, self *graphfs.CacheEn
 			fe, err := psids.Get(ctx, sb.ds, k)
 
 			if err == nil {
-				ino = sb.MakeINode(fe.ToIndex)
+				ino = sb.MakeInode(fe.ToIndex)
 			}
 		}
 
@@ -128,7 +141,7 @@ func (sb *DataStoreSuperBlock) Create(ctx context.Context, self *graphfs.CacheEn
 			if options.ForceInode != nil && *options.ForceInode >= 0 {
 				allocated := sb.bmp.MarkAllocated(uint64(*options.ForceInode))
 
-				ino = sb.MakeINode(int64(allocated))
+				ino = sb.MakeInode(int64(allocated))
 			} else {
 				ino = sb.AllocateINode()
 			}
@@ -149,7 +162,7 @@ func (sb *DataStoreSuperBlock) Lookup(ctx context.Context, self *graphfs.INode, 
 	} else if err != nil {
 		return nil, err
 	} else {
-		ino := sb.MakeINode(fe.ToIndex)
+		ino := sb.MakeInode(fe.ToIndex)
 
 		dentry.Add(ino)
 	}

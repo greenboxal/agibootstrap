@@ -82,7 +82,7 @@ func (p Path) WithRoot(root string) Path {
 }
 
 //goland:noinspection GoMixedReceiverTypes
-func (p Path) IsRelative() bool { return p.relative }
+func (p Path) IsRelative() bool { return p.relative || p.root == "" }
 
 //goland:noinspection GoMixedReceiverTypes
 func (p Path) Parent() Path {
@@ -90,7 +90,7 @@ func (p Path) Parent() Path {
 		return p
 	}
 
-	return PathFromElements(p.root, p.relative, p.components[:len(p.components)-1]...)
+	return PathFromElements(p.root, p.IsRelative(), p.components[:len(p.components)-1]...)
 }
 
 //goland:noinspection GoMixedReceiverTypes
@@ -136,20 +136,20 @@ func (p Path) Last() PathElement {
 
 //goland:noinspection GoMixedReceiverTypes
 func (p Path) Join(other Path) Path {
-	if !p.relative && !other.relative {
+	if !p.IsRelative() && !other.IsRelative() {
 		panic("cannot join two absolute paths")
 	}
 
 	root := p.root
 
-	if p.relative {
+	if p.IsRelative() {
 		root = other.root
 	}
 
 	var components []PathElement
 	components = append(components, p.components...)
 	components = append(components, other.components...)
-	return PathFromElements(root, p.relative && other.relative, components...)
+	return PathFromElements(root, p.IsRelative() && other.IsRelative(), components...)
 }
 
 //goland:noinspection GoMixedReceiverTypes
@@ -157,7 +157,7 @@ func (p Path) Child(name PathElement) Path {
 	var components []PathElement
 	components = append(components, p.components...)
 	components = append(components, name)
-	return PathFromElements(p.root, p.relative, components...)
+	return PathFromElements(p.root, p.IsRelative(), components...)
 }
 
 //goland:noinspection GoMixedReceiverTypes
@@ -171,7 +171,7 @@ func (p Path) Format(escaped bool) (res string) {
 		res = path.Join(res, url.PathEscape(component.String()))
 	}
 
-	if !p.relative {
+	if !p.IsRelative() {
 		res = p.root + "//" + res
 	}
 
@@ -230,7 +230,7 @@ func (p Path) GetCommonAncestor(other Path) (Path, bool) {
 		components = append(components, p.components[i])
 	}
 
-	return PathFromElements(p.root, p.relative && other.relative, components...), true
+	return PathFromElements(p.root, p.IsRelative() && other.IsRelative(), components...), true
 }
 
 //goland:noinspection GoMixedReceiverTypes
@@ -289,9 +289,9 @@ func (p Path) Slice(first int, last int) Path {
 	}
 
 	root := ""
-	relative := p.relative || first > 0
+	relative := p.IsRelative() || first > 0
 
-	if !p.relative && first == 0 {
+	if !p.IsRelative() && first == 0 {
 		root = p.root
 	}
 
@@ -319,8 +319,8 @@ func (p Path) CompareTo(j Path) int {
 		return strings.Compare(p.root, j.root)
 	}
 
-	if p.relative != j.relative {
-		if p.relative {
+	if p.IsRelative() != j.IsRelative() {
+		if p.IsRelative() {
 			return -1
 		} else {
 			return 1

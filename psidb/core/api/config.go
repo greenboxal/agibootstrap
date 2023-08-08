@@ -5,4 +5,7 @@ type Config struct {
 
 	DataDir    string
 	ProjectDir string
+
+	ListenEndpoint string
+	UseTLS         bool
 }

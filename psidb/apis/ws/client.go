@@ -1,7 +1,6 @@
 package ws
 
 import (
-	"context"
 	"sync/atomic"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/jbenet/goprocess"
-	goprocessctx "github.com/jbenet/goprocess/context"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
@@ -67,7 +65,7 @@ func (c *Client) SendMessage(msg *Message) error {
 	return nil
 }
 
-func (c *Client) handleSubscribe(ctx context.Context, msg Message) error {
+func (c *Client) handleSubscribe(msg Message) error {
 	path, err := psi.ParsePath(msg.Subscribe.Topic)
 
 	if err != nil {
@@ -104,7 +102,7 @@ func (c *Client) handleSubscribe(ctx context.Context, msg Message) error {
 	})
 }
 
-func (c *Client) handleUnsubscribe(ctx context.Context, msg Message) error {
+func (c *Client) handleUnsubscribe(msg Message) error {
 	s := c.subscriptions[msg.Subscribe.Topic]
 
 	if s == nil {
@@ -117,7 +115,7 @@ func (c *Client) handleUnsubscribe(ctx context.Context, msg Message) error {
 	})
 }
 
-func (c *Client) handleMessage(ctx context.Context, message []byte) error {
+func (c *Client) handleMessage(message []byte) error {
 	msgNode, err := ipld.DecodeUsingPrototype(message, dagjson.Decode, MessageType.IpldPrototype())
 
 	if err != nil {
@@ -127,17 +125,15 @@ func (c *Client) handleMessage(ctx context.Context, message []byte) error {
 	msg := typesystem.Unwrap(msgNode).(Message)
 
 	if msg.Subscribe != nil {
-		return c.handleSubscribe(ctx, msg)
+		return c.handleSubscribe(msg)
 	} else if msg.Unsubscribe != nil {
-		return c.handleUnsubscribe(ctx, msg)
+		return c.handleUnsubscribe(msg)
 	}
 
 	return nil
 }
 
 func (c *Client) readPump(proc goprocess.Process) {
-	ctx := goprocessctx.OnClosingContext(proc)
-
 	c.conn.SetReadLimit(maxMessageSize)
 
 	if err := c.conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
@@ -159,7 +155,7 @@ func (c *Client) readPump(proc goprocess.Process) {
 			break
 		}
 
-		if err := c.handleMessage(ctx, message); err != nil {
+		if err := c.handleMessage(message); err != nil {
 			c.handler.logger.Error(err)
 
 			break

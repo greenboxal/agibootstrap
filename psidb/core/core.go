@@ -88,7 +88,7 @@ func NewCore(
 		journal,
 		checkpoint,
 		ds,
-		nil,
+		core,
 	)
 
 	if err != nil {
@@ -139,7 +139,8 @@ func (c *Core) BeginTransaction(ctx context.Context, options ...coreapi.Transact
 		opts: opts,
 	}
 
-	lg, err := online.NewLiveGraph(ctx, &c.lsys, c.virtualGraph, tx)
+	root := psi.PathFromElements(c.cfg.RootUUID, false)
+	lg, err := online.NewLiveGraph(ctx, root, &c.lsys, c.virtualGraph, tx)
 
 	if err != nil {
 		return nil, err
@@ -227,6 +228,12 @@ func (c *Core) waitReady() error {
 	if c.closed {
 		return errors.New("core closed")
 	}
+
+	return nil
+}
+
+func (c *Core) OnCommitTransaction(ctx context.Context, tx *graphfs.Transaction) error {
+
 
 	return nil
 }

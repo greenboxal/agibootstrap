@@ -28,14 +28,14 @@ type SearchResponse struct {
 
 var SearchResponseType = psi.DefineNodeType[*SearchResponse]()
 
-type SearchService struct {
+type Service struct {
 }
 
-func NewSearchService() *SearchService {
-	return &SearchService{}
+func NewSearchService() *Service {
+	return &Service{}
 }
 
-func (s *SearchService) Search(ctx context.Context, request *SearchRequest) (*SearchResponse, error) {
+func (s *Service) Search(ctx context.Context, request *SearchRequest) (*SearchResponse, error) {
 	var searchRequest indexing2.SearchRequest
 
 	searchRequest.Graph = request.Graph

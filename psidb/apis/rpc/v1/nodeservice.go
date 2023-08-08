@@ -4,6 +4,11 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
+	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/codec/dagjson"
+	"github.com/pkg/errors"
+
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
@@ -70,6 +75,65 @@ func (ns *NodeService) RenderNode(ctx context.Context, req *RenderNodeRequest) (
 		}
 
 		res.Rendered = buffer.Bytes()
+
+		return nil
+	})
+
+	return
+}
+
+type CallNodeActionRequest struct {
+	Path      psi.Path `json:"path"`
+	Interface string   `json:"interface"`
+	Action    string   `json:"action"`
+	Args      []byte   `json:"args"`
+}
+
+type CallNodeActionResponse struct {
+	Node   psi.Node `json:"node,omitempty"`
+	Result any      `json:"result,omitempty"`
+}
+
+func (ns *NodeService) CallNodeAction(ctx context.Context, req *CallNodeActionRequest) (res *CallNodeActionResponse, err error) {
+	res = &CallNodeActionResponse{}
+
+	err = ns.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) (err error) {
+		n, err := tx.Resolve(ctx, req.Path)
+
+		if err != nil {
+			return err
+		}
+
+		res.Node = n
+
+		typ := n.PsiNodeType()
+		iface := typ.Interface(req.Interface)
+
+		if iface == nil {
+			return errors.New("interface not found")
+		}
+
+		action := iface.Action(req.Action)
+
+		if action == nil {
+			return errors.New("action not found")
+		}
+
+		argsNode, err := ipld.DecodeUsingPrototype(req.Args, dagjson.Decode, action.RequestType().IpldPrototype())
+
+		if err != nil {
+			return err
+		}
+
+		actionRequest := typesystem.Unwrap(argsNode)
+
+		result, err := action.Invoke(ctx, n, actionRequest)
+
+		if err != nil {
+			return err
+		}
+
+		res.Result = result
 
 		return nil
 	})

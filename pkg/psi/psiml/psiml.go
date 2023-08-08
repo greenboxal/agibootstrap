@@ -18,12 +18,12 @@ import (
 
 type TextProcessor struct {
 	lg     *online.LiveGraph
-	search *search.SearchService
+	search *search.Service
 }
 
 func NewTextProcessor(
 	lg *online.LiveGraph,
-	search *search.SearchService,
+	search *search.Service,
 
 ) *TextProcessor {
 	return &TextProcessor{lg: lg, search: search}

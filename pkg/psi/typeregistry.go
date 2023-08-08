@@ -109,6 +109,8 @@ func formatTypeName(typName typesystem.TypeName) string {
 func reflectNodeType(typ typesystem.Type, options ...NodeTypeOption) *nodeType {
 	nt := &nodeType{
 		typ: typ,
+
+		vtables: map[string]*VTable{},
 	}
 
 	nt.def.Class = NodeClassGeneric

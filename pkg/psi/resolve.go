@@ -16,17 +16,43 @@ func ResolveEdge[T Node](parent Node, key TypedEdgeKey[T]) (def T) {
 	return e.To().(T)
 }
 
-func Resolve(ctx context.Context, root Node, path string) (Node, error) {
-	p, err := ParsePath(path)
+func Resolve[T Node](ctx context.Context, g Graph, path Path) (empty T, _ error) {
+	n, err := g.ResolveNode(ctx, path)
 
 	if err != nil {
-		return nil, err
+		return empty, err
 	}
 
-	return ResolvePath(ctx, root, p)
+	return n.(T), nil
 }
 
-func ResolvePath(ctx context.Context, root Node, path Path) (Node, error) {
+func ResolveOrCreate[T Node](ctx context.Context, g Graph, path Path, factoryFn func() T) (empty T, _ error) {
+	result, err := g.ResolveNode(ctx, path)
+
+	if err == nil {
+		return result.(T), nil
+	} else if err != nil && err != ErrNodeNotFound {
+		return empty, err
+	}
+
+	parent, err := g.ResolveNode(ctx, path.Parent())
+
+	if err != nil {
+		return empty, err
+	}
+
+	result = parent.ResolveChild(ctx, path.Name().AsPathElement())
+
+	if result == nil {
+		result = factoryFn()
+
+		result.SetParent(parent)
+	}
+
+	return result.(T), nil
+}
+
+func ResolvePath(ctx context.Context, root Node, path Path) (empty Node, _ error) {
 	result := root
 
 	for i, component := range path.components {
@@ -64,7 +90,7 @@ func ResolvePath(ctx context.Context, root Node, path Path) (Node, error) {
 	}
 
 	if result == nil {
-		return nil, ErrNodeNotFound
+		return empty, ErrNodeNotFound
 	}
 
 	return result, nil

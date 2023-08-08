@@ -13,4 +13,5 @@ var Module = fx.Module(
 	rpc.ProvideRpcService[*NodeService](NewNodeService, "NodeService"),
 	rpc.ProvideRpcService[*ObjectStore](NewObjectStore, "ObjectStore"),
 	rpc.ProvideRpcService[*Search](NewSearch, "Search"),
+	rpc.ProvideRpcService[*Chat](NewChat, "Chat"),
 )

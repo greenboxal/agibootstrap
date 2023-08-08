@@ -1,6 +1,16 @@
 package pubsub
 
-import "github.com/jbenet/goprocess"
+import (
+	"github.com/jbenet/goprocess"
+
+	"github.com/greenboxal/agibootstrap/pkg/psi"
+)
+
+type SubscriptionPattern struct {
+	ID    string   `json:"id"`
+	Path  psi.Path `json:"path"`
+	Depth int      `json:"depth"`
+}
 
 type Subscription struct {
 	topic   *Topic

@@ -13,7 +13,12 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/apis/ws"
 	"github.com/greenboxal/agibootstrap/psidb/core"
 	"github.com/greenboxal/agibootstrap/psidb/modules"
+	"github.com/greenboxal/agibootstrap/psidb/services/agents"
+	"github.com/greenboxal/agibootstrap/psidb/services/chat"
+	"github.com/greenboxal/agibootstrap/psidb/services/iam"
 	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
+	"github.com/greenboxal/agibootstrap/psidb/services/jobs"
+	"github.com/greenboxal/agibootstrap/psidb/services/migrations"
 	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
 	"github.com/greenboxal/agibootstrap/psidb/services/search"
 )
@@ -31,9 +36,14 @@ var BaseModules = fx.Options(
 	apimachinery.Module,
 	core.Module,
 	indexing.Module,
+	migrations.Module,
 	modules.Module,
 	search.Module,
 	pubsub.Module,
+	iam.Module,
+	jobs.Module,
+	chat.Module,
+	agents.Module,
 	rest.Module,
 	ws.Module,
 	rpc.Module,

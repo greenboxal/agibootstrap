@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
+	"golang.org/x/exp/maps"
 )
 
 type NodeClass string
@@ -31,21 +32,21 @@ func WithStubNodeType() NodeTypeOption {
 	}
 }
 
-func WithTypeName(name string) NodeTypeOption {
-	return func(nt *nodeType) {
-		nt.def.Name = name
-	}
-}
-
-func WithNodeClass(class NodeClass) NodeTypeOption {
-	return func(nt *nodeType) {
-		nt.def.Class = class
-	}
-}
-
 func WithRuntimeOnly() NodeTypeOption {
 	return func(nt *nodeType) {
 		nt.def.IsRuntimeOnly = true
+	}
+}
+
+func WithInterface(iface NodeInterface, impl VTableDefinition) NodeTypeOption {
+	return func(nt *nodeType) {
+		nt.vtables[iface.Name()] = BindInterface(iface, impl)
+	}
+}
+
+func WithInterfaceFromNode(iface NodeInterface) NodeTypeOption {
+	return func(nt *nodeType) {
+		nt.vtables[iface.Name()] = BindInterfaceFromNode(iface, nt.typ)
 	}
 }
 
@@ -59,6 +60,9 @@ type NodeType interface {
 	InitializeNode(n Node)
 
 	String() string
+
+	Interfaces() []*VTable
+	Interface(name string) *VTable
 }
 
 type TypedNodeType[T Node] interface {
@@ -70,14 +74,17 @@ type typedNode[T Node] struct {
 }
 
 type nodeType struct {
-	typ typesystem.Type
-	def NodeTypeDefinition
+	typ     typesystem.Type
+	def     NodeTypeDefinition
+	vtables map[string]*VTable
 }
 
 func (nt *nodeType) Name() string                   { return nt.def.Name }
 func (nt *nodeType) Type() typesystem.Type          { return nt.typ }
 func (nt *nodeType) RuntimeType() reflect.Type      { return nt.typ.RuntimeType() }
 func (nt *nodeType) Definition() NodeTypeDefinition { return nt.def }
+func (nt *nodeType) Interfaces() []*VTable          { return maps.Values(nt.vtables) }
+func (nt *nodeType) Interface(name string) *VTable  { return nt.vtables[name] }
 func (nt *nodeType) String() string                 { return nt.Name() }
 
 func (nt *nodeType) CreateInstance() Node {

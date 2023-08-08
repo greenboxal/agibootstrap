@@ -24,12 +24,12 @@ type SearchRequest struct {
 
 type SearchHandler struct {
 	core   coreapi.Core
-	search *search.SearchService
+	search *search.Service
 }
 
 func NewSearchHandler(
 	core coreapi.Core,
-	search *search.SearchService,
+	search *search.Service,
 ) *SearchHandler {
 	return &SearchHandler{
 		core:   core,

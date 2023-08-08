@@ -34,6 +34,7 @@ func main() {
 			cfg.RootUUID = "QmYXZ"
 			cfg.ProjectDir = wd
 			cfg.DataDir = path.Join(cfg.ProjectDir, ".fti/psi")
+			cfg.UseTLS = true
 
 			return cfg
 		}),

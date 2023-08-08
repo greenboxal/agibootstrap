@@ -118,7 +118,7 @@ func (p *Project) bootstrapModule(ctx context.Context, mod project.ModuleConfig)
 		return errors.Errorf("language %s not configured", mod.Language)
 	}
 
-	root, err := psi.Resolve(ctx, p.rootNode, mod.Path)
+	/*root, err := psi.Resolve(ctx, p.rootNode, mod.Path)
 
 	if err != nil {
 		return errors.Wrapf(err, "failed to resolve module root %s", mod.Path)
@@ -130,7 +130,7 @@ func (p *Project) bootstrapModule(ctx context.Context, mod project.ModuleConfig)
 		return err
 	}
 
-	m.SetParent(p)
+	m.SetParent(p)*/
 
 	return nil
 }

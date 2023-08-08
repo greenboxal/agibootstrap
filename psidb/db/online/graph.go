@@ -22,6 +22,7 @@ type LiveGraph struct {
 	graph *graphfs.VirtualGraph
 	lsys  *linking.LinkSystem
 	tx    *graphfs.Transaction
+	root  psi.Path
 
 	dirtySet  map[psi.Node]struct{}
 	nodeCache map[int64]*LiveNode
@@ -32,12 +33,9 @@ type LiveGraph struct {
 
 var _ psi.Graph = (*LiveGraph)(nil)
 
-func (lg *LiveGraph) Services() inject.ServiceLocator   { return lg.sp }
-func (lg *LiveGraph) Transaction() *graphfs.Transaction { return lg.tx }
-func (lg *LiveGraph) NextEdgeID() psi.EdgeID            { return 0 }
-
 func NewLiveGraph(
 	ctx context.Context,
+	root psi.Path,
 	lsys *linking.LinkSystem,
 	vg *graphfs.VirtualGraph,
 	sp inject.ServiceLocator,
@@ -50,6 +48,7 @@ func NewLiveGraph(
 
 	return &LiveGraph{
 		graph: vg,
+		root:  root,
 		lsys:  lsys,
 		tx:    tx,
 		sp:    sp,
@@ -59,6 +58,10 @@ func NewLiveGraph(
 		dirtySet:  map[psi.Node]struct{}{},
 	}, nil
 }
+
+func (lg *LiveGraph) Root() psi.Path                    { return lg.root }
+func (lg *LiveGraph) Services() inject.ServiceLocator   { return lg.sp }
+func (lg *LiveGraph) Transaction() *graphfs.Transaction { return lg.tx }
 
 func (lg *LiveGraph) Add(node psi.Node) {
 	_, err := lg.addLiveNode(node)
@@ -126,6 +129,14 @@ func (lg *LiveGraph) ResolveNode(ctx context.Context, path psi.Path) (psi.Node, 
 }
 
 func (lg *LiveGraph) resolveNodeUnloaded(ctx context.Context, path psi.Path) (*LiveNode, error) {
+	if path.IsRelative() {
+		path = lg.root.Join(path)
+	}
+
+	if path.IsRelative() {
+		return nil, fmt.Errorf("path must be absolute")
+	}
+
 	ce, err := lg.graph.Resolve(ctx, path)
 
 	if err != nil {

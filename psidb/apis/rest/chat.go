@@ -9,40 +9,33 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi/psiml"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
 	"github.com/greenboxal/agibootstrap/psidb/services/search"
 )
 
-type RenderRequest struct {
-	Text string `json:"text"`
-
-	ReturnEmbeddings bool `json:"return_embeddings"`
-}
-
-type RenderResponse struct {
-	Rendered   string      `json:"rendered"`
-	Embeddings [][]float32 `json:"embeddings,omitempty"`
-}
-
-type RenderHandler struct {
+type ChatHandler struct {
 	core     coreapi.Core
+	chat     *chat.Service
 	search   *search.Service
 	embedder indexing.NodeEmbedder
 }
 
-func NewRenderHandler(
+func NewChatHandler(
 	core coreapi.Core,
+	chat *chat.Service,
 	search *search.Service,
 	embedder indexing.NodeEmbedder,
-) *RenderHandler {
-	return &RenderHandler{
+) *ChatHandler {
+	return &ChatHandler{
 		core:     core,
+		chat:     chat,
 		search:   search,
 		embedder: embedder,
 	}
 }
 
-func (r *RenderHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+func (r *ChatHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	var req RenderRequest
 	var res RenderResponse
 
