@@ -6,12 +6,13 @@ import (
 	"reflect"
 	"syscall"
 
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/pkg/errors"
+
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"

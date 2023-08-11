@@ -58,7 +58,7 @@ The Rendering Operation works as follows:
 
 4. **Leaf Value Processing**: If the current node is a leaf node, its value generator function is called. If the length of the generated string is less than or equal to the remaining token count, it is appended to the string buffer and the token count is decreased by the length of the string. If the length exceeds the remaining token count, the operation halts or the string is truncated, depending on the specific implementation.
 
-5. **Non-leaf Value Processing**: If the current node is a non-leaf node, the Rendering Operation recursively processes its children, continually checking and updating the remaining token count. Content may be appended to the string buffer before, after, or between the processing of child nodes, as
+5. **Non-leaf Value Processing**: If the current node is a non-leaf node, the Rendering Operation recursively processes its children, continually checking and updating the remaining token count. Body may be appended to the string buffer before, after, or between the processing of child nodes, as
 */
 
 const DoNotPrune = -1

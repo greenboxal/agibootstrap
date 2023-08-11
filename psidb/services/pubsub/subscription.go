@@ -29,6 +29,10 @@ func (s *Subscription) Pattern() SubscriptionPattern { return s.pattern }
 func (s *Subscription) Topic() *Topic                { return s.topic }
 
 func (s *Subscription) Push(n Notification) {
+	if s.closed {
+		return
+	}
+
 	s.ch <- n
 }
 
@@ -37,16 +41,17 @@ func (s *Subscription) Close() error {
 		return nil
 	}
 
-	s.topic.Unsubscribe(s.pattern.ID)
-	s.closed = true
-
-	return nil
+	return s.proc.Close()
 }
 
 func (s *Subscription) pump(proc goprocess.Process) {
-	defer close(s.ch)
+	defer func() {
+		s.closed = true
+		s.topic.Unsubscribe(s.pattern.ID)
+		close(s.ch)
+	}()
 
-	for {
+	for !s.closed {
 		select {
 		case <-proc.Closing():
 			return
@@ -58,4 +63,5 @@ func (s *Subscription) pump(proc goprocess.Process) {
 			s.handler(n)
 		}
 	}
+
 }

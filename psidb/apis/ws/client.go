@@ -6,10 +6,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/jbenet/goprocess"
+
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
@@ -187,8 +188,7 @@ func (c *Client) writePump(proc goprocess.Process) {
 			w, err := c.conn.NextWriter(websocket.TextMessage)
 
 			if err != nil {
-				c.handler.logger.Error(err)
-				break
+				return
 			}
 
 			if _, err := w.Write(message); err != nil {

@@ -4,6 +4,7 @@ import "github.com/greenboxal/agibootstrap/pkg/psi"
 
 type Collection struct {
 	psi.NodeBase
+
 	Name string `json:"name"`
 }
 

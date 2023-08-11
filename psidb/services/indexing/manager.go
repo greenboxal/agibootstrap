@@ -102,7 +102,7 @@ func (im *Manager) processReplicationMessage(ctx context.Context, entries []*gra
 	keys := maps.Values(dirtyNodes)
 
 	slices.SortFunc(keys, func(i, j psi.Path) bool {
-		return i.CompareTo(j) > 0
+		return i.CompareTo(j) < 0
 	})
 
 	return im.Update(ctx, keys)

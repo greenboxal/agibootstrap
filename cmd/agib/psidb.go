@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	fusefs "github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/ipfs/go-cid"
@@ -16,6 +15,8 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/spf13/cobra"
+
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 
 	"github.com/greenboxal/agibootstrap/pkg/legacy/api/gateway"
 	"github.com/greenboxal/agibootstrap/pkg/psi"

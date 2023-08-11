@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"

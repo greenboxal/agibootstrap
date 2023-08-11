@@ -18,9 +18,12 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/services/iam"
 	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
 	"github.com/greenboxal/agibootstrap/psidb/services/jobs"
+	"github.com/greenboxal/agibootstrap/psidb/services/kb"
 	"github.com/greenboxal/agibootstrap/psidb/services/migrations"
 	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
 	"github.com/greenboxal/agibootstrap/psidb/services/search"
+	"github.com/greenboxal/agibootstrap/psidb/services/timekeep"
+	"github.com/greenboxal/agibootstrap/psidb/services/typing"
 )
 
 var BaseModules = fx.Options(
@@ -40,6 +43,9 @@ var BaseModules = fx.Options(
 	modules.Module,
 	search.Module,
 	pubsub.Module,
+	timekeep.Module,
+	typing.Module,
+	kb.Module,
 	iam.Module,
 	jobs.Module,
 	chat.Module,

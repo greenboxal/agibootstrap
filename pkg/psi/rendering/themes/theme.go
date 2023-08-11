@@ -11,6 +11,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
+	"github.com/greenboxal/agibootstrap/psidb/services/kb"
 )
 
 var GenericTemplateHelpers = template.FuncMap{
@@ -123,6 +124,45 @@ var GlobalTheme = rendering.BuildTheme(
 			}
 
 			return err
+		},
+	),
+
+	rendering.WithSkinFunc(
+		kb.KnowledgeBaseType,
+		"text/markdown",
+		"",
+		func(ctx rendering.SkinRendererContext, node *kb.KnowledgeBase) error {
+			if _, err := ctx.Buffer.WriteFormat("# %s\n TODO", node.Name); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	),
+
+	rendering.WithSkinFunc(
+		kb.DocumentType,
+		"text/markdown",
+		"",
+		func(ctx rendering.SkinRendererContext, node *kb.Document) error {
+			if _, err := ctx.Buffer.WriteFormat("# %s\n%s\n", node.Title, node.Body); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	),
+
+	rendering.WithSkinFunc(
+		kb.DocumentType,
+		"text/markdown",
+		"summary",
+		func(ctx rendering.SkinRendererContext, node *kb.Document) error {
+			if _, err := ctx.Buffer.WriteFormat("# %s\n%s\n", node.Title, node.Summary); err != nil {
+				return err
+			}
+
+			return nil
 		},
 	),
 )

@@ -3,9 +3,10 @@ package chat
 import (
 	"context"
 
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
+
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
@@ -13,10 +14,15 @@ import (
 )
 
 type TopicSubscriber interface {
-	HandleTopicMessage(ctx context.Context, node psi.Node, message *stdlib.Reference[*Message]) error
+	HandleTopicMessage(ctx context.Context, self psi.Node, message *stdlib.Reference[*Message]) error
+}
+
+type ITopic interface {
+	PostMessage(ctx context.Context, self psi.Node, req *PostMessageRequest) (*Message, error)
 }
 
 var TopicSubscriberInterface = psi.DefineNodeInterface[TopicSubscriber]()
+var TopicInterface = psi.DefineNodeInterface[ITopic]()
 
 type Topic struct {
 	psi.NodeBase
@@ -25,12 +31,15 @@ type Topic struct {
 	Members []psi.Path `json:"members"`
 }
 
-var TopicType = psi.DefineNodeType[*Topic]()
+var TopicType = psi.DefineNodeType[*Topic](
+	psi.WithInterfaceFromNode(TopicInterface),
+)
 
 func (t *Topic) PsiNodeName() string { return t.Name }
 
 func (t *Topic) PostMessage(ctx context.Context, req *PostMessageRequest) (*Message, error) {
 	msg := NewMessage()
+	msg.Role = req.Role
 	msg.From = req.From
 	msg.Content = req.Content
 

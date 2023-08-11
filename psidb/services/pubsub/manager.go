@@ -76,37 +76,6 @@ func (pm *Manager) Start(ctx context.Context) error {
 		return err
 	}
 
-	return pm.LoadPersistentState(ctx)
-}
-
-func (pm *Manager) LoadPersistentState(ctx context.Context) error {
-	/*return pm.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
-		root, err := tx.Resolve(ctx, RootPath)
-
-		if err != nil {
-			return err
-		}
-
-		for edges := root.Edges(); edges.Next(); {
-			edge := edges.Value()
-			to, err := edge.ResolveTo(ctx)
-
-			if err != nil {
-				return err
-			}
-
-			ps, ok := to.(*PersistentSubscription)
-
-			if !ok {
-				continue
-			}
-
-
-		}
-
-		return nil
-	})*/
-
 	return nil
 }
 
@@ -238,10 +207,6 @@ func (pm *Manager) dispatchNotify(ctx context.Context, notifications map[string]
 				return nil
 			})
 		})
-	}
-
-	if err := wg.Wait(); err != nil {
-		return nil
 	}
 
 	return merr

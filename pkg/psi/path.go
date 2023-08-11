@@ -7,9 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
+
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 )
 
 func MustParsePath(path string) Path {

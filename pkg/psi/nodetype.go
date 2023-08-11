@@ -3,8 +3,9 @@ package psi
 import (
 	"reflect"
 
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"golang.org/x/exp/maps"
+
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 )
 
 type NodeClass string

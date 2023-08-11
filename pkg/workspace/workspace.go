@@ -2,18 +2,26 @@ package workspace
 
 import (
 	"context"
+	"encoding/json"
+	"io/fs"
 	"os"
+	"path"
+	"sort"
 	"strings"
 
+	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
@@ -77,6 +85,80 @@ func (w *Workspace) OnStart(ctx context.Context) error {
 
 			if err != nil {
 				return err
+			}
+
+			var bootstrapFiles []string
+
+			err = fs.WalkDir(w.rootFs, path.Join(w.core.Config().ProjectDir, ".bootstrap"), func(path string, d fs.DirEntry, err error) error {
+				if d.IsDir() {
+					return nil
+				}
+
+				if strings.HasSuffix(path, ".yaml") {
+					bootstrapFiles = append(bootstrapFiles, path)
+				}
+
+				return nil
+			})
+
+			if err != nil && err != fs.ErrNotExist {
+				return err
+			}
+
+			sort.Strings(bootstrapFiles)
+
+			for _, p := range bootstrapFiles {
+				data, err := os.ReadFile(p)
+
+				if err != nil {
+					return err
+				}
+
+				p = strings.TrimPrefix(p, w.core.Config().ProjectDir+"/.bootstrap/")
+				p = strings.TrimSuffix(p, ".yaml")
+				psiPath, err := psi.ParsePath(p)
+
+				if err != nil {
+					return err
+				}
+
+				parentPath := psiPath.Parent()
+				parent, err := tx.Resolve(ctx, parentPath)
+
+				if err != nil {
+					return err
+				}
+
+				var parsedYaml any
+
+				if err := yaml.Unmarshal(data, &parsedYaml); err != nil {
+					return err
+				}
+
+				data, err = json.Marshal(parsedYaml)
+
+				if err != nil {
+					return err
+				}
+
+				childNode, err := ipld.DecodeUsingPrototype(
+					data,
+					dagjson.Decode,
+					typesystem.TypeOf(NodeWrapper{}).IpldPrototype(),
+				)
+
+				if err != nil {
+					return err
+				}
+
+				child := typesystem.Unwrap(childNode).(NodeWrapper).Node
+				typ := psi.ReflectNodeType(typesystem.TypeOf(child))
+				typ.InitializeNode(child)
+				child.SetParent(parent)
+
+				if err := parent.Update(ctx); err != nil {
+					return err
+				}
 			}
 
 			srcsNode := root.ResolveChild(ctx, psi.PathElement{Name: "srcs"})

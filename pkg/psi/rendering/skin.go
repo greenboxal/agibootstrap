@@ -58,7 +58,7 @@ type Theme interface {
 }
 
 type SkinKey struct {
-	NodeType    psi.NodeType
+	NodeType    string
 	ContentType string
 	SkinName    string
 }
@@ -73,7 +73,7 @@ type SkinKeyPattern struct {
 }
 
 func (skp SkinKeyPattern) MatchKey(key SkinKey) bool {
-	if skp.NodeType != nil && *skp.NodeType != key.NodeType {
+	if skp.NodeType != nil && (*skp.NodeType).Name() != key.NodeType {
 		return false
 	}
 
@@ -117,7 +117,7 @@ type ThemeBase struct {
 
 func (t *ThemeBase) lookup(contentType, skinName string, node psi.Node) SkinRenderer {
 	key := SkinKey{
-		NodeType:    node.PsiNodeType(),
+		NodeType:    node.PsiNodeType().Name(),
 		ContentType: contentType,
 		SkinName:    skinName,
 	}
@@ -152,7 +152,7 @@ type ThemeOption func(theme *ThemeBase)
 func WithSkin(skin SkinRenderer) ThemeOption {
 	return func(theme *ThemeBase) {
 		key := SkinKey{
-			NodeType:    skin.GetNodeType(),
+			NodeType:    skin.GetNodeType().Name(),
 			ContentType: skin.GetContentType(),
 			SkinName:    skin.GetSkinName(),
 		}
@@ -163,7 +163,7 @@ func WithSkin(skin SkinRenderer) ThemeOption {
 
 func WithSkinFunc[T psi.Node](nodeType psi.TypedNodeType[T], contentType, skinName string, skin SkinFunc[T]) ThemeOption {
 	key := SkinKey{
-		NodeType:    nodeType,
+		NodeType:    nodeType.Name(),
 		ContentType: contentType,
 		SkinName:    skinName,
 	}

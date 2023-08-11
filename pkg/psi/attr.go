@@ -3,7 +3,7 @@ package psi
 import (
 	"reflect"
 
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 )
 
 type AttributeKey interface {

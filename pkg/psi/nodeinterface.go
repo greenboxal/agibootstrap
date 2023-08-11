@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 )
 
 type NodeInterface interface {
@@ -138,9 +138,9 @@ type VTable struct {
 	def   VTableDefinition
 }
 
-func (t VTable) Action(action string) NodeAction {
-	return t.def.actions[action]
-}
+func (t VTable) Name() string                    { return t.iface.Name() }
+func (t VTable) Interface() NodeInterface        { return t.iface }
+func (t VTable) Action(action string) NodeAction { return t.def.actions[action] }
 
 type VTableDefinition struct {
 	actions map[string]NodeAction

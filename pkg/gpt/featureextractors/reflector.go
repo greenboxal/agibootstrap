@@ -30,11 +30,15 @@ type ReflectOptions struct {
 var globalReflectorMutex = &sync.Mutex{}
 var globalReflector = &jsonschema.Reflector{}
 
-func getSchemaForType[T any]() *jsonschema.Schema {
+func GetSchemaForType[T any]() *jsonschema.Schema {
+	typ := reflect.TypeOf((*T)(nil)).Elem()
+
+	return ReflectSchemaForType(typ)
+}
+
+func ReflectSchemaForType(typ reflect.Type) *jsonschema.Schema {
 	globalReflectorMutex.Lock()
 	defer globalReflectorMutex.Unlock()
-
-	typ := reflect.TypeOf((*T)(nil)).Elem()
 
 	return globalReflector.ReflectFromType(typ)
 }
@@ -58,7 +62,7 @@ func Reflect[T any](ctx context.Context, req ReflectOptions) (def T, _ chat.Mess
 }
 
 func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ chat.Message, _ error) {
-	schema := getSchemaForType[T]()
+	schema := GetSchemaForType[T]()
 
 	if req.ExampleOutput == nil {
 		typ := reflect.TypeOf((*T)(nil)).Elem()

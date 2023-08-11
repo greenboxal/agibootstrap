@@ -4,10 +4,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
+
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type PostMessageRequest struct {
+	Role    msn.Role `json:"role"`
 	From    psi.Path `json:"from"`
 	Content string   `json:"content"`
 }
@@ -16,6 +19,7 @@ type Message struct {
 	psi.NodeBase
 
 	Ts      string   `json:"ts"`
+	Role    msn.Role `json:"role"`
 	From    psi.Path `json:"from"`
 	Content string   `json:"content"`
 }

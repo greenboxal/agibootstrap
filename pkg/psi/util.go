@@ -16,6 +16,20 @@ func GetEdge[T Node](n Node, key TypedEdgeReference[T]) (def T, ok bool) {
 	return def, false
 }
 
+func MustGetEdge[T Node](n Node, key TypedEdgeReference[T]) T {
+	e := n.GetEdge(key)
+
+	if e == nil {
+		panic("edge not found")
+	}
+
+	if v, ok := e.To().(T); ok {
+		return v
+	}
+
+	panic("edge not found")
+}
+
 func LoadEdge[K TypedEdgeReference[T], T Node](n Node, key K, dst *T) *T {
 	e := n.GetEdge(key)
 

@@ -1,7 +1,7 @@
 package ws
 
 import (
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 
 	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
 )

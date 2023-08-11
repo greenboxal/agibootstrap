@@ -6,11 +6,12 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -543,6 +544,21 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 		}
 
 		ln.node.UpsertEdge(le.ReplaceTo(v))
+	}
+
+	for edges := ln.node.Edges(); edges.Next(); {
+		edge := edges.Value()
+		existing := ln.edges[edge.Key().GetKey()]
+
+		if existing == nil {
+			le, err := ln.prefetchEdge(ctx, edge.Key().GetKey(), nil)
+
+			if err != nil {
+				return err
+			}
+
+			ln.markEdgeDirty(le.key)
+		}
 	}
 
 	for _, le := range ln.edges {

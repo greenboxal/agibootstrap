@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 )
 
 var nodeTypeRegistryMutex sync.RWMutex

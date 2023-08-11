@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type Transaction struct {
@@ -24,6 +26,13 @@ type Transaction struct {
 func (tx *Transaction) GetXid() uint64          { return tx.xid }
 func (tx *Transaction) GetLog() []*JournalEntry { return tx.log }
 func (tx *Transaction) IsOpen() bool            { return !tx.done }
+
+func (tx *Transaction) Notify(ctx context.Context, not psi.Notification) error {
+	return tx.Append(ctx, JournalEntry{
+		Op:           JournalOpNotify,
+		Notification: &not,
+	})
+}
 
 func (tx *Transaction) Append(ctx context.Context, entry JournalEntry) error {
 	tx.mu.Lock()

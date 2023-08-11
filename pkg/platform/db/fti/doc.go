@@ -53,7 +53,7 @@ package fti
 //                 panic(err)
 //         }
 //         for i, hit := range hits {
-//                 fmt.Printf("+ Hit %d (score = %f, ci = %d):\n%s\n", i, hit.Distance, hit.Entry.Chunk.Index, hit.Entry.Chunk.Content)
+//                 fmt.Printf("+ Hit %d (score = %f, ci = %d):\n%s\n", i, hit.Distance, hit.Entry.Chunk.Index, hit.Entry.Chunk.Body)
 //         }
 //
 // Summary:
@@ -109,7 +109,7 @@ package fti
 //    panic(err)
 // }
 // for i, hit := range hits {
-//    fmt.Printf("+ Hit %d (score = %f, ci = %d):\n%s\n", i, hit.Distance, hit.Entry.Chunk.Index, hit.Entry.Chunk.Content)
+//    fmt.Printf("+ Hit %d (score = %f, ci = %d):\n%s\n", i, hit.Distance, hit.Entry.Chunk.Index, hit.Entry.Chunk.Body)
 // }
 
 // The FTI package provides a powerful tool for indexing file-based repositories, enabling efficient searching, duplicate detection, and similarity analysis.

@@ -6,11 +6,12 @@ import (
 	"os"
 	"sync"
 
-	"github.com/greenboxal/aip/aip-forddb/pkg/typesystem"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/tidwall/wal"
 	"go.uber.org/zap"
+
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
@@ -57,12 +58,13 @@ func OpenJournal(path string) (*Journal, error) {
 
 func (j *Journal) Iterate(startIndex uint64, count int) iterators.Iterator[JournalEntry] {
 	index := startIndex
+	total := 0
 
 	return iterators.NewIterator(func() (res JournalEntry, ok bool) {
 		j.mu.RLock()
 		defer j.mu.RUnlock()
 
-		if index >= j.nextIndex || (count >= 0 && count >= int(j.nextIndex-index)) {
+		if index >= j.nextIndex || total >= count {
 			return JournalEntry{}, false
 		}
 
@@ -73,11 +75,15 @@ func (j *Journal) Iterate(startIndex uint64, count int) iterators.Iterator[Journ
 		}
 
 		if err != nil {
-			j.logger.Error(err)
+			if err != wal.ErrNotFound && err != io.EOF {
+				j.logger.Error(err)
+			}
+
 			return JournalEntry{}, false
 		}
 
 		index++
+		total++
 
 		return res, true
 	})
