@@ -223,6 +223,7 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 	hasBegun := false
 	hasFinished := false
 
+	superblocks := map[string]SuperBlock{}
 	nodeByPath := map[string]NodeHandle{}
 	nodeByHandle := map[int64]NodeHandle{}
 
@@ -287,6 +288,9 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 				return err
 			}
 
+			sb := nh.Inode().SuperBlock()
+			superblocks[sb.UUID()] = sb
+
 		case JournalOpSetEdge:
 			nh := getHandle(entry)
 
@@ -298,6 +302,9 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 				return err
 			}
 
+			sb := nh.Inode().SuperBlock()
+			superblocks[sb.UUID()] = sb
+
 		case JournalOpRemoveEdge:
 			nh := getHandle(entry)
 
@@ -308,6 +315,15 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 			if err := nh.RemoveEdge(ctx, entry.Edge.Key); err != nil {
 				return err
 			}
+
+			sb := nh.Inode().SuperBlock()
+			superblocks[sb.UUID()] = sb
+		}
+	}
+
+	for _, sb := range superblocks {
+		if err := sb.Flush(ctx); err != nil {
+			return err
 		}
 	}
 

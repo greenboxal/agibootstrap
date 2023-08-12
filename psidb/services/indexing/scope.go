@@ -90,7 +90,14 @@ func GetHierarchyScope(ctx context.Context, node psi.Node) *Scope {
 		scp := node.ResolveChild(ctx, ScopeEdge.Singleton().AsPathElement())
 
 		if scp != nil {
-			return scp.(*Scope)
+			scp, ok := scp.(*Scope)
+
+			if !ok {
+				node.ResolveChild(ctx, ScopeEdge.Singleton().AsPathElement())
+				panic("scope edge is not a scope")
+			}
+
+			return scp
 		}
 	}
 

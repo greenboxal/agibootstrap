@@ -165,7 +165,15 @@ func (c *Core) Stop(ctx context.Context) error {
 
 	close(c.closeCh)
 
-	return c.proc.CloseAfterChildren()
+	if err := c.proc.CloseAfterChildren(); err != nil {
+		c.logger.Error(err)
+	}
+
+	if err := c.virtualGraph.Close(ctx); err != nil {
+		panic(err)
+	}
+
+	return nil
 }
 
 func (c *Core) run(proc goprocess.Process) {
@@ -215,10 +223,6 @@ func (c *Core) run(proc goprocess.Process) {
 	close(c.readyCh)
 
 	_, _ = <-c.closeCh
-
-	if err := c.virtualGraph.Close(ctx); err != nil {
-		panic(err)
-	}
 }
 
 func (c *Core) waitReady() error {
