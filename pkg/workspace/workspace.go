@@ -2,26 +2,18 @@ package workspace
 
 import (
 	"context"
-	"encoding/json"
-	"io/fs"
 	"os"
-	"path"
-	"sort"
 	"strings"
 
-	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
@@ -87,7 +79,7 @@ func (w *Workspace) OnStart(ctx context.Context) error {
 				return err
 			}
 
-			var bootstrapFiles []string
+			/*var bootstrapFiles []string
 
 			err = fs.WalkDir(w.rootFs, path.Join(w.core.Config().ProjectDir, ".bootstrap"), func(path string, d fs.DirEntry, err error) error {
 				if d.IsDir() {
@@ -159,7 +151,7 @@ func (w *Workspace) OnStart(ctx context.Context) error {
 				if err := parent.Update(ctx); err != nil {
 					return err
 				}
-			}
+			}*/
 
 			srcsNode := root.ResolveChild(ctx, psi.PathElement{Name: "srcs"})
 
