@@ -27,6 +27,9 @@ type SerializedNode struct {
 	Type    string        `json:"type"`
 	Data    []byte        `json:"data"`
 	Link    *cidlink.Link `json:"link"`
+
+	Xmin int64 `json:"xmin"`
+	Xmax int64 `json:"xmax"`
 }
 
 func (n SerializedNode) IsRemoved() bool { return n.Flags&NodeFlagRemoved != 0 }
@@ -61,6 +64,9 @@ type SerializedEdge struct {
 	ToPath  psi.Path `json:"toPath,omitempty"`
 
 	Data []byte `json:"data,omitempty"`
+
+	Xmin int64 `json:"xmin"`
+	Xmax int64 `json:"xmax"`
 }
 
 func (e SerializedEdge) IsRemoved() bool { return e.Flags&EdgeFlagRemoved != 0 }

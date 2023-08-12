@@ -17,7 +17,7 @@ type Service struct {
 func NewService(
 	lc fx.Lifecycle,
 	core coreapi.Core,
-	migrator *migrations.Manager,
+	migrator migrations.Migrator,
 ) *Service {
 	svc := &Service{
 		core: core,

@@ -79,7 +79,7 @@ func (f *faissIndex) IndexNode(ctx context.Context, req IndexNodeRequest) (Index
 	existingIndex, err := f.retrieveItemIndex(ctx, item)
 
 	if err != nil {
-		if err == psi.ErrNodeNotFound {
+		if errors.Is(err, psi.ErrNodeNotFound) {
 			existingIndex = 0xFFFFFFFFFFFFFFFF
 		} else {
 			return IndexedItem{}, err

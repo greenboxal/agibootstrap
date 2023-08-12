@@ -9,12 +9,16 @@ import (
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/storage/dsadapter"
+	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/psids"
+	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
+
+var logger = logging.GetLogger("psidsadapter")
 
 type DataStoreSuperBlock struct {
 	graphfs.SuperBlockBase
@@ -25,8 +29,6 @@ type DataStoreSuperBlock struct {
 
 	mu   sync.RWMutex
 	root *graphfs.CacheEntry
-
-	inodes map[int64]*graphfs.INode
 
 	shouldClose bool
 }
@@ -41,8 +43,7 @@ func NewDataStoreSuperBlock(
 		ds:          ds,
 		shouldClose: shouldClose,
 
-		bmp:    NewSparseBitmapIndex(),
-		inodes: map[int64]*graphfs.INode{},
+		bmp: NewSparseBitmapIndex(),
 	}
 
 	dsa := &dsadapter.Adapter{
@@ -67,15 +68,29 @@ func NewDataStoreSuperBlock(
 	return sb, nil
 }
 
-func (sb *DataStoreSuperBlock) AllocateINode() *graphfs.INode {
+func (sb *DataStoreSuperBlock) AllocateINode(ctx context.Context) *graphfs.INode {
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
 
 	return sb.makeInodeLocked(-1)
 }
 
-func (sb *DataStoreSuperBlock) destroyInode(ino *graphfs.INode) {
+func (sb *DataStoreSuperBlock) DestroyInode(ctx context.Context, ino *graphfs.INode) error {
+	return nil
+}
+
+func (sb *DataStoreSuperBlock) DirtyInode(ctx context.Context, ino *graphfs.INode) error {
+	return nil
+}
+
+func (sb *DataStoreSuperBlock) WriteInode(ctx context.Context, ino *graphfs.INode) error {
+	return nil
+}
+
+func (sb *DataStoreSuperBlock) DropInode(ctx context.Context, ino *graphfs.INode) error {
 	sb.bmp.Free(uint64(ino.ID()))
+
+	return nil
 }
 
 func (sb *DataStoreSuperBlock) MakeInode(id int64) *graphfs.INode {
@@ -90,13 +105,7 @@ func (sb *DataStoreSuperBlock) makeInodeLocked(id int64) *graphfs.INode {
 		id = int64(sb.bmp.Allocate())
 	}
 
-	if ino := sb.inodes[id]; ino != nil {
-		return ino
-	}
-
 	ino := graphfs.AllocateInode(sb, id)
-
-	sb.inodes[id] = ino
 
 	return ino
 }
@@ -117,61 +126,69 @@ func (sb *DataStoreSuperBlock) GetRoot(ctx context.Context) (*graphfs.CacheEntry
 		sb.root = sb.root.Get()
 	}
 
+	//logger.Debugf("GetRoot")
+
 	return sb.root, nil
 }
 
-func (sb *DataStoreSuperBlock) Create(ctx context.Context, self *graphfs.CacheEntry, options graphfs.OpenNodeOptions) (graphfs.NodeHandle, error) {
-	ino := self.Inode()
+func (sb *DataStoreSuperBlock) Create(ctx context.Context, self *graphfs.CacheEntry, options graphfs.OpenNodeOptions) error {
+	var ino *graphfs.INode
 
-	if ino == nil && options.Flags&graphfs.OpenNodeFlagsCreate == 0 {
-		return nil, psi.ErrNodeNotFound
+	if options.ForceInode != nil && *options.ForceInode >= 0 {
+		allocated := sb.bmp.MarkAllocated(uint64(*options.ForceInode))
+
+		ino = sb.MakeInode(int64(allocated))
+	} else {
+		ino = sb.AllocateINode(ctx)
 	}
 
-	if ino == nil {
-		if p := self.Parent(); p != nil {
-			k := dsKeyNodeEdge(p.Inode().ID(), self.Name())
-			fe, err := psids.Get(ctx, sb.ds, k)
+	if self.Parent() != nil {
+		k := dsKeyNodeEdge(self.Parent().Inode().ID(), self.Name())
 
-			if err == nil {
-				ino = sb.MakeInode(fe.ToIndex)
-			}
+		if err := psids.Put(ctx, sb.ds, k, &graphfs.SerializedEdge{
+			Flags:   graphfs.EdgeFlagRegular,
+			Key:     self.Name().AsEdgeKey(),
+			ToIndex: ino.ID(),
+			ToPath:  self.Path(),
+		}); err != nil {
+			return err
 		}
-
-		if ino == nil {
-			if options.ForceInode != nil && *options.ForceInode >= 0 {
-				allocated := sb.bmp.MarkAllocated(uint64(*options.ForceInode))
-
-				ino = sb.MakeInode(int64(allocated))
-			} else {
-				ino = sb.AllocateINode()
-			}
-		}
-
-		self.Instantiate(ino)
 	}
 
-	return graphfs.NewNodeHandle(ctx, ino, self, options)
+	self.Instantiate(ino)
+
+	//logger.Debugw("Create", "ino", ino.ID(), "path", self.Path().String())
+
+	return nil
 }
 
 func (sb *DataStoreSuperBlock) Lookup(ctx context.Context, self *graphfs.INode, dentry *graphfs.CacheEntry) (*graphfs.CacheEntry, error) {
 	k := dsKeyNodeEdge(self.ID(), dentry.Name())
 	fe, err := psids.Get(ctx, sb.ds, k)
 
-	if fe == nil || err == datastore.ErrNotFound {
-		dentry.Add(nil)
-	} else if err != nil {
-		return nil, err
-	} else {
+	if err == nil && fe != nil {
 		ino := sb.MakeInode(fe.ToIndex)
 
 		dentry.Add(ino)
+
+		//logger.Debugw("Lookup OK", "ino", ino.ID(), "path", dentry.Path().String())
+	} else if !errors.Is(err, psi.ErrNodeNotFound) {
+		//logger.Debugw("Lookup FAIL", "path", dentry.Path().String())
+		return nil, err
 	}
 
 	return dentry, nil
 }
 
+func (sb *DataStoreSuperBlock) Unlink(ctx context.Context, self *graphfs.INode, dentry *graphfs.CacheEntry) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (sb *DataStoreSuperBlock) Read(ctx context.Context, nh graphfs.NodeHandle) (*graphfs.SerializedNode, error) {
 	k := dsKeyNodeData(nh.Inode().ID())
+
+	//logger.Debugw("Read", "k", k.String())
 
 	return psids.Get(ctx, sb.ds, k)
 }
@@ -184,12 +201,16 @@ func (sb *DataStoreSuperBlock) Write(ctx context.Context, nh graphfs.NodeHandle,
 		return err
 	}
 
+	//logger.Debugw("Write", "k", k.String())
+
 	return nil
 }
 
 func (sb *DataStoreSuperBlock) SetEdge(ctx context.Context, nh graphfs.NodeHandle, edge *graphfs.SerializedEdge) error {
 	writer := GetBatchWriter(ctx, sb.ds)
 	k := dsKeyNodeEdge(nh.Inode().ID(), edge.Key)
+
+	//logger.Debugw("SetEdge", "k", k.String())
 
 	return psids.Put(ctx, writer, k, edge)
 }
@@ -198,17 +219,23 @@ func (sb *DataStoreSuperBlock) RemoveEdge(ctx context.Context, nh graphfs.NodeHa
 	writer := GetBatchWriter(ctx, sb.ds)
 	k := dsKeyNodeEdge(nh.Inode().ID(), key)
 
+	//logger.Debugw("RemoveEdge", "k", k.String())
+
 	return psids.Delete(ctx, writer, k)
 }
 
 func (sb *DataStoreSuperBlock) ReadEdge(ctx context.Context, nh graphfs.NodeHandle, key psi.EdgeKey) (*graphfs.SerializedEdge, error) {
 	k := dsKeyNodeEdge(nh.Inode().ID(), key)
 
+	//logger.Debugw("ReadEdge", "k", k.String())
+
 	return psids.Get(ctx, sb.ds, k)
 }
 
 func (sb *DataStoreSuperBlock) ReadEdges(ctx context.Context, nh graphfs.NodeHandle) (iterators.Iterator[*graphfs.SerializedEdge], error) {
 	k := dsKeyEdgePrefix(nh.Inode().ID())
+
+	//logger.Debugw("ReadEdges", "k", k.String())
 
 	return psids.List(ctx, sb.ds, k)
 }

@@ -88,7 +88,6 @@ func NewCore(
 		journal,
 		checkpoint,
 		ds,
-		core,
 	)
 
 	if err != nil {
@@ -183,7 +182,7 @@ func (c *Core) run(proc goprocess.Process) {
 	err := c.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
 		root, err := tx.Resolve(ctx, psi.PathFromElements(c.cfg.RootUUID, false))
 
-		if err != nil && err != psi.ErrNodeNotFound {
+		if err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
 			return err
 		}
 
@@ -228,11 +227,6 @@ func (c *Core) waitReady() error {
 	if c.closed {
 		return errors.New("core closed")
 	}
-
-	return nil
-}
-
-func (c *Core) OnCommitTransaction(ctx context.Context, tx *graphfs.Transaction) error {
 
 	return nil
 }

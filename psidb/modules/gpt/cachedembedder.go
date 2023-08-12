@@ -6,6 +6,7 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"github.com/ipfs/go-datastore"
 	"github.com/multiformats/go-multihash"
+	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/psids"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -41,7 +42,7 @@ func (c *CachedEmbedder) GetEmbeddings(ctx context.Context, chunks []string) ([]
 		cached, err := c.lookup(ctx, mh)
 
 		if err != nil {
-			if err == psi.ErrNodeNotFound {
+			if errors.Is(err, psi.ErrNodeNotFound) {
 				uncachedIndexes = append(uncachedIndexes, i)
 			} else {
 				return nil, err

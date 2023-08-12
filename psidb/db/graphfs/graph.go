@@ -2,6 +2,7 @@ package graphfs
 
 import (
 	"context"
+	"io/fs"
 	"sync"
 
 	"github.com/ipfs/go-datastore"
@@ -20,9 +21,8 @@ type VirtualGraph struct {
 	mu     sync.RWMutex
 	logger *zap.SugaredLogger
 
-	lsys     *linking.LinkSystem
-	spb      SuperBlockProvider
-	listener VirtualGraphListener
+	lsys *linking.LinkSystem
+	spb  SuperBlockProvider
 
 	transactionManager *TransactionManager
 	replicationManager *replicationManager
@@ -41,15 +41,13 @@ func NewVirtualGraph(
 	journal *Journal,
 	checkpoint Checkpoint,
 	metadataStore datastore.Batching,
-	listener VirtualGraphListener,
 ) (*VirtualGraph, error) {
 	vg := &VirtualGraph{
 		logger: logging.GetLogger("graphfs"),
 
-		ds:       metadataStore,
-		lsys:     lsys,
-		spb:      spb,
-		listener: listener,
+		ds:   metadataStore,
+		lsys: lsys,
+		spb:  spb,
 
 		superBlocks: map[string]SuperBlock{},
 	}
@@ -58,14 +56,6 @@ func NewVirtualGraph(
 	vg.replicationManager = newReplicationManager(vg)
 
 	return vg, nil
-}
-
-func (vg *VirtualGraph) SetListener(listener VirtualGraphListener) {
-	if vg.listener != nil && vg.listener != listener {
-		panic("listener already set")
-	}
-
-	vg.listener = listener
 }
 
 func (vg *VirtualGraph) Recover(ctx context.Context) error {
@@ -106,6 +96,10 @@ func (vg *VirtualGraph) GetSuperBlock(ctx context.Context, uuid string) (SuperBl
 func (vg *VirtualGraph) Open(ctx context.Context, path psi.Path, options ...OpenNodeOption) (NodeHandle, error) {
 	var opts OpenNodeOptions
 
+	if opts.Flags == 0 {
+		opts.Flags = OpenNodeFlagsRead
+	}
+
 	opts.Transaction = GetTransaction(ctx)
 	opts.Apply(options...)
 
@@ -115,7 +109,21 @@ func (vg *VirtualGraph) Open(ctx context.Context, path psi.Path, options ...Open
 		return nil, err
 	}
 
-	return dentry.sb.INodeOperations().Create(ctx, dentry, opts)
+	if dentry.IsNegative() {
+		if opts.Flags&OpenNodeFlagsCreate == 0 {
+			return nil, psi.ErrNodeNotFound
+		}
+
+		err := dentry.sb.INodeOperations().Create(ctx, dentry, opts)
+
+		if err != nil {
+			return nil, err
+		}
+	} else if opts.Flags&OpenNodeFlagsAppend == 0 && opts.Flags&OpenNodeFlagsWrite != 0 {
+		return nil, fs.ErrExist
+	}
+
+	return NewNodeHandle(ctx, dentry.Inode(), dentry, opts)
 }
 
 func (vg *VirtualGraph) Resolve(ctx context.Context, path psi.Path) (*CacheEntry, error) {
@@ -250,8 +258,6 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 	}
 
 	for _, entry := range tx.log {
-		vg.logger.Infof("applying transaction log entry:\n%s\n", entry.String())
-
 		if hasFinished {
 			return errors.New("invalid transaction log")
 		}
@@ -302,12 +308,6 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 			if err := nh.RemoveEdge(ctx, entry.Edge.Key); err != nil {
 				return err
 			}
-		}
-	}
-
-	if l := vg.listener; l != nil {
-		if err := l.OnCommitTransaction(ctx, tx); err != nil {
-			return err
 		}
 	}
 

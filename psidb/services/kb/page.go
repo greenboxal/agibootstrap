@@ -9,8 +9,8 @@ import (
 type Page struct {
 	psi.NodeBase
 
-	Index   int    `json:"index"`
-	Content string `json:"title"`
+	Title string `json:"title"`
+	Body  string `json:"body"`
 }
 
 var PageType = psi.DefineNodeType[*Page]()
@@ -22,4 +22,4 @@ func NewPage() *Page {
 	return p
 }
 
-func (p *Page) PsiNodeName() string { return fmt.Sprintf("Page-%d", p.Index) }
+func (p *Page) PsiNodeName() string { return fmt.Sprintf("Page-%d", p.Title) }

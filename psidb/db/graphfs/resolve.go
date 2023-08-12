@@ -7,7 +7,9 @@ import (
 )
 
 func Resolve(ctx context.Context, root *CacheEntry, path psi.Path) (*CacheEntry, error) {
-	for _, e := range path.Components() {
+	components := path.Components()
+
+	for _, e := range components {
 		if root.IsNegative() {
 			return root, psi.ErrNodeNotFound
 		}

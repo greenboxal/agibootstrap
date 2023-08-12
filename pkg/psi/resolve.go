@@ -35,6 +35,10 @@ func ResolveOrCreate[T Node](ctx context.Context, g Graph, path Path, factoryFn 
 		return empty, err
 	}
 
+	if path.Len() == 0 {
+		return empty, ErrNodeNotFound
+	}
+
 	parent, err := g.ResolveNode(ctx, path.Parent())
 
 	if err != nil {

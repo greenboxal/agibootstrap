@@ -89,10 +89,6 @@ func (ce *CacheEntry) INodeOperations() INodeOperations { return ce.sb.INodeOper
 // Instantiate instantiates the cache entry. The cache entry must be
 // disconnected.
 func (ce *CacheEntry) Instantiate(inode *INode) {
-	if ce.flags&CacheEntryFlagDisconnected != 0 {
-		panic("CacheEntry.Instantiate: cache entry is disconnected")
-	}
-
 	if ce.inode == inode {
 		return
 	}
@@ -127,21 +123,32 @@ func (ce *CacheEntry) Add(inode *INode) {
 	ce.Instantiate(inode)
 }
 
-// Lookup looks up the cache entry.
-func (ce *CacheEntry) Lookup(ctx context.Context, name psi.PathElement) (*CacheEntry, error) {
+func (ce *CacheEntry) lookupCached(name psi.PathElement) *CacheEntry {
+	ce.mu.RLock()
+	defer ce.mu.RUnlock()
+
 	for _, c := range ce.child {
 		if c == nil {
 			continue
 		}
 
 		if c.name == name {
-			return c, nil
+			return c
 		}
 	}
 
-	child := AllocCacheEntry(ce.sb, ce, name)
+	return AllocCacheEntry(ce.sb, ce, name)
+}
 
-	return ce.sb.INodeOperations().Lookup(ctx, ce.inode, child)
+// Lookup looks up the cache entry.
+func (ce *CacheEntry) Lookup(ctx context.Context, name psi.PathElement) (*CacheEntry, error) {
+	cached := ce.lookupCached(name)
+
+	if cached.IsNegative() {
+		return ce.sb.INodeOperations().Lookup(ctx, ce.inode, cached)
+	}
+
+	return cached, nil
 }
 
 // delete deletes the cache entry after it is unreferenced.
@@ -227,8 +234,4 @@ func (ce *CacheEntry) MakeNegative() {
 	defer ce.mu.Unlock()
 
 	ce.flags |= CacheEntryFlagNegative
-}
-
-func (ce *CacheEntry) Create(ctx context.Context, dentry *CacheEntry, opts OpenNodeOptions) (NodeHandle, error) {
-	return ce.sb.INodeOperations().Create(ctx, dentry, opts)
 }

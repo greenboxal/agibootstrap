@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/pkg/errors"
+
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
@@ -133,7 +135,7 @@ func (s *SearchHandler) handleError(writer http.ResponseWriter, req *SearchReque
 
 	if httpErr, ok := err.(HttpError); ok {
 		status = httpErr.StatusCode()
-	} else if err == psi.ErrNodeNotFound {
+	} else if errors.Is(err, psi.ErrNodeNotFound) {
 		status = http.StatusNotFound
 	}
 

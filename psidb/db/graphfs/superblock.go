@@ -8,6 +8,14 @@ import (
 type SuperBlockOperations interface {
 	// GetRoot returns the root dentry of the superblock.
 	GetRoot(ctx context.Context) (*CacheEntry, error)
+
+	AllocateInode(ctx context.Context) *INode
+	DestroyInode(ctx context.Context, inode *INode) error
+	DirtyInode(ctx context.Context, inode *INode) error
+	WriteInode(ctx context.Context, inode *INode) error
+	DropInode(ctx context.Context, inode *INode) error
+
+	Flush(ctx context.Context) error
 }
 
 type SuperBlock interface {

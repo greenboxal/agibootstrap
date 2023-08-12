@@ -11,13 +11,13 @@ import (
 
 type Manager struct {
 	core     coreapi.Core
-	migrator *migrations.Manager
+	migrator migrations.Migrator
 }
 
 func NewManager(
 	lc fx.Lifecycle,
 	core coreapi.Core,
-	migrator *migrations.Manager,
+	migrator migrations.Migrator,
 ) *Manager {
 	m := &Manager{
 		core:     core,

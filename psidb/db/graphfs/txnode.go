@@ -3,6 +3,8 @@ package graphfs
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -116,7 +118,7 @@ func (nh *txNodeHandle) ReadEdges(ctx context.Context) (iterators.Iterator[*Seri
 
 	base, err := nh.inode.NodeHandleOperations().ReadEdges(ctx, nh)
 
-	if err != nil && (err == psi.ErrNodeNotFound && n == nil) {
+	if err != nil && (errors.Is(err, psi.ErrNodeNotFound) && n == nil) {
 		return nil, err
 	}
 

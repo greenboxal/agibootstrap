@@ -265,7 +265,7 @@ func (r *replicationSlot) ensureLoaded(ctx context.Context) error {
 
 	lsn, err := psids.Get(ctx, r.vg.ds, dsKeyReplicationSlotLSN(r.options.Name))
 
-	if err == psi.ErrNodeNotFound {
+	if errors.Is(err, psi.ErrNodeNotFound) {
 		lsn = 1
 	} else if err != nil {
 		return err

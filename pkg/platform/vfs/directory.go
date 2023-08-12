@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
@@ -149,7 +150,7 @@ func (dn *Directory) GetOrCreateFile(ctx context.Context, name string) (*File, e
 		return existing.(*File), nil
 	}
 
-	if err != psi.ErrNodeNotFound {
+	if !errors.Is(err, psi.ErrNodeNotFound) {
 		return nil, err
 	}
 

@@ -11,6 +11,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
+	"github.com/pkg/errors"
 	contentnegotiation "gitlab.com/jamietanna/content-negotiation-go"
 
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
@@ -287,7 +288,7 @@ func (r *ResourceHandler) handleError(writer http.ResponseWriter, request *Reque
 
 	if httpErr, ok := err.(HttpError); ok {
 		status = httpErr.StatusCode()
-	} else if err == psi.ErrNodeNotFound {
+	} else if errors.Is(err, psi.ErrNodeNotFound) {
 		status = http.StatusNotFound
 	}
 
@@ -297,7 +298,7 @@ func (r *ResourceHandler) handleError(writer http.ResponseWriter, request *Reque
 func (r *ResourceHandler) handlePostFile(request *Request, reader io.Reader) (any, error) {
 	f, err := request.Graph.ResolveNode(request.Context(), request.PsiPath)
 
-	if err == psi.ErrNodeNotFound {
+	if errors.Is(err, psi.ErrNodeNotFound) {
 		parentPath := request.PsiPath.Parent()
 		parent, err := request.Graph.ResolveNode(request.Context(), parentPath)
 

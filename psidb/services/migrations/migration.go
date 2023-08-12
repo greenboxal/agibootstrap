@@ -83,6 +83,10 @@ func NewMigrationSet(name string, migrations ...Migration) *MigrationSet {
 	}
 }
 
+type Migrator interface {
+	Migrate(ctx context.Context, ms *MigrationSet) error
+}
+
 type Manager struct {
 	core coreapi.Core
 }

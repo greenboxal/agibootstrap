@@ -156,7 +156,13 @@ func (n *NodeBase) ResolveChild(ctx context.Context, key PathElement) Node {
 				continue
 			}
 
-			return kv.Value.To()
+			to, err := kv.Value.ResolveTo(ctx)
+
+			if err != nil && err != ErrNodeNotFound {
+				panic(err)
+			}
+
+			return to
 		}
 	}
 

@@ -10,6 +10,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 
@@ -149,7 +150,7 @@ func (ln *LiveNode) Load(ctx context.Context) error {
 		return nil
 	}
 
-	if err := ln.prefetch(ctx); err != nil && err != psi.ErrNodeNotFound {
+	if err := ln.prefetch(ctx); err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
 		return err
 	}
 
@@ -331,11 +332,11 @@ func (ln *LiveNode) prefetchNode(ctx context.Context) error {
 		return nil
 	}
 
-	nh, err := ln.reopen(context.Background(), graphfs.OpenNodeOptions{
+	nh, err := ln.reopen(ctx, graphfs.OpenNodeOptions{
 		Flags: graphfs.OpenNodeFlagsRead,
 	})
 
-	if err == psi.ErrNodeNotFound {
+	if errors.Is(err, psi.ErrNodeNotFound) {
 		ln.flags |= liveNodeFlagPrefetched | liveNodeFlagNew
 		return nil
 	} else if err != nil {
@@ -375,7 +376,7 @@ func (ln *LiveNode) prefetchEdges(ctx context.Context) error {
 
 	edges, err := ln.handle.ReadEdges(ctx)
 
-	if err == psi.ErrNodeNotFound {
+	if errors.Is(err, psi.ErrNodeNotFound) {
 		ln.flags |= liveNodeFlagEdgesPrefetched
 		return nil
 	} else if err != nil {
@@ -402,7 +403,7 @@ func (ln *LiveNode) prefetchEdge(ctx context.Context, key psi.EdgeKey, frozen *g
 		if frozen == nil {
 			f, err := ln.handle.ReadEdge(ctx, key)
 
-			if err != nil && err != psi.ErrNodeNotFound {
+			if err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
 				return nil, err
 			}
 
@@ -433,7 +434,7 @@ func (ln *LiveNode) prefetchEdge(ctx context.Context, key psi.EdgeKey, frozen *g
 	if frozen == nil {
 		f, err := ln.handle.ReadEdge(ctx, key)
 
-		if err != nil && err != psi.ErrNodeNotFound {
+		if err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
 			return nil, err
 		}
 
@@ -451,6 +452,8 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 	ln.mu.Lock()
 	defer ln.mu.Unlock()
 
+	//logger.Debugw("Save", "path", ln.path)
+
 	if ln.flags&liveNodeFlagDirty == 0 {
 		return nil
 	}
@@ -466,7 +469,7 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 	}
 
 	if ln.flags&liveNodeFlagPrefetched == 0 {
-		if err := ln.prefetchNode(ctx); err != nil && err != psi.ErrNodeNotFound {
+		if err := ln.prefetchNode(ctx); err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
 			return err
 		}
 	}

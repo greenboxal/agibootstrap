@@ -171,7 +171,7 @@ func GetOrDefault[T any](ctx context.Context, ds datastore.Read, key TypedKey[T]
 	result, err := Get(ctx, ds, key)
 
 	if err != nil {
-		if err == psi.ErrNodeNotFound {
+		if errors.Is(err, psi.ErrNodeNotFound) {
 			return defaultValue, nil
 		}
 

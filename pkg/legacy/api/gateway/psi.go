@@ -42,7 +42,7 @@ func (gw *Gateway) handlePsiDb(writer http.ResponseWriter, request *http.Request
 	}()
 
 	if err != nil {
-		if err == psi.ErrNodeNotFound {
+		if errors.Is(err, psi.ErrNodeNotFound) {
 			writer.WriteHeader(http.StatusNotFound)
 		} else {
 			logger.Error(err)
@@ -62,7 +62,7 @@ func (gw *Gateway) handlePsiDbGet(
 ) error {
 	n, err := gw.graph.ResolveNode(ctx, path)
 
-	if n == nil || err == psi.ErrNodeNotFound {
+	if n == nil || errors.Is(err, psi.ErrNodeNotFound) {
 		writer.WriteHeader(http.StatusNotFound)
 
 		return nil

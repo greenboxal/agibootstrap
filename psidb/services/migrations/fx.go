@@ -5,5 +5,5 @@ import "go.uber.org/fx"
 var Module = fx.Module(
 	"services/migrations",
 
-	fx.Provide(NewManager),
+	fx.Provide(fx.Annotate(NewManager, fx.As(new(Migrator)))),
 )

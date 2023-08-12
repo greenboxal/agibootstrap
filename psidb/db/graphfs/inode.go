@@ -7,9 +7,11 @@ import (
 )
 
 type INodeOperations interface {
-	Create(ctx context.Context, self *CacheEntry, options OpenNodeOptions) (NodeHandle, error)
+	Create(ctx context.Context, self *CacheEntry, options OpenNodeOptions) error
 
 	Lookup(ctx context.Context, self *INode, dentry *CacheEntry) (*CacheEntry, error)
+
+	Unlink(ctx context.Context, self *INode, dentry *CacheEntry) error
 }
 
 type INodeFlag uint64

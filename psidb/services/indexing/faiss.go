@@ -73,7 +73,7 @@ func (f *faissIndex) IndexNode(ctx context.Context, req IndexNodeRequest) (Index
 	existingIndex, err := f.retrieveItemIndex(ctx, item)
 
 	if err != nil {
-		if err == psi.ErrNodeNotFound {
+		if errors.Is(err, psi.ErrNodeNotFound) {
 			existingIndex = 0xFFFFFFFFFFFFFFFF
 		} else {
 			return IndexedItem{}, err
@@ -120,7 +120,6 @@ func (f *faissIndex) Search(ctx context.Context, req SearchRequest) (iterators.I
 
 	x := req.Query.ToFloat32Slice(nil)
 	distances, ids, err := f.index.Search(x, int64(req.Limit))
-
 
 	if err != nil {
 		return nil, err

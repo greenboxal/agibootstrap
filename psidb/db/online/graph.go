@@ -232,15 +232,9 @@ func (lg *LiveGraph) nodeForDentry(ce *graphfs.CacheEntry) *LiveNode {
 
 func (lg *LiveGraph) updateNodeCache(ln *LiveNode) {
 	ino := int64(-1)
-	path := (*psi.Path)(nil)
 
 	if ln.inode != nil {
 		ino = ln.inode.ID()
-	}
-
-	if ln.dentry != nil {
-		p := ln.dentry.Path()
-		path = &p
 	}
 
 	if ln.cachedIndex != ino {
@@ -255,12 +249,12 @@ func (lg *LiveGraph) updateNodeCache(ln *LiveNode) {
 		}
 	}
 
-	if ln.cachedPath == nil || path == nil || ln.cachedPath.String() != path.String() {
+	if ln.cachedPath == nil || ln.cachedPath.String() != ln.path.String() {
 		if ln.cachedPath != nil && lg.pathCache[ln.cachedPath.String()] == ln {
 			delete(lg.pathCache, ln.cachedPath.String())
 		}
 
-		ln.cachedPath = path
+		ln.cachedPath = &ln.path
 
 		if ln.cachedPath != nil {
 			lg.pathCache[ln.cachedPath.String()] = ln

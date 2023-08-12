@@ -105,65 +105,6 @@ type LazyEdge struct {
 	resolver ResolveEdgeFunc
 }
 
-func NewLazyEdge(g Graph, key EdgeReference, from Node, resolver ResolveEdgeFunc) Edge {
-	le := &LazyEdge{}
-	le.g = g
-	le.cond = sync.NewCond(le.mu.RLocker())
-	le.key = key
-	le.from = from
-	le.resolver = resolver
-	le.Init(le)
-	return le
-}
-
-func (l *LazyEdge) Key() EdgeReference { return l.key }
-func (l *LazyEdge) From() Node         { return l.from }
-
-func (l *LazyEdge) To() Node {
-	n, err := l.ResolveTo(context.Background())
-
-	if err != nil {
-		panic(err)
-	}
-
-	return n
-}
-
-func (l *LazyEdge) ResolveTo(ctx context.Context) (Node, error) {
-	if l.valid {
-		return l.to, nil
-	}
-
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-
-	if !l.valid {
-		n, err := l.resolver(ctx, l.g, l.from, l.key.GetKey())
-
-		if err != nil {
-			return nil, err
-		}
-
-		l.to = n
-		l.valid = true
-	}
-
-	return l.to, nil
-}
-
-func (l *LazyEdge) ReplaceTo(node Node) Edge {
-	return NewSimpleEdge(l.key, l.from, node)
-}
-
-func (l *LazyEdge) Invalidate() {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if l.valid {
-		l.valid = false
-	}
-}
-
 type SimpleEdge struct {
 	EdgeBase
 
