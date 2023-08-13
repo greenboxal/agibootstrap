@@ -20,7 +20,9 @@ import (
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/modules/vm"
 	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
+	"github.com/greenboxal/agibootstrap/psidb/services/typing"
 )
 
 type Core struct {
@@ -139,11 +141,30 @@ func (c *Core) BeginTransaction(ctx context.Context, options ...coreapi.Transact
 	}
 
 	root := psi.PathFromElements(c.cfg.RootUUID, false)
-	lg, err := online.NewLiveGraph(ctx, root, &c.lsys, c.virtualGraph, tx)
+	typingManager := inject.Inject[*typing.Manager](c.sp)
+	types := typing.NewTypeRegistry(typingManager)
+	lg, err := online.NewLiveGraph(ctx, root, c.virtualGraph, &c.lsys, types, tx)
 
 	if err != nil {
 		return nil, err
 	}
+
+	inject.Register(lg.ServiceProvider(), func(ctx inject.ResolutionContext) (*vm.Isolate, error) {
+		vms := inject.Inject[*vm.VM](lg.ServiceProvider())
+		iso := vms.NewIsolate()
+
+		ctx.AppendShutdownHook(func(ctx context.Context) error {
+			return iso.Close()
+		})
+
+		return iso, nil
+	})
+
+	inject.Register(lg.ServiceProvider(), func(_ inject.ResolutionContext) (*vm.Context, error) {
+		iso := inject.Inject[*vm.Isolate](lg.ServiceProvider())
+
+		return vm.NewContext(coreapi.WithTransaction(ctx, tx), iso, lg.ServiceProvider()), nil
+	})
 
 	tx.lg = lg
 

@@ -1,6 +1,7 @@
 package psi
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -28,11 +29,14 @@ func GlobalTypeRegistry() TypeRegistry {
 type TypeRegistry interface {
 	NodeTypes() []NodeType
 	EdgeTypes() []EdgeType
+
 	RegisterNodeType(nt NodeType)
-	NodeTypeByName(name string) NodeType
-	ReflectNodeType(typ typesystem.Type) NodeType
-	LookupEdgeType(kind EdgeKind) EdgeType
 	RegisterEdgeKind(kind EdgeKind, options ...EdgeTypeOption)
+	ReflectNodeType(typ typesystem.Type) NodeType
+
+	LookupEdgeType(kind EdgeKind) EdgeType
+
+	NodeTypeByName(ctx context.Context, name string) NodeType
 }
 
 type typeRegistry struct {
@@ -79,7 +83,7 @@ func (tr *typeRegistry) RegisterNodeType(nt NodeType) {
 	tr.nodeTypeByName[nt.Name()] = nt
 }
 
-func (tr *typeRegistry) NodeTypeByName(name string) NodeType {
+func (tr *typeRegistry) NodeTypeByName(ctx context.Context, name string) NodeType {
 	tr.nodeTypeRegistryMutex.RLock()
 	defer tr.nodeTypeRegistryMutex.RUnlock()
 
@@ -143,16 +147,12 @@ func DefineNodeType[T Node](options ...NodeTypeOption) TypedNodeType[T] {
 	return tnt
 }
 
-func NodeTypeByName(name string) NodeType {
-	return globalTypeRegistry.NodeTypeByName(name)
+func LookupEdgeType(kind EdgeKind) EdgeType {
+	return globalTypeRegistry.LookupEdgeType(kind)
 }
 
 func ReflectNodeType(typ typesystem.Type) NodeType {
 	return globalTypeRegistry.ReflectNodeType(typ)
-}
-
-func LookupEdgeType(kind EdgeKind) EdgeType {
-	return globalTypeRegistry.LookupEdgeType(kind)
 }
 
 func DefineEdgeType[T Node](kind EdgeKind, options ...EdgeTypeOption) TypedEdgeKind[T] {

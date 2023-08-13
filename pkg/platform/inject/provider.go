@@ -36,17 +36,33 @@ type ResolutionContext interface {
 type serviceProvider struct {
 	mu sync.RWMutex
 
+	parent ServiceLocator
+
 	definitions   map[ServiceKey]*ServiceDefinition
 	registrations map[ServiceKey]*serviceRegistration
 
 	shutdownHooks []func(ctx context.Context) error
 }
 
-func NewServiceProvider() ServiceProvider {
-	return &serviceProvider{
+type ServiceProviderOption func(*serviceProvider)
+
+func WithParentServiceProvider(sp ServiceLocator) ServiceProviderOption {
+	return func(s *serviceProvider) {
+		s.parent = sp
+	}
+}
+
+func NewServiceProvider(options ...ServiceProviderOption) ServiceProvider {
+	sp := &serviceProvider{
 		definitions:   make(map[ServiceKey]*ServiceDefinition),
 		registrations: make(map[ServiceKey]*serviceRegistration),
 	}
+
+	for _, option := range options {
+		option(sp)
+	}
+
+	return sp
 }
 
 func (sp *serviceProvider) getDefinition(key ServiceKey) *ServiceDefinition {
@@ -100,6 +116,10 @@ func (sp *serviceProvider) GetService(key ServiceKey) (any, error) {
 	reg := sp.getRegistration(key, true)
 
 	if reg == nil {
+		if sp.parent != nil {
+			return sp.parent.GetService(key)
+		}
+
 		return nil, ServiceNotFound
 	}
 
@@ -313,7 +333,7 @@ type ShutdownContext interface {
 	Shutdown(ctx context.Context) error
 }
 
-func Inject[T any](sp ServiceProvider) T {
+func Inject[T any](sp ServiceLocator) T {
 	result, err := sp.GetService(ServiceKeyOf[T]())
 
 	if err != nil {

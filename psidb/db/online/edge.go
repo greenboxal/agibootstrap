@@ -36,27 +36,21 @@ func (le *LiveEdge) ReplaceTo(node psi.Node) psi.Edge {
 }
 
 func (le *LiveEdge) To() psi.Node {
-	if le.to == nil {
-		to, err := le.ResolveTo(context.Background())
-
-		if err != nil {
-			panic(err)
-		}
-
-		return to
-	}
-
-	n, err := le.to.Get(context.Background())
+	to, err := le.ResolveTo(context.Background())
 
 	if err != nil {
 		panic(err)
 	}
 
-	return n
+	return to
 }
 
 func (le *LiveEdge) ResolveTo(ctx context.Context) (psi.Node, error) {
 	le.resolve()
+
+	if le.to == nil {
+		return nil, psi.ErrNodeNotFound
+	}
 
 	return le.to.Get(ctx)
 }
@@ -74,6 +68,10 @@ func NewLiveEdge(from *LiveNode, key psi.EdgeKey) *LiveEdge {
 
 func (le *LiveEdge) resolve() {
 	if le.to != nil {
+		return
+	}
+
+	if le.dentry.IsNegative() {
 		return
 	}
 

@@ -112,9 +112,13 @@ func RunTransaction(
 var ctxKeyTransaction = &struct{}{}
 
 func GetTransaction(ctx context.Context) Transaction {
-	tx, _ := ctx.Value(ctxKeyTransaction).(Transaction)
+	tx := ctx.Value(ctxKeyTransaction)
 
-	return tx
+	if tx == nil {
+		return nil
+	}
+
+	return tx.(Transaction)
 }
 
 func WithTransaction(ctx context.Context, tx Transaction) context.Context {

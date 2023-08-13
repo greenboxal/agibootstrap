@@ -5,6 +5,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 	"github.com/greenboxal/agibootstrap/psidb/modules/vfs"
+	"github.com/greenboxal/agibootstrap/psidb/modules/vm"
 )
 
 var Module = fx.Module(
@@ -12,4 +13,5 @@ var Module = fx.Module(
 
 	vfs.Module,
 	gpt.Module,
+	vm.FXModule,
 )

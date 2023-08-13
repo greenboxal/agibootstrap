@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	contentnegotiation "gitlab.com/jamietanna/content-negotiation-go"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
@@ -170,12 +171,14 @@ func (r *ResourceHandler) handlePost(request *Request) (any, error) {
 	var dataReader io.Reader
 	var nodeType psi.NodeType
 
+	typeRegistry := inject.Inject[psi.TypeRegistry](request.Graph.Services())
+
 	if s := request.FormValue("type"); s != "" {
-		nodeType = psi.NodeTypeByName(s)
+		nodeType = typeRegistry.NodeTypeByName(request.Context(), s)
 	} else if s := request.URL.Query().Get("type"); s != "" {
-		nodeType = psi.NodeTypeByName(s)
+		nodeType = typeRegistry.NodeTypeByName(request.Context(), s)
 	} else if s := request.Header.Get("X-Psi-Node-Type"); s != "" {
-		nodeType = psi.NodeTypeByName(s)
+		nodeType = typeRegistry.NodeTypeByName(request.Context(), s)
 	}
 
 	if request.ContentType == nil {

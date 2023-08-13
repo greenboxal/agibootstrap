@@ -81,6 +81,26 @@ func (m *Manager) registerNodeType(ctx context.Context, nt psi.NodeType) (*Type,
 	return tn.(*Type), nil
 }
 
+func (m *Manager) lookupType(ctx context.Context, name string) (resolved *Type, err error) {
+	pkgComponents := strings.Split(name, ".")
+	pkgComponents = pkgComponents[:len(pkgComponents)-1]
+	pkgName := strings.Join(pkgComponents, ".")
+
+	pkg, err := m.lookupPackage(ctx, pkgName, true)
+
+	if err != nil {
+		return nil, err
+	}
+
+	tn := pkg.ResolveChild(ctx, psi.PathElement{Name: name})
+
+	if tn == nil {
+		return nil, nil
+	}
+
+	return tn.(*Type), nil
+}
+
 func (m *Manager) lookupPackage(ctx context.Context, name string, create bool) (resolved *Package, err error) {
 	tx := coreapi.GetTransaction(ctx)
 

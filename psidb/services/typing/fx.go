@@ -7,5 +7,7 @@ var Module = fx.Module(
 
 	fx.Provide(NewManager),
 
-	fx.Invoke(func(m *Manager) {}),
+	fx.Invoke(func(m *Manager) {
+
+	}),
 )

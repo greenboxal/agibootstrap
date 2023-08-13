@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"golang.org/x/exp/maps"
+
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 )
 
@@ -72,7 +74,7 @@ func ReflectNodeInterface(typ reflect.Type, options ...NodeInterfaceOption) Node
 			Name: m.Name,
 		}
 
-		if m.Type.NumIn() != 3 {
+		if m.Type.NumIn() != 3 && m.Type.NumIn() != 2 {
 			panic(fmt.Errorf("method %s has %d parameters, expected 3", m.Name, m.Type.NumIn()))
 		}
 
@@ -80,8 +82,10 @@ func ReflectNodeInterface(typ reflect.Type, options ...NodeInterfaceOption) Node
 			panic(fmt.Errorf("method %s has %d return values, expected 1 or 2", m.Name, m.Type.NumOut()))
 		}
 
-		requestType := reflect.PtrTo(m.Type.In(2))
-		ifaceAction.RequestType = typesystem.TypeFrom(requestType)
+		if m.Type.NumIn() >= 3 {
+			requestType := reflect.PtrTo(m.Type.In(2))
+			ifaceAction.RequestType = typesystem.TypeFrom(requestType)
+		}
 
 		if m.Type.NumOut() > 1 {
 			responseType := m.Type.Out(0)
@@ -146,6 +150,18 @@ type VTableDefinition struct {
 	actions map[string]NodeAction
 }
 
+func (vt VTableDefinition) Actions() []NodeAction { return maps.Values(vt.actions) }
+
+func (vt VTableDefinition) Action(name string) NodeAction {
+	return vt.actions[name]
+}
+
+func MakeVTableDefinition(actions map[string]NodeAction) VTableDefinition {
+	return VTableDefinition{
+		actions: actions,
+	}
+}
+
 func BindInterface(iface NodeInterface, vtable VTableDefinition) *VTable {
 	if err := iface.ValidateImplementation(vtable); err != nil {
 		panic(err)
@@ -165,6 +181,8 @@ func BindInterfaceFromNode(iface NodeInterface, typ typesystem.Type) *VTable {
 	rt := typ.RuntimeType()
 
 	for i, action := range iface.Actions() {
+		var payloadTyp *reflect.Type
+
 		m, ok := rt.MethodByName(action.Name)
 
 		if !ok && i == 0 {
@@ -176,29 +194,53 @@ func BindInterfaceFromNode(iface NodeInterface, typ typesystem.Type) *VTable {
 			panic(fmt.Errorf("missing method %s", action.Name))
 		}
 
-		payloadTyp := m.Type.In(2)
+		if m.Type.NumIn() >= 3 {
+			t := m.Type.In(2)
+			payloadTyp = &t
+		}
 
 		def.actions[action.Name] = &nodeAction{
 			definition: action,
 
 			handler: NodeActionFunc[Node, any, any](func(ctx context.Context, node Node, request any) (any, error) {
+				var args []reflect.Value
+
 				vctx := reflect.ValueOf(ctx)
 				vn := reflect.ValueOf(node)
 				vreq := reflect.ValueOf(request)
 
-				if payloadTyp.Kind() == reflect.Ptr {
+				if payloadTyp != nil && (*payloadTyp).Kind() == reflect.Ptr {
 					if vreq.CanAddr() {
 						vreq = vreq.Addr()
 					} else {
-						vreq = reflect.New(payloadTyp.Elem())
+						vreq = reflect.New((*payloadTyp).Elem())
 						vreq.Elem().Set(reflect.ValueOf(request))
 					}
+
+					args = []reflect.Value{vctx, vreq}
+				} else {
+					args = []reflect.Value{vctx}
 				}
 
-				vn.Method(m.Index).Call([]reflect.Value{
-					vctx,
-					vreq,
-				})
+				r := vn.Method(m.Index).Call(args)
+
+				if len(r) == 0 {
+					return nil, nil
+				}
+
+				if len(r) == 1 {
+					if r[0].IsNil() {
+						return nil, nil
+					}
+
+					return r[0].Interface(), nil
+				} else if len(r) == 2 {
+					if r[1].IsNil() {
+						return r[0].Interface(), nil
+					}
+
+					return r[0].Interface(), r[1].Interface().(error)
+				}
 
 				return nil, nil
 			}),

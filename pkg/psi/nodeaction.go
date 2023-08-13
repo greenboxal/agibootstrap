@@ -22,7 +22,13 @@ type NodeActionHandler interface {
 type NodeActionFunc[T Node, Req any, Res any] func(ctx context.Context, node T, request Req) (Res, error)
 
 func (f NodeActionFunc[T, Req, Res]) Invoke(ctx context.Context, node Node, request any) (any, error) {
-	return f(ctx, node.(T), request.(Req))
+	var req Req
+
+	if request != nil {
+		req = request.(Req)
+	}
+
+	return f(ctx, node.(T), req)
 }
 
 type NodeActionDefinition struct {
@@ -33,10 +39,12 @@ type NodeActionDefinition struct {
 }
 
 func (d NodeActionDefinition) ValidateImplementation(impl NodeAction) error {
-	requestCompatible := d.RequestType.AssignableTo(impl.RequestType())
+	if d.RequestType != nil || impl.RequestType() != nil {
+		requestCompatible := d.RequestType != nil && d.RequestType.AssignableTo(impl.RequestType())
 
-	if !requestCompatible {
-		return fmt.Errorf("request type %s is not assignable to %s", impl.RequestType(), d.RequestType)
+		if !requestCompatible {
+			return fmt.Errorf("request type %s is not assignable to %s", impl.RequestType(), d.RequestType)
+		}
 	}
 
 	if d.ResponseType != nil || impl.ResponseType() != nil {

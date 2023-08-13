@@ -28,7 +28,8 @@ type LiveGraph struct {
 	nodeCache map[int64]*LiveNode
 	pathCache map[string]*LiveNode
 
-	sp inject.ServiceLocator
+	sp           inject.ServiceProvider
+	typeRegistry psi.TypeRegistry
 }
 
 var _ psi.Graph = (*LiveGraph)(nil)
@@ -36,8 +37,9 @@ var _ psi.Graph = (*LiveGraph)(nil)
 func NewLiveGraph(
 	ctx context.Context,
 	root psi.Path,
-	lsys *linking.LinkSystem,
 	vg *graphfs.VirtualGraph,
+	lsys *linking.LinkSystem,
+	types psi.TypeRegistry,
 	sp inject.ServiceLocator,
 ) (*LiveGraph, error) {
 	tx, err := vg.BeginTransaction(ctx)
@@ -46,22 +48,30 @@ func NewLiveGraph(
 		return nil, err
 	}
 
-	return &LiveGraph{
-		graph: vg,
-		root:  root,
-		lsys:  lsys,
-		tx:    tx,
-		sp:    sp,
+	lg := &LiveGraph{
+		graph:        vg,
+		root:         root,
+		lsys:         lsys,
+		tx:           tx,
+		typeRegistry: types,
 
 		nodeCache: map[int64]*LiveNode{},
 		pathCache: map[string]*LiveNode{},
 		dirtySet:  map[psi.Node]struct{}{},
-	}, nil
+	}
+
+	lg.sp = inject.NewServiceProvider(inject.WithParentServiceProvider(sp))
+
+	inject.RegisterInstance[psi.TypeRegistry](lg.sp, lg.typeRegistry)
+	inject.RegisterInstance[psi.Graph](lg.sp, lg)
+
+	return lg, nil
 }
 
-func (lg *LiveGraph) Root() psi.Path                    { return lg.root }
-func (lg *LiveGraph) Services() inject.ServiceLocator   { return lg.sp }
-func (lg *LiveGraph) Transaction() *graphfs.Transaction { return lg.tx }
+func (lg *LiveGraph) Root() psi.Path                          { return lg.root }
+func (lg *LiveGraph) ServiceProvider() inject.ServiceProvider { return lg.sp }
+func (lg *LiveGraph) Services() inject.ServiceLocator         { return lg.sp }
+func (lg *LiveGraph) Transaction() *graphfs.Transaction       { return lg.tx }
 
 func (lg *LiveGraph) Add(node psi.Node) {
 	_, err := lg.addLiveNode(node)

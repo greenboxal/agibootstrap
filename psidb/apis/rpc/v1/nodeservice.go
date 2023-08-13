@@ -99,6 +99,8 @@ func (ns *NodeService) CallNodeAction(ctx context.Context, req *CallNodeActionRe
 	res = &CallNodeActionResponse{}
 
 	err = ns.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) (err error) {
+		var actionRequest any
+
 		n, err := tx.Resolve(ctx, req.Path)
 
 		if err != nil {
@@ -120,13 +122,15 @@ func (ns *NodeService) CallNodeAction(ctx context.Context, req *CallNodeActionRe
 			return errors.New("action not found")
 		}
 
-		argsNode, err := ipld.DecodeUsingPrototype(req.Args, dagjson.Decode, action.RequestType().IpldPrototype())
+		if action.RequestType() != nil {
+			argsNode, err := ipld.DecodeUsingPrototype(req.Args, dagjson.Decode, action.RequestType().IpldPrototype())
 
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
+
+			actionRequest = typesystem.Unwrap(argsNode)
 		}
-
-		actionRequest := typesystem.Unwrap(argsNode)
 
 		result, err := action.Invoke(ctx, n, actionRequest)
 

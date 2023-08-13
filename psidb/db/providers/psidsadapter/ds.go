@@ -243,8 +243,6 @@ func (sb *DataStoreSuperBlock) ReadEdges(ctx context.Context, nh graphfs.NodeHan
 func (sb *DataStoreSuperBlock) LoadBitmap(ctx context.Context) error {
 	bmp, err := psids.Get(ctx, sb.ds, dsKeyBitmap)
 
-	logger.Debugw("LoadBitmap", "bmp", bmp, "err", err)
-
 	if err == nil {
 		sb.bmp.LoadSnapshot(bmp)
 	}
@@ -258,8 +256,6 @@ func (sb *DataStoreSuperBlock) Flush(ctx context.Context) error {
 	if err := psids.Put(ctx, sb.ds, dsKeyBitmap, s); err != nil {
 		panic(err)
 	}
-
-	logger.Debugw("SaveBitmap")
 
 	return nil
 }

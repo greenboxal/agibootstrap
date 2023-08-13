@@ -105,7 +105,7 @@ func (ln *LiveNode) Get(ctx context.Context) (psi.Node, error) {
 		if ln.node.PsiNode() == nil {
 			ln.flags |= liveNodeFlagIsInitializing
 
-			typ := psi.NodeTypeByName(ln.frozen.Type)
+			typ := ln.g.typeRegistry.NodeTypeByName(ctx, ln.frozen.Type)
 
 			typ.InitializeNode(ln.node)
 
@@ -176,7 +176,7 @@ func (ln *LiveNode) recreateNode(ctx context.Context, n psi.Node) error {
 		}
 
 		if ln.frozen.Flags&graphfs.NodeFlagHasData != 0 {
-			typ := psi.NodeTypeByName(ln.frozen.Type)
+			typ := ln.g.typeRegistry.NodeTypeByName(ctx, ln.frozen.Type)
 
 			if typ == nil {
 				panic("unknown node type")
