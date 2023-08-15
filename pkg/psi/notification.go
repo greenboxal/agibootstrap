@@ -15,7 +15,9 @@ type Notification struct {
 	Notified  Path   `json:"notified"`
 	Interface string `json:"interface"`
 	Action    string `json:"action"`
-	Params    []byte `json:"params"`
+
+	Argument any    `json:"-"`
+	Params   []byte `json:"params,omitempty"`
 }
 
 func (n Notification) Apply(ctx context.Context, target Node) error {

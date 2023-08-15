@@ -3,11 +3,6 @@ package chat
 import (
 	"context"
 
-	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/codec/dagjson"
-
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
-
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
@@ -55,19 +50,13 @@ func (t *Topic) PostMessage(ctx context.Context, req *PostMessageRequest) (*Mess
 func (t *Topic) HandleTopicMessage(ctx context.Context, ref *stdlib.Reference[*Message]) error {
 	tx := coreapi.GetTransaction(ctx)
 
-	messageData, err := ipld.Encode(typesystem.Wrap(ref), dagjson.Encode)
-
-	if err != nil {
-		return nil
-	}
-
 	for _, member := range t.Members {
 		if err := tx.Notify(ctx, psi.Notification{
 			Notifier:  t.CanonicalPath(),
 			Notified:  member,
 			Interface: TopicSubscriberInterface.Name(),
 			Action:    "HandleTopicMessage",
-			Params:    messageData,
+			Argument:  ref,
 		}); err != nil {
 			return err
 		}

@@ -131,11 +131,10 @@ func (n *NodeBase) ResolveChild(ctx context.Context, key PathElement) Node {
 		} else {
 			for it := n.children.Iterator(); it.Next(); {
 				child := it.Item()
+				selfId := child.SelfIdentity().Name()
 
-				if named, ok := child.(NamedNode); ok {
-					if named.PsiNodeName() == key.Name {
-						return child
-					}
+				if selfId == key.AsEdgeKey() {
+					return child
 				}
 			}
 		}

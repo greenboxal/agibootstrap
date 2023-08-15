@@ -6,10 +6,6 @@ import (
 
 	"github.com/gomarkdown/markdown/html"
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
-	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/codec/dagjson"
-
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -62,6 +58,8 @@ func NewDocument() *Document {
 func (d *Document) PsiNodeName() string { return d.Slug }
 
 func (d *Document) Learn(ctx context.Context, req *LearnRequest) error {
+	kb := psi.MustGetEdge[*KnowledgeBase](d, EdgeKindKnowledgeBase.Named("root"))
+
 	if req.CurrentDepth >= req.MaxDepth {
 		return nil
 	}
@@ -83,6 +81,17 @@ func (d *Document) Learn(ctx context.Context, req *LearnRequest) error {
 	}
 
 	if err := d.Update(ctx); err != nil {
+		return err
+	}
+
+	scp := kb.GetGlobalDocumentScope(ctx)
+	idx, err := scp.GetIndex(ctx)
+
+	if err != nil {
+		return err
+	}
+
+	if err := idx.IndexNode(ctx, d); err != nil {
 		return err
 	}
 
@@ -193,6 +202,39 @@ func (d *Document) generateContent(ctx context.Context, req *LearnRequest) error
 	return nil
 }
 
+func (d *Document) Categorize(ctx context.Context, req *LearnRequest) error {
+	var history []*thoughtdb.Thought
+
+	if req.CurrentDepth >= req.MaxDepth {
+		return nil
+	}
+
+	kb := psi.MustGetEdge[*KnowledgeBase](d, EdgeKindKnowledgeBase.Named("root"))
+
+	doct := thoughtdb.NewThought()
+	doct.From.Role = msn.RoleUser
+	doct.Text = fmt.Sprintf("# %s\n%s\n", d.Title, d.Body)
+	history = append(history, doct)
+
+	res, err := QueryDocumentCategories(ctx, history)
+
+	if err != nil {
+		return err
+	}
+
+	for _, categoryName := range res.Categories {
+		cat, err := kb.ResolveCategory(ctx, categoryName)
+
+		if err != nil {
+			return err
+		}
+
+		cat.AddDocument(d)
+	}
+
+	return d.Update(ctx)
+}
+
 func (d *Document) Expand(ctx context.Context, req *LearnRequest) error {
 	var history []*thoughtdb.Thought
 
@@ -214,19 +256,19 @@ func (d *Document) Expand(ctx context.Context, req *LearnRequest) error {
 	}
 
 	for _, entry := range res.Related {
-		related, err := kb.CreateKnowledge(ctx, &KnowledgeRequest{
+		err := kb.DispatchCreateKnowledge(ctx, d.CanonicalPath(), &KnowledgeRequest{
 			Title:       entry.Title,
 			Description: entry.Description,
 
 			CurrentDepth: req.CurrentDepth + 1,
 			MaxDepth:     req.MaxDepth,
+
+			BackLinkTo: d.CanonicalPath(),
 		})
 
 		if err != nil {
 			return err
 		}
-
-		d.SetEdge(EdgeKindRelatedDocument.Named(slugify(entry.Title)), related)
 	}
 
 	return d.Update(ctx)
@@ -234,11 +276,6 @@ func (d *Document) Expand(ctx context.Context, req *LearnRequest) error {
 
 func (d *Document) DispatchLearn(ctx context.Context, requestor psi.Path, req *LearnRequest) error {
 	tx := coreapi.GetTransaction(ctx)
-	data, err := ipld.Encode(typesystem.Wrap(req), dagjson.Encode)
-
-	if err != nil {
-		return err
-	}
 
 	logger.Infow("Dispatching learn request", "requestor", requestor, "notified", d.CanonicalPath(), "data", string(data))
 
@@ -247,17 +284,12 @@ func (d *Document) DispatchLearn(ctx context.Context, requestor psi.Path, req *L
 		Notified:  d.CanonicalPath(),
 		Interface: DocumentInterface.Name(),
 		Action:    "Learn",
-		Params:    data,
+		Argument:  req,
 	})
 }
 
 func (d *Document) DispatchExpand(ctx context.Context, requestor psi.Path, req *LearnRequest) error {
 	tx := coreapi.GetTransaction(ctx)
-	data, err := ipld.Encode(typesystem.Wrap(req), dagjson.Encode)
-
-	if err != nil {
-		return err
-	}
 
 	logger.Infow("Dispatching expand request", "requestor", requestor, "notified", d.CanonicalPath(), "data", string(data))
 
@@ -266,7 +298,7 @@ func (d *Document) DispatchExpand(ctx context.Context, requestor psi.Path, req *
 		Notified:  d.CanonicalPath(),
 		Interface: DocumentInterface.Name(),
 		Action:    "Expand",
-		Params:    data,
+		Argument:  req,
 	})
 }
 

@@ -5,7 +5,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
 type Scope struct {
@@ -52,6 +54,18 @@ func (scp *Scope) Upsert(ctx context.Context, node psi.Node) error {
 }
 
 func (scp *Scope) GetIndex(ctx context.Context) (NodeIndex, error) {
+	if scp.IndexManager == nil {
+		tx := coreapi.GetTransaction(ctx)
+
+		scp.IndexManager = inject.Inject[*Manager](tx.Graph().Services())
+	}
+
+	if scp.Embedder == nil {
+		tx := coreapi.GetTransaction(ctx)
+
+		scp.Embedder = inject.Inject[NodeEmbedder](tx.Graph().Services())
+	}
+
 	if scp.Index == nil {
 		idx, err := scp.IndexManager.OpenNodeIndex(ctx, scp.IndexName, scp.Embedder)
 

@@ -6,10 +6,6 @@ import (
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	chat2 "github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
-	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/codec/dagjson"
-
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -105,17 +101,11 @@ Your name is ` + a.Name + `.
 		Role:    msn.RoleAI,
 	}
 
-	data, err := ipld.Encode(typesystem.Wrap(replyReq), dagjson.Encode)
-
-	if err != nil {
-		return err
-	}
-
 	return tx.Notify(ctx, psi.Notification{
 		Notifier:  a.CanonicalPath(),
 		Notified:  replyTo,
 		Interface: chat.TopicInterface.Name(),
 		Action:    "PostMessage",
-		Params:    data,
+		Argument:  replyReq,
 	})
 }

@@ -1,6 +1,10 @@
 package psi
 
-import "context"
+import (
+	"context"
+
+	"github.com/pkg/errors"
+)
 
 func ResolveChild(parent Path, child PathElement) Path {
 	return parent.Child(child)
@@ -16,6 +20,16 @@ func ResolveEdge[T Node](parent Node, key TypedEdgeKey[T]) (def T) {
 	return e.To().(T)
 }
 
+func MustResolve[T Node](ctx context.Context, g Graph, path Path) (empty T) {
+	result, err := Resolve[T](ctx, g, path)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return result
+}
+
 func Resolve[T Node](ctx context.Context, g Graph, path Path) (empty T, _ error) {
 	n, err := g.ResolveNode(ctx, path)
 
@@ -26,12 +40,44 @@ func Resolve[T Node](ctx context.Context, g Graph, path Path) (empty T, _ error)
 	return n.(T), nil
 }
 
+func MustResolveChildOrCreate[T Node](ctx context.Context, n Node, name PathElement, factoryFn func() T) (empty T) {
+	result, err := ResolveChildOrCreate[T](ctx, n, name, factoryFn)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return result
+}
+
+func ResolveChildOrCreate[T Node](ctx context.Context, n Node, name PathElement, factoryFn func() T) (empty T, _ error) {
+	result := n.ResolveChild(ctx, name)
+
+	if result == nil {
+		result = factoryFn()
+
+		result.SetParent(n)
+	}
+
+	return result.(T), nil
+}
+
+func MustResolveOrCreate[T Node](ctx context.Context, g Graph, path Path, factoryFn func() T) (empty T) {
+	result, err := ResolveOrCreate[T](ctx, g, path, factoryFn)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return result
+}
+
 func ResolveOrCreate[T Node](ctx context.Context, g Graph, path Path, factoryFn func() T) (empty T, _ error) {
 	result, err := g.ResolveNode(ctx, path)
 
 	if err == nil {
 		return result.(T), nil
-	} else if err != nil && err != ErrNodeNotFound {
+	} else if err != nil && !errors.Is(err, ErrNodeNotFound) {
 		return empty, err
 	}
 

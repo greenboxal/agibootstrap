@@ -4,11 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/codec/dagjson"
-
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
-
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 )
@@ -62,17 +57,12 @@ func (t *Ticker) OnTick(ctx context.Context, tick Tick) error {
 
 func (t *Ticker) postNextTick(ctx context.Context, tick Tick) error {
 	tx := coreapi.GetTransaction(ctx)
-	data, err := ipld.Encode(typesystem.Wrap(tick), dagjson.Encode)
-
-	if err != nil {
-		return err
-	}
 
 	return tx.Notify(ctx, psi.Notification{
 		Notifier:  t.CanonicalPath(),
 		Notified:  t.CanonicalPath(),
 		Interface: TickConsumerInterface.Name(),
 		Action:    "OnTick",
-		Params:    data,
+		Argument:  tick,
 	})
 }

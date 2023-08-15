@@ -145,7 +145,7 @@ var GlobalTheme = rendering.BuildTheme(
 		"text/markdown",
 		"",
 		func(ctx rendering.SkinRendererContext, node *kb.Document) error {
-			if _, err := ctx.Buffer.WriteFormat("# %s\n%s\n", node.Title, node.Body); err != nil {
+			if _, err := ctx.Buffer.WriteFormat("# %s\n%s\n%s\n%s\n", node.Title, node.Description, node.Summary, node.Body); err != nil {
 				return err
 			}
 

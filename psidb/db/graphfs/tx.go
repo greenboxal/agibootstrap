@@ -5,9 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 )
 
 type Transaction struct {
@@ -28,6 +31,21 @@ func (tx *Transaction) GetLog() []*JournalEntry { return tx.log }
 func (tx *Transaction) IsOpen() bool            { return !tx.done }
 
 func (tx *Transaction) Notify(ctx context.Context, not psi.Notification) error {
+	if not.Argument != nil {
+		if len(not.Params) > 0 {
+			return errors.New("notification argument and params are mutually exclusive")
+		}
+
+		data, err := ipld.Encode(typesystem.Wrap(not.Argument), dagjson.Encode)
+
+		if err != nil {
+			return err
+		}
+
+		not.Params = data
+		not.Argument = nil
+	}
+
 	return tx.Append(ctx, JournalEntry{
 		Op:           JournalOpNotify,
 		Notification: &not,
