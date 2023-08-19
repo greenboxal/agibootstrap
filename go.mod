@@ -52,6 +52,7 @@ require (
 	github.com/abcum/lcp v0.0.0-20201209214815-7a3f3840be81 // indirect
 	github.com/adrianbrad/queue v1.2.1 // indirect
 	github.com/alecthomas/participle/v2 v2.0.0 // indirect
+	github.com/alecthomas/repr v0.2.0 // indirect
 	github.com/alitto/pond v1.8.3 // indirect
 	github.com/antonmedv/expr v1.12.5 // indirect
 	github.com/arl/statsviz v0.5.2 // indirect
@@ -103,6 +104,7 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/iancoleman/strcase v0.3.0 // indirect
+	github.com/ichiban/prolog v1.1.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/jedib0t/go-pretty/v6 v6.4.6 // indirect

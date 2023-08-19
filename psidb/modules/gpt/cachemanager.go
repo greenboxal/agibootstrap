@@ -3,7 +3,6 @@ package gpt
 import (
 	"context"
 	"os"
-	"path"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"github.com/ipfs/go-datastore"
@@ -21,7 +20,7 @@ func NewEmbeddingCacheManager(
 	lc fx.Lifecycle,
 	cfg *coreapi.Config,
 ) (*EmbeddingCacheManager, error) {
-	cacheDirPath := path.Join(cfg.DataDir, "embedding-cache")
+	cacheDirPath := cfg.EmbeddingCacheDir
 
 	if err := os.MkdirAll(cacheDirPath, 0755); err != nil {
 		return nil, err

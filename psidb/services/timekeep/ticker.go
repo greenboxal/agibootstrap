@@ -24,7 +24,8 @@ type ITicker interface {
 type Ticker struct {
 	psi.NodeBase
 
-	Name string `json:"name"`
+	Name   string `json:"name"`
+	StopAt uint64 `json:"stop_at"`
 }
 
 var TickerInterface = psi.DefineNodeInterface[ITicker]()
@@ -49,6 +50,10 @@ func (t *Ticker) Start(ctx context.Context, tick Tick) error {
 }
 
 func (t *Ticker) OnTick(ctx context.Context, tick Tick) error {
+	if t.StopAt != 0 && tick.X >= t.StopAt {
+		return nil
+	}
+
 	return t.postNextTick(ctx, Tick{
 		X: tick.X + 1,
 		T: uint64(time.Now().UnixNano()),

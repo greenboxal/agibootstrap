@@ -5,14 +5,16 @@ import (
 	"sync"
 
 	"github.com/alitto/pond"
-	"github.com/hashicorp/go-multierror"
 	"go.uber.org/fx"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 	"github.com/greenboxal/agibootstrap/psidb/services/migrations"
 )
+
+var logger = logging.GetLogger("pubsub")
 
 type Manager struct {
 	mu       sync.RWMutex
@@ -21,6 +23,7 @@ type Manager struct {
 	stream   *coreapi.ReplicationStreamProcessor
 	migrator migrations.Migrator
 
+	scheduler  *Scheduler
 	workerPool *pond.WorkerPool
 }
 
@@ -61,6 +64,22 @@ func (pm *Manager) Subscribe(pattern SubscriptionPattern, handler func(notificat
 }
 
 func (pm *Manager) Start(ctx context.Context) error {
+	tracker, err := pm.core.CreateConfirmationTracker(ctx, "pubsub")
+
+	if err != nil {
+		return err
+	}
+
+	pm.scheduler = NewScheduler(pm.core.Journal(), tracker, pm)
+
+	if err := pm.migrator.Migrate(ctx, migrationSet); err != nil {
+		return err
+	}
+
+	if err := pm.scheduler.Recover(); err != nil {
+		return err
+	}
+
 	slot, err := pm.core.CreateReplicationSlot(ctx, graphfs.ReplicationSlotOptions{
 		Name:       "pubsub",
 		Persistent: false,
@@ -72,36 +91,28 @@ func (pm *Manager) Start(ctx context.Context) error {
 
 	pm.stream = coreapi.NewReplicationStream(slot, pm.processReplicationMessage)
 
-	if err := pm.migrator.Migrate(ctx, migrationSet); err != nil {
-		return err
-	}
-
 	return nil
 }
 
 func (pm *Manager) processReplicationMessage(ctx context.Context, entries []*graphfs.JournalEntry) error {
-	var wg sync.WaitGroup
-
-	notifications := make(map[string][]*psi.Notification)
+	wg, _ := pm.workerPool.GroupContext(ctx)
 
 	for _, entry := range entries {
-		if entry.Op == graphfs.JournalOpNotify {
-			key := entry.Notification.Notified.String()
-
-			notifications[key] = append(notifications[key], entry.Notification)
-
-			continue
+		if entry.Op == graphfs.JournalOpNotify && entry.Confirmation == nil {
+			pm.scheduler.Dispatch(entry)
+		} else if entry.Op == graphfs.JournalOpConfirm {
+			pm.scheduler.Confirm(entry)
 		}
+	}
+
+	for _, entry := range entries {
+		entry := entry
 
 		if entry.Path == nil {
 			continue
 		}
 
-		wg.Add(1)
-
-		go func(entry *graphfs.JournalEntry) {
-			defer wg.Done()
-
+		wg.Submit(func() error {
 			n := Notification{
 				Ts:   entry.Ts,
 				Path: *entry.Path,
@@ -110,7 +121,7 @@ func (pm *Manager) processReplicationMessage(ctx context.Context, entries []*gra
 			root := pm.getOrCreateRoot(entry.Path.Root(), false)
 
 			if root == nil {
-				return
+				return nil
 			}
 
 			root.Push(n)
@@ -119,23 +130,17 @@ func (pm *Manager) processReplicationMessage(ctx context.Context, entries []*gra
 				root = root.Topic(el.String(), false)
 
 				if root == nil {
-					return
+					return nil
 				}
 
 				root.Push(n)
 			}
-		}(entry)
+
+			return nil
+		})
 	}
 
-	wg.Wait()
-
-	if len(notifications) > 0 {
-		if err := pm.dispatchNotify(ctx, notifications); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return wg.Wait()
 }
 
 func (pm *Manager) getOrCreateRoot(name string, create bool) *Topic {
@@ -168,46 +173,53 @@ func (pm *Manager) Close() error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
+	if err := pm.scheduler.Close(); err != nil {
+		return err
+	}
+
 	for _, t := range pm.roots {
 		if err := t.Close(); err != nil {
 			return err
 		}
 	}
 
+	pm.workerPool.Stop()
+
 	return nil
 }
 
-func (pm *Manager) dispatchNotify(ctx context.Context, notifications map[string][]*psi.Notification) error {
-	var merr error
+func (pm *Manager) Dispatch(entry *graphfs.JournalEntry) {
+	pm.workerPool.TrySubmit(func() {
+		ctx := context.Background()
 
-	wg, gctx := pm.workerPool.GroupContext(ctx)
+		not := entry.Notification
 
-	for _, notifications := range notifications {
-		if len(notifications) == 0 {
-			continue
-		}
+		err := pm.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
+			target, err := tx.Resolve(ctx, not.Notified)
 
-		notifications := notifications
-		targetPath := notifications[0].Notified
+			if err != nil {
+				return err
+			}
 
-		wg.Submit(func() error {
-			return pm.core.RunTransaction(gctx, func(ctx context.Context, tx coreapi.Transaction) error {
-				target, err := tx.Resolve(ctx, targetPath)
+			ack := psi.Confirmation{
+				Xid:   entry.Xid,
+				Rid:   entry.Rid,
+				Nonce: not.Nonce,
+			}
 
-				if err != nil {
-					return err
-				}
+			if err := not.Apply(ctx, target); err != nil {
+				logger.Error(err)
 
-				for _, not := range notifications {
-					if err := not.Apply(ctx, target); err != nil {
-						merr = multierror.Append(merr, err)
-					}
-				}
+				ack.Ok = false
+			} else {
+				ack.Ok = true
+			}
 
-				return nil
-			})
+			return tx.Confirm(ctx, ack)
 		})
-	}
 
-	return merr
+		if err != nil {
+			logger.Error(err)
+		}
+	})
 }

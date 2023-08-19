@@ -1,7 +1,6 @@
 package coreapi
 
 import (
-	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime/linking"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
@@ -18,9 +17,5 @@ type Core interface {
 	ServiceProvider() inject.ServiceProvider
 
 	TransactionOperations
-	graphfs.ReplicationManager
-}
-
-type DataStore interface {
-	datastore.Batching
+	ReplicationManager
 }

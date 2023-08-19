@@ -21,7 +21,6 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
 	"github.com/greenboxal/agibootstrap/psidb/modules/vm"
-	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
 	"github.com/greenboxal/agibootstrap/psidb/services/typing"
 )
 
@@ -122,6 +121,16 @@ func (c *Core) LinkSystem() *linking.LinkSystem         { return &c.lsys }
 func (c *Core) VirtualGraph() *graphfs.VirtualGraph     { return c.virtualGraph }
 func (c *Core) ServiceProvider() inject.ServiceProvider { return c.sp }
 
+func (c *Core) CreateConfirmationTracker(ctx context.Context, name string) (coreapi.ConfirmationTracker, error) {
+	ct, err := NewConfirmationTracker(ctx, c.ds, name)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ct, nil
+}
+
 func (c *Core) CreateReplicationSlot(ctx context.Context, options graphfs.ReplicationSlotOptions) (graphfs.ReplicationSlot, error) {
 	if err := c.waitReady(); err != nil {
 		return nil, err
@@ -220,11 +229,6 @@ func (c *Core) run(proc goprocess.Process) {
 			r.Init(r)
 
 			tx.Add(r)
-
-			scp := indexing.NewScope()
-			scp.SetParent(r)
-
-			indexing.SetNodeScope(r, scp)
 
 			if err := r.Update(ctx); err != nil {
 				return err

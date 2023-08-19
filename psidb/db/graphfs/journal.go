@@ -172,8 +172,10 @@ type JournalEntry struct {
 	Inode int64     `json:"inode"`
 	Path  *psi.Path `json:"path,omitempty"`
 
-	Node         *SerializedNode   `json:"node,omitempty"`
-	Edge         *SerializedEdge   `json:"edge,omitempty"`
+	Node *SerializedNode `json:"node,omitempty"`
+	Edge *SerializedEdge `json:"edge,omitempty"`
+
+	Confirmation *psi.Confirmation `json:"confirmation,omitempty"`
 	Notification *psi.Notification `json:"notification,omitempty"`
 }
 
@@ -194,7 +196,9 @@ const (
 	JournalOpWrite
 	JournalOpSetEdge
 	JournalOpRemoveEdge
+
 	JournalOpNotify
+	JournalOpConfirm
 )
 
 func (op JournalOp) String() string {
@@ -215,6 +219,8 @@ func (op JournalOp) String() string {
 		return "JOURNAL_OP_REMOVE_EDGE"
 	case JournalOpNotify:
 		return "JOURNAL_OP_NOTIFY"
+	case JournalOpConfirm:
+		return "JOURNAL_OP_CONFIRM"
 	default:
 		return fmt.Sprintf("JOURNAL_OP_UNKNOWN(%d)", op)
 	}

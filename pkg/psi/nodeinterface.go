@@ -209,12 +209,14 @@ func BindInterfaceFromNode(iface NodeInterface, typ typesystem.Type) *VTable {
 				vn := reflect.ValueOf(node)
 				vreq := reflect.ValueOf(request)
 
-				if payloadTyp != nil && (*payloadTyp).Kind() == reflect.Ptr {
-					if vreq.CanAddr() {
-						vreq = vreq.Addr()
-					} else {
-						vreq = reflect.New((*payloadTyp).Elem())
-						vreq.Elem().Set(reflect.ValueOf(request))
+				if payloadTyp != nil {
+					if (*payloadTyp).Kind() == reflect.Ptr {
+						if vreq.CanAddr() {
+							vreq = vreq.Addr()
+						} else {
+							vreq = reflect.New((*payloadTyp).Elem())
+							vreq.Elem().Set(reflect.ValueOf(request))
+						}
 					}
 
 					args = []reflect.Value{vctx, vreq}

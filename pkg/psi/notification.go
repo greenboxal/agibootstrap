@@ -10,7 +10,16 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 )
 
+type Confirmation struct {
+	Xid   uint64 `json:"xid"`
+	Rid   uint64 `json:"rid"`
+	Nonce uint64 `json:"nonce"`
+	Ok    bool   `json:"ok"`
+}
+
 type Notification struct {
+	Nonce uint64 `json:"nonce"`
+
 	Notifier  Path   `json:"notifier"`
 	Notified  Path   `json:"notified"`
 	Interface string `json:"interface"`

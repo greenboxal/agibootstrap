@@ -52,6 +52,9 @@ type Cursor interface {
 	// InsertAfter inserts the given node before the current node, modifying the AST.
 	// This node might be visited in the current walk.
 	InsertAfter(node Node)
+
+	// Walk walks the given node.
+	Walk(n Node, walkFn WalkFunc) (err error)
 }
 
 type cursorState struct {

@@ -32,6 +32,12 @@ func NewTransactionManager(graph *VirtualGraph, journal *Journal, checkpoint Che
 	}
 }
 
+type notificationKey struct {
+	xid   uint64
+	rid   uint64
+	nonce uint64
+}
+
 func (txm *TransactionManager) Recover(ctx context.Context) error {
 	xid, ok, err := txm.checkpoint.Get()
 
@@ -53,6 +59,7 @@ func (txm *TransactionManager) Recover(ctx context.Context) error {
 
 	it := txm.journal.Iterate(xid+1, -1)
 
+	notifications := map[notificationKey]*JournalEntry{}
 	recoveredTransactions := map[uint64]*Transaction{}
 
 	for it.Next() {
@@ -87,6 +94,22 @@ func (txm *TransactionManager) Recover(ctx context.Context) error {
 		} else if entry.Op == JournalOpRollback {
 			if err := tx.Rollback(ctx); err != nil {
 				return err
+			}
+		} else if entry.Op == JournalOpNotify {
+			notifications[notificationKey{
+				xid:   entry.Xid,
+				rid:   entry.Rid,
+				nonce: entry.Notification.Nonce,
+			}] = &entry
+		} else if entry.Op == JournalOpConfirm {
+			not := notifications[notificationKey{
+				xid:   entry.Confirmation.Xid,
+				rid:   entry.Confirmation.Rid,
+				nonce: entry.Confirmation.Nonce,
+			}]
+
+			if not != nil {
+				not.Confirmation = entry.Confirmation
 			}
 		}
 	}

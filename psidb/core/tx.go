@@ -49,6 +49,10 @@ func (t *transaction) Notify(ctx context.Context, not psi.Notification) error {
 	return t.lg.Transaction().Notify(ctx, not)
 }
 
+func (t *transaction) Confirm(ctx context.Context, ack psi.Confirmation) error {
+	return t.lg.Transaction().Confirm(ctx, ack)
+}
+
 func (t *transaction) Commit(ctx context.Context) error {
 	if err := t.lg.Commit(ctx); err != nil {
 		return err

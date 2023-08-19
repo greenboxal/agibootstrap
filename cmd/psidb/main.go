@@ -35,9 +35,13 @@ func main() {
 			cfg.ProjectDir = wd
 			cfg.DataDir = path.Join(cfg.ProjectDir, ".fti/psi")
 			cfg.UseTLS = true
+			cfg.TLSCertFile = os.Getenv("PSIDB_TLS_CERT_FILE")
+			cfg.TLSKeyFile = os.Getenv("PSIDB_TLS_KEY_FILE")
 
 			cfg.Workers.MaxWorkers = 32
 			cfg.Workers.MaxCapacity = 1024
+
+			cfg.SetDefaults()
 
 			return cfg
 		}),

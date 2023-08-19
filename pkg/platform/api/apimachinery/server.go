@@ -84,17 +84,27 @@ func (a *Server) Start(ctx context.Context) error {
 	}
 
 	if a.cfg.UseTLS {
-		serverTLSCert, err := generateSelfSigned(a.cfg)
-
-		if err != nil {
-			return fmt.Errorf("failed to generate self signed certificate: %w", err)
-		}
-
-		tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{serverTLSCert},
-		}
+		tlsConfig := &tls.Config{}
 
 		a.server.TLSConfig = tlsConfig
+
+		if a.cfg.TLSCertFile != "" && a.cfg.TLSKeyFile != "" {
+			cert, err := tls.LoadX509KeyPair(a.cfg.TLSCertFile, a.cfg.TLSKeyFile)
+
+			if err != nil {
+				return fmt.Errorf("failed to load TLS certificate: %w", err)
+			}
+
+			tlsConfig.Certificates = []tls.Certificate{cert}
+		} else {
+			serverTLSCert, err := generateSelfSigned(a.cfg)
+
+			if err != nil {
+				return fmt.Errorf("failed to generate self signed certificate: %w", err)
+			}
+
+			tlsConfig.Certificates = []tls.Certificate{serverTLSCert}
+		}
 
 		l, err := tls.Listen("tcp", endpoint, tlsConfig)
 

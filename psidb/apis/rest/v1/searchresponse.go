@@ -1,4 +1,4 @@
-package rest
+package restv1
 
 import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"

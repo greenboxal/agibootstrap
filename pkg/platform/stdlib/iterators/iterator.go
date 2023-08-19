@@ -81,6 +81,14 @@ func (s *single[T]) Next() bool {
 
 func (s *single[T]) Value() T { return s.value }
 
+func FirstOrNull[T any](it Iterator[T]) (empty T) {
+	if !it.Next() {
+		return
+	}
+
+	return it.Value()
+}
+
 type empty[T any] struct {
 	consumed bool
 }

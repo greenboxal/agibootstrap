@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
@@ -47,6 +48,81 @@ type initializerIface interface {
 	psi.Node
 
 	Init(self psi.Node)
+}
+
+func Boolean(ctx context.Context, req ReflectOptions) (bool, error) {
+	historyText := ""
+
+	for _, msg := range req.History {
+		historyText += fmt.Sprintf("[%s]:\n%s\n", msg.From.Name, msg.Text)
+	}
+
+	msgs := make([]*thoughtdb.Thought, 0, len(req.History)+3)
+
+	msgs = append(msgs, &thoughtdb.Thought{
+		From: thoughtdb.CommHandle{
+			Role: msn.RoleSystem,
+		},
+
+		Text: fmt.Sprintf(
+			"You will be tasked to reply to a request about the chat history. ",
+		),
+	})
+
+	msgs = append(msgs, req.History...)
+
+	msgs = append(msgs, &thoughtdb.Thought{
+		From: thoughtdb.CommHandle{
+			Name: "User",
+			Role: msn.RoleUser,
+		},
+
+		Text: fmt.Sprintf(
+			"",
+		),
+	})
+
+	msgs = append(msgs, &thoughtdb.Thought{
+		From: thoughtdb.CommHandle{
+			Name: "Assistant",
+			Role: msn.RoleAI,
+		},
+
+		Text: "```json\n",
+	})
+
+	prompt := &SimplePromptTemplate{
+		Messages: msgs,
+	}
+
+	cctx := chain.NewChainContext(ctx)
+
+	stepChain := chain.New(
+		chain.WithName("FeatureReflector"),
+
+		chain.Sequential(
+			chat.Predict(
+				gpt.GlobalModel,
+				prompt,
+				chat.WithTemperature(0),
+				chat.WithMaxTokens(1),
+				chat.WithLogProbs(1),
+				chat.WithLogitBias(map[string]int{
+					"3363": 1,
+					"1400": 1,
+				}),
+			),
+		),
+	)
+
+	if err := stepChain.Run(cctx); err != nil {
+		return false, err
+	}
+
+	reply := chain.Output(cctx, chat.ChatReplyContextKey)
+	tk := strings.ToLower(reply.Entries[0].Text)
+
+	return tk == "Yes", nil
 }
 
 func Reflect[T any](ctx context.Context, req ReflectOptions) (def T, _ chat.Message, _ error) {

@@ -277,7 +277,7 @@ func (d *Document) Expand(ctx context.Context, req *LearnRequest) error {
 func (d *Document) DispatchLearn(ctx context.Context, requestor psi.Path, req *LearnRequest) error {
 	tx := coreapi.GetTransaction(ctx)
 
-	logger.Infow("Dispatching learn request", "requestor", requestor, "notified", d.CanonicalPath(), "data", string(data))
+	logger.Infow("Dispatching learn request", "requestor", requestor, "notified", d.CanonicalPath())
 
 	return tx.Notify(ctx, psi.Notification{
 		Notifier:  requestor,
@@ -291,7 +291,7 @@ func (d *Document) DispatchLearn(ctx context.Context, requestor psi.Path, req *L
 func (d *Document) DispatchExpand(ctx context.Context, requestor psi.Path, req *LearnRequest) error {
 	tx := coreapi.GetTransaction(ctx)
 
-	logger.Infow("Dispatching expand request", "requestor", requestor, "notified", d.CanonicalPath(), "data", string(data))
+	logger.Infow("Dispatching expand request", "requestor", requestor, "notified", d.CanonicalPath())
 
 	return tx.Notify(ctx, psi.Notification{
 		Notifier:  requestor,

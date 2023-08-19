@@ -13,7 +13,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphindex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/psidb/apis/rest"
+	"github.com/greenboxal/agibootstrap/psidb/apis/rest/v1"
 	"github.com/greenboxal/agibootstrap/psidb/core"
 )
 
@@ -43,7 +43,7 @@ func NewGateway(
 
 	gw.router.Get("/_objects/{cid}", gw.handleObjectStoreGet)
 	gw.router.HandleFunc("/_search", gw.handleSearch)
-	gw.router.Mount("/v1", http.StripPrefix("/v1", rest.NewRouter(graph.)))
+	gw.router.Mount("/v1", http.StripPrefix("/v1", restv1.NewRouter(graph.)))
 
 	gw.router.Route("/psi", func(r chi.Router) {
 		r.NotFound(func(writer http.ResponseWriter, request *http.Request) {

@@ -2,11 +2,8 @@ package core
 
 import (
 	"context"
-	"os"
-	"path"
 	"sync"
 
-	badger "github.com/ipfs/go-ds-badger"
 	"go.uber.org/fx"
 
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
@@ -78,30 +75,4 @@ func (bm *BlockManager) Register(sb graphfs.SuperBlock) {
 
 func (bm *BlockManager) Close() error {
 	return nil
-}
-
-func NewDataStore(
-	lc fx.Lifecycle,
-	cfg *coreapi.Config,
-) (coreapi.DataStore, error) {
-	dsOpts := badger.DefaultOptions
-	dsPath := path.Join(cfg.DataDir, "data")
-
-	if err := os.MkdirAll(dsPath, 0755); err != nil {
-		return nil, err
-	}
-
-	ds, err := badger.NewDatastore(dsPath, &dsOpts)
-
-	if err != nil {
-		return nil, err
-	}
-
-	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
-			return ds.Close()
-		},
-	})
-
-	return ds, nil
 }

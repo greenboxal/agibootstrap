@@ -52,6 +52,13 @@ func (tx *Transaction) Notify(ctx context.Context, not psi.Notification) error {
 	})
 }
 
+func (tx *Transaction) Confirm(ctx context.Context, ack psi.Confirmation) error {
+	return tx.Append(ctx, JournalEntry{
+		Op:           JournalOpConfirm,
+		Confirmation: &ack,
+	})
+}
+
 func (tx *Transaction) Append(ctx context.Context, entry JournalEntry) error {
 	tx.mu.Lock()
 	defer tx.mu.Unlock()
