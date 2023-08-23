@@ -6,6 +6,7 @@ import (
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/chunkers"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
+	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
 	"go.uber.org/fx"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
@@ -23,8 +24,13 @@ var Module = fx.Module(
 	fx.Provide(NewEmbeddingCacheManager),
 	fx.Provide(NewDefaultNodeEmbedder),
 
-	fx.Invoke(func(sp inject.ServiceProvider, e indexing2.NodeEmbedder) {
+	fx.Provide(func() *openai.Client {
+		return gpt.GlobalClient
+	}),
+
+	fx.Invoke(func(sp inject.ServiceProvider, e indexing2.NodeEmbedder, client *openai.Client) {
 		inject.RegisterInstance(sp, e)
+		inject.RegisterInstance(sp, client)
 	}),
 )
 

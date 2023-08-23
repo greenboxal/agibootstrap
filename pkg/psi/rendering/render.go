@@ -326,13 +326,15 @@ func getSkinAlternatives(t Theme, contentType string, skinName string, node psi.
 		ContentType: contentType,
 		NodeType:    node.PsiNodeType(),
 		RenderFn: func(ctx SkinRendererContext, node psi.Node) error {
-			data, err := ipld.Encode(typesystem.Wrap(node), dagjson.Encode)
-
-			if err != nil {
-				return err
-			}
-
-			_, err = fmt.Fprintf(ctx.Buffer, "%s (%T) %s = %s\n", node.PsiNodeType(), node, data, node)
+			err := ipld.EncodeStreaming(ctx.Buffer, typesystem.Wrap(struct {
+				Type string   `json:"type,omitempty"`
+				Path psi.Path `json:"path"`
+				Node psi.Node `json:"node,omitempty"`
+			}{
+				Path: node.CanonicalPath(),
+				Type: node.PsiNodeType().String(),
+				Node: node,
+			}), dagjson.Encode)
 
 			if err != nil {
 				return err

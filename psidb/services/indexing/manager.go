@@ -9,8 +9,6 @@ import (
 	"github.com/alitto/pond"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -76,7 +74,7 @@ func (im *Manager) Start(ctx context.Context) error {
 }
 
 func (im *Manager) processReplicationMessage(ctx context.Context, entries []*graphfs.JournalEntry) error {
-	dirtyNodes := map[string]psi.Path{}
+	/*dirtyNodes := map[string]psi.Path{}
 
 	for _, entry := range entries {
 		if entry.Path == nil {
@@ -105,7 +103,9 @@ func (im *Manager) processReplicationMessage(ctx context.Context, entries []*gra
 		return i.CompareTo(j) < 0
 	})
 
-	return im.Update(ctx, keys)
+	return im.Update(ctx, keys)*/
+
+	return nil
 }
 
 func (im *Manager) OpenNodeIndex(ctx context.Context, id string, embedder NodeEmbedder) (NodeIndex, error) {

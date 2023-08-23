@@ -37,7 +37,19 @@ func Resolve[T Node](ctx context.Context, g Graph, path Path) (empty T, _ error)
 		return empty, err
 	}
 
-	return n.(T), nil
+	v, ok := n.(T)
+
+	if !ok {
+		n, err = g.ResolveNode(ctx, path)
+
+		if err != nil {
+			return empty, err
+		}
+
+		return n.(T), nil
+	}
+
+	return v, nil
 }
 
 func MustResolveChildOrCreate[T Node](ctx context.Context, n Node, name PathElement, factoryFn func() T) (empty T) {
@@ -97,6 +109,10 @@ func ResolveOrCreate[T Node](ctx context.Context, g Graph, path Path, factoryFn 
 		result = factoryFn()
 
 		result.SetParent(parent)
+
+		if err := parent.Update(ctx); err != nil {
+			return empty, err
+		}
 	}
 
 	return result.(T), nil

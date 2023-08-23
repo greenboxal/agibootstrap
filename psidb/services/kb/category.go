@@ -7,7 +7,7 @@ import (
 )
 
 type ICategory interface {
-	Consolidate(ctx context.Context, node psi.Node) error
+	Consolidate(ctx context.Context) error
 }
 
 type Category struct {

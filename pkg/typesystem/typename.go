@@ -39,10 +39,42 @@ func (n TypeName) ToTitlePlural() string {
 
 func (n TypeName) FullName() string {
 	if n.Package != "" {
-		return n.Package + "." + n.Name
+		return strings.ReplaceAll(n.Package, "/", ".") + "." + n.Name
 	}
 
 	return n.Name
+}
+
+func (n TypeName) Args() []string {
+	return lo.Map(n.Parameters, func(arg TypeName, _index int) string {
+		return arg.String()
+	})
+}
+
+func (n TypeName) NameWithArgs() string {
+	if len(n.Parameters) > 0 {
+		a := n.Args()
+
+		args := strings.Join(a, "__")
+		args = "___" + args + "___"
+
+		return n.Name + args
+	}
+
+	return n.Name
+}
+
+func (n TypeName) FullNameWithArgs() string {
+	if len(n.Parameters) > 0 {
+		a := n.Args()
+
+		args := strings.Join(a, "__")
+		args = "___" + args + "___"
+
+		return n.FullName() + args
+	}
+
+	return n.FullName()
 }
 
 func (n TypeName) GoString() string {
@@ -79,20 +111,50 @@ func (n TypeName) NormalizedFullNameWithArguments() string {
 	return utils.NormalizeName(n.FullName() + args)
 }
 
-func getTypeName(typ reflect.Type) TypeName {
-	var asTypeName func(parsed utils.ParsedTypeName) TypeName
+func AsTypeName(parsed utils.ParsedTypeName) TypeName {
+	return TypeName{
+		Name:    parsed.Name,
+		Package: parsed.Pkg,
+		Parameters: lo.Map(parsed.Args, func(item utils.ParsedTypeName, index int) TypeName {
+			return AsTypeName(item)
+		}),
+	}
+}
 
-	asTypeName = func(parsed utils.ParsedTypeName) TypeName {
-		return TypeName{
-			Name:    parsed.Name,
-			Package: parsed.Pkg,
-			Parameters: lo.Map(parsed.Args, func(item utils.ParsedTypeName, index int) TypeName {
-				return asTypeName(item)
-			}),
+var packageTypeNameMap = map[string]string{
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs": "vfs",
+	"github.com/greenboxal/agibootstrap/pkg/":             "agib.",
+	"github.com/greenboxal/agibootstrap/psidb/db/":        "psidb.",
+	"github.com/greenboxal/agibootstrap/psidb/services/":  "psidb.",
+	"github.com/greenboxal/agibootstrap/psidb/apps/":      "",
+	"github.com/greenboxal/agibootstrap/psidb/modules/":   "",
+}
+
+func GetTypeName(typ reflect.Type) TypeName {
+	parsed := utils.GetParsedTypeName(typ)
+
+	if parsed.Pkg == "" {
+		parsed.Pkg = "_rt_"
+	}
+
+	parsed.Pkg = rewritePackageName(parsed.Pkg)
+	parsed.Pkg = strings.ReplaceAll(parsed.Pkg, "/", ".")
+
+	return AsTypeName(parsed)
+}
+
+func rewritePackageName(pkg string) string {
+	longest := ""
+
+	for k := range packageTypeNameMap {
+		if strings.HasPrefix(pkg, k) && len(k) > len(longest) {
+			longest = k
 		}
 	}
 
-	parsed := utils.GetParsedTypeName(typ)
+	if longest == "" {
+		return pkg
+	}
 
-	return asTypeName(parsed)
+	return packageTypeNameMap[longest] + strings.TrimPrefix(pkg, longest)
 }

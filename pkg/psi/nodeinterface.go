@@ -74,7 +74,7 @@ func ReflectNodeInterface(typ reflect.Type, options ...NodeInterfaceOption) Node
 			Name: m.Name,
 		}
 
-		if m.Type.NumIn() != 3 && m.Type.NumIn() != 2 {
+		if m.Type.NumIn() < 1 && m.Type.NumIn() > 3 {
 			panic(fmt.Errorf("method %s has %d parameters, expected 3", m.Name, m.Type.NumIn()))
 		}
 
@@ -82,9 +82,20 @@ func ReflectNodeInterface(typ reflect.Type, options ...NodeInterfaceOption) Node
 			panic(fmt.Errorf("method %s has %d return values, expected 1 or 2", m.Name, m.Type.NumOut()))
 		}
 
-		if m.Type.NumIn() >= 3 {
-			requestType := reflect.PtrTo(m.Type.In(2))
-			ifaceAction.RequestType = typesystem.TypeFrom(requestType)
+		for i := 0; i < m.Type.NumIn(); i++ {
+			t := m.Type.In(i)
+
+			if t == contextType {
+				continue
+			}
+
+			if t.AssignableTo(nodeRuntimeType) && ifaceAction.RequestType == nil && i < m.Type.NumIn()-1 {
+				continue
+			}
+
+			if ifaceAction.RequestType == nil {
+				ifaceAction.RequestType = typesystem.TypeFrom(t)
+			}
 		}
 
 		if m.Type.NumOut() > 1 {
@@ -173,6 +184,9 @@ func BindInterface(iface NodeInterface, vtable VTableDefinition) *VTable {
 	}
 }
 
+var nodeRuntimeType = reflect.TypeOf((*Node)(nil)).Elem()
+var contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
+
 func BindInterfaceFromNode(iface NodeInterface, typ typesystem.Type) *VTable {
 	var def VTableDefinition
 
@@ -182,6 +196,8 @@ func BindInterfaceFromNode(iface NodeInterface, typ typesystem.Type) *VTable {
 
 	for i, action := range iface.Actions() {
 		var payloadTyp *reflect.Type
+
+		action := action
 
 		m, ok := rt.MethodByName(action.Name)
 
@@ -194,9 +210,20 @@ func BindInterfaceFromNode(iface NodeInterface, typ typesystem.Type) *VTable {
 			panic(fmt.Errorf("missing method %s", action.Name))
 		}
 
-		if m.Type.NumIn() >= 3 {
-			t := m.Type.In(2)
-			payloadTyp = &t
+		for i := 0; i < m.Type.NumIn(); i++ {
+			t := m.Type.In(i)
+
+			if t == contextType {
+				continue
+			}
+
+			if t.AssignableTo(nodeRuntimeType) && payloadTyp == nil && i < m.Type.NumIn()-1 {
+				continue
+			}
+
+			if payloadTyp == nil {
+				payloadTyp = &t
+			}
 		}
 
 		def.actions[action.Name] = &nodeAction{

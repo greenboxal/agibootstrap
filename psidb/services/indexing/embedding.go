@@ -3,6 +3,8 @@ package indexing
 import (
 	"fmt"
 	"math"
+
+	"gonum.org/v1/gonum/mat"
 )
 
 type Embedding interface {
@@ -22,8 +24,24 @@ func (g GraphEmbedding) String() string {
 	return fmt.Sprintf("Md=%v Mtd=%v Mr=%v Mt=%v Msema=%v", g.Depth, g.TreeDistance, g.ReferenceDistance, g.Time, g.Semantic)
 }
 
+func (g GraphEmbedding) Dense() *mat.VecDense {
+	return mat.NewVecDense(len(g.Semantic), g.ToFloat64Slice(nil))
+}
+
 func (g GraphEmbedding) Dimensions() int {
 	return len(g.Semantic) // + 8
+}
+
+func (g GraphEmbedding) ToFloat64Slice(dst []float64) []float64 {
+	if dst == nil {
+		dst = make([]float64, 0, len(g.Semantic))
+	}
+
+	for _, v := range g.Semantic {
+		dst = append(dst, float64(v))
+	}
+
+	return dst
 }
 
 func (g GraphEmbedding) ToFloat32Slice(dst []float32) []float32 {

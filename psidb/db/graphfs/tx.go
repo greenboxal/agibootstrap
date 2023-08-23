@@ -59,6 +59,28 @@ func (tx *Transaction) Confirm(ctx context.Context, ack psi.Confirmation) error 
 	})
 }
 
+func (tx *Transaction) Wait(ctx context.Context, handles ...psi.Promise) error {
+	if len(handles) == 0 {
+		return nil
+	}
+
+	return tx.Append(ctx, JournalEntry{
+		Op:       JournalOpWait,
+		Promises: handles,
+	})
+}
+
+func (tx *Transaction) Signal(ctx context.Context, handles ...psi.Promise) error {
+	if len(handles) == 0 {
+		return nil
+	}
+
+	return tx.Append(ctx, JournalEntry{
+		Op:       JournalOpSignal,
+		Promises: handles,
+	})
+}
+
 func (tx *Transaction) Append(ctx context.Context, entry JournalEntry) error {
 	tx.mu.Lock()
 	defer tx.mu.Unlock()

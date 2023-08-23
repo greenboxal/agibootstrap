@@ -16,7 +16,7 @@ func (n *NodeBase) UpsertEdge(edge Edge) {
 }
 
 func (n *NodeBase) SetEdge(key EdgeReference, to Node) {
-	e, _ := n.edges.Get(key.GetKey())
+	e := n.GetEdge(key.GetKey())
 
 	if e == nil {
 		e = NewSimpleEdge(key, n, to)

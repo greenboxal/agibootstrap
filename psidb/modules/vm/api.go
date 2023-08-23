@@ -9,7 +9,7 @@ import (
 )
 
 type IModule interface {
-	Register(ctx context.Context, n psi.Node) error
+	Register(ctx context.Context) error
 }
 
 type Module struct {

@@ -17,7 +17,7 @@ var GlobalEmbedder = &openai.Embedder{
 var GlobalModel = &openai.ChatLanguageModel{
 	Client:      GlobalClient,
 	Model:       "gpt-3.5-turbo-16k",
-	Temperature: 1.0,
+	Temperature: 1.5,
 }
 
 var GlobalModelTokenizer = tokenizers.TikTokenForModel(GlobalModel.Model)

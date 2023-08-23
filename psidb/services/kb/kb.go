@@ -2,14 +2,14 @@ package kb
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
+	"gonum.org/v1/gonum/floats"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
-	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
 	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
 )
 
@@ -22,10 +22,24 @@ type KnowledgeRequest struct {
 
 	References []psi.Path `json:"references"`
 	BackLinkTo psi.Path   `json:"back_link_to"`
+
+	Observer psi.Promise `json:"observer"`
+}
+
+type TraceRequest struct {
+	From psi.Path `json:"from"`
+	To   psi.Path `json:"to"`
+
+	Dispatch bool `json:"dispatch"`
+}
+
+type TraceResponse struct {
+	Trace []psi.Path `json:"trace"`
 }
 
 type IKnowledgeBase interface {
-	CreateKnowledge(ctx context.Context, node psi.Node, request *KnowledgeRequest) (*Document, error)
+	CreateKnowledge(ctx context.Context, request *KnowledgeRequest) (*Document, error)
+	TraceConcept(ctx context.Context, request *TraceRequest) (*TraceResponse, error)
 }
 
 type KnowledgeBase struct {
@@ -79,6 +93,166 @@ func (kb *KnowledgeBase) DispatchCreateKnowledge(ctx context.Context, requestor 
 	})
 }
 
+func (kb *KnowledgeBase) TraceConcept(ctx context.Context, request *TraceRequest) (*TraceResponse, error) {
+	var result TraceResponse
+
+	if !request.Dispatch {
+		tx := coreapi.GetTransaction(ctx)
+		err := tx.Notify(ctx, psi.Notification{
+			Notifier:  kb.CanonicalPath(),
+			Notified:  kb.CanonicalPath(),
+			Interface: KnowledgeBaseInterface.Name(),
+			Action:    "TraceConcept",
+			Argument: &TraceRequest{
+				From:     request.From,
+				To:       request.To,
+				Dispatch: true,
+			},
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		return &result, nil
+	}
+
+	index := kb.GetGlobalDocumentScope(ctx)
+	embedder := index.Embedder
+
+	from, err := psi.Resolve[*Document](ctx, coreapi.GetTransaction(ctx).Graph(), request.From)
+
+	if err != nil {
+		return nil, err
+	}
+
+	to, err := psi.Resolve[*Document](ctx, coreapi.GetTransaction(ctx).Graph(), request.To)
+
+	if err != nil {
+		return nil, err
+	}
+
+	openSet := []psi.Node{from}
+	cameFrom := map[psi.Node]psi.Node{}
+	gScore := map[psi.Node]float64{}
+	fScore := map[psi.Node]float64{}
+	eCache := map[psi.Node][]float64{}
+
+	rebuildPath := func(n psi.Node) []psi.Node {
+		path := []psi.Node{n}
+
+		for {
+			if prev, ok := cameFrom[n]; ok {
+				path = append(path, prev)
+				n = prev
+			} else {
+				break
+			}
+		}
+
+		return path
+	}
+
+	getEmbedding := func(n psi.Node) []float64 {
+		if e, ok := eCache[n]; ok {
+			return e
+		}
+
+		e, err := embedder.EmbeddingsForNode(ctx, n)
+
+		if err != nil {
+			panic(err)
+		}
+
+		if !e.Next() {
+			panic("no embeddings")
+		}
+
+		arr := e.Value().ToFloat64Slice(nil)
+
+		eCache[n] = arr
+
+		return arr
+	}
+
+	calculateDistance := func(a, b psi.Node) float64 {
+		ae := getEmbedding(a)
+		be := getEmbedding(b)
+
+		return floats.Dot(ae, be)
+	}
+
+	calculateHeuristic := func(a psi.Node) float64 {
+		return calculateDistance(a, to)
+	}
+
+	gScore[from] = 0
+	fScore[from] = calculateHeuristic(from)
+
+	for len(openSet) > 0 {
+		slices.SortFunc(openSet, func(i, j psi.Node) bool {
+			return calculateHeuristic(i) < calculateHeuristic(j)
+		})
+
+		current := openSet[0].(*Document)
+		openSet = openSet[1:]
+
+		if current.CanonicalPath().Equals(request.To) {
+			p := rebuildPath(current)
+
+			result.Trace = lo.Map(p, func(n psi.Node, _ int) psi.Path { return n.CanonicalPath() })
+
+			break
+		}
+
+		gotEdges := false
+
+		for !gotEdges {
+			learnReq := &LearnRequest{
+				CurrentDepth: 0,
+				MaxDepth:     2,
+			}
+
+			if !current.HasContent {
+				if err := current.Learn(ctx, learnReq); err != nil {
+					return nil, err
+				}
+			} else {
+				if err := current.Expand(ctx, learnReq); err != nil {
+					return nil, err
+				}
+			}
+
+			if err != nil {
+				return nil, err
+			}
+
+			for edges := current.Edges(); edges.Next(); {
+				edge := edges.Value()
+				neighbor, ok := edge.To().(*Document)
+
+				if !ok {
+					continue
+				}
+
+				gotEdges = true
+
+				tentativeGScore := gScore[current] + calculateDistance(current, neighbor)
+
+				if score, ok := gScore[neighbor]; !ok || tentativeGScore < score {
+					cameFrom[neighbor] = current
+					gScore[neighbor] = tentativeGScore
+					fScore[neighbor] = tentativeGScore + calculateHeuristic(neighbor)
+
+					openSet = append(openSet, neighbor)
+				}
+			}
+		}
+	}
+
+	return &result, nil
+}
+
 func (kb *KnowledgeBase) CreateKnowledge(ctx context.Context, request *KnowledgeRequest) (*Document, error) {
 	tx := coreapi.GetTransaction(ctx)
 	doc, err := kb.deduplicateDocument(ctx, request)
@@ -105,15 +279,18 @@ func (kb *KnowledgeBase) CreateKnowledge(ctx context.Context, request *Knowledge
 		}
 	}
 
-	if err := doc.DispatchLearn(ctx, kb.CanonicalPath(), &LearnRequest{
+	learnReq := &LearnRequest{
 		References:   request.References,
 		CurrentDepth: request.CurrentDepth,
 		MaxDepth:     request.MaxDepth,
-	}); err != nil {
+		Observer:     request.Observer,
+	}
+
+	if err := doc.DispatchLearn(ctx, kb.CanonicalPath(), learnReq); err != nil {
 		return nil, err
 	}
 
-	return doc, nil
+	return doc, doc.Update(ctx)
 }
 
 func (kb *KnowledgeBase) ResolveCategory(ctx context.Context, name string) (*Category, error) {
@@ -143,7 +320,7 @@ func (kb *KnowledgeBase) deduplicateDocument(ctx context.Context, request *Knowl
 		return existing, nil
 	}
 
-	idx, err := kb.GetGlobalDocumentScope(ctx).GetIndex(ctx)
+	/*idx, err := kb.GetGlobalDocumentScope(ctx).GetIndex(ctx)
 
 	if err != nil {
 		return nil, err
@@ -190,7 +367,7 @@ func (kb *KnowledgeBase) deduplicateDocument(ctx context.Context, request *Knowl
 				})
 			}
 		}
-	}
+	}*/
 
 	doc, err := psi.ResolveOrCreate[*Document](ctx, tx.Graph(), docPath, func() *Document {
 		doc := NewDocument()

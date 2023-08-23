@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"time"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -45,12 +46,31 @@ func (t *transaction) Resolve(ctx context.Context, path psi.Path) (psi.Node, err
 	return t.lg.ResolveNode(ctx, path)
 }
 
+func (t *transaction) MakePromise() psi.PromiseHandle {
+	return psi.PromiseHandle{
+		Xid:   t.lg.Transaction().GetXid(),
+		Nonce: uint64(time.Now().UnixNano()),
+	}
+}
+
 func (t *transaction) Notify(ctx context.Context, not psi.Notification) error {
+	if not.Nonce == 0 {
+		not.Nonce = uint64(time.Now().UnixNano())
+	}
+
 	return t.lg.Transaction().Notify(ctx, not)
 }
 
 func (t *transaction) Confirm(ctx context.Context, ack psi.Confirmation) error {
 	return t.lg.Transaction().Confirm(ctx, ack)
+}
+
+func (t *transaction) Wait(ctx context.Context, handles ...psi.Promise) error {
+	return t.lg.Transaction().Wait(ctx, handles...)
+}
+
+func (t *transaction) Signal(ctx context.Context, handles ...psi.Promise) error {
+	return t.lg.Transaction().Signal(ctx, handles...)
 }
 
 func (t *transaction) Commit(ctx context.Context) error {

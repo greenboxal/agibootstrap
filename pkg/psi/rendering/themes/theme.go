@@ -90,8 +90,8 @@ var GlobalTheme = rendering.BuildTheme(
 				return err
 			}
 
-			for _, child := range node.Children() {
-				fsNode, ok := child.(vfs.Node)
+			for edges := node.Edges(); edges.Next(); {
+				fsNode, ok := edges.Value().To().(vfs.Node)
 
 				if !ok {
 					continue
@@ -145,20 +145,7 @@ var GlobalTheme = rendering.BuildTheme(
 		"text/markdown",
 		"",
 		func(ctx rendering.SkinRendererContext, node *kb.Document) error {
-			if _, err := ctx.Buffer.WriteFormat("# %s\n%s\n%s\n%s\n", node.Title, node.Description, node.Summary, node.Body); err != nil {
-				return err
-			}
-
-			return nil
-		},
-	),
-
-	rendering.WithSkinFunc(
-		kb.DocumentType,
-		"text/markdown",
-		"summary",
-		func(ctx rendering.SkinRendererContext, node *kb.Document) error {
-			if _, err := ctx.Buffer.WriteFormat("# %s\n%s\n", node.Title, node.Summary); err != nil {
+			if _, err := ctx.Buffer.WriteFormat("# %s\nDescription: %s\nSummary: %s\n\n%s\n", node.Title, node.Description, node.Summary, node.Body); err != nil {
 				return err
 			}
 

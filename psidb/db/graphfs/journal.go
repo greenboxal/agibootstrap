@@ -177,6 +177,8 @@ type JournalEntry struct {
 
 	Confirmation *psi.Confirmation `json:"confirmation,omitempty"`
 	Notification *psi.Notification `json:"notification,omitempty"`
+
+	Promises []psi.Promise `json:"promises,omitempty"`
 }
 
 func (e JournalEntry) String() string {
@@ -190,15 +192,20 @@ type JournalOp int
 
 const (
 	JournalOpInvalid JournalOp = iota
+
 	JournalOpBegin
 	JournalOpCommit
 	JournalOpRollback
+
 	JournalOpWrite
 	JournalOpSetEdge
 	JournalOpRemoveEdge
 
 	JournalOpNotify
 	JournalOpConfirm
+
+	JournalOpWait
+	JournalOpSignal
 )
 
 func (op JournalOp) String() string {
@@ -221,6 +228,10 @@ func (op JournalOp) String() string {
 		return "JOURNAL_OP_NOTIFY"
 	case JournalOpConfirm:
 		return "JOURNAL_OP_CONFIRM"
+	case JournalOpWait:
+		return "JOURNAL_OP_WAIT"
+	case JournalOpSignal:
+		return "JOURNAL_OP_SIGNAL"
 	default:
 		return fmt.Sprintf("JOURNAL_OP_UNKNOWN(%d)", op)
 	}

@@ -7,20 +7,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/greenboxal/aip/aip-sdk/pkg/utils"
 	"golang.org/x/exp/maps"
 
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 )
 
 var globalTypeRegistry = NewTypeRegistry()
-
-var packageTypeNameMap = map[string]string{
-	"github.com/greenboxal/agibootstrap/pkg/platform/vfs": "vfs",
-	"github.com/greenboxal/agibootstrap/pkg/":             "agib.",
-	"github.com/greenboxal/agibootstrap/psidb/db/":        "psidb.",
-	"github.com/greenboxal/agibootstrap/psidb/services/":  "psidb.",
-	"github.com/greenboxal/agibootstrap/psidb/modules/":   "",
-}
 
 func GlobalTypeRegistry() TypeRegistry {
 	return globalTypeRegistry
@@ -161,28 +154,11 @@ func DefineEdgeType[T Node](kind EdgeKind, options ...EdgeTypeOption) TypedEdgeK
 	return TypedEdgeKind[T](kind)
 }
 
-func rewritePackageName(pkg string) string {
-	longest := ""
-
-	for k := range packageTypeNameMap {
-		if strings.HasPrefix(pkg, k) && len(k) > len(longest) {
-			longest = k
-		}
-	}
-
-	if longest == "" {
-		return pkg
-	}
-
-	return packageTypeNameMap[longest] + strings.TrimPrefix(pkg, longest)
-}
-
 func formatTypeName(typName typesystem.TypeName) string {
 	pkg := typName.Package
 	name := typName.Name
 	args := ""
 
-	pkg = rewritePackageName(pkg)
 	pkg = strings.ReplaceAll(pkg, "/", ".")
 
 	if len(typName.Parameters) > 0 {
@@ -202,13 +178,15 @@ func formatTypeName(typName typesystem.TypeName) string {
 
 func reflectNodeType(typ typesystem.Type, options ...NodeTypeOption) *nodeType {
 	nt := &nodeType{
-		typ: typ,
+		typ:  typ,
+		name: typ.Name(),
 
 		vtables: map[string]*VTable{},
 	}
 
 	nt.def.Class = NodeClassGeneric
 	nt.def.Name = formatTypeName(typ.Name())
+	nt.name = typesystem.AsTypeName(utils.ParseTypeName(nt.def.Name))
 
 	for _, opt := range options {
 		opt(nt)

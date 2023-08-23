@@ -3,6 +3,7 @@ package typesystem
 import (
 	"reflect"
 
+	"github.com/invopop/jsonschema"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/schema"
@@ -17,6 +18,7 @@ type Type interface {
 	IpldPrimitive() ipld.NodePrototype
 	IpldPrototype() schema.TypedPrototype
 	IpldRepresentationKind() datamodel.Kind
+	JsonSchema() *jsonschema.Schema
 
 	Struct() StructType
 	List() ListType

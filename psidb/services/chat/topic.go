@@ -9,11 +9,11 @@ import (
 )
 
 type TopicSubscriber interface {
-	HandleTopicMessage(ctx context.Context, self psi.Node, message *stdlib.Reference[*Message]) error
+	HandleTopicMessage(ctx context.Context, message *stdlib.Reference[*Message]) error
 }
 
 type ITopic interface {
-	PostMessage(ctx context.Context, self psi.Node, req *PostMessageRequest) (*Message, error)
+	PostMessage(ctx context.Context, req *PostMessageRequest) (*Message, error)
 }
 
 var TopicSubscriberInterface = psi.DefineNodeInterface[TopicSubscriber]()

@@ -288,7 +288,6 @@ func (ln *LiveNode) populateNode(ctx context.Context) error {
 			}
 
 			ln.parent = parent
-
 		}
 
 		if ln.parent != nil {
@@ -798,6 +797,8 @@ func (ln *LiveNode) OnEdgeAdded(added psi.Edge) {
 		ln.node.UpsertEdge(edge)
 		ln.edges[le.key] = le
 	}
+
+	ln.markEdgeDirty(added.Key().GetKey())
 }
 
 func (ln *LiveNode) OnEdgeRemoved(removed psi.Edge) {

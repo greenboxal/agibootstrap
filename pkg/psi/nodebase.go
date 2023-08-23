@@ -2,6 +2,7 @@ package psi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
@@ -123,46 +124,29 @@ func (n *NodeBase) String() string {
 }
 
 func (n *NodeBase) ResolveChild(ctx context.Context, key PathElement) Node {
-	if key.Kind == "" || key.Kind == EdgeKindChild {
-		if key.Name == "" {
-			if key.Index < int64(n.children.Len()) {
-				return n.children.Get(int(key.Index))
-			}
-		} else {
-			for it := n.children.Iterator(); it.Next(); {
-				child := it.Item()
-				selfId := child.SelfIdentity().Name()
+	for it := n.edges.Iterator(); it.Next(); {
+		kv := it.Item()
+		k := kv.Key
 
-				if selfId == key.AsEdgeKey() {
-					return child
-				}
-			}
+		if k.GetKind() != key.Kind {
+			continue
 		}
-	} else {
-		for it := n.edges.Iterator(); it.Next(); {
-			kv := it.Item()
-			k := kv.Key
 
-			if k.GetKind() != key.Kind {
-				continue
-			}
-
-			if k.GetName() != key.Name {
-				continue
-			}
-
-			if k.GetIndex() != key.Index {
-				continue
-			}
-
-			to, err := kv.Value.ResolveTo(ctx)
-
-			if err != nil && err != ErrNodeNotFound {
-				panic(err)
-			}
-
-			return to
+		if k.GetName() != key.Name {
+			continue
 		}
+
+		if k.GetIndex() != key.Index {
+			continue
+		}
+
+		to, err := kv.Value.ResolveTo(ctx)
+
+		if err != nil && !errors.Is(err, ErrNodeNotFound) {
+			panic(err)
+		}
+
+		return to
 	}
 
 	if n.snap != nil {
@@ -262,10 +246,6 @@ func (n *NodeBase) updatePath() {
 }
 
 func (n *NodeBase) Invalidate() {
-	if n.valid {
-		return
-	}
-
 	n.valid = false
 
 	if n.snap != nil {

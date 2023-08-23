@@ -99,7 +99,9 @@ func (bb *nodeBuilder) AssignInt(i int64) error {
 		bb.v.v.Set(reflect.New(bb.v.v.Type().Elem()))
 	}
 
-	if bb.v.Type().PrimitiveKind() == PrimitiveKindUnsignedInt {
+	if bb.v.Type().PrimitiveKind() == PrimitiveKindFloat {
+		bb.v.Indirect().SetFloat(float64(float32(i)))
+	} else if bb.v.Type().PrimitiveKind() == PrimitiveKindUnsignedInt {
 		bb.v.Indirect().SetUint(uint64(i))
 	} else {
 		bb.v.Indirect().SetInt(i)

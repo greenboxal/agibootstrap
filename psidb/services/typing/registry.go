@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/greenboxal/aip/aip-sdk/pkg/utils"
 	"golang.org/x/exp/maps"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -104,6 +105,7 @@ type opaqueNode struct {
 var opaqueNodeType = typesystem.TypeOf((*opaqueNode)(nil))
 
 type dynamicType struct {
+	name   typesystem.TypeName
 	typ    *Type
 	def    psi.NodeTypeDefinition
 	ifaces map[string]*psi.VTable
@@ -111,7 +113,8 @@ type dynamicType struct {
 
 func NewDynamicType(ctx context.Context, registry *TypeRegistry, definition *Type) (psi.NodeType, error) {
 	dt := &dynamicType{
-		typ: definition,
+		typ:  definition,
+		name: typesystem.AsTypeName(utils.ParseTypeName(definition.Name)),
 
 		def: psi.NodeTypeDefinition{
 			Name: definition.Name,
@@ -147,6 +150,7 @@ func NewDynamicType(ctx context.Context, registry *TypeRegistry, definition *Typ
 
 func (d *dynamicType) Name() string                       { return d.def.Name }
 func (d *dynamicType) Type() typesystem.Type              { return opaqueNodeType }
+func (d *dynamicType) TypeName() typesystem.TypeName      { return d.name }
 func (d *dynamicType) RuntimeType() reflect.Type          { return opaqueNodeType.RuntimeType() }
 func (d *dynamicType) Definition() psi.NodeTypeDefinition { return d.def }
 

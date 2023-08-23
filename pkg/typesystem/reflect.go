@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 
+	`github.com/iancoleman/orderedmap`
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
@@ -43,7 +44,7 @@ func newTypeFromReflection(typ reflect.Type) Type {
 func newInterfaceType(typ reflect.Type) *interfaceType {
 	it := &interfaceType{
 		basicType: basicType{
-			name:          getTypeName(typ),
+			name:          GetTypeName(typ),
 			primitiveKind: getPrimitiveKind(typ),
 			runtimeType:   typ,
 		},
@@ -72,7 +73,7 @@ func (it *interfaceType) initialize(ts *TypeSystem) {
 func newScalarType(typ reflect.Type) *scalarType {
 	st := &scalarType{
 		basicType: basicType{
-			name:          getTypeName(typ),
+			name:          GetTypeName(typ),
 			primitiveKind: getPrimitiveKind(typ),
 			runtimeType:   typ,
 		},
@@ -83,24 +84,29 @@ func newScalarType(typ reflect.Type) *scalarType {
 		st.ipldType = schema.SpawnBool(st.name.ToTitle())
 		st.ipldPrimitive = basicnode.Prototype.Bool
 		st.ipldRepresentationKind = datamodel.Kind_Bool
+		st.jsonSchema.Type = "boolean"
 	case PrimitiveKindString:
 		st.ipldType = schema.SpawnString(st.name.ToTitle())
 		st.ipldPrimitive = basicnode.Prototype.String
 		st.ipldRepresentationKind = datamodel.Kind_String
+		st.jsonSchema.Type = "string"
 	case PrimitiveKindFloat:
 		st.ipldType = schema.SpawnFloat(st.name.ToTitle())
 		st.ipldPrimitive = basicnode.Prototype.Float
 		st.ipldRepresentationKind = datamodel.Kind_Float
+		st.jsonSchema.Type = "number"
 	case PrimitiveKindInt:
 		fallthrough
 	case PrimitiveKindUnsignedInt:
 		st.ipldType = schema.SpawnInt(st.name.ToTitle())
 		st.ipldPrimitive = basicnode.Prototype.Int
 		st.ipldRepresentationKind = datamodel.Kind_Int
+		st.jsonSchema.Type = "number"
 	case PrimitiveKindBytes:
 		st.ipldType = schema.SpawnBytes(st.name.ToTitle())
 		st.ipldPrimitive = basicnode.Prototype.Bytes
 		st.ipldRepresentationKind = datamodel.Kind_Bytes
+		st.jsonSchema.Type = "string"
 	case PrimitiveKindLink:
 		if Implements[TypedLink](typ) {
 			elemTyp := reflect.New(typ).Interface().(TypedLink).LinkedObjectType()
@@ -112,6 +118,7 @@ func newScalarType(typ reflect.Type) *scalarType {
 
 		st.ipldPrimitive = basicnode.Prototype.Link
 		st.ipldRepresentationKind = datamodel.Kind_Link
+		st.jsonSchema.Type = "string"
 	default:
 		panic("invalid scalar type")
 	}
@@ -125,7 +132,7 @@ func newScalarType(typ reflect.Type) *scalarType {
 func newStructType(typ reflect.Type) *structType {
 	st := &structType{
 		basicType: basicType{
-			name:          getTypeName(typ),
+			name:          GetTypeName(typ),
 			primitiveKind: PrimitiveKindStruct,
 			runtimeType:   typ,
 		},
@@ -219,6 +226,8 @@ func (st *structType) initialize(ts *TypeSystem) {
 
 	ipldFields := make([]schema.StructField, len(st.fields))
 
+	st.jsonSchema.Properties = orderedmap.New()
+
 	for i, f := range st.fields {
 		k := f.Type().RuntimeType().Kind()
 		nullable := k == reflect.Ptr || k == reflect.Interface
@@ -229,6 +238,9 @@ func (st *structType) initialize(ts *TypeSystem) {
 			nullable,
 			nullable,
 		)
+
+		st.jsonSchema.Properties.Set(f.Name(), f.Type().JsonSchema())
+		st.jsonSchema.Required = append(st.jsonSchema.Required, f.Name())
 	}
 
 	var repr schema.StructRepresentation
@@ -237,10 +249,12 @@ func (st *structType) initialize(ts *TypeSystem) {
 		st.ipldPrimitive = basicnode.Prototype.String
 		st.ipldRepresentationKind = datamodel.Kind_String
 		st.ipldType = schema.SpawnString(st.name.ToTitle())
+		st.jsonSchema.Type = "string"
 	} else if Implements[encoding.BinaryMarshaler](typ) {
 		st.ipldPrimitive = basicnode.Prototype.Bytes
 		st.ipldRepresentationKind = datamodel.Kind_Bytes
 		st.ipldType = schema.SpawnBytes(st.name.ToTitle())
+		st.jsonSchema.Type = "string"
 	} else if typ.NumField() == 1 {
 		f := typ.Field(0)
 		tag := f.Tag.Get("ipld")
@@ -255,6 +269,7 @@ func (st *structType) initialize(ts *TypeSystem) {
 			st.ipldPrimitive = basicnode.Prototype.String
 			st.ipldRepresentationKind = datamodel.Kind_String
 			st.ipldType = schema.SpawnString(st.name.ToTitle())
+			st.jsonSchema.Type = "string"
 		}
 	}
 
@@ -272,18 +287,25 @@ func (st *structType) initialize(ts *TypeSystem) {
 		switch st.ipldRepresentationKind {
 		case datamodel.Kind_Map:
 			st.ipldPrimitive = basicnode.Prototype.Map
+			st.jsonSchema.Type = "object"
 		case datamodel.Kind_List:
 			st.ipldPrimitive = basicnode.Prototype.List
+			st.jsonSchema.Type = "array"
 		case datamodel.Kind_String:
 			st.ipldPrimitive = basicnode.Prototype.String
+			st.jsonSchema.Type = "string"
 		case datamodel.Kind_Bytes:
 			st.ipldPrimitive = basicnode.Prototype.Bytes
+			st.jsonSchema.Type = "string"
 		case datamodel.Kind_Bool:
 			st.ipldPrimitive = basicnode.Prototype.Bool
+			st.jsonSchema.Type = "boolean"
 		case datamodel.Kind_Int:
 			st.ipldPrimitive = basicnode.Prototype.Int
+			st.jsonSchema.Type = "number"
 		case datamodel.Kind_Float:
 			st.ipldPrimitive = basicnode.Prototype.Float
+			st.jsonSchema.Type = "number"
 		}
 	}
 
@@ -291,9 +313,9 @@ func (st *structType) initialize(ts *TypeSystem) {
 }
 
 func newMapType(typ reflect.Type) *mapType {
-	keyName := getTypeName(typ.Key())
-	valName := getTypeName(typ.Elem())
-	name := getTypeName(typ).WithParameters(keyName, valName)
+	keyName := GetTypeName(typ.Key())
+	valName := GetTypeName(typ.Elem())
+	name := GetTypeName(typ).WithParameters(keyName, valName)
 
 	mt := &mapType{
 		basicType: basicType{
@@ -320,11 +342,12 @@ func (mt *mapType) initialize(ts *TypeSystem) {
 	mt.ipldPrimitive = basicnode.Prototype.Map
 	mt.ipldPrototype = &valuePrototype{typ: mt}
 	mt.ipldRepresentationKind = datamodel.Kind_Map
+	mt.jsonSchema.Type = "object"
 }
 
 func newListType(typ reflect.Type) *listType {
-	valName := getTypeName(typ.Elem())
-	name := getTypeName(typ).WithParameters(valName)
+	valName := GetTypeName(typ.Elem())
+	name := GetTypeName(typ).WithParameters(valName)
 
 	lt := &listType{
 		basicType: basicType{
@@ -349,6 +372,8 @@ func (lt *listType) initialize(ts *TypeSystem) {
 	lt.ipldPrimitive = basicnode.Prototype.List
 	lt.ipldPrototype = &valuePrototype{typ: lt}
 	lt.ipldRepresentationKind = datamodel.Kind_List
+	lt.jsonSchema.Type = "array"
+	lt.jsonSchema.Items = lt.elem.JsonSchema()
 }
 
 type HasIpldPrimitiveType interface {

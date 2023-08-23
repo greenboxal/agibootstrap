@@ -14,11 +14,11 @@ type Tick struct {
 }
 
 type TickConsumer interface {
-	OnTick(ctx context.Context, node psi.Node, tick Tick) error
+	OnTick(ctx context.Context, tick Tick) error
 }
 
 type ITicker interface {
-	Start(ctx context.Context, node psi.Node, t Tick) error
+	Start(ctx context.Context, t Tick) error
 }
 
 type Ticker struct {

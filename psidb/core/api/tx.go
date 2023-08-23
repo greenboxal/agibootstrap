@@ -49,8 +49,12 @@ type Transaction interface {
 	IsOpen() bool
 	Graph() *online.LiveGraph
 
+	MakePromise() psi.PromiseHandle
+
 	Notify(ctx context.Context, not psi.Notification) error
 	Confirm(ctx context.Context, ack psi.Confirmation) error
+	Wait(ctx context.Context, handles ...psi.Promise) error
+	Signal(ctx context.Context, handles ...psi.Promise) error
 
 	Commit(ctx context.Context) error
 	Rollback(ctx context.Context) error

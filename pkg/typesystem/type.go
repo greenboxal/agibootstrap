@@ -3,6 +3,7 @@ package typesystem
 import (
 	"reflect"
 
+	"github.com/invopop/jsonschema"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/schema"
@@ -24,6 +25,7 @@ type basicType struct {
 	ipldPrimitive          ipld.NodePrototype
 	ipldPrototype          schema.TypedPrototype
 	ipldRepresentationKind datamodel.Kind
+	jsonSchema             jsonschema.Schema
 
 	operators   []Operator
 	operatorMap []map[string]Operator
@@ -46,9 +48,10 @@ func (bt *basicType) IpldType() schema.Type                  { return bt.ipldTyp
 func (bt *basicType) IpldPrimitive() ipld.NodePrototype      { return bt.ipldPrimitive }
 func (bt *basicType) IpldPrototype() schema.TypedPrototype   { return bt.ipldPrototype }
 func (bt *basicType) IpldRepresentationKind() datamodel.Kind { return bt.ipldRepresentationKind }
+func (bt *basicType) JsonSchema() *jsonschema.Schema         { return &bt.jsonSchema }
 
 func (bt *basicType) AssignableTo(other Type) bool {
-	if (other == nil) {
+	if other == nil {
 		return false
 	}
 

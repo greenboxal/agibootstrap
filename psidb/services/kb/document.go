@@ -13,32 +13,42 @@ import (
 )
 
 type LearnRequest struct {
-	CurrentDepth int        `json:"current_depth"`
-	MaxDepth     int        `json:"max_depth"`
-	Feedback     string     `json:"feedback"`
-	References   []psi.Path `json:"references"`
+	CurrentDepth int        `json:"current_depth" jsonschema:"title=Current Depth,description=The current depth of the learning request"`
+	MaxDepth     int        `json:"max_depth" jsonschema:"title=Max Depth,description=The maximum depth of the learning request"`
+	Feedback     string     `json:"feedback" jsonschema:"title=Feedback,description=The feedback for the learning request"`
+	References   []psi.Path `json:"references" jsonschema:"title=References,description=The references for the learning request"`
+
+	Observer psi.Promise `json:"observers,omitempty" jsonschema:"title=Observer,description=The observer for the learning request"`
 }
 
+// IDocument is an interface that defines the methods a Document should implement.
 type IDocument interface {
-	Learn(ctx context.Context, node psi.Node, req *LearnRequest) error
-	Expand(ctx context.Context, node psi.Node, req *LearnRequest) error
+	// Learn is a method that takes a context and a LearnRequest as parameters and returns an error.
+	// It is responsible for learning from the provided request.
+	Learn(ctx context.Context, req *LearnRequest) error
+
+	// Expand is a method that takes a context and a LearnRequest as parameters and returns an error.
+	// It is responsible for expanding the knowledge based on the provided request.
+	Expand(ctx context.Context, req *LearnRequest) error
 }
 
 type Document struct {
 	psi.NodeBase
 
-	Slug        string `json:"slug"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	Root psi.Path `json:"root" jsonschema:"title=Root,description=The root path of the document"`
 
-	Categories    []string `json:"categories"`
-	RelatedTopics []string `json:"related_topics"`
+	Slug        string `json:"slug" jsonschema:"title=Slug,description=The slug of the document"`
+	Title       string `json:"title" jsonschema:"title=Title,description=The title of the document"`
+	Description string `json:"description" jsonschema:"title=Description,description=The description of the document"`
 
-	Body    string `json:"body"`
-	Summary string `json:"summary"`
+	Categories    []string `json:"categories" jsonschema:"title=Categories,description=The categories of the document"`
+	RelatedTopics []string `json:"related_topics" jsonschema:"title=Related Topics,description=The related topics of the document"`
 
-	HasContent bool `json:"has_content"`
-	HasSummary bool `json:"has_summary"`
+	Body    string `json:"body" jsonschema:"title=Body,description=The body of the document"`
+	Summary string `json:"summary" jsonschema:"title=Summary,description=The summary of the document"`
+
+	HasContent bool `json:"has_content" jsonschema:"title=Has Content,description=Indicates if the document has content"`
+	HasSummary bool `json:"has_summary" jsonschema:"title=Has Summary,description=Indicates if the document has a summary"`
 }
 
 var DocumentInterface = psi.DefineNodeInterface[IDocument]()
@@ -58,11 +68,10 @@ func NewDocument() *Document {
 func (d *Document) PsiNodeName() string { return d.Slug }
 
 func (d *Document) Learn(ctx context.Context, req *LearnRequest) error {
-	kb := psi.MustGetEdge[*KnowledgeBase](d, EdgeKindKnowledgeBase.Named("root"))
+	var err error
 
-	if req.CurrentDepth >= req.MaxDepth {
-		return nil
-	}
+	tx := coreapi.GetTransaction(ctx)
+	kb := psi.MustResolve[*KnowledgeBase](ctx, tx.Graph(), d.Root)
 
 	if !d.HasContent {
 		if err := d.generateContent(ctx, req); err != nil {
@@ -95,7 +104,7 @@ func (d *Document) Learn(ctx context.Context, req *LearnRequest) error {
 		return err
 	}
 
-	return d.DispatchExpand(ctx, d.CanonicalPath(), req)
+	return d.Expand(ctx, req)
 }
 
 func (d *Document) generateSummary(ctx context.Context, req *LearnRequest) error {
@@ -209,7 +218,8 @@ func (d *Document) Categorize(ctx context.Context, req *LearnRequest) error {
 		return nil
 	}
 
-	kb := psi.MustGetEdge[*KnowledgeBase](d, EdgeKindKnowledgeBase.Named("root"))
+	tx := coreapi.GetTransaction(ctx)
+	kb := psi.MustResolve[*KnowledgeBase](ctx, tx.Graph(), d.Root)
 
 	doct := thoughtdb.NewThought()
 	doct.From.Role = msn.RoleUser
@@ -238,11 +248,8 @@ func (d *Document) Categorize(ctx context.Context, req *LearnRequest) error {
 func (d *Document) Expand(ctx context.Context, req *LearnRequest) error {
 	var history []*thoughtdb.Thought
 
-	if req.CurrentDepth >= req.MaxDepth {
-		return nil
-	}
-
-	kb := psi.MustGetEdge[*KnowledgeBase](d, EdgeKindKnowledgeBase.Named("root"))
+	tx := coreapi.GetTransaction(ctx)
+	kb := psi.MustResolve[*KnowledgeBase](ctx, tx.Graph(), d.Root)
 
 	doct := thoughtdb.NewThought()
 	doct.From.Role = msn.RoleUser
@@ -256,7 +263,7 @@ func (d *Document) Expand(ctx context.Context, req *LearnRequest) error {
 	}
 
 	for _, entry := range res.Related {
-		err := kb.DispatchCreateKnowledge(ctx, d.CanonicalPath(), &KnowledgeRequest{
+		kbReq := &KnowledgeRequest{
 			Title:       entry.Title,
 			Description: entry.Description,
 
@@ -264,11 +271,23 @@ func (d *Document) Expand(ctx context.Context, req *LearnRequest) error {
 			MaxDepth:     req.MaxDepth,
 
 			BackLinkTo: d.CanonicalPath(),
-		})
+
+			Observer: req.Observer.Signal(1),
+		}
+
+		err := kb.DispatchCreateKnowledge(ctx, d.CanonicalPath(), kbReq)
 
 		if err != nil {
 			return err
 		}
+
+		if err := tx.Wait(ctx, req.Observer.Wait(1)); err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Signal(ctx, req.Observer); err != nil {
+		return err
 	}
 
 	return d.Update(ctx)
@@ -276,6 +295,12 @@ func (d *Document) Expand(ctx context.Context, req *LearnRequest) error {
 
 func (d *Document) DispatchLearn(ctx context.Context, requestor psi.Path, req *LearnRequest) error {
 	tx := coreapi.GetTransaction(ctx)
+
+	req.CurrentDepth++
+
+	if req.CurrentDepth > req.MaxDepth {
+		return tx.Signal(ctx, req.Observer)
+	}
 
 	logger.Infow("Dispatching learn request", "requestor", requestor, "notified", d.CanonicalPath())
 

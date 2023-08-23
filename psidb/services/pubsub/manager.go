@@ -102,6 +102,10 @@ func (pm *Manager) processReplicationMessage(ctx context.Context, entries []*gra
 			pm.scheduler.Dispatch(entry)
 		} else if entry.Op == graphfs.JournalOpConfirm {
 			pm.scheduler.Confirm(entry)
+		} else if entry.Op == graphfs.JournalOpWait {
+			pm.scheduler.Wait(entry)
+		} else if entry.Op == graphfs.JournalOpSignal {
+			pm.scheduler.Signal(entry)
 		}
 	}
 

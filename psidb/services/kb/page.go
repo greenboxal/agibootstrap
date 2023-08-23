@@ -22,4 +22,4 @@ func NewPage() *Page {
 	return p
 }
 
-func (p *Page) PsiNodeName() string { return fmt.Sprintf("Page-%d", p.Title) }
+func (p *Page) PsiNodeName() string { return fmt.Sprintf("Page-%s", p.Title) }

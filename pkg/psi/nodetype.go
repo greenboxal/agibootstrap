@@ -54,6 +54,7 @@ func WithInterfaceFromNode(iface NodeInterface) NodeTypeOption {
 type NodeType interface {
 	Name() string
 	Type() typesystem.Type
+	TypeName() typesystem.TypeName
 	RuntimeType() reflect.Type
 	Definition() NodeTypeDefinition
 
@@ -75,13 +76,15 @@ type typedNode[T Node] struct {
 }
 
 type nodeType struct {
+	name    typesystem.TypeName
 	typ     typesystem.Type
 	def     NodeTypeDefinition
 	vtables map[string]*VTable
 }
 
-func (nt *nodeType) Name() string                   { return nt.def.Name }
+func (nt *nodeType) Name() string                   { return nt.name.FullNameWithArgs() }
 func (nt *nodeType) Type() typesystem.Type          { return nt.typ }
+func (nt *nodeType) TypeName() typesystem.TypeName  { return nt.name }
 func (nt *nodeType) RuntimeType() reflect.Type      { return nt.typ.RuntimeType() }
 func (nt *nodeType) Definition() NodeTypeDefinition { return nt.def }
 func (nt *nodeType) Interfaces() []*VTable          { return maps.Values(nt.vtables) }
