@@ -41,6 +41,7 @@ type Connection struct {
 	FScore map[string]float64 `json:"f_score" jsonschema:"title=FScore of the connection,description=The FScore for the connection"`
 
 	// Links of the connection
+
 	Links map[string][]psi.Path `json:"links" jsonschema:"title=Links of the connection,description=The links for the connection"`
 
 	// Embedder of the connection

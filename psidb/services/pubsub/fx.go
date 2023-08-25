@@ -1,6 +1,15 @@
 package pubsub
 
-import "go.uber.org/fx"
+import (
+	"go.opentelemetry.io/otel"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/fx"
+)
+
+var tracer = otel.Tracer("pubsub", trace.WithInstrumentationAttributes(
+	semconv.MessagingSystem("psidb-pubsub"),
+))
 
 var Module = fx.Module(
 	"services/pubsub",

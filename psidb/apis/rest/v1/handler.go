@@ -285,14 +285,16 @@ func (r *ResourceHandler) handleError(writer http.ResponseWriter, request *Reque
 		err = fmt.Errorf("%v", e)
 	}
 
-	logger.Error(err)
-
 	status := http.StatusInternalServerError
 
-	if httpErr, ok := err.(HttpError); ok {
+	var httpErr HttpError
+
+	if errors.As(err, &httpErr) {
 		status = httpErr.StatusCode()
-	} else if errors.Is(err, psi.ErrNodeNotFound) {
-		status = http.StatusNotFound
+	}
+
+	if status >= http.StatusInternalServerError {
+		logger.Error(err)
 	}
 
 	writer.WriteHeader(status)

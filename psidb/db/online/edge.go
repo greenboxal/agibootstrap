@@ -2,6 +2,7 @@ package online
 
 import (
 	"context"
+	"errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
@@ -67,12 +68,22 @@ func NewLiveEdge(from *LiveNode, key psi.EdgeKey) *LiveEdge {
 }
 
 func (le *LiveEdge) resolve() {
+	var err error
+
 	if le.to != nil {
 		return
 	}
 
 	if le.dentry.IsNegative() {
-		return
+		le.dentry, err = le.from.g.graph.Resolve(context.Background(), le.from.Path().Child(le.key.AsPathElement()))
+
+		if err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
+			panic(err)
+		}
+
+		if le.dentry.IsNegative() {
+			return
+		}
 	}
 
 	le.to = le.from.g.nodeForDentry(le.dentry)

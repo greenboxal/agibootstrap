@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/ipld/go-ipld-prime/linking"
+	"go.opentelemetry.io/otel"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
@@ -15,6 +16,7 @@ import (
 )
 
 var logger = logging.GetLogger("livegraph")
+var tracer = otel.Tracer("livegraph")
 
 type LiveGraph struct {
 	mu sync.RWMutex
@@ -189,6 +191,9 @@ func (lg *LiveGraph) ListNodeEdges(ctx context.Context, path psi.Path) (result [
 }
 
 func (lg *LiveGraph) Commit(ctx context.Context) error {
+	ctx, span := tracer.Start(ctx, "LiveGraph.Commit")
+	defer span.End()
+
 	for ln, _ := range lg.dirtySet {
 		if err := ln.Update(ctx); err != nil {
 			return err
@@ -199,6 +204,9 @@ func (lg *LiveGraph) Commit(ctx context.Context) error {
 }
 
 func (lg *LiveGraph) Rollback(ctx context.Context) error {
+	ctx, span := tracer.Start(ctx, "LiveGraph.Rollback")
+	defer span.End()
+
 	return lg.tx.Rollback(ctx)
 }
 

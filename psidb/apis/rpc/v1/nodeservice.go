@@ -132,6 +132,9 @@ func (ns *NodeService) CallNodeAction(ctx context.Context, req *CallNodeActionRe
 			actionRequest = typesystem.Unwrap(argsNode)
 		}
 
+		ctx, span := tracer.Start(ctx, iface.Name()+"."+action.Name())
+		defer span.End()
+
 		result, err := action.Invoke(ctx, n, actionRequest)
 
 		if err != nil {

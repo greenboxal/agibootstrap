@@ -6,11 +6,17 @@ import (
 
 	"github.com/swaggest/jsonrpc"
 	"github.com/swaggest/usecase"
+	"go.opentelemetry.io/otel"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
 
 	utils "github.com/greenboxal/aip/aip-sdk/pkg/utils"
 )
 
+var tracer = otel.Tracer("jsonrpc",
+	trace.WithInstrumentationAttributes(semconv.RPCSystemKey.String("jsonrpc")),
+)
 var errorType = reflect.TypeOf((*error)(nil)).Elem()
 var contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
 
@@ -36,7 +42,7 @@ func NewRpcService() *RpcService {
 	return &RpcService{Handler: handler}
 }
 
-func mustRegister(srv *jsonrpc.Handler, name string, target any) {
+func mustRegister(srv *jsonrpc.Handler, interfaceName string, target any) {
 	value := reflect.ValueOf(target)
 	typ := value.Type()
 
@@ -105,10 +111,17 @@ func mustRegister(srv *jsonrpc.Handler, name string, target any) {
 			continue
 		}
 
+		operationName := interfaceName + "." + m.Name
+
 		u := usecase.NewIOI(
 			reflect.New(inType).Interface(),
 			reflect.New(outType).Interface(),
 			func(ctx context.Context, input, output interface{}) error {
+				ctx, span := tracer.Start(ctx, operationName)
+				span.SetAttributes(semconv.RPCService(interfaceName))
+				span.SetAttributes(semconv.RPCMethod(m.Name))
+				defer span.End()
+
 				var args [2]reflect.Value
 
 				if hasCtx {
@@ -152,7 +165,7 @@ func mustRegister(srv *jsonrpc.Handler, name string, target any) {
 			},
 		)
 
-		u.SetName(name + "." + m.Name)
+		u.SetName(operationName)
 
 		srv.Add(u)
 	}

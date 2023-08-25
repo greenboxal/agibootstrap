@@ -92,33 +92,31 @@ func (n Notification) WithOptions(options ...NotificationOption) Notification {
 	return n
 }
 
-func (n Notification) Apply(ctx context.Context, target Node) error {
+func (n Notification) Apply(ctx context.Context, target Node) (any, error) {
 	var arg any
 
 	typ := target.PsiNodeType()
 	iface := typ.Interface(n.Interface)
 
 	if iface == nil {
-		return errors.New("interface not found")
+		return nil, errors.New("interface not found")
 	}
 
 	action := iface.Action(n.Action)
 
 	if action == nil {
-		return errors.New("action not found")
+		return nil, errors.New("action not found")
 	}
 
 	if action.RequestType() != nil {
 		argsNode, err := ipld.DecodeUsingPrototype(n.Params, dagjson.Decode, action.RequestType().IpldPrototype())
 
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		arg = typesystem.Unwrap(argsNode)
 	}
 
-	_, err := action.Invoke(ctx, target, arg)
-
-	return err
+	return action.Invoke(ctx, target, arg)
 }

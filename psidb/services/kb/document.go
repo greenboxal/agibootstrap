@@ -10,6 +10,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
 )
 
 type LearnRequest struct {
@@ -270,7 +271,7 @@ func (d *Document) Expand(ctx context.Context, req *LearnRequest) error {
 			CurrentDepth: req.CurrentDepth + 1,
 			MaxDepth:     req.MaxDepth,
 
-			BackLinkTo: d.CanonicalPath(),
+			BackLinkTo: stdlib.Ref(d),
 
 			Observer: req.Observer.Signal(1),
 		}

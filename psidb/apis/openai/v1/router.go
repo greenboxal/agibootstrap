@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	openai2 "github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
+	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/sashabaranov/go-openai"
 
@@ -86,8 +87,19 @@ func (r *Router) GetModel(req *Request[struct{}], writer *ResponseWriter) error 
 }
 
 func (r *Router) CreateEmbeddings(req *Request[openai.EmbeddingRequest], writer *ResponseWriter) error {
+	var input []string
+
+	switch req.Payload.Input.(type) {
+	case string:
+		input = []string{req.Payload.Input.(string)}
+	case []string:
+		input = req.Payload.Input.([]string)
+	default:
+		return errors.New("invalid input type")
+	}
+
 	embedder := r.ecm.GetEmbedder(&openai2.Embedder{Client: r.client, Model: req.Payload.Model})
-	embedding, err := embedder.GetEmbeddings(req.Context(), req.Payload.Input)
+	embedding, err := embedder.GetEmbeddings(req.Context(), input)
 
 	if err != nil {
 		return err

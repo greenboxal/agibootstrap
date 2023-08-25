@@ -10,6 +10,9 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/storage/dsadapter"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
+	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/psids"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
@@ -19,6 +22,9 @@ import (
 )
 
 var logger = logging.GetLogger("psidsadapter")
+var tracer = otel.Tracer("psidsadapter", trace.WithInstrumentationAttributes(
+	semconv.DBSystemKey.String("badger"),
+))
 
 type DataStoreSuperBlock struct {
 	graphfs.SuperBlockBase
@@ -115,6 +121,9 @@ func (sb *DataStoreSuperBlock) GetRoot(ctx context.Context) (*graphfs.CacheEntry
 		return sb.root, nil
 	}
 
+	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.GetRoot")
+	defer span.End()
+
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
 
@@ -132,6 +141,9 @@ func (sb *DataStoreSuperBlock) GetRoot(ctx context.Context) (*graphfs.CacheEntry
 }
 
 func (sb *DataStoreSuperBlock) Create(ctx context.Context, self *graphfs.CacheEntry, options graphfs.OpenNodeOptions) error {
+	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.Create")
+	defer span.End()
+
 	var ino *graphfs.INode
 
 	if options.ForceInode != nil && *options.ForceInode >= 0 {
@@ -163,6 +175,9 @@ func (sb *DataStoreSuperBlock) Create(ctx context.Context, self *graphfs.CacheEn
 }
 
 func (sb *DataStoreSuperBlock) Lookup(ctx context.Context, self *graphfs.INode, dentry *graphfs.CacheEntry) (*graphfs.CacheEntry, error) {
+	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.Lookup")
+	defer span.End()
+
 	k := dsKeyNodeEdge(self.ID(), dentry.Name())
 	fe, err := psids.Get(ctx, sb.ds, k)
 
@@ -186,6 +201,9 @@ func (sb *DataStoreSuperBlock) Unlink(ctx context.Context, self *graphfs.INode, 
 }
 
 func (sb *DataStoreSuperBlock) Read(ctx context.Context, nh graphfs.NodeHandle) (*graphfs.SerializedNode, error) {
+	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.Read")
+	defer span.End()
+
 	k := dsKeyNodeData(nh.Inode().ID())
 
 	//logger.Debugw("Read", "k", k.String())
@@ -194,6 +212,9 @@ func (sb *DataStoreSuperBlock) Read(ctx context.Context, nh graphfs.NodeHandle) 
 }
 
 func (sb *DataStoreSuperBlock) Write(ctx context.Context, nh graphfs.NodeHandle, fe *graphfs.SerializedNode) error {
+	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.Write")
+	defer span.End()
+
 	writer := GetBatchWriter(ctx, sb.ds)
 	k := dsKeyNodeData(nh.Inode().ID())
 
@@ -207,6 +228,9 @@ func (sb *DataStoreSuperBlock) Write(ctx context.Context, nh graphfs.NodeHandle,
 }
 
 func (sb *DataStoreSuperBlock) SetEdge(ctx context.Context, nh graphfs.NodeHandle, edge *graphfs.SerializedEdge) error {
+	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.SetEdge")
+	defer span.End()
+
 	writer := GetBatchWriter(ctx, sb.ds)
 	k := dsKeyNodeEdge(nh.Inode().ID(), edge.Key)
 
@@ -216,6 +240,9 @@ func (sb *DataStoreSuperBlock) SetEdge(ctx context.Context, nh graphfs.NodeHandl
 }
 
 func (sb *DataStoreSuperBlock) RemoveEdge(ctx context.Context, nh graphfs.NodeHandle, key psi.EdgeKey) error {
+	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.RemoveEdge")
+	defer span.End()
+
 	writer := GetBatchWriter(ctx, sb.ds)
 	k := dsKeyNodeEdge(nh.Inode().ID(), key)
 
@@ -225,6 +252,9 @@ func (sb *DataStoreSuperBlock) RemoveEdge(ctx context.Context, nh graphfs.NodeHa
 }
 
 func (sb *DataStoreSuperBlock) ReadEdge(ctx context.Context, nh graphfs.NodeHandle, key psi.EdgeKey) (*graphfs.SerializedEdge, error) {
+	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.ReadEdge")
+	defer span.End()
+
 	k := dsKeyNodeEdge(nh.Inode().ID(), key)
 
 	//logger.Debugw("ReadEdge", "k", k.String())
@@ -233,6 +263,9 @@ func (sb *DataStoreSuperBlock) ReadEdge(ctx context.Context, nh graphfs.NodeHand
 }
 
 func (sb *DataStoreSuperBlock) ReadEdges(ctx context.Context, nh graphfs.NodeHandle) (iterators.Iterator[*graphfs.SerializedEdge], error) {
+	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.ReadEdges")
+	defer span.End()
+
 	k := dsKeyEdgePrefix(nh.Inode().ID())
 
 	//logger.Debugw("ReadEdges", "k", k.String())

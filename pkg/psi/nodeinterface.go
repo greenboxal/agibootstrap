@@ -75,11 +75,11 @@ func ReflectNodeInterface(typ reflect.Type, options ...NodeInterfaceOption) Node
 		}
 
 		if m.Type.NumIn() < 1 && m.Type.NumIn() > 3 {
-			panic(fmt.Errorf("method %s has %d parameters, expected 3", m.Name, m.Type.NumIn()))
+			continue
 		}
 
 		if m.Type.NumOut() != 2 && m.Type.NumOut() != 1 {
-			panic(fmt.Errorf("method %s has %d return values, expected 1 or 2", m.Name, m.Type.NumOut()))
+			continue
 		}
 
 		for i := 0; i < m.Type.NumIn(); i++ {
@@ -98,9 +98,12 @@ func ReflectNodeInterface(typ reflect.Type, options ...NodeInterfaceOption) Node
 			}
 		}
 
-		if m.Type.NumOut() > 1 {
+		if m.Type.NumOut() >= 1 {
 			responseType := m.Type.Out(0)
-			ifaceAction.ResponseType = typesystem.TypeFrom(responseType)
+
+			if !responseType.AssignableTo(errorType) {
+				ifaceAction.ResponseType = typesystem.TypeFrom(responseType)
+			}
 		}
 
 		def.Actions = append(def.Actions, ifaceAction)
@@ -184,6 +187,7 @@ func BindInterface(iface NodeInterface, vtable VTableDefinition) *VTable {
 	}
 }
 
+var errorType = reflect.TypeOf((*error)(nil)).Elem()
 var nodeRuntimeType = reflect.TypeOf((*Node)(nil)).Elem()
 var contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
 
@@ -196,6 +200,10 @@ func BindInterfaceFromNode(iface NodeInterface, typ typesystem.Type) *VTable {
 
 	for i, action := range iface.Actions() {
 		var payloadTyp *reflect.Type
+
+		ctxIndex := -1
+		selfIndex := -1
+		payloadIndex := -1
 
 		action := action
 
@@ -214,14 +222,17 @@ func BindInterfaceFromNode(iface NodeInterface, typ typesystem.Type) *VTable {
 			t := m.Type.In(i)
 
 			if t == contextType {
+				ctxIndex = i
 				continue
 			}
 
-			if t.AssignableTo(nodeRuntimeType) && payloadTyp == nil && i < m.Type.NumIn()-1 {
+			if t.AssignableTo(nodeRuntimeType) && payloadTyp == nil {
+				selfIndex = i
 				continue
 			}
 
 			if payloadTyp == nil {
+				payloadIndex = i
 				payloadTyp = &t
 			}
 		}
@@ -230,13 +241,20 @@ func BindInterfaceFromNode(iface NodeInterface, typ typesystem.Type) *VTable {
 			definition: action,
 
 			handler: NodeActionFunc[Node, any, any](func(ctx context.Context, node Node, request any) (any, error) {
-				var args []reflect.Value
-
 				vctx := reflect.ValueOf(ctx)
 				vn := reflect.ValueOf(node)
 				vreq := reflect.ValueOf(request)
+				argArr := make([]reflect.Value, m.Type.NumIn())
 
-				if payloadTyp != nil {
+				if ctxIndex != -1 {
+					argArr[ctxIndex] = vctx
+				}
+
+				if selfIndex != -1 {
+					argArr[selfIndex] = vn
+				}
+
+				if payloadIndex != -1 && payloadTyp != nil && request != nil {
 					if (*payloadTyp).Kind() == reflect.Ptr {
 						if vreq.CanAddr() {
 							vreq = vreq.Addr()
@@ -246,12 +264,10 @@ func BindInterfaceFromNode(iface NodeInterface, typ typesystem.Type) *VTable {
 						}
 					}
 
-					args = []reflect.Value{vctx, vreq}
-				} else {
-					args = []reflect.Value{vctx}
+					argArr[payloadIndex] = vreq
 				}
 
-				r := vn.Method(m.Index).Call(args)
+				r := m.Func.Call(argArr)
 
 				if len(r) == 0 {
 					return nil, nil
@@ -262,13 +278,17 @@ func BindInterfaceFromNode(iface NodeInterface, typ typesystem.Type) *VTable {
 						return nil, nil
 					}
 
+					if r[0].Type().AssignableTo(errorType) {
+						return nil, r[0].Interface().(error)
+					}
+
 					return r[0].Interface(), nil
 				} else if len(r) == 2 {
 					if r[1].IsNil() {
 						return r[0].Interface(), nil
 					}
 
-					return r[0].Interface(), r[1].Interface().(error)
+					return nil, r[1].Interface().(error)
 				}
 
 				return nil, nil

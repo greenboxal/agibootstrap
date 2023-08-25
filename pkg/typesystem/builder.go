@@ -459,7 +459,7 @@ func (sa *structAssembler) AssembleValue() datamodel.NodeAssembler {
 	fld := st.Field(name)
 
 	if fld == nil {
-		return newNodeBuilder(New(TypeFrom(reflect.TypeOf((*any)(nil)).Elem())))
+		return basicnode.Prototype.Any.NewBuilder()
 	}
 
 	v := fld.Resolve(sa.bb.v)

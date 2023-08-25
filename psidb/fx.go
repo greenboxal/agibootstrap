@@ -7,8 +7,9 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/api/apimachinery"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
-	openaiv1 "github.com/greenboxal/agibootstrap/psidb/apis/openai/v1"
-	"github.com/greenboxal/agibootstrap/psidb/apis/rest/v1"
+	mgmtv1 `github.com/greenboxal/agibootstrap/psidb/apis/mgmt/v1`
+	openaiv1 `github.com/greenboxal/agibootstrap/psidb/apis/openai/v1`
+	restv1 "github.com/greenboxal/agibootstrap/psidb/apis/rest/v1"
 	"github.com/greenboxal/agibootstrap/psidb/apis/rpc"
 	rpcv1 "github.com/greenboxal/agibootstrap/psidb/apis/rpc/v1"
 	"github.com/greenboxal/agibootstrap/psidb/apis/ws"
@@ -51,9 +52,10 @@ var BaseModules = fx.Options(
 	jobs.Module,
 	chat.Module,
 	agents.Module,
-	restv1.Module,
-	openaiv1.Module,
 	ws.Module,
 	rpc.Module,
 	rpcv1.Module,
+	restv1.Module,
+	openaiv1.Module,
+	mgmtv1.Module,
 )

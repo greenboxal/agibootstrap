@@ -20,6 +20,14 @@ func Ref[T psi.Node](node T) *Reference[T] {
 	return &Reference[T]{Path: p}
 }
 
+func (nr *Reference[T]) IsEmpty() bool {
+	if nr == nil {
+		return true
+	}
+
+	return nr.Path.IsEmpty()
+}
+
 func (nr *Reference[T]) Get(ctx context.Context) T {
 	v, err := nr.Resolve(ctx)
 

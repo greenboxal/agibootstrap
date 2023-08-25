@@ -84,6 +84,8 @@ type Node interface {
 	String() string
 }
 
+var INodeInterface = DefineNodeInterface[Node]()
+
 type NamedNode interface {
 	Node
 

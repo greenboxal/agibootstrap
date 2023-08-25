@@ -5,6 +5,9 @@ import (
 	"sync"
 
 	"github.com/alitto/pond"
+	"github.com/go-errors/errors"
+	"go.opentelemetry.io/otel/codes"
+	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 	"go.uber.org/fx"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
@@ -25,6 +28,9 @@ type Manager struct {
 
 	scheduler  *Scheduler
 	workerPool *pond.WorkerPool
+
+	rootCtx       context.Context
+	rootCtxCancel context.CancelFunc
 }
 
 func NewManager(
@@ -32,12 +38,17 @@ func NewManager(
 	core coreapi.Core,
 	migrator migrations.Migrator,
 ) *Manager {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	m := &Manager{
 		core:     core,
 		migrator: migrator,
 		roots:    map[string]*Topic{},
 
 		workerPool: core.Config().Workers.Build(),
+
+		rootCtx:       ctx,
+		rootCtxCancel: cancel,
 	}
 
 	lc.Append(fx.Hook{
@@ -52,6 +63,8 @@ func NewManager(
 
 	return m
 }
+
+func (pm *Manager) Scheduler() *Scheduler { return pm.scheduler }
 
 func (pm *Manager) Subscribe(pattern SubscriptionPattern, handler func(notification Notification)) *Subscription {
 	root := pm.getOrCreateRoot(pattern.Path.Root(), true)
@@ -177,6 +190,8 @@ func (pm *Manager) Close() error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
+	pm.rootCtxCancel()
+
 	if err := pm.scheduler.Close(); err != nil {
 		return err
 	}
@@ -194,9 +209,25 @@ func (pm *Manager) Close() error {
 
 func (pm *Manager) Dispatch(entry *graphfs.JournalEntry) {
 	pm.workerPool.TrySubmit(func() {
-		ctx := context.Background()
-
 		not := entry.Notification
+
+		ctx, cancel := context.WithCancel(pm.rootCtx)
+		defer cancel()
+
+		ctx, span := tracer.Start(ctx, not.Interface+"."+not.Action)
+		span.SetAttributes(semconv.RPCService(not.Interface))
+		span.SetAttributes(semconv.RPCMethod(not.Action))
+
+		defer func() {
+			if e := recover(); e != nil {
+				span.SetStatus(codes.Error, "panic")
+				span.RecordError(errors.Wrap(e, 1))
+
+				logger.Error(e)
+			}
+
+			span.End()
+		}()
 
 		err := pm.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
 			target, err := tx.Resolve(ctx, not.Notified)
@@ -211,12 +242,18 @@ func (pm *Manager) Dispatch(entry *graphfs.JournalEntry) {
 				Nonce: not.Nonce,
 			}
 
-			if err := not.Apply(ctx, target); err != nil {
+			if _, err := not.Apply(ctx, target); err != nil {
 				logger.Error(err)
+
+				span.RecordError(err)
 
 				ack.Ok = false
 			} else {
 				ack.Ok = true
+			}
+
+			if ack.Ok {
+				span.SetStatus(codes.Ok, "")
 			}
 
 			return tx.Confirm(ctx, ack)
@@ -224,6 +261,9 @@ func (pm *Manager) Dispatch(entry *graphfs.JournalEntry) {
 
 		if err != nil {
 			logger.Error(err)
+
+			span.SetStatus(codes.Error, "error running transaction")
+			span.RecordError(err)
 		}
 	})
 }

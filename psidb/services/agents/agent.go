@@ -9,7 +9,6 @@ import (
 	chat2 "github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 	"github.com/invopop/jsonschema"
 	"github.com/samber/lo"
-	"github.com/sashabaranov/go-openai"
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -116,40 +115,6 @@ Your name is ` + a.Name + `.
 	})
 }
 
-func convertType(typ *jsonschema.Schema) *openai.JSONSchemaDefine {
-	result := &openai.JSONSchemaDefine{}
-
-	result.Type = openai.JSONSchemaType(typ.Type)
-	result.Description = typ.Description
-	result.Required = typ.Required
-
-	if len(typ.Enum) > 0 {
-		result.Enum = lo.Map(typ.Enum, func(item interface{}, _ int) string {
-			return item.(string)
-		})
-	}
-
-	if typ.Items != nil {
-		result.Items = convertType(typ.Items)
-	}
-
-	if typ.Properties != nil {
-		result.Properties = map[string]*openai.JSONSchemaDefine{}
-
-		for _, k := range typ.Properties.Keys() {
-			v, ok := typ.Properties.Get(k)
-
-			if !ok {
-				continue
-			}
-
-			result.Properties[k] = convertType(v.(*jsonschema.Schema))
-		}
-	}
-
-	return result
-}
-
 func buildActionsFor(node psi.Node) map[string]llm.FunctionDeclaration {
 	var functions []llm.FunctionDeclaration
 
@@ -160,13 +125,28 @@ func buildActionsFor(node psi.Node) map[string]llm.FunctionDeclaration {
 			args.Type = "object"
 
 			if action.RequestType != nil {
-				def := convertType(action.RequestType.JsonSchema())
-				args.Type = def.Type
-				args.Properties = def.Properties
-				args.Required = def.Required
+				def := action.RequestType.JsonSchema()
+
+				if def.Type == "object" {
+					args.Type = def.Type
+					args.Required = def.Required
+					args.Properties = map[string]*jsonschema.Schema{}
+
+					for _, key := range def.Properties.Keys() {
+						v, _ := def.Properties.Get(key)
+
+						args.Properties[key] = v.(*jsonschema.Schema)
+					}
+				} else {
+					args.Type = "object"
+					args.Properties = map[string]*jsonschema.Schema{
+						"request": def,
+					}
+					args.Required = []string{"request"}
+				}
 			} else {
 				args.Type = "object"
-				args.Properties = map[string]*openai.JSONSchemaDefine{
+				args.Properties = map[string]*jsonschema.Schema{
 					"request": {
 						Type: "string",
 					},
@@ -175,7 +155,7 @@ func buildActionsFor(node psi.Node) map[string]llm.FunctionDeclaration {
 			}
 
 			functions = append(functions, llm.FunctionDeclaration{
-				Name:        fmt.Sprintf("%s_%s", iface.Interface().Name(), action.Name),
+				Name:        fmt.Sprintf("%s___%s", iface.Interface().Name(), action.Name),
 				Description: "",
 				Parameters:  &args,
 			})

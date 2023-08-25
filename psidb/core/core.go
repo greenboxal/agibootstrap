@@ -10,6 +10,8 @@ import (
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
@@ -26,6 +28,7 @@ import (
 
 type Core struct {
 	logger *zap.SugaredLogger
+	tracer trace.Tracer
 
 	cfg *coreapi.Config
 
@@ -67,6 +70,7 @@ func NewCore(
 
 	core := &Core{
 		logger: logging.GetLogger("core"),
+		tracer: otel.Tracer("core"),
 
 		cfg:        cfg,
 		ds:         ds,
@@ -141,6 +145,9 @@ func (c *Core) CreateReplicationSlot(ctx context.Context, options graphfs.Replic
 
 func (c *Core) BeginTransaction(ctx context.Context, options ...coreapi.TransactionOption) (coreapi.Transaction, error) {
 	var opts coreapi.TransactionOptions
+
+	ctx, span := c.tracer.Start(ctx, "Core.BeginTransaction")
+	defer span.End()
 
 	opts.Apply(options...)
 

@@ -391,9 +391,9 @@ func (sch *Scheduler) run(proc goprocess.Process) {
 }
 
 type scheduledItemKey struct {
-	Xid   uint64
-	Rid   uint64
-	Nonce uint64
+	Xid   uint64 `json:"xid,omitempty"`
+	Rid   uint64 `json:"rid,omitempty"`
+	Nonce uint64 `json:"nonce,omitempty"`
 }
 
 type scheduledItem struct {

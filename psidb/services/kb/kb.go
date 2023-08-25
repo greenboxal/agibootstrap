@@ -10,20 +10,21 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
 	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
 )
 
 type KnowledgeRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	Title       string `json:"title" jsonschema:"title=Title of the document,description=Title of the document"`
+	Description string `json:"description" jsonschema:"title=Description of the document,description=Description of the document"`
 
-	CurrentDepth int `json:"current_depth"`
-	MaxDepth     int `json:"max_depth"`
+	CurrentDepth int `json:"current_depth" jsonschema:"title=Current depth,description=Current depth"`
+	MaxDepth     int `json:"max_depth" jsonschema:"title=Max depth,description=Max depth"`
 
-	References []psi.Path `json:"references"`
-	BackLinkTo psi.Path   `json:"back_link_to"`
+	References []psi.Path                   `json:"references" jsonschema:"title=References,description=References"`
+	BackLinkTo *stdlib.Reference[*Document] `json:"back_link_to" jsonschema:"title=Back link to,description=Back link to document"`
 
-	Observer psi.Promise `json:"observer"`
+	Observer psi.Promise `json:"observer" jsonschema:"title=Observer,description=Observer promise"`
 }
 
 type TraceRequest struct {
@@ -55,7 +56,6 @@ var KnowledgeBaseType = psi.DefineNodeType[*KnowledgeBase](
 	psi.WithInterfaceFromNode(KnowledgeBaseInterface),
 )
 
-var EdgeKindKnowledgeBase = psi.DefineEdgeType[*KnowledgeBase]("kb.root")
 var EdgeKindKnowledgeBaseDocuments = psi.DefineEdgeType[*indexing.Scope]("kb.documents")
 
 func NewKnowledgeBase() *KnowledgeBase {
@@ -254,7 +254,6 @@ func (kb *KnowledgeBase) TraceConcept(ctx context.Context, request *TraceRequest
 }
 
 func (kb *KnowledgeBase) CreateKnowledge(ctx context.Context, request *KnowledgeRequest) (*Document, error) {
-	tx := coreapi.GetTransaction(ctx)
 	doc, err := kb.deduplicateDocument(ctx, request)
 
 	if err != nil {
@@ -266,7 +265,7 @@ func (kb *KnowledgeBase) CreateKnowledge(ctx context.Context, request *Knowledge
 	}
 
 	if !request.BackLinkTo.IsEmpty() {
-		backLinkTo, err := psi.Resolve[*Document](ctx, tx.Graph(), request.BackLinkTo)
+		backLinkTo, err := request.BackLinkTo.Resolve(ctx)
 
 		if err != nil {
 			return nil, err
@@ -299,7 +298,6 @@ func (kb *KnowledgeBase) ResolveCategory(ctx context.Context, name string) (*Cat
 
 	return psi.ResolveOrCreate[*Category](ctx, tx.Graph(), catPath, func() *Category {
 		cat := NewCategory(slugify(name))
-		cat.SetEdge(EdgeKindKnowledgeBase.Named("root"), kb)
 
 		return cat
 	})
@@ -374,8 +372,8 @@ func (kb *KnowledgeBase) deduplicateDocument(ctx context.Context, request *Knowl
 		doc.Title = request.Title
 		doc.Description = request.Description
 		doc.Slug = slugify(doc.Title)
+		doc.Root = kb.CanonicalPath()
 		doc.SetParent(kb)
-		doc.SetEdge(EdgeKindKnowledgeBase.Named("root"), kb)
 
 		return doc
 	})

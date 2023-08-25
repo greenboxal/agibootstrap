@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -21,6 +22,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/riandyrn/otelchi"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
@@ -46,6 +48,7 @@ func NewServer(
 	api.mux = chi.NewRouter()
 	api.server.Handler = api.mux
 
+	api.mux.Use(otelchi.Middleware("psidb", otelchi.WithChiRoutes(api.mux)))
 	api.mux.Use(middleware.RealIP)
 	api.mux.Use(middleware.RequestID)
 	api.mux.Use(middleware.Logger)
@@ -127,7 +130,7 @@ func (a *Server) Start(ctx context.Context) error {
 
 	go func() {
 		if err := a.server.Serve(listener); err != nil {
-			if err != http.ErrServerClosed {
+			if !errors.Is(err, http.ErrServerClosed) {
 				a.logger.Error(err)
 			}
 		}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
+	"go.opentelemetry.io/otel"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -67,6 +68,8 @@ type TransactionOperations interface {
 	RunTransaction(ctx context.Context, fn TransactionFunc, options ...TransactionOption) (err error)
 }
 
+var tracer = otel.Tracer("coreapi")
+
 func RunTransaction(
 	ctx context.Context,
 	ops TransactionOperations,
@@ -74,6 +77,9 @@ func RunTransaction(
 	options ...TransactionOption,
 ) (err error) {
 	tx := GetTransaction(ctx)
+
+	ctx, span := tracer.Start(ctx, "coreapi.RunTransaction")
+	defer span.End()
 
 	if tx == nil {
 		tx, err = ops.BeginTransaction(ctx, options...)
@@ -129,4 +135,18 @@ func GetTransaction(ctx context.Context) Transaction {
 
 func WithTransaction(ctx context.Context, tx Transaction) context.Context {
 	return context.WithValue(ctx, ctxKeyTransaction, tx)
+}
+
+func Dispatch(ctx context.Context, not psi.Notification, options ...psi.NotificationOption) error {
+	tx := GetTransaction(ctx)
+
+	if tx == nil {
+		return fmt.Errorf("no transaction")
+	}
+
+	if len(options) > 0 {
+		not = not.WithOptions(options...)
+	}
+
+	return tx.Notify(ctx, not)
 }

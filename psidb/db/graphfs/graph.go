@@ -8,6 +8,9 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime/linking"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
@@ -18,8 +21,10 @@ import (
 type SuperBlockProvider func(ctx context.Context, uuid string) (SuperBlock, error)
 
 type VirtualGraph struct {
-	mu     sync.RWMutex
+	mu sync.RWMutex
+
 	logger *zap.SugaredLogger
+	tracer trace.Tracer
 
 	lsys *linking.LinkSystem
 	spb  SuperBlockProvider
@@ -45,6 +50,10 @@ func NewVirtualGraph(
 	vg := &VirtualGraph{
 		logger: logging.GetLogger("graphfs"),
 
+		tracer: otel.Tracer("graphfs",
+			trace.WithInstrumentationAttributes(semconv.DBSystemKey.String("psidb")),
+		),
+
 		ds:   metadataStore,
 		lsys: lsys,
 		spb:  spb,
@@ -59,6 +68,10 @@ func NewVirtualGraph(
 }
 
 func (vg *VirtualGraph) Recover(ctx context.Context) error {
+	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.Recover")
+	span.SetAttributes(semconv.DBOperation("recover"))
+	defer span.End()
+
 	return vg.transactionManager.Recover(ctx)
 }
 
@@ -71,6 +84,10 @@ func (vg *VirtualGraph) CreateReplicationSlot(ctx context.Context, options Repli
 }
 
 func (vg *VirtualGraph) GetSuperBlock(ctx context.Context, uuid string) (SuperBlock, error) {
+	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.GetSuperBlock")
+	span.SetAttributes(semconv.DBOperation("getSuperBlock"))
+	defer span.End()
+
 	vg.mu.Lock()
 	defer vg.mu.Unlock()
 
@@ -95,6 +112,10 @@ func (vg *VirtualGraph) GetSuperBlock(ctx context.Context, uuid string) (SuperBl
 
 func (vg *VirtualGraph) Open(ctx context.Context, path psi.Path, options ...OpenNodeOption) (NodeHandle, error) {
 	var opts OpenNodeOptions
+
+	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.Open")
+	span.SetAttributes(semconv.DBOperation("open"))
+	defer span.End()
 
 	if opts.Flags == 0 {
 		opts.Flags = OpenNodeFlagsRead
@@ -127,6 +148,10 @@ func (vg *VirtualGraph) Open(ctx context.Context, path psi.Path, options ...Open
 }
 
 func (vg *VirtualGraph) Resolve(ctx context.Context, path psi.Path) (*CacheEntry, error) {
+	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.Resolve")
+	span.SetAttributes(semconv.DBOperation("resolve"))
+	defer span.End()
+
 	sb, err := vg.GetSuperBlock(ctx, path.Root())
 
 	if err != nil {
@@ -147,6 +172,10 @@ func (vg *VirtualGraph) Resolve(ctx context.Context, path psi.Path) (*CacheEntry
 }
 
 func (vg *VirtualGraph) Read(ctx context.Context, path psi.Path) (*SerializedNode, error) {
+	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.Read")
+	span.SetAttributes(semconv.DBOperation("read"))
+	defer span.End()
+
 	nh, err := vg.Open(ctx, path)
 
 	if err != nil {
@@ -159,6 +188,10 @@ func (vg *VirtualGraph) Read(ctx context.Context, path psi.Path) (*SerializedNod
 }
 
 func (vg *VirtualGraph) Write(ctx context.Context, path psi.Path, node *SerializedNode) error {
+	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.Write")
+	span.SetAttributes(semconv.DBOperation("write"))
+	defer span.End()
+
 	nh, err := vg.Open(ctx, path)
 
 	if err != nil {
@@ -171,6 +204,10 @@ func (vg *VirtualGraph) Write(ctx context.Context, path psi.Path, node *Serializ
 }
 
 func (vg *VirtualGraph) ReadEdge(ctx context.Context, path psi.Path) (*SerializedEdge, error) {
+	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.ReadEdge")
+	span.SetAttributes(semconv.DBOperation("readEdge"))
+	defer span.End()
+
 	nh, err := vg.Open(ctx, path.Parent())
 
 	if err != nil {
@@ -183,6 +220,10 @@ func (vg *VirtualGraph) ReadEdge(ctx context.Context, path psi.Path) (*Serialize
 }
 
 func (vg *VirtualGraph) ReadEdges(ctx context.Context, path psi.Path) (iterators.Iterator[*SerializedEdge], error) {
+	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.ReadEdges")
+	span.SetAttributes(semconv.DBOperation("applyTransaction"))
+	defer span.End()
+
 	nh, err := vg.Open(ctx, path)
 
 	if err != nil {
@@ -220,6 +261,10 @@ func (vg *VirtualGraph) Close(ctx context.Context) error {
 }
 
 func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) error {
+	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.applyTransaction")
+	span.SetAttributes(semconv.DBSystemKey.String("psidb"))
+	defer span.End()
+
 	hasBegun := false
 	hasFinished := false
 
