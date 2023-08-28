@@ -18,6 +18,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
+	gpt2 "github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 )
 
 type ReflectOptions struct {
@@ -102,7 +103,7 @@ func Boolean(ctx context.Context, req ReflectOptions) (bool, error) {
 
 		chain.Sequential(
 			chat.Predict(
-				gpt.GlobalModel,
+				gpt2.GlobalModel,
 				prompt,
 				chat.WithTemperature(0),
 				chat.WithMaxTokens(1),
@@ -224,7 +225,7 @@ func reflectSingle[T any](ctx context.Context, req ReflectOptions) (def T, _ cha
 
 		chain.Sequential(
 			chat.Predict(
-				gpt.GlobalModel,
+				gpt2.GlobalModel,
 				prompt,
 				chat.WithMaxTokens(1024),
 			),

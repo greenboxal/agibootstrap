@@ -2,7 +2,7 @@ package ws
 
 import (
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
-
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
 )
 
@@ -11,15 +11,25 @@ type Message struct {
 	ReplyTo uint64 `json:"reply_to"`
 
 	Ack         *AckMessage          `json:"ack,omitempty"`
+	Nack        *NackMessage         `json:"nack,omitempty"`
 	Error       *ErrorMessage        `json:"error,omitempty"`
 	Subscribe   *SubscribeMessage    `json:"subscribe,omitempty"`
 	Unsubscribe *UnsubscribeMessage  `json:"unsubscribe,omitempty"`
 	Notify      *NotificationMessage `json:"notify,omitempty"`
+	Session     *SessionMessage      `json:"session,omitempty"`
 }
 
 var MessageType = typesystem.TypeOf(Message{})
 
 type AckMessage struct {
+}
+
+type NackMessage struct {
+}
+
+type SessionMessage struct {
+	SessionID string                 `json:"session_id"`
+	Message   coreapi.SessionMessage `json:"message"`
 }
 
 type NotificationMessage struct {

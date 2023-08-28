@@ -50,7 +50,7 @@ func (t *transaction) Rollback(ctx context.Context) error {
 	return t.lg.Rollback(ctx)
 }
 
-var ctxKeyTransaction = &struct{}{}
+var ctxKeyTransaction = struct{ name string }{name: "PsiDbGsTx"}
 
 func getTransaction(ctx context.Context) *transaction {
 	tx, _ := ctx.Value(ctxKeyTransaction).(*transaction)

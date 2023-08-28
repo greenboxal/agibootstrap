@@ -144,6 +144,10 @@ func (ib *ifaceBuilder) Finish() error {
 		ib.v = New(ib.actual)
 	}
 
+	if ib.actual == nil {
+		panic("no type")
+	}
+
 	if ib.v.v.Type().AssignableTo(ib.bb.v.v.Type()) {
 		ib.bb.v.v.Set(ib.v.v)
 	} else {

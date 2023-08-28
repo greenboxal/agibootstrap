@@ -3,64 +3,45 @@ package coreapi
 import (
 	"context"
 	"time"
-
-	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 )
 
-type SessionKey string
+type SessionManager interface {
+	CreateSession() Session
+	GetSession(id string) Session
+	GetOrCreateSession(id string) Session
+}
+
+type SessionClient interface {
+	SendSessionMessage(sessionId string, msg SessionMessage) error
+}
 
 type Session interface {
-	SessionID() uint64
-	SessionKey() SessionKey
+	UUID() string
 
-	ServiceProvider() inject.ServiceProvider
+	KeepAlive()
+	LastKeepAlive() time.Time
+
+	ReceiveMessage(m SessionMessage)
+	SendMessage(m SessionMessage)
+
+	AttachClient(client SessionClient)
+	DetachClient(client SessionClient)
 
 	TransactionOperations
-
-	Close() error
 }
 
-type SessionOption func(*SessionOptions)
+var ctxKeySession = struct{ name string }{name: "PsiDbSession"}
 
-type SessionOptions struct {
-	Key SessionKey
-
-	Deadline  *time.Time
-	Timeout   *time.Duration
-	KeepAlive *time.Duration
+func WithSession(ctx context.Context, session Session) context.Context {
+	return context.WithValue(ctx, ctxKeySession, session)
 }
 
-func (s *SessionOptions) Apply(options ...SessionOption) {
-	for _, option := range options {
-		option(s)
+func GetSession(ctx context.Context) Session {
+	v, ok := ctx.Value(ctxKeySession).(Session)
+
+	if !ok {
+		return nil
 	}
-}
 
-func WithSessionDeadline(deadline time.Time) SessionOption {
-	return func(options *SessionOptions) {
-		options.Deadline = &deadline
-	}
-}
-
-func WithSessionTimeout(timeout time.Duration) SessionOption {
-	return func(options *SessionOptions) {
-		options.Timeout = &timeout
-	}
-}
-
-func WithSessionKeepAlive(keepAlive time.Duration) SessionOption {
-	return func(options *SessionOptions) {
-		options.KeepAlive = &keepAlive
-	}
-}
-
-func WithSessionKey(key SessionKey) SessionOption {
-	return func(options *SessionOptions) {
-		options.Key = key
-	}
-}
-
-type SessionManager interface {
-	NewSession(ctx context.Context, options ...SessionOption) (Session, error)
-	GetSession(ctx context.Context, key SessionKey) (Session, error)
+	return v
 }

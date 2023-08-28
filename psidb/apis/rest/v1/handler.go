@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"strconv"
 	"strings"
@@ -291,6 +292,8 @@ func (r *ResourceHandler) handleError(writer http.ResponseWriter, request *Reque
 
 	if errors.As(err, &httpErr) {
 		status = httpErr.StatusCode()
+	} else if errors.Is(err, fs.ErrNotExist) {
+		status = http.StatusNotFound
 	}
 
 	if status >= http.StatusInternalServerError {

@@ -5,17 +5,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
 	"github.com/greenboxal/aip/aip-langchain/pkg/tokenizers"
 	"github.com/iancoleman/orderedmap"
 	"github.com/invopop/jsonschema"
+	"github.com/pkg/errors"
 	"github.com/samber/lo"
 
-	"github.com/greenboxal/agibootstrap/pkg/gpt"
+	"github.com/greenboxal/agibootstrap/pkg/gpt/promptml"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	gpt2 "github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 )
 
 type PromptBuilderHook int
@@ -58,13 +61,17 @@ func (s simpleTool) ToolName() string                           { return s.defin
 func (s simpleTool) ToolDefinition() *openai.FunctionDefinition { return s.definition }
 
 type PromptBuilder struct {
-	request openai.ChatCompletionRequest
+	client       *openai.Client
+	modelOptions ModelOptions
 
 	tokenizer tokenizers.BasicTokenizer
 
 	hooks    map[PromptBuilderHook][]PromptBuilderHookFunc
 	messages map[PromptBuilderHook][]PromptMessageSource
-	tools    map[string]PromptBuilderTool
+
+	enableTools *bool
+	forceTool   *string
+	tools       map[string]PromptBuilderTool
 
 	focus       *Message
 	allMessages []*Message
@@ -72,7 +79,7 @@ type PromptBuilder struct {
 	Context map[string]any
 }
 
-func NewPromptBuilder(base openai.ChatCompletionRequest) *PromptBuilder {
+func NewPromptBuilder() *PromptBuilder {
 	b := &PromptBuilder{
 		Context: map[string]any{},
 
@@ -80,11 +87,14 @@ func NewPromptBuilder(base openai.ChatCompletionRequest) *PromptBuilder {
 		messages: map[PromptBuilderHook][]PromptMessageSource{},
 		tools:    map[string]PromptBuilderTool{},
 
-		tokenizer: gpt.GlobalModelTokenizer,
-		request:   base,
+		tokenizer: gpt2.GlobalModelTokenizer,
 	}
 
 	return b
+}
+
+func (b *PromptBuilder) WithClient(client *openai.Client) {
+	b.client = client
 }
 
 func (b *PromptBuilder) AllMessages() []*Message { return b.allMessages }
@@ -117,21 +127,25 @@ func (b *PromptBuilder) SetFocus(msg *Message) { b.focus = msg }
 func (b *PromptBuilder) GetFocus() *Message    { return b.focus }
 
 func (b *PromptBuilder) WithModelOptions(opts ModelOptions) {
-	opts.Apply(&b.request)
+	b.modelOptions = b.modelOptions.MergeWith(opts)
 }
 
 func (b *PromptBuilder) DisableTools() {
-	b.request.FunctionCall = "none"
+	t := false
+	b.enableTools = &t
 }
 
 func (b *PromptBuilder) EnableTools() {
-	b.request.FunctionCall = "auto"
+	t := true
+	b.enableTools = &t
+}
+
+func (b *PromptBuilder) AutoTools() {
+	b.enableTools = nil
 }
 
 func (b *PromptBuilder) ForceTool(name string) {
-	b.request.FunctionCall = struct {
-		Name string `json:"name"`
-	}{Name: name}
+	b.forceTool = &name
 }
 
 func (b *PromptBuilder) WithTools(tools ...PromptBuilderTool) {
@@ -155,64 +169,110 @@ func buildOrderedMap(m map[string]any) *orderedmap.OrderedMap {
 }
 
 func (b *PromptBuilder) Build(ctx context.Context) openai.ChatCompletionRequest {
-	if len(b.tools) > 0 {
-		b.request.Functions = []openai.FunctionDefinition{
-			{
-				Name:        "CallNodeAction",
-				Description: "Invokes a node action.",
-				Parameters: &jsonschema.Schema{
-					Type:     "object",
-					Required: []string{"path", "interface", "action", "arguments"},
-					Properties: buildOrderedMap(map[string]any{
-						"path": &jsonschema.Schema{
-							Type:        "string",
-							Description: "The path to the node to invoke the action on.",
-						},
-						"action": &jsonschema.Schema{
-							Type:        "string",
-							Description: "The name of the action to invoke.",
-						},
-						"arguments": &jsonschema.Schema{
-							Type:        "object",
-							Description: "The arguments to pass to the action.",
-						},
-					}),
-				},
-			},
-			{
-				Name:        "InspectNode",
-				Description: "Inspects the given node.",
-				Parameters: &jsonschema.Schema{
-					Type:     "object",
-					Required: []string{"path"},
-					Properties: buildOrderedMap(map[string]any{
-						"path": &jsonschema.Schema{
-							Type:        "string",
-							Description: "The path of the node.",
-						},
-					}),
-				},
-			},
-			/*{
-				Name:        "ListNodeEdges",
-				Description: "Lists the edges of the given node.",
-				Parameters: &jsonschema.Schema{
-					Type:     "object",
-					Required: []string{"path"},
-					Properties: buildOrderedMap(map[string]any{
-						"path": &jsonschema.Schema{
-							Type:        "string",
-							Description: "The path of the node.",
-						},
-					}),
-				},
-			},*/
-		}
+	var request openai.ChatCompletionRequest
 
+	if b.forceTool != nil {
+		request.FunctionCall = struct {
+			Name string `json:"name"`
+		}{Name: *b.forceTool}
+	} else if b.enableTools != nil {
+		if *b.enableTools {
+			request.FunctionCall = "auto"
+		} else {
+			request.FunctionCall = "none"
+		}
+	}
+
+	request.Functions = []openai.FunctionDefinition{
+		/*{
+			Name:        "CallNodeAction",
+			Description: "Invokes a node action.",
+			Parameters: &jsonschema.Schema{
+				Type:     "object",
+				Required: []string{"path", "interface", "action", "arguments"},
+				Properties: buildOrderedMap(map[string]any{
+					"path": &jsonschema.Schema{
+						Type:        "string",
+						Description: "The path to the node to invoke the action on.",
+					},
+					"action": &jsonschema.Schema{
+						Type:        "string",
+						Description: "The name of the action to invoke.",
+					},
+					"arguments": &jsonschema.Schema{
+						Type:        "object",
+						Description: "The arguments to pass to the action.",
+					},
+				}),
+			},
+		},*/
+		{
+			Name:        "TraverseToNode",
+			Description: "Traverse the given node.",
+			Parameters: &jsonschema.Schema{
+				Type:     "object",
+				Required: []string{"path"},
+				Properties: buildOrderedMap(map[string]any{
+					"path": &jsonschema.Schema{
+						Type:        "string",
+						Description: "The path of the node.",
+					},
+				}),
+			},
+		},
+		{
+			Name:        "InspectNode",
+			Description: "Inspects the given node.",
+			Parameters: &jsonschema.Schema{
+				Type:     "object",
+				Required: []string{"path"},
+				Properties: buildOrderedMap(map[string]any{
+					"path": &jsonschema.Schema{
+						Type:        "string",
+						Description: "The path of the node.",
+					},
+				}),
+			},
+		},
+		{
+			Name:        "ShowAvailableFunctionsForNode",
+			Description: "Show available functions and actions for a given node.",
+			Parameters: &jsonschema.Schema{
+				Type:     "object",
+				Required: []string{"path"},
+				Properties: buildOrderedMap(map[string]any{
+					"path": &jsonschema.Schema{
+						Type:        "string",
+						Description: "The path of the node.",
+					},
+				}),
+			},
+		},
+		/*{
+			Name:        "ListNodeEdges",
+			Description: "Lists the edges of the given node.",
+			Parameters: &jsonschema.Schema{
+				Type:     "object",
+				Required: []string{"path"},
+				Properties: buildOrderedMap(map[string]any{
+					"path": &jsonschema.Schema{
+						Type:        "string",
+						Description: "The path of the node.",
+					},
+				}),
+			},
+		},*/
+	}
+
+	b.modelOptions.Apply(&request)
+
+	if len(b.tools) > 0 {
 		buffer := &bytes.Buffer{}
 		_, _ = fmt.Fprintf(buffer, "Available Tools:\n")
 
 		for _, tool := range b.tools {
+			request.Functions = append(request.Functions, *tool.ToolDefinition())
+
 			j, err := json.Marshal(tool.ToolDefinition().Parameters)
 
 			if err != nil {
@@ -226,65 +286,127 @@ func (b *PromptBuilder) Build(ctx context.Context) openai.ChatCompletionRequest 
 		msg.From.Role = msn.RoleSystem
 		msg.Text = buffer.String()
 
-		b.AppendMessage(PromptBuilderHookGlobalSystem, msg)
+		b.AppendMessage(PromptBuilderHookPreFocus, msg)
 	}
 
-	b.runHook(ctx, PromptBuilderHookGlobalSystem)
-	b.runHook(ctx, PromptBuilderHookPreHistory)
-	b.runHook(ctx, PromptBuilderHookHistory)
-	b.runHook(ctx, PromptBuilderHookPostHistory)
-	b.runHook(ctx, PromptBuilderHookPreFocus)
-	b.runHook(ctx, PromptBuilderHookFocus)
-	b.runHook(ctx, PromptBuilderHookPostFocus)
-	b.runHook(ctx, PromptBuilderHookLast)
-
-	return b.request
-}
-
-func (b *PromptBuilder) runHook(ctx context.Context, hook PromptBuilderHook) {
-	for _, srcs := range b.messages[hook] {
-		iter, err := srcs(ctx, b)
-
-		if err != nil {
-			panic(err)
-		}
-
-		for iter.Next() {
-			msg := iter.Value()
-
-			if hook != PromptBuilderHookFocus && msg == b.focus {
-				continue
+	buildStream := func(hook PromptBuilderHook) promptml.Parent {
+		return promptml.NewDynamicList(func(ctx context.Context) iterators.Iterator[promptml.Node] {
+			for _, fn := range b.hooks[hook] {
+				fn(ctx, b, &request)
 			}
 
-			if msg.Kind == MessageKindEmit || msg.Kind == MessageKindError {
-				b.allMessages = append(b.allMessages, msg)
-				b.request.Messages = append(b.request.Messages, msg.ToOpenAI())
+			messageSources := b.messages[hook]
+
+			if len(messageSources) == 0 {
+				return iterators.Empty[promptml.Node]()
 			}
-		}
+
+			msgSrcIterator := iterators.FromSlice(messageSources)
+
+			if hook == PromptBuilderHookFocus && b.focus != nil {
+				msgSrcIterator = iterators.Concat(msgSrcIterator, iterators.Single(StaticMessageSource(b.focus)))
+			}
+
+			return iterators.FlatMap(msgSrcIterator, func(fn PromptMessageSource) iterators.Iterator[promptml.Node] {
+				msgs, err := fn(ctx, b)
+
+				if err != nil {
+					panic(err)
+				}
+
+				if hook != PromptBuilderHookFocus && b.focus != nil {
+					msgs = iterators.Filter(msgs, func(msg *Message) bool {
+						if msg == b.focus {
+							return false
+						}
+
+						return true
+					})
+				}
+
+				return iterators.Map(msgs, func(msg *Message) promptml.Node {
+					var options []promptml.StyleOpt[promptml.Node]
+
+					if msg.From.Role == msn.RoleSystem || msg == b.focus {
+						options = append(options, promptml.Fixed())
+					}
+
+					return promptml.MessageWithUserData(msg.From.Name, msg.From.Role, promptml.Styled(
+						promptml.Text(msg.Text),
+						options...,
+					), msg)
+				})
+			})
+		})
 	}
 
-	if hook == PromptBuilderHookFocus && b.focus != nil {
-		b.allMessages = append(b.allMessages, b.focus)
-		b.request.Messages = append(b.request.Messages, b.focus.ToOpenAI())
+	pml := promptml.Container(
+		buildStream(PromptBuilderHookGlobalSystem),
+		buildStream(PromptBuilderHookPreHistory),
+		buildStream(PromptBuilderHookHistory),
+		buildStream(PromptBuilderHookPostHistory),
+		buildStream(PromptBuilderHookPreFocus),
+		buildStream(PromptBuilderHookFocus),
+		buildStream(PromptBuilderHookPostFocus),
+		buildStream(PromptBuilderHookLast),
+	)
+
+	if err := b.renderPml(ctx, pml, &request); err != nil {
+		panic(err)
 	}
 
-	for _, fn := range b.hooks[hook] {
-		fn(ctx, b, &b.request)
+	return request
+}
+
+type ExecuteOptions struct {
+	Client       *openai.Client
+	ModelOptions ModelOptions
+}
+
+func (o *ExecuteOptions) Apply(options ...ExecuteOption) {
+	for _, opt := range options {
+		opt(o)
 	}
 }
 
-func (b *PromptBuilder) Execute(ctx context.Context, client *openai.Client) (*PromptResponse, error) {
+type ExecuteOption func(o *ExecuteOptions)
+
+func (b *PromptBuilder) Execute(ctx context.Context, options ...ExecuteOption) (*PromptResponse, error) {
+	var opts ExecuteOptions
+	opts.Client = b.client
+	opts.ModelOptions = b.modelOptions
+	opts.Apply(options...)
+
 	request := b.Build(ctx)
-	res, err := client.CreateChatCompletion(ctx, request)
+	res, err := opts.Client.CreateChatCompletionStream(ctx, request)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &PromptResponse{
-		Raw: &res,
+	defer res.Close()
 
-		Choices: lo.Map(res.Choices, func(c openai.ChatCompletionChoice, _ int) PromptResponseChoice {
+	trace := gpt2.CreateTrace(ctx, request)
+	defer trace.End()
+
+	for {
+		chunk, err := res.Recv()
+
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			trace.ReportError(err)
+
+			return nil, err
+		}
+
+		trace.ConsumeOpenAI(chunk)
+	}
+
+	return &PromptResponse{
+		Raw: trace,
+
+		Choices: lo.Map(trace.Choices, func(c openai.ChatCompletionChoice, _ int) PromptResponseChoice {
 			msg := NewMessage(MessageKindEmit)
 			msg.FromOpenAI(c.Message)
 
@@ -295,52 +417,9 @@ func (b *PromptBuilder) Execute(ctx context.Context, client *openai.Client) (*Pr
 			}
 
 			if msg.FunctionCall != nil {
-				switch msg.FunctionCall.Name {
-				case "CallNodeAction":
-					var args struct {
-						Path      psi.Path        `json:"path"`
-						ToolName  string          `json:"tool_name"`
-						Arguments json.RawMessage `json:"arguments"`
-					}
-
-					if err := json.Unmarshal([]byte(msg.FunctionCall.Arguments), &args); err != nil {
-						panic(err)
-					}
-
-					rawArgs, err := args.Arguments.MarshalJSON()
-
-					if err != nil {
-						panic(err)
-					}
-
-					choice.Tool = &PromptToolSelection{
-						Focus:     args.Path,
-						Name:      msg.FunctionCall.Name,
-						Arguments: string(rawArgs),
-						Tool:      b.tools[args.ToolName],
-					}
-
-				case "InspectNode":
-					fallthrough
-				case "ListNodeEdges":
-					var args struct {
-						Path psi.Path `json:"path"`
-					}
-
-					if err := json.Unmarshal([]byte(msg.FunctionCall.Arguments), &args); err != nil {
-						panic(err)
-					}
-
-					choice.Tool = &PromptToolSelection{
-						Focus: args.Path,
-						Name:  msg.FunctionCall.Name,
-					}
-
-				default:
-					choice.Tool = &PromptToolSelection{
-						Name:      msg.FunctionCall.Name,
-						Arguments: msg.FunctionCall.Arguments,
-					}
+				choice.Tool = &PromptToolSelection{
+					Name:      msg.FunctionCall.Name,
+					Arguments: msg.FunctionCall.Arguments,
 				}
 			}
 
@@ -349,23 +428,90 @@ func (b *PromptBuilder) Execute(ctx context.Context, client *openai.Client) (*Pr
 	}, nil
 }
 
-type PromptToolSelection struct {
-	Focus     psi.Path `json:"focus"`
-	Name      string   `json:"name"`
-	Arguments string   `json:"arguments"`
+func (b *PromptBuilder) ExecuteAndParse(ctx context.Context, parser ResultParser, options ...ExecuteOption) error {
+	result, err := b.Execute(ctx, options...)
 
-	Tool PromptBuilderTool `json:"-"`
+	if err != nil {
+		return err
+	}
+
+	for _, choice := range result.Choices {
+		if err := parser.ParseChoice(ctx, choice); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-type PromptResponse struct {
-	Raw     *openai.ChatCompletionResponse `json:"raw"`
-	Choices []PromptResponseChoice         `json:"choices"`
+func (b *PromptBuilder) renderPml(ctx context.Context, root promptml.Parent, o *openai.ChatCompletionRequest) (err error) {
+	stage := promptml.NewStage(root, gpt2.GlobalModelTokenizer)
+	stage.MaxTokens = (gpt2.GlobalClient.MaxTokensForModel(o.Model) / 4 * 3) - int((float64(o.MaxTokens)*1.1)+10) - 256
+
+	if err := root.Update(ctx); err != nil {
+		return err
+	}
+
+	if str, err := stage.RenderToString(ctx); err != nil {
+		str = str
+		return err
+	}
+
+	if err = psi.Walk(root, func(c psi.Cursor, entering bool) error {
+		if !entering {
+			return nil
+		}
+
+		msg, ok := c.Value().(*promptml.ChatMessage)
+
+		if !ok {
+			c.WalkChildren()
+			return nil
+		} else {
+			c.SkipChildren()
+		}
+
+		text, err := stage.RenderNodeToString(ctx, msg)
+
+		if err != nil {
+			return err
+		}
+
+		originalMsg, hasOriginalMsg := msg.UserData.(*Message)
+
+		m := openai.ChatCompletionMessage{
+			Name:    msg.From.Value(),
+			Role:    openai.ConvertFromRole(msg.Role.Value()),
+			Content: text,
+		}
+
+		if hasOriginalMsg {
+			if originalMsg.FunctionCall != nil {
+				m.FunctionCall = &openai.FunctionCall{
+					Name:      originalMsg.FunctionCall.Name,
+					Arguments: originalMsg.FunctionCall.Arguments,
+				}
+			}
+		}
+
+		o.Messages = append(o.Messages, m)
+
+		return nil
+	}); err != nil {
+		return
+	}
+
+	return
 }
 
-type PromptResponseChoice struct {
-	Index   int                         `json:"index"`
-	Message *Message                    `json:"message"`
-	Reason  openai.ChatCompletionReason `json:"reason"`
+func ExecuteWithClient(client *openai.Client) ExecuteOption {
+	return func(o *ExecuteOptions) {
+		o.Client = client
+	}
+}
 
-	Tool *PromptToolSelection `json:"tool"`
+func ExecuteWithModelOptions(opts ModelOptions) ExecuteOption {
+	return func(o *ExecuteOptions) {
+		o.ModelOptions = o.ModelOptions.MergeWith(opts)
+	}
 }

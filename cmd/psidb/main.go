@@ -30,6 +30,9 @@ func main() {
 			return &fxevent.ZapLogger{Logger: logging.GetRootLogger()}
 		}),
 
+		// FIXME
+		fx.Provide(NewDefaultNodeEmbedder),
+
 		psidb.BaseModules,
 		workspace.Module,
 

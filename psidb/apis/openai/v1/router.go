@@ -15,7 +15,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/sashabaranov/go-openai"
 
-	gpt2 "github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 )
 
@@ -31,7 +30,7 @@ type Router struct {
 func NewRouter(ecm *gpt.EmbeddingCacheManager) *Router {
 	router := &Router{
 		Router: chi.NewRouter(),
-		client: gpt2.GlobalClient,
+		client: gpt.GlobalClient,
 		ecm:    ecm,
 	}
 

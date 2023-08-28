@@ -31,6 +31,10 @@ type INode struct {
 	flags        INodeFlag
 	cacheEntries []*CacheEntry
 
+	lastVersionMutex sync.RWMutex
+	lastVersion      *SerializedNode
+	edgeCache        map[string]*SerializedEdge
+
 	sb SuperBlock
 }
 

@@ -70,8 +70,8 @@ func (m *Manager) Start(ctx context.Context) error {
 
 func (m *Manager) newTypeFromTypeWithName(ctx context.Context, name string, nt typesystem.Type) (*Type, error) {
 	name = strings.ReplaceAll(name, "/", ".")
-	name = strings.ReplaceAll(name, "[", "___")
-	name = strings.ReplaceAll(name, "]", "___")
+	name = strings.ReplaceAll(name, "[", "_QZQZ_")
+	name = strings.ReplaceAll(name, "]", "_QZQZ_")
 	lastIndex := strings.LastIndex(name, ".")
 
 	t := &Type{

@@ -61,6 +61,10 @@ func Universe() *TypeSystem {
 	return globalTypeSystem
 }
 
+func GetType[T any]() Type {
+	return TypeFrom(reflect.TypeOf((*T)(nil)).Elem())
+}
+
 func TypeOf(v interface{}) Type {
 	return Universe().LookupByType(reflect.TypeOf(v))
 }

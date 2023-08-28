@@ -11,6 +11,7 @@ import (
 	"github.com/jbenet/goprocess"
 
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
+	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
@@ -38,6 +39,8 @@ type Client struct {
 	outgoingCh chan []byte
 
 	subscriptions map[string]*pubsub.Subscription
+
+	session coreapi.Session
 }
 
 func NewClient(
@@ -62,6 +65,51 @@ func (c *Client) SendMessage(msg *Message) error {
 	}
 
 	c.outgoingCh <- data
+
+	return nil
+}
+
+func (c *Client) SendSessionMessage(sessionId string, msg coreapi.SessionMessage) error {
+	return c.SendMessage(&Message{
+		Session: &SessionMessage{
+			SessionID: sessionId,
+			Message:   msg,
+		},
+	})
+}
+
+func (c *Client) handleSession(msg Message) error {
+	if _, ok := msg.Session.Message.(coreapi.SessionMessageOpen); ok {
+		if c.session == nil {
+			if msg.Session.SessionID == "" {
+				msg.Session.SessionID = uuid.NewString()
+			}
+
+			sess := c.handler.sessionManager.GetOrCreateSession(msg.Session.SessionID)
+			sess.AttachClient(c)
+			c.session = sess
+		}
+
+		return c.SendMessage(&Message{
+			ReplyTo: msg.Mid,
+			Ack:     &AckMessage{},
+			Session: &SessionMessage{
+				SessionID: c.session.UUID(),
+				Message: coreapi.SessionMessageKeepAlive{
+					Timestamp: time.Now().UnixNano(),
+				},
+			},
+		})
+	}
+
+	if c.session == nil {
+		return c.SendMessage(&Message{
+			ReplyTo: msg.Mid,
+			Nack:    &NackMessage{},
+		})
+	}
+
+	c.session.ReceiveMessage(msg.Session.Message)
 
 	return nil
 }
@@ -129,6 +177,12 @@ func (c *Client) handleMessage(message []byte) error {
 		return c.handleSubscribe(msg)
 	} else if msg.Unsubscribe != nil {
 		return c.handleUnsubscribe(msg)
+	} else if msg.Session != nil {
+		return c.handleSession(msg)
+	}
+
+	if c.session != nil {
+		c.session.KeepAlive()
 	}
 
 	return nil
@@ -171,6 +225,11 @@ func (c *Client) writePump(proc goprocess.Process) {
 		ticker.Stop()
 
 		_ = c.conn.Close()
+
+		if c.session != nil {
+			c.session.DetachClient(c)
+			c.session = nil
+		}
 	}()
 
 	for {

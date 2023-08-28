@@ -9,11 +9,11 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/promptml"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 )
 
 type AgentContextBase struct {

@@ -6,6 +6,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 )
@@ -44,6 +45,9 @@ type Confirmation struct {
 
 type Notification struct {
 	Nonce uint64 `json:"nonce"`
+
+	SessionID string             `json:"session_id"`
+	TraceID   *NotificationTrace `json:"trace_id"`
 
 	Notifier Path `json:"notifier"`
 	Notified Path `json:"notified"`
@@ -92,8 +96,28 @@ func (n Notification) WithOptions(options ...NotificationOption) Notification {
 	return n
 }
 
+type NotificationTrace struct {
+	TraceID    string `json:"T,omitempty`
+	SpanID     string `json:"S,omitempty"`
+	TraceFlags int    `json:"F,omitempty"`
+	TraceState string `json:"ST,omitempty"`
+	Remote     bool   `json:"R,omitempty"`
+}
+
 func (n Notification) Apply(ctx context.Context, target Node) (any, error) {
 	var arg any
+
+	if n.TraceID != nil {
+		cfg := trace.SpanContextConfig{}
+		cfg.TraceID, _ = trace.TraceIDFromHex(n.TraceID.TraceID)
+		cfg.SpanID, _ = trace.SpanIDFromHex(n.TraceID.SpanID)
+		cfg.TraceState, _ = trace.ParseTraceState(n.TraceID.TraceState)
+		cfg.TraceFlags = trace.TraceFlags(n.TraceID.TraceFlags)
+		cfg.Remote = n.TraceID.Remote
+
+		spanCtx := trace.NewSpanContext(cfg)
+		ctx = trace.ContextWithRemoteSpanContext(ctx, spanCtx)
+	}
 
 	typ := target.PsiNodeType()
 	iface := typ.Interface(n.Interface)

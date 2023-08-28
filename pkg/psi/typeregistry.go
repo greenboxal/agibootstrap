@@ -188,7 +188,7 @@ func reflectNodeType(typ typesystem.Type, options ...NodeTypeOption) *nodeType {
 	nt.def.Name = formatTypeName(typ.Name())
 	nt.name = typesystem.AsTypeName(utils.ParseTypeName(nt.def.Name))
 
-	nt.vtables["Node"] = BindInterfaceFromNode(INodeInterface, typ)
+	//nt.vtables["Node"] = BindInterfaceFromNode(INodeInterface, typ)
 
 	for _, opt := range options {
 		opt(nt)

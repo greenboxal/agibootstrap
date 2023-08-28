@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
+	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 )
 
 type CodeGeneratorRequest struct {
@@ -32,7 +33,7 @@ type CodeGeneratorResponse struct {
 
 type CodeGenerator struct {
 	client *openai.Client
-	model  *openai.ChatLanguageModel
+	model  chat.LanguageModel
 
 	planChain     chain.Chain
 	generateChain chain.Chain
@@ -43,8 +44,8 @@ var blockCodeHeaderRegex = regexp.MustCompile("(?m)^\\w*\\x60\\x60\\x60([a-zA-Z0
 
 func NewCodeGenerator() *CodeGenerator {
 	cg := &CodeGenerator{
-		client: GlobalClient,
-		model:  GlobalModel,
+		client: gpt.GlobalClient,
+		model:  gpt.GlobalModel,
 	}
 
 	cg.planChain = chain.New(
@@ -52,7 +53,7 @@ func NewCodeGenerator() *CodeGenerator {
 
 		chain.Sequential(
 			chat.Predict(
-				GlobalModel,
+				gpt.GlobalModel,
 				CodeGeneratorPlannerPrompt,
 			),
 		),
@@ -63,7 +64,7 @@ func NewCodeGenerator() *CodeGenerator {
 
 		chain.Sequential(
 			chat.Predict(
-				GlobalModel,
+				gpt.GlobalModel,
 				CodeGeneratorPrompt,
 				chat.WithMaxTokens(4000),
 			),
@@ -75,7 +76,7 @@ func NewCodeGenerator() *CodeGenerator {
 
 		chain.Sequential(
 			chat.Predict(
-				GlobalModel,
+				gpt.GlobalModel,
 				CodeGeneratorPrompt,
 			),
 		),

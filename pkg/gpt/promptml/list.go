@@ -36,6 +36,10 @@ func (l *DynamicList) LayoutChildren(ctx context.Context) error {
 		for currentLength < l.GetEffectiveMaxLength() && l.currentStream.Next() {
 			child := l.currentStream.Value()
 
+			if child == nil {
+				continue
+			}
+
 			l.AddChildNode(child)
 
 			if err := child.Update(ctx); err != nil {

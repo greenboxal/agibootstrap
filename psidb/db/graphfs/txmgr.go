@@ -127,8 +127,7 @@ func (txm *TransactionManager) Recover(ctx context.Context) error {
 
 func (txm *TransactionManager) newTransaction(isReadOnly bool) *Transaction {
 	tx := &Transaction{
-		txm: txm,
-
+		txm:        txm,
 		dirtyNodes: make(map[int64]*txNode),
 	}
 

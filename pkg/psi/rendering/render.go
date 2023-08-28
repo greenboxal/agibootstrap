@@ -14,8 +14,8 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 
-	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )

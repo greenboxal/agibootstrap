@@ -63,7 +63,37 @@ func (nh *NodeHandleBase) Read(ctx context.Context) (*SerializedNode, error) {
 		return nil, fs.ErrPermission
 	}
 
-	return nh.inode.NodeHandleOperations().Read(ctx, nh)
+	nh.inode.mu.RLock()
+	defer nh.inode.mu.RUnlock()
+
+	nh.inode.lastVersionMutex.RLock()
+	sn := nh.inode.lastVersion
+	nh.inode.lastVersionMutex.RUnlock()
+
+	if sn != nil && sn.Flags&NodeFlagInvalid == 0 {
+		if sn.Flags&NodeFlagRemoved != 0 {
+			return nil, psi.ErrNodeNotFound
+		}
+
+		return sn, nil
+	}
+
+	nh.inode.lastVersionMutex.Lock()
+	defer nh.inode.lastVersionMutex.Unlock()
+
+	sn, err := nh.inode.NodeHandleOperations().Read(ctx, nh)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if sn.Flags&NodeFlagRemoved != 0 {
+		return nil, psi.ErrNodeNotFound
+	}
+
+	nh.inode.lastVersion = sn
+
+	return sn, nil
 }
 
 func (nh *NodeHandleBase) Write(ctx context.Context, fe *SerializedNode) error {
@@ -75,7 +105,22 @@ func (nh *NodeHandleBase) Write(ctx context.Context, fe *SerializedNode) error {
 		return fs.ErrPermission
 	}
 
-	return nh.inode.NodeHandleOperations().Write(ctx, nh, fe)
+	nh.inode.mu.RLock()
+	defer nh.inode.mu.RUnlock()
+
+	nh.inode.lastVersionMutex.Lock()
+	defer nh.inode.lastVersionMutex.Unlock()
+
+	if err := nh.inode.NodeHandleOperations().Write(ctx, nh, fe); err != nil {
+		return err
+	}
+
+	frozen := *fe
+	frozen.Flags &= ^NodeFlagInvalid
+	frozen.Flags &= ^NodeFlagRemoved
+	nh.inode.lastVersion = &frozen
+
+	return nil
 }
 
 func (nh *NodeHandleBase) SetEdge(ctx context.Context, edge *SerializedEdge) error {
@@ -147,18 +192,22 @@ func (nh *NodeHandleBase) Close() error {
 }
 
 func NewNodeHandle(ctx context.Context, inode *INode, dentry *CacheEntry, options OpenNodeOptions) (NodeHandle, error) {
+	base := &NodeHandleBase{
+		inode:   inode.Get(),
+		dentry:  dentry.Get(),
+		options: options,
+	}
+
 	if options.Transaction != nil {
 		return &txNodeHandle{
 			tx:      options.Transaction,
 			inode:   inode.Get(),
 			dentry:  dentry.Get(),
 			options: options,
+
+			baseHandle: base,
 		}, nil
 	}
 
-	return &NodeHandleBase{
-		inode:   inode.Get(),
-		dentry:  dentry.Get(),
-		options: options,
-	}, nil
+	return base, nil
 }

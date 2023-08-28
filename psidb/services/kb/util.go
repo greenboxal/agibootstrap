@@ -6,9 +6,9 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 
-	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/gpt/featureextractors"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
+	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 )
 
 func runChainWithMessages(ctx context.Context, msgs []*thoughtdb.Thought) (string, error) {

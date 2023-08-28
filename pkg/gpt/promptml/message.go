@@ -13,6 +13,8 @@ type ChatMessage struct {
 
 	From obsfx.StringProperty
 	Role obsfx.SimpleProperty[msn.Role]
+
+	UserData any
 }
 
 func Message(from string, role msn.Role, content Node) *ChatMessage {
@@ -24,6 +26,14 @@ func Message(from string, role msn.Role, content Node) *ChatMessage {
 	cm.Role.SetValue(role)
 
 	cm.AddChildNode(content)
+
+	return cm
+}
+
+func MessageWithUserData(from string, role msn.Role, content Node, userData any) *ChatMessage {
+	cm := Message(from, role, content)
+
+	cm.UserData = userData
 
 	return cm
 }

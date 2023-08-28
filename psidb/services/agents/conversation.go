@@ -3,6 +3,7 @@ package agents
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	openai2 "github.com/sashabaranov/go-openai"
 	"golang.org/x/exp/slices"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
@@ -35,7 +37,7 @@ type IConversation interface {
 
 	OnMessageReceived(ctx context.Context, req *OnMessageReceivedRequest) error
 	OnMessageSideEffect(ctx context.Context, req *OnMessageSideEffectRequest) error
-	OnForkMerging(ctx context.Context, req *OnForMergingRequest) error
+	OnForkMerging(ctx context.Context, req *OnForkMergingRequest) error
 }
 
 type Conversation struct {
@@ -45,6 +47,7 @@ type Conversation struct {
 
 	BaseConversation *stdlib.Reference[*Conversation] `json:"base_conversation"`
 	BaseMessage      *stdlib.Reference[*Message]      `json:"base_message"`
+	BaseOptions      ModelOptions                     `json:"base_options"`
 
 	IsMerged bool `json:"is_merged"`
 
@@ -53,14 +56,69 @@ type Conversation struct {
 
 func (c *Conversation) PsiNodeName() string { return c.Name }
 
+func (c *Conversation) CreateThreadContext(ctx context.Context, message *Message) *ThreadContext {
+	return &ThreadContext{
+		Ctx:          ctx,
+		Client:       c.Client,
+		ModelOptions: c.BuildDefaultOptions(),
+		History:      c,
+		Log:          c,
+		BaseMessage:  message,
+	}
+}
+
+func (c *Conversation) BuildDefaultOptions() ModelOptions {
+	topP := float32(1.0)
+	temperature := float32(0.0)
+	model := "gpt-3.5-turbo-16k"
+	maxTokens := 1024
+
+	return ModelOptions{
+		TopP:        &topP,
+		Temperature: &temperature,
+		Model:       &model,
+		MaxTokens:   &maxTokens,
+	}.MergeWith(c.BaseOptions)
+}
+
 type GetMessagesRequest struct {
 	From *stdlib.Reference[*Message] `json:"from"`
 	To   *stdlib.Reference[*Message] `json:"to"`
+
+	SkipBaseHistory bool `json:"skip_base_history"`
 }
 
 func (c *Conversation) GetMessages(ctx context.Context, req *GetMessagesRequest) ([]*Message, error) {
+	return c.doSliceMessages(ctx, req)
+}
+
+func (c *Conversation) SliceMessages(ctx context.Context, from, to *Message) ([]*Message, error) {
+	msgs, err := c.doSliceMessages(ctx, &GetMessagesRequest{
+		From: stdlib.Ref(from),
+		To:   stdlib.Ref(to),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return msgs, nil
+}
+
+func (c *Conversation) MessageIterator(ctx context.Context) (iterators.Iterator[*Message], error) {
+	msgs, err := c.SliceMessages(ctx, nil, nil)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return iterators.FromSlice(msgs), nil
+}
+
+func (c *Conversation) doSliceMessages(ctx context.Context, req *GetMessagesRequest) ([]*Message, error) {
 	var err error
 	var from, to *Message
+	var messages []*Message
 
 	if !req.From.IsEmpty() {
 		from, err = req.From.Resolve(ctx)
@@ -78,13 +136,7 @@ func (c *Conversation) GetMessages(ctx context.Context, req *GetMessagesRequest)
 		}
 	}
 
-	return c.SliceMessages(ctx, from, to)
-}
-
-func (c *Conversation) SliceMessages(ctx context.Context, from, to *Message) ([]*Message, error) {
-	var messages []*Message
-
-	if c.BaseConversation != nil && (from == nil || from.Parent() != c) {
+	if !req.SkipBaseHistory && c.BaseConversation != nil && (from == nil || from.Parent() != c) {
 		baseConversation, err := c.BaseConversation.Resolve(ctx)
 
 		if err != nil {
@@ -108,24 +160,21 @@ func (c *Conversation) SliceMessages(ctx context.Context, from, to *Message) ([]
 
 	ownMessages := psi.GetEdges(c, ConversationMessageEdge)
 
+	ownMessages = lo.Filter(ownMessages, func(item *Message, index int) bool {
+		if from != nil && item.Timestamp < from.Timestamp {
+			return false
+		}
+
+		if to != nil && item.Timestamp > to.Timestamp {
+			return false
+		}
+
+		return true
+	})
+
 	slices.SortFunc(ownMessages, func(i, j *Message) bool {
 		return strings.Compare(i.Timestamp, j.Timestamp) < 0
 	})
-
-	if from != nil || to != nil {
-		for i, msg := range ownMessages {
-			if msg == from {
-				ownMessages = ownMessages[i:]
-
-				if to == nil {
-					break
-				}
-			} else if msg == to {
-				ownMessages = ownMessages[:i]
-				break
-			}
-		}
-	}
 
 	messages = append(messages, ownMessages...)
 
@@ -171,29 +220,22 @@ func (c *Conversation) SendMessage(ctx context.Context, req *SendMessageRequest)
 	return m, c.Update(ctx)
 }
 
-func (c *Conversation) addMessage(ctx context.Context, m *Message) (*Message, error) {
-	if m.Timestamp == "" {
-		m.Timestamp = strconv.FormatInt(time.Now().UnixNano(), 10)
-	}
+func (c *Conversation) ForkAsChatLog(ctx context.Context, baseMessage *Message, options ModelOptions) (ChatLog, error) {
+	fork, err := c.Fork(ctx, baseMessage, options)
 
-	if err := m.Update(ctx); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
-	if m.Parent() == nil {
-		m.SetParent(c)
-	}
-
-	c.SetEdge(ConversationMessageEdge.Named(m.Timestamp), m)
-
-	return m, c.Update(ctx)
+	return fork, nil
 }
 
-func (c *Conversation) Fork(ctx context.Context, baseMessage *Message) (*Conversation, error) {
+func (c *Conversation) Fork(ctx context.Context, baseMessage *Message, options ModelOptions) (*Conversation, error) {
 	fork := &Conversation{}
 	fork.BaseConversation = stdlib.Ref(c)
 	fork.BaseMessage = stdlib.Ref(baseMessage)
 	fork.Name = strconv.FormatInt(time.Now().UnixNano(), 10)
+	fork.BaseOptions = c.BuildDefaultOptions().MergeWith(options)
 	fork.Init(fork)
 	fork.SetParent(c)
 
@@ -230,6 +272,7 @@ func (c *Conversation) Merge(ctx context.Context, focus *Message) error {
 	}
 
 	c.IsMerged = true
+	c.Invalidate()
 
 	if err := c.Update(ctx); err != nil {
 		return err
@@ -240,19 +283,19 @@ func (c *Conversation) Merge(ctx context.Context, focus *Message) error {
 		Notified:  base.CanonicalPath(),
 		Interface: ConversationInterface.Name(),
 		Action:    "OnForkMerging",
-		Argument: OnForMergingRequest{
+		Argument: OnForkMergingRequest{
 			Fork:       stdlib.Ref(c),
 			MergePoint: stdlib.Ref(mergeMsg),
 		},
 	})
 }
 
-type OnForMergingRequest struct {
+type OnForkMergingRequest struct {
 	Fork       *stdlib.Reference[*Conversation] `json:"fork" jsonschema:"title=Fork,description=The fork to merge"`
 	MergePoint *stdlib.Reference[*Message]      `json:"merge_point" jsonschema:"title=Merge Point,description=The merge point"`
 }
 
-func (c *Conversation) OnForkMerging(ctx context.Context, req *OnForMergingRequest) (err error) {
+func (c *Conversation) OnForkMerging(ctx context.Context, req *OnForkMergingRequest) (err error) {
 	fork, err := req.Fork.Resolve(ctx)
 
 	if err != nil {
@@ -278,16 +321,10 @@ func (c *Conversation) OnForkMerging(ctx context.Context, req *OnForMergingReque
 	}
 
 	for _, msg := range msgs {
-		if msg == baseMessage || msg == mergePoint {
-			continue
-		}
-
-		if msg.From.Role == msn.RoleSystem {
-			continue
-		}
-
-		if _, err := c.addMessage(ctx, msg); err != nil {
-			return err
+		if msg.Kind == MessageKindEmit && msg.From.Role == msn.RoleAI && msg.FunctionCall == nil {
+			if _, err := c.addMessage(ctx, msg); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -297,19 +334,39 @@ func (c *Conversation) OnForkMerging(ctx context.Context, req *OnForMergingReque
 func (c *Conversation) OnMessageReceived(ctx context.Context, req *OnMessageReceivedRequest) (err error) {
 	tx := coreapi.GetTransaction(ctx)
 
+	lastMessage, err := req.Message.Resolve(ctx)
+
+	if err != nil {
+		return err
+	}
+
+	fork := c
+
+	if c.BaseConversation.IsEmpty() || lastMessage.From.Role == msn.RoleUser {
+		fork, err = c.Fork(ctx, lastMessage, req.Options)
+
+		if err != nil {
+			return err
+		}
+	}
+
 	handleError := func(cause error, dispatch bool) error {
 		m := NewMessage(MessageKindError)
 		m.From.ID = "function"
-		m.From.Name = req.ToolSelection.Name
+		m.From.Name = "InspectNode"
 		m.From.Role = msn.RoleFunction
 		m.Text = fmt.Sprintf("Error: %v", cause)
 
-		if _, err := c.addMessage(ctx, m); err != nil {
+		if req.ToolSelection != nil {
+			m.From.Name = req.ToolSelection.Name
+		}
+
+		if _, err := fork.addMessage(ctx, m); err != nil {
 			return err
 		}
 
 		if dispatch {
-			if err := c.dispatchModel(ctx, c.CanonicalPath(), OnMessageReceivedRequest{
+			if err := fork.dispatchModel(ctx, c.CanonicalPath(), OnMessageReceivedRequest{
 				Message:       stdlib.Ref(m),
 				Options:       req.Options,
 				ToolSelection: req.ToolSelection,
@@ -318,7 +375,7 @@ func (c *Conversation) OnMessageReceived(ctx context.Context, req *OnMessageRece
 			}
 		}
 
-		return cause
+		return nil
 	}
 
 	defer func() {
@@ -333,53 +390,9 @@ func (c *Conversation) OnMessageReceived(ctx context.Context, req *OnMessageRece
 		}
 	}()
 
-	lastMessage, err := req.Message.Resolve(ctx)
-
-	if err != nil {
-		return err
-	}
-
-	fork := c
-
-	if c.BaseConversation.IsEmpty() || lastMessage.From.Role == msn.RoleUser {
-		fork, err = c.Fork(ctx, lastMessage)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	pb := NewPromptBuilder(openai.ChatCompletionRequest{
-		TopP:        1.0,
-		Temperature: 1.0,
-		Model:       "gpt-3.5-turbo-16k",
-		MaxTokens:   4096,
-		N:           1,
-	})
-
-	pb.WithModelOptions(req.Options)
-
-	pb.AddHook(PromptBuilderHookLast, func(ctx context.Context, pb *PromptBuilder, req *openai.ChatCompletionRequest) {
-		focusBase, err := strconv.ParseInt(lastMessage.Timestamp, 10, 64)
-
-		if err != nil {
-			focusBase = time.Now().UnixNano()
-		}
-
-		focusBase -= 100000
-
-		for i, msg := range pb.AllMessages() {
-			if msg.Parent() == nil {
-				if msg.Timestamp == "" {
-					msg.Timestamp = strconv.FormatInt(focusBase+int64(i), 10)
-				}
-
-				if _, err := fork.addMessage(ctx, msg); err != nil {
-					panic(err)
-				}
-			}
-		}
-	})
+	pb := NewPromptBuilder()
+	pb.WithClient(c.Client)
+	pb.WithModelOptions(c.BuildDefaultOptions().MergeWith(req.Options))
 
 	messages, err := fork.SliceMessages(ctx, nil, lastMessage)
 
@@ -387,22 +400,19 @@ func (c *Conversation) OnMessageReceived(ctx context.Context, req *OnMessageRece
 		return err
 	}
 
-	messages = lo.Filter(messages, func(msg *Message, _ int) bool {
-		return msg.From.Role != msn.RoleSystem || (msg.Parent() == nil || msg.Parent() == fork)
-	})
-
 	pb.AppendMessage(PromptBuilderHookHistory, messages...)
 	pb.SetFocus(lastMessage)
 
 	pb.AppendModelMessage(PromptBuilderHookGlobalSystem, openai.ChatCompletionMessage{
 		Role: "system",
-		Content: fmt.Sprintf(`You are interfacing with a tree-structured database. The database contains nodes, and each node has a specific NodeType. Depending on its NodeType, a node can have different actions available to it. You, the agent, can:
+		Content: fmt.Sprintf(`You are interfacing with a tree-structured database. The database contains nodes, and each node has a specific NodeType. Depending on its NodeType, a node can have different actions available to it.
 
-Browse the Tree: Use commands or function calls to traverse the tree database.
-Select a Node: You can pick a specific node to operate on.
-Execute Actions: Depending on the NodeType of the selected node, you can perform specific actions on it. Consult the documentation for more information.
+QmYXZ is the root of the database. Any path like QmYXZ//foo/bar/baz will be resolved to QmYXZ//foo/bar/baz.
+Depending on the NodeType of the selected node, you can perform specific actions on it.
+You can read and write files by calling functions on the node. Consult the documentation for more information about the available functions and actions. Follow their declared JSONSchema.
+Write messages for the user in Markdown.
+Consult the documentation for more information about the available functions and actions. Follow their declared JSONSchema.
 The user will send you prompts. These prompts might either be questions related to nodes or direct commands for you to carry out. Your goal is to understand the user's request and utilize the tools and actions at your disposal to satisfy their needs.
-Write messages for the user preferably in Markdown.
 `),
 	})
 
@@ -440,7 +450,7 @@ I noticed that your message contains attachments. To manipulate them, please ref
 			}
 
 			pb.AppendModelMessage(PromptBuilderHookPreFocus, openai.ChatCompletionMessage{
-				Role: "user",
+				Role: "system",
 				Content: fmt.Sprintf(`You have attached a file. Here are the details:
 File Path: %s
 File Type: %s
@@ -451,40 +461,18 @@ File Type: %s
 
 		if req.ToolSelection != nil && req.ToolSelection.Name != "" {
 			pb.ForceTool(req.ToolSelection.Name)
-		} else {
-			pb.ForceTool("CallNodeAction")
 		}
 	}
 
-	result, err := pb.Execute(ctx, c.Client)
+	result, err := pb.Execute(ctx)
 
 	if err != nil {
 		return handleError(err, true)
 	}
 
 	for _, choice := range result.Choices {
-		m, err := fork.addMessage(ctx, choice.Message)
-
-		if err != nil {
-			return nil
-		}
-
-		if choice.Reason == openai2.FinishReasonFunctionCall && choice.Tool != nil {
-			if choice.Tool.Focus.IsEmpty() && len(lastMessage.Attachments) > 0 {
-				choice.Tool.Focus = lastMessage.Attachments[0]
-			}
-
-			if err := fork.dispatchSideEffect(ctx, c.CanonicalPath(), OnMessageSideEffectRequest{
-				Message:       stdlib.Ref(m),
-				Options:       req.Options,
-				ToolSelection: choice.Tool,
-			}); err != nil {
-				return err
-			}
-		} else if fork.BaseConversation != nil {
-			if err := fork.Merge(ctx, m); err != nil {
-				return err
-			}
+		if err := fork.consumeChoice(ctx, lastMessage, choice); err != nil {
+			return err
 		}
 	}
 
@@ -497,9 +485,13 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 	handleError := func(cause error, dispatch bool) error {
 		m := NewMessage(MessageKindError)
 		m.From.ID = "function"
-		m.From.Name = req.ToolSelection.Name
+		m.From.Name = "InspectNode"
 		m.From.Role = msn.RoleFunction
 		m.Text = fmt.Sprintf("Error: %v", cause)
+
+		if req.ToolSelection != nil {
+			m.From.Name = req.ToolSelection.Name
+		}
 
 		if _, err := c.addMessage(ctx, m); err != nil {
 			return err
@@ -515,11 +507,7 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 			}
 		}
 
-		return cause
-	}
-
-	if err := c.Update(ctx); err != nil {
-		panic(err)
+		return nil
 	}
 
 	defer func() {
@@ -530,57 +518,126 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 		}
 	}()
 
-	target, err := tx.Resolve(ctx, req.ToolSelection.Focus)
+	baseMessage, err := req.Message.Resolve(ctx)
+
+	if err != nil {
+		return err
+	}
+
+	switch req.ToolSelection.Name {
+	case "CallNodeAction":
+		var args struct {
+			Path      psi.Path        `json:"path"`
+			ToolName  string          `json:"tool_name"`
+			Arguments json.RawMessage `json:"arguments"`
+		}
+
+		if err := json.Unmarshal([]byte(req.ToolSelection.Arguments), &args); err != nil {
+			panic(err)
+		}
+
+		rawArgs, err := args.Arguments.MarshalJSON()
+
+		if err != nil {
+			panic(err)
+		}
+
+		req.ToolSelection.Arguments = string(rawArgs)
+		req.ToolSelection.Name = args.ToolName
+
+		if !args.Path.IsEmpty() {
+			req.ToolSelection.Focus = stdlib.RefFromPath[psi.Node](args.Path)
+		}
+
+	case "TraverseToNode":
+		fallthrough
+	case "TraverseTo":
+		fallthrough
+	case "ShowAvailableFunctionsForNode":
+		fallthrough
+	case "InspectNode":
+		var args struct {
+			Path psi.Path `json:"path"`
+		}
+
+		if err := json.Unmarshal([]byte(req.ToolSelection.Arguments), &args); err != nil {
+			panic(err)
+		}
+
+		if args.Path.IsEmpty() && len(baseMessage.Attachments) > 0 {
+			args.Path = baseMessage.Attachments[0]
+		}
+
+		target, err := tx.Resolve(ctx, args.Path)
+
+		if err != nil {
+			return handleError(err, true)
+		}
+
+		return c.inspectNode(ctx, req, target)
+	}
+
+	target, err := req.ToolSelection.Focus.Resolve(ctx)
 
 	if err != nil {
 		return handleError(err, true)
 	}
 
-	switch req.ToolSelection.Name {
-	case "InspectNode":
-		return c.inspectNode(ctx, req, target)
+	ifaceName, actionName, _ := strings.Cut(req.ToolSelection.Name, "_QZQZ_")
+
+	iface := target.PsiNodeType().Interface(ifaceName)
+
+	if iface == nil {
+		return handleError(fmt.Errorf("interface %s not found", ifaceName), true)
 	}
 
-	ifaceName, actionName, _ := strings.Cut(req.ToolSelection.Name, "___")
+	action := iface.Action(actionName)
 
-	if req.ToolSelection.Arguments == "" {
-		iface := target.PsiNodeType().Interface(ifaceName)
+	if action == nil {
+		return handleError(fmt.Errorf("action %s not found", actionName), true)
+	}
 
-		if iface == nil {
-			return handleError(fmt.Errorf("interface %s not found", ifaceName), true)
+	if action.RequestType() != nil {
+		form := NewForm(action.RequestType().JsonSchema())
+
+		if err := form.ParseJson([]byte(req.ToolSelection.Arguments)); err != nil {
+			return handleError(err, true)
 		}
 
-		action := iface.Action(actionName)
+		valid, err := form.Validate()
 
-		if action == nil {
-			return handleError(fmt.Errorf("action %s not found", actionName), true)
+		if err != nil {
+			return handleError(err, true)
 		}
 
-		if action.RequestType() != nil {
-			actionSchema, err := action.RequestType().JsonSchema().MarshalJSON()
+		if !valid || req.ToolSelection.Arguments == "" {
+			tctx := c.CreateThreadContext(ctx, baseMessage)
+			tctx, err = tctx.Fork(ctx, baseMessage, req.Options)
 
 			if err != nil {
 				return err
 			}
 
-			queryMsg := NewMessage(MessageKindEmit)
-			queryMsg.From.ID = "function"
-			queryMsg.From.Name = req.ToolSelection.Name
-			queryMsg.From.Role = msn.RoleFunction
-			queryMsg.Text = fmt.Sprintf("```\n%s\n```\n\nFill out the parameters according to the schema.", string(actionSchema))
-
-			queryMsg, err = c.addMessage(ctx, queryMsg)
-
-			if err != nil {
-				return err
+			if req.ToolSelection.Arguments == "" {
+				if err := form.FillAll(tctx); err != nil {
+					return handleError(err, true)
+				}
+			} else {
+				if ok, err := form.Fix(tctx); err != nil {
+					return handleError(err, true)
+				} else if !ok {
+					return c.dispatchSideEffect(ctx, c.CanonicalPath(), *req)
+				}
 			}
-
-			return c.dispatchModel(ctx, c.CanonicalPath(), OnMessageReceivedRequest{
-				Message:       stdlib.Ref(queryMsg),
-				Options:       req.Options,
-				ToolSelection: req.ToolSelection,
-			})
 		}
+
+		fixed, err := form.ToJSON()
+
+		if err != nil {
+			return err
+		}
+
+		req.ToolSelection.Arguments = string(fixed)
 	}
 
 	not := psi.Notification{
@@ -647,11 +704,13 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 					return
 				}
 			}
-		} else {
+		} else if result != nil {
 			if err := ipld.EncodeStreaming(writer, typesystem.Wrap(result), dagjson.Encode); err != nil {
 				writer.Write([]byte(fmt.Sprintf("Error: %v", err)))
 				return
 			}
+		} else {
+			writer.Write([]byte("Done."))
 		}
 	}()
 
@@ -669,9 +728,8 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 	}
 
 	return c.dispatchModel(ctx, c.CanonicalPath(), OnMessageReceivedRequest{
-		Message:       stdlib.Ref(replyMessage),
-		Options:       req.Options,
-		ToolSelection: req.ToolSelection,
+		Message: stdlib.Ref(replyMessage),
+		Options: req.Options,
 	})
 }
 
@@ -704,6 +762,7 @@ func (c *Conversation) inspectNode(ctx context.Context, req *OnMessageSideEffect
 	replyMessage.From.Name = req.ToolSelection.Name
 	replyMessage.From.Role = msn.RoleFunction
 	replyMessage.Text = writer.String()
+	replyMessage.Attachments = []psi.Path{target.CanonicalPath()}
 
 	replyMessage, err := c.addMessage(ctx, replyMessage)
 
@@ -755,6 +814,70 @@ func (c *Conversation) dispatchSideEffect(ctx context.Context, path psi.Path, re
 	return nil
 }
 
+func (c *Conversation) AcceptChoice(ctx context.Context, baseMessage *Message, choice PromptResponseChoice) error {
+	return c.consumeChoice(ctx, baseMessage, choice)
+}
+
+func (c *Conversation) AcceptMessage(ctx context.Context, msg *Message) error {
+	_, err := c.addMessage(ctx, msg)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Conversation) addMessage(ctx context.Context, m *Message) (*Message, error) {
+	if m.Timestamp == "" {
+		m.Timestamp = strconv.FormatInt(time.Now().UnixNano(), 10)
+	}
+
+	if err := m.Update(ctx); err != nil {
+		return nil, err
+	}
+
+	if m.Parent() == nil {
+		m.SetParent(c)
+	}
+
+	c.SetEdge(ConversationMessageEdge.Named(m.Timestamp), m)
+
+	return m, c.Update(ctx)
+}
+
+func (c *Conversation) consumeChoice(ctx context.Context, baseMessage *Message, choice PromptResponseChoice) error {
+	m, err := c.addMessage(ctx, choice.Message)
+
+	if err != nil {
+		return err
+	}
+
+	if choice.Reason == openai2.FinishReasonFunctionCall && choice.Tool != nil {
+		if (choice.Tool.Focus == nil || choice.Tool.Focus.IsEmpty()) && len(baseMessage.Attachments) > 0 {
+			if choice.Tool == nil {
+				choice.Tool = &PromptToolSelection{}
+			}
+
+			choice.Tool.Focus = stdlib.RefFromPath[psi.Node](baseMessage.Attachments[0])
+		}
+
+		if err := c.dispatchSideEffect(ctx, c.CanonicalPath(), OnMessageSideEffectRequest{
+			Message:       stdlib.Ref(m),
+			Options:       c.BuildDefaultOptions(),
+			ToolSelection: choice.Tool,
+		}); err != nil {
+			return err
+		}
+	} else if c.BaseConversation != nil {
+		if err := c.Merge(ctx, m); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 type SendMessageRequest struct {
 	Timestamp   string         `json:"timestamp" jsonschema:"title=Timestamp,description=The timestamp of the message"`
 	From        UserHandle     `json:"from" jsonschema:"title=From,description=The user who sent the message"`
@@ -777,6 +900,42 @@ type ModelOptions struct {
 	PresencePenalty  *float32       `json:"presence_penalty" jsonschema:"title=Presence Penalty,description=The presence penalty setting for the model"`
 	Stop             []string       `json:"stop" jsonschema:"title=Stop,description=The stop words for the model"`
 	LogitBias        map[string]int `json:"logit_bias" jsonschema:"title=Logit Bias,description=The logit bias setting for the model"`
+}
+
+func (o ModelOptions) MergeWith(opts ModelOptions) ModelOptions {
+	if opts.Model != nil {
+		o.Model = opts.Model
+	}
+
+	if opts.MaxTokens != nil {
+		o.MaxTokens = opts.MaxTokens
+	}
+
+	if opts.Temperature != nil {
+		o.Temperature = opts.Temperature
+	}
+
+	if opts.TopP != nil {
+		o.TopP = opts.TopP
+	}
+
+	if opts.FrequencyPenalty != nil {
+		o.FrequencyPenalty = opts.FrequencyPenalty
+	}
+
+	if opts.PresencePenalty != nil {
+		o.PresencePenalty = opts.PresencePenalty
+	}
+
+	if opts.Stop != nil {
+		o.Stop = opts.Stop
+	}
+
+	if opts.LogitBias != nil {
+		o.LogitBias = opts.LogitBias
+	}
+
+	return o
 }
 
 func (o ModelOptions) Apply(req *openai.ChatCompletionRequest) {

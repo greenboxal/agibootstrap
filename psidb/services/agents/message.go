@@ -47,6 +47,7 @@ func (m *Message) PsiNodeName() string { return m.Timestamp }
 func NewMessage(kind MessageKind) *Message {
 	m := &Message{}
 	m.Kind = kind
+	m.From.Role = "system"
 	m.Init(m)
 
 	return m

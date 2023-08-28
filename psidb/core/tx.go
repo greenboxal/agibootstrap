@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
@@ -11,8 +13,10 @@ import (
 )
 
 type transaction struct {
-	core *Core
-	lg   *online.LiveGraph
+	core    *Core
+	session coreapi.Session
+	lg      *online.LiveGraph
+
 	opts coreapi.TransactionOptions
 }
 
@@ -56,6 +60,20 @@ func (t *transaction) MakePromise() psi.PromiseHandle {
 func (t *transaction) Notify(ctx context.Context, not psi.Notification) error {
 	if not.Nonce == 0 {
 		not.Nonce = uint64(time.Now().UnixNano())
+	}
+
+	if not.SessionID == "" && t.session != nil {
+		not.SessionID = t.session.UUID()
+	}
+
+	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
+		not.TraceID = &psi.NotificationTrace{
+			TraceID:    span.TraceID().String(),
+			SpanID:     span.SpanID().String(),
+			TraceFlags: int(span.TraceFlags()),
+			TraceState: span.TraceState().String(),
+			Remote:     span.IsRemote(),
+		}
 	}
 
 	return t.lg.Transaction().Notify(ctx, not)

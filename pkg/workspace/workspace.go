@@ -3,7 +3,6 @@ package workspace
 import (
 	"context"
 	"os"
-	"strings"
 
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
@@ -207,7 +206,7 @@ func (w *Workspace) performSync(ctx context.Context, root psi.Node) error {
 					return true
 				}
 
-				return strings.HasSuffix(path, ".go") || strings.HasSuffix(path, ".md")
+				return true
 			})
 		} else {
 			cursor.SkipChildren()

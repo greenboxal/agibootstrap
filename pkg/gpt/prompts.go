@@ -5,6 +5,8 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 	"github.com/greenboxal/aip/aip-langchain/pkg/memory"
+
+	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 )
 
 var PlanKey chain.ContextKey[any] = "Plan"
@@ -101,7 +103,7 @@ Read the plan above and modify the document as necessary. Focus on the items abo
 
 		chain.Sequential(
 			chat.Predict(
-				GlobalModel,
+				gpt.GlobalModel,
 				CodeGeneratorPrompt,
 				chat.WithMaxTokens(4000),
 			),

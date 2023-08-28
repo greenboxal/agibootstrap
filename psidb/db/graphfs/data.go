@@ -12,6 +12,7 @@ type NodeFlag int32
 
 const (
 	NodeFlagNone NodeFlag = iota
+	NodeFlagInvalid
 	NodeFlagHasData
 	NodeFlagHasDataLink
 

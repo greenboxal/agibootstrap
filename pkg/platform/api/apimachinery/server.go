@@ -40,6 +40,7 @@ func NewServer(
 	lc fx.Lifecycle,
 	cfg *coreapi.Config,
 	logger *zap.SugaredLogger,
+	sm coreapi.SessionManager,
 ) *Server {
 	api := &Server{}
 
@@ -54,7 +55,39 @@ func NewServer(
 	api.mux.Use(middleware.Logger)
 	api.mux.Use(middleware.Recoverer)
 
-	api.mux.Use(cors.AllowAll().Handler)
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{
+			http.MethodHead,
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+		},
+		AllowedHeaders:   []string{"*", "X-PsiDB-Session-ID"},
+		AllowCredentials: true,
+	})
+
+	api.mux.Use(corsHandler.Handler)
+
+	api.mux.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			sessionId := request.Header.Get("X-PsiDB-Session-ID")
+
+			if sessionId != "" {
+				sess := sm.GetSession(sessionId)
+
+				if sess != nil {
+					request = request.WithContext(coreapi.WithSession(request.Context(), sess))
+
+					sess.KeepAlive()
+				}
+			}
+
+			next.ServeHTTP(writer, request)
+		})
+	})
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {

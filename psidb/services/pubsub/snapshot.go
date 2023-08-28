@@ -34,7 +34,7 @@ type PendingPromiseSnapshot struct {
 	References int               `json:"references"`
 }
 
-func (sch *Scheduler) DumpStatistics() *SchedulerSnapshot {
+func (sch *OldScheduler) DumpStatistics() *SchedulerSnapshot {
 	result := &SchedulerSnapshot{
 		Queues:   map[string][]*PendingItemSnapshot{},
 		Promises: map[psi.PromiseHandle]*PendingPromiseSnapshot{},

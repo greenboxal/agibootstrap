@@ -9,22 +9,27 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
+	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
 )
 
 type Handler struct {
 	logger   *zap.SugaredLogger
 	upgrader websocket.Upgrader
-	pubsub   *pubsub.Manager
+
+	pubsub         *pubsub.Manager
+	sessionManager coreapi.SessionManager
 }
 
 func NewHandler(
 	pubsub *pubsub.Manager,
+	sm coreapi.SessionManager,
 ) *Handler {
 	h := &Handler{
 		logger: logging.GetLogger("apis/ws"),
 
-		pubsub: pubsub,
+		pubsub:         pubsub,
+		sessionManager: sm,
 	}
 
 	h.upgrader = websocket.Upgrader{

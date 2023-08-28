@@ -10,9 +10,9 @@ import (
 	"github.com/invopop/jsonschema"
 	"github.com/samber/lo"
 
-	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
 	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 )
@@ -155,7 +155,7 @@ func buildActionsFor(node psi.Node) map[string]llm.FunctionDeclaration {
 			}
 
 			functions = append(functions, llm.FunctionDeclaration{
-				Name:        fmt.Sprintf("%s___%s", iface.Interface().Name(), action.Name),
+				Name:        fmt.Sprintf("%s_QZQZ_%s", iface.Interface().Name(), action.Name),
 				Description: "",
 				Parameters:  &args,
 			})

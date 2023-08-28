@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
+
 	// Register the providers.
 	_ "github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 )

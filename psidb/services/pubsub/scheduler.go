@@ -1,218 +1,83 @@
 package pubsub
 
 import (
+	"context"
 	"sync"
-	"time"
 
 	"github.com/jbenet/goprocess"
 	"golang.org/x/exp/slices"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
 
-type Scheduler struct {
-	dispatcher Dispatcher
-	tracker    coreapi.ConfirmationTracker
-	journal    *graphfs.Journal
+type SchedulerItem struct {
+	m     sync.RWMutex
+	queue *SchedulerQueue
+	entry *graphfs.JournalEntry
 
-	queuesMutex sync.RWMutex
-	queues      map[string]*schedulerQueue
+	resolves  []*SchedulerPromise
+	blockedBy []*SchedulerPromise
 
-	pendingMutex sync.RWMutex
-	pending      map[scheduledItemKey]*scheduledItem
-
-	promisesMutex sync.RWMutex
-	promises      map[psi.PromiseHandle]*pendingPromise
-
-	proc   goprocess.Process
-	closed bool
+	running  bool
+	complete bool
 }
 
-type Dispatcher interface {
-	Dispatch(entry *graphfs.JournalEntry)
-}
-
-func NewScheduler(journal *graphfs.Journal, tracker coreapi.ConfirmationTracker, dispatcher Dispatcher) *Scheduler {
-	sch := &Scheduler{
-		tracker:    tracker,
-		journal:    journal,
-		dispatcher: dispatcher,
-
-		queues:   map[string]*schedulerQueue{},
-		pending:  map[scheduledItemKey]*scheduledItem{},
-		promises: map[psi.PromiseHandle]*pendingPromise{},
-	}
-
-	sch.proc = goprocess.Go(sch.run)
-
-	return sch
-}
-
-func (sch *Scheduler) Recover() error {
-	sch.pendingMutex.Lock()
-	defer sch.pendingMutex.Unlock()
-
-	if sch.closed {
-		panic("scheduler closed")
-	}
-
-	iter, err := sch.tracker.Recover()
-
-	if err != nil {
-		panic(err)
-	}
-
-	for iter.Next() {
-		ticket := iter.Value()
-		entry, err := sch.journal.Read(ticket, nil)
-
-		if err != nil {
-			return err
-		}
-
-		sch.dispatchUnlocked(entry)
-	}
-
-	return nil
-}
-func (sch *Scheduler) Dispatch(entry *graphfs.JournalEntry) {
-	sch.pendingMutex.Lock()
-	defer sch.pendingMutex.Unlock()
-
-	if sch.closed {
-		panic("scheduler closed")
-	}
-
-	sch.dispatchUnlocked(entry)
-}
-
-func (sch *Scheduler) Confirm(entry *graphfs.JournalEntry) {
-	sch.pendingMutex.Lock()
-
-	entryKey := scheduledItemKey{
-		Xid:   entry.Confirmation.Xid,
-		Rid:   entry.Confirmation.Rid,
-		Nonce: entry.Confirmation.Nonce,
-	}
-
-	item := sch.pending[entryKey]
-
-	if item == nil {
-		sch.pendingMutex.Unlock()
-		return
-	}
-
-	item.m.Lock()
-	sch.pendingMutex.Unlock()
-
-	defer item.m.Unlock()
-
-	sch.onConfirm(item, entry)
-}
-
-func (sch *Scheduler) Wait(entry *graphfs.JournalEntry) {
-	for _, handle := range entry.Promises {
-		sch.resolvePromise(handle)
-	}
-}
-
-func (sch *Scheduler) Signal(entry *graphfs.JournalEntry) {
-	for _, handle := range entry.Promises {
-		sch.resolvePromise(handle)
-	}
-}
-
-func (sch *Scheduler) Close() error {
-	sch.pendingMutex.Lock()
-	defer sch.pendingMutex.Unlock()
-
-	sch.closed = true
-
-	return sch.tracker.Close()
-}
-
-func (sch *Scheduler) dispatchUnlocked(entry *graphfs.JournalEntry) {
-	entryKey := scheduledItemKey{
-		Xid:   entry.Xid,
-		Rid:   entry.Rid,
-		Nonce: entry.Notification.Nonce,
-	}
-
-	item := sch.pending[entryKey]
-
-	if item != nil {
-		return
-	}
-
-	item = &scheduledItem{
-		skey:  entryKey,
-		qkey:  entry.Notification.Notified.String(),
+func NewSchedulerItem(queue *SchedulerQueue, entry *graphfs.JournalEntry) *SchedulerItem {
+	return &SchedulerItem{
+		queue: queue,
 		entry: entry,
 	}
-
-	item.deps = make([]*pendingPromise, 0, len(entry.Notification.Dependencies))
-
-	for _, dep := range entry.Notification.Dependencies {
-		p := sch.getOrCreatePromise(dep.PromiseHandle, true, true)
-		p.refs++
-		p.queues = append(p.queues, item.qkey)
-		p.count += dep.Count
-		p.m.Unlock()
-
-		item.deps = append(item.deps, p)
-	}
-
-	sch.pending[entryKey] = item
-	sch.tracker.Track(entryKey.Rid)
-
-	for _, dep := range item.deps {
-		dep.queues = append(dep.queues, item.qkey)
-	}
-
-	queue := sch.getOrCreateQueue(item.qkey, true, true)
-	queue.add(item)
-	queue.m.Unlock()
-
-	sch.trySchedule(item.qkey)
 }
 
-func (sch *Scheduler) trySchedule(qkey string) {
-	queue := sch.getOrCreateQueue(qkey, true, false)
-
-	if queue == nil {
-		return
-	}
-
-	defer queue.m.Unlock()
-
-	item := queue.head
-
-	if item == nil {
-		return
-	}
-
-	item.m.Lock()
-
-	if item.scheduled && item.deadline.Before(time.Now()) {
-		item.scheduled = false
-	}
-
-	if sch.canSchedule(item) {
-		sch.dispatchItem(item)
-	}
-
-	item.m.Unlock()
+func (si *SchedulerItem) IsRunning() bool {
+	return si.running
 }
 
-func (sch *Scheduler) canSchedule(item *scheduledItem) bool {
-	if item.scheduled || item.confirmation != nil {
-		return false
-	}
+func (si *SchedulerItem) IsComplete() bool {
+	return si.complete
+}
 
-	for _, dep := range item.deps {
-		if !dep.resolved {
+func (si *SchedulerItem) AddSignal(p ...*SchedulerPromise) {
+	si.m.Lock()
+	defer si.m.Unlock()
+
+	for _, p := range p {
+		idx := slices.IndexFunc(si.resolves, func(p2 *SchedulerPromise) bool {
+			return p.key == p2.key
+		})
+
+		if idx != -1 {
+			continue
+		}
+
+		si.resolves = append(si.resolves, p.Ref())
+	}
+}
+
+func (si *SchedulerItem) AddWait(p ...*SchedulerPromise) {
+	si.m.Lock()
+	defer si.m.Unlock()
+
+	for _, p := range p {
+		idx := slices.IndexFunc(si.blockedBy, func(p2 *SchedulerPromise) bool {
+			return p.key == p2.key
+		})
+
+		if idx != -1 {
+			continue
+		}
+
+		si.blockedBy = append(si.blockedBy, p.Ref())
+	}
+}
+
+func (si *SchedulerItem) CanSchedule() bool {
+	si.m.RLock()
+	defer si.m.RUnlock()
+
+	for _, p := range si.blockedBy {
+		if p != nil && !p.HasCompleted() {
 			return false
 		}
 	}
@@ -220,246 +85,358 @@ func (sch *Scheduler) canSchedule(item *scheduledItem) bool {
 	return true
 }
 
-func (sch *Scheduler) dispatchItem(item *scheduledItem) {
-	item.scheduled = true
-	item.start = time.Now()
-	item.deadline = item.start.Add(30 * time.Second)
+func (si *SchedulerItem) Dispatch() {
+	si.m.Lock()
+	defer si.m.Unlock()
 
-	time.AfterFunc(300*time.Second, func() {
-		if item.confirmation == nil {
-			sch.trySchedule(item.qkey)
-		}
-	})
-
-	sch.dispatcher.Dispatch(item.entry)
-}
-
-func (sch *Scheduler) onConfirm(item *scheduledItem, confirm *graphfs.JournalEntry) {
-	if item.confirmation != nil {
+	if si.running {
 		return
 	}
 
-	item.confirmation = confirm
+	si.running = true
+	si.queue.scheduler.scheduleNow(si)
+}
 
-	if confirm == nil {
-		sch.trySchedule(item.qkey)
+func (si *SchedulerItem) WakeUp() {
+	si.m.Lock()
+	defer si.m.Unlock()
+
+	if si.running {
 		return
 	}
 
-	for _, dep := range item.deps {
-		dep.m.Lock()
-		dep.refs--
-
-		for i, qitem := range dep.queues {
-			if qitem == item.qkey {
-				dep.queues = slices.Delete(dep.queues, i, i+1)
-				break
-			}
+	for i, p := range si.blockedBy {
+		if p == nil {
+			continue
 		}
 
-		dep.m.Unlock()
+		if p.HasCompleted() {
+			p.Unref()
+			si.blockedBy[i] = nil
+		} else {
+			return
+		}
 	}
 
-	for _, obs := range item.entry.Notification.Observers {
-		sch.resolvePromise(obs)
-	}
-
-	sch.pendingMutex.Lock()
-	defer sch.pendingMutex.Unlock()
-
-	delete(sch.pending, item.skey)
-
-	queue := sch.getOrCreateQueue(item.qkey, true, false)
-
-	if queue != nil {
-		queue.remove(item)
-		queue.m.Unlock()
-
-		sch.trySchedule(item.qkey)
-	}
-
-	sch.tracker.Confirm(item.skey.Rid)
+	si.blockedBy = nil
+	si.queue.notifyWakeUp(si)
 }
 
-func (sch *Scheduler) getOrCreateQueue(qkey string, lock, create bool) *schedulerQueue {
-	if create {
-		sch.queuesMutex.Lock()
-		defer sch.queuesMutex.Unlock()
-	} else {
-		sch.queuesMutex.RLock()
-		defer sch.queuesMutex.RUnlock()
-	}
+func (si *SchedulerItem) OnComplete() {
+	si.m.Lock()
+	defer si.m.Unlock()
 
-	if queue := sch.queues[qkey]; queue != nil {
-		if lock {
-			queue.m.Lock()
+	si.running = false
+
+	for i, p := range si.resolves {
+		if p == nil {
+			continue
 		}
 
-		return queue
+		p.Resolve()
+		p.Unref()
+
+		si.resolves[i] = nil
 	}
 
-	if !create {
+	si.queue.notifyWakeUp(si)
+}
+
+func (si *SchedulerItem) Close() {
+	si.m.Lock()
+	defer si.m.Unlock()
+
+	for _, p := range si.blockedBy {
+		if p == nil {
+			continue
+		}
+
+		p.Unref()
+	}
+
+	for _, p := range si.resolves {
+		if p == nil {
+			continue
+		}
+
+		p.Unref()
+	}
+
+	si.blockedBy = nil
+}
+
+type SchedulerPromise struct {
+	key psi.PromiseHandle
+
+	m         sync.RWMutex
+	counter   int
+	refs      int
+	waiters   []*SchedulerItem
+	scheduler *Scheduler
+
+	ch       chan struct{}
+	complete bool
+}
+
+func NewSchedulerPromise(sch *Scheduler, key psi.PromiseHandle) *SchedulerPromise {
+	return &SchedulerPromise{
+		key:       key,
+		scheduler: sch,
+		ch:        make(chan struct{}),
+	}
+}
+
+func (sp *SchedulerPromise) Wait(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case _, _ = <-sp.ch:
 		return nil
 	}
-
-	queue := &schedulerQueue{}
-
-	sch.queues[qkey] = queue
-
-	if lock {
-		queue.m.Lock()
-	}
-
-	return queue
 }
 
-func (sch *Scheduler) getOrCreatePromise(key psi.PromiseHandle, lock, create bool) *pendingPromise {
-	if create {
-		sch.promisesMutex.Lock()
-		defer sch.promisesMutex.Unlock()
-	} else {
-		sch.promisesMutex.RLock()
-		defer sch.promisesMutex.RUnlock()
+func (sp *SchedulerPromise) Add(count int) {
+	sp.m.Lock()
+	defer sp.m.Unlock()
+
+	sp.counter += count
+
+	if sp.counter == 0 {
+		sp.resolveUnlocked()
 	}
-
-	if pp := sch.promises[key]; pp != nil {
-		if lock {
-			pp.m.Lock()
-		}
-
-		return pp
-	}
-
-	if !create {
-		return nil
-	}
-
-	pp := &pendingPromise{
-		key:  key,
-		ch:   make(chan struct{}),
-		refs: 1,
-	}
-
-	sch.promises[key] = pp
-
-	if lock {
-		pp.m.Lock()
-	}
-
-	return pp
 }
 
-func (sch *Scheduler) resolvePromise(p psi.Promise) {
-	pp := sch.getOrCreatePromise(p.PromiseHandle, true, true)
-	defer pp.m.Unlock()
+func (sp *SchedulerPromise) Resolve() {
+	sp.m.Lock()
+	defer sp.m.Unlock()
 
-	if pp.resolved {
+	sp.resolveUnlocked()
+}
+
+func (sp *SchedulerPromise) resolveUnlocked() {
+	if sp.complete {
 		return
 	}
 
-	pp.count += p.Count
+	sp.complete = true
+	sp.counter = 0
 
-	if pp.count != 0 {
-		return
-	}
+	close(sp.ch)
 
-	pp.resolved = true
-	close(pp.ch)
-
-	for _, qkey := range pp.queues {
-		sch.trySchedule(qkey)
+	for _, w := range sp.waiters {
+		w.WakeUp()
 	}
 }
 
-func (sch *Scheduler) run(proc goprocess.Process) {
-	ticker := time.NewTicker(1 * time.Second)
+func (sp *SchedulerPromise) Ref() *SchedulerPromise {
+	sp.m.Lock()
+	defer sp.m.Unlock()
 
-	for !sch.closed {
+	sp.refs++
+
+	return sp
+}
+
+func (sp *SchedulerPromise) Unref() {
+	sp.m.Lock()
+	defer sp.m.Unlock()
+
+	sp.refs--
+
+	if sp.refs == 0 {
+		sp.waiters = nil
+	}
+}
+
+func (sp *SchedulerPromise) HasCompleted() bool {
+	return sp.complete
+}
+
+type SchedulerQueue struct {
+	scheduler *Scheduler
+
+	dispatchQueue chan *SchedulerItem
+	confirmQueue  chan *psi.Confirmation
+
+	pending []*SchedulerItem
+}
+
+func NewSchedulerQueue(sch *Scheduler) *SchedulerQueue {
+	return &SchedulerQueue{
+		scheduler:     sch,
+		dispatchQueue: make(chan *SchedulerItem),
+		confirmQueue:  make(chan *psi.Confirmation),
+	}
+}
+
+func (sq *SchedulerQueue) Add(item *SchedulerItem) {
+	sq.dispatchQueue <- item
+}
+
+func (sq *SchedulerQueue) Run(proc goprocess.Process) {
+	for {
 		select {
 		case <-proc.Closing():
 			return
-		case <-ticker.C:
-			if sch.closed {
+
+		case item, ok := <-sq.dispatchQueue:
+			if !ok {
 				return
 			}
 
-			if err := sch.tracker.Flush(); err != nil {
-				logger.Error(err)
+			idx := slices.IndexFunc(sq.pending, func(item2 *SchedulerItem) bool {
+				return item == item2
+			})
+
+			if item.IsComplete() {
+				if idx != -1 {
+					sq.pending = append(sq.pending[:idx], sq.pending[idx+1:]...)
+				}
+			} else {
+				if idx == -1 {
+					sq.pending = append(sq.pending, item)
+				}
+			}
+
+			sq.processQueueHead()
+
+		case confirmation, ok := <-sq.confirmQueue:
+			if !ok {
+				return
+			}
+
+			for _, pending := range sq.pending {
+				if pending.entry.Xid == confirmation.Xid && pending.entry.Rid == confirmation.Rid && pending.entry.Notification.Nonce == confirmation.Nonce {
+					pending.OnComplete()
+				}
 			}
 		}
 	}
 }
 
-type scheduledItemKey struct {
-	Xid   uint64 `json:"xid,omitempty"`
-	Rid   uint64 `json:"rid,omitempty"`
-	Nonce uint64 `json:"nonce,omitempty"`
-}
-
-type scheduledItem struct {
-	m sync.Mutex
-
-	skey scheduledItemKey
-	qkey string
-	deps []*pendingPromise
-
-	entry        *graphfs.JournalEntry
-	confirmation *graphfs.JournalEntry
-
-	start     time.Time
-	deadline  time.Time
-	scheduled bool
-
-	timeout <-chan time.Time
-
-	next *scheduledItem
-}
-
-type pendingPromise struct {
-	m      sync.Mutex
-	key    psi.PromiseHandle
-	refs   int
-	queues []string
-
-	ch       chan struct{}
-	count    int
-	resolved bool
-}
-
-type schedulerQueue struct {
-	m    sync.Mutex
-	head *scheduledItem
-}
-
-func (q *schedulerQueue) add(item *scheduledItem) {
-	if q.head == nil {
-		q.head = item
+func (sq *SchedulerQueue) processQueueHead() {
+	if len(sq.pending) == 0 {
 		return
 	}
 
-	tail := q.head
-
-	for tail.next != nil {
-		tail = tail.next
-	}
-
-	tail.next = item
-}
-
-func (q *schedulerQueue) remove(item *scheduledItem) {
-	if q.head == item {
-		q.head = item.next
-		return
-	}
-
-	tail := q.head
-
-	for tail.next != nil {
-		if tail.next == item {
-			tail.next = item.next
-			return
+	for _, item := range sq.pending {
+		if !item.CanSchedule() {
+			continue
 		}
 
-		tail = tail.next
+		item.Dispatch()
+
+		return
 	}
+}
+
+func (sq *SchedulerQueue) Close() {
+	close(sq.dispatchQueue)
+}
+
+func (sq *SchedulerQueue) notifyWakeUp(si *SchedulerItem) {
+	sq.dispatchQueue <- si
+}
+
+func (sq *SchedulerQueue) confirmEntry(confirmation *psi.Confirmation) {
+	sq.confirmQueue <- confirmation
+}
+
+type Scheduler struct {
+	dispatcher Dispatcher
+
+	queueMutex sync.RWMutex
+	queues     map[string]*SchedulerQueue
+
+	promisesMutex sync.RWMutex
+	promises      map[psi.PromiseHandle]*SchedulerPromise
+}
+
+func NewScheduler2(dispatcher Dispatcher) *Scheduler {
+	return &Scheduler{
+		dispatcher: dispatcher,
+
+		queues:   map[string]*SchedulerQueue{},
+		promises: map[psi.PromiseHandle]*SchedulerPromise{},
+	}
+}
+
+func (sch *Scheduler) GetQueue(name string) *SchedulerQueue {
+	sch.queueMutex.RLock()
+	defer sch.queueMutex.RUnlock()
+
+	return sch.queues[name]
+}
+
+func (sch *Scheduler) AddQueue(name string) *SchedulerQueue {
+	sch.queueMutex.Lock()
+	defer sch.queueMutex.Unlock()
+
+	if q, ok := sch.queues[name]; ok {
+		return q
+	}
+
+	sq := NewSchedulerQueue(sch)
+
+	sch.queues[name] = sq
+
+	return sq
+}
+
+func (sch *Scheduler) GetPromise(key psi.PromiseHandle) *SchedulerPromise {
+	sch.promisesMutex.RLock()
+	defer sch.promisesMutex.RUnlock()
+
+	return sch.promises[key]
+}
+
+func (sch *Scheduler) AddPromise(key psi.PromiseHandle) *SchedulerPromise {
+	sch.promisesMutex.Lock()
+	defer sch.promisesMutex.Unlock()
+
+	if p, ok := sch.promises[key]; ok {
+		return p
+	}
+
+	sp := NewSchedulerPromise(sch, key)
+
+	sch.promises[key] = sp
+
+	return sp
+}
+
+func (sch *Scheduler) queueForItem(entry *graphfs.JournalEntry, create bool) *SchedulerQueue {
+	k := entry.Path.String()
+
+	if !create {
+		return sch.GetQueue(k)
+	}
+
+	return sch.AddQueue(k)
+}
+
+func (sch *Scheduler) Dispatch(entry *graphfs.JournalEntry) {
+	q := sch.queueForItem(entry, true)
+
+	q.Add(NewSchedulerItem(q, entry))
+}
+
+func (sch *Scheduler) Confirm(entry *graphfs.JournalEntry) {
+	if entry.Confirmation != nil {
+		q := sch.queueForItem(entry, false)
+
+		if q != nil {
+			q.confirmEntry(entry.Confirmation)
+		}
+	}
+
+	for _, handle := range entry.Promises {
+		p := sch.AddPromise(handle.PromiseHandle)
+
+		p.Add(handle.Count)
+	}
+}
+
+func (sch *Scheduler) scheduleNow(item *SchedulerItem) {
+	sch.dispatcher.Dispatch(item.entry)
 }

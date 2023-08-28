@@ -20,13 +20,16 @@ import (
 var logger = logging.GetLogger("pubsub")
 
 type Manager struct {
-	mu       sync.RWMutex
-	core     coreapi.Core
-	roots    map[string]*Topic
+	mu    sync.RWMutex
+	roots map[string]*Topic
+
+	core           coreapi.Core
+	sessionManager coreapi.SessionManager
+
 	stream   *coreapi.ReplicationStreamProcessor
 	migrator migrations.Migrator
 
-	scheduler  *Scheduler
+	scheduler  *OldScheduler
 	workerPool *pond.WorkerPool
 
 	rootCtx       context.Context
@@ -36,15 +39,17 @@ type Manager struct {
 func NewManager(
 	lc fx.Lifecycle,
 	core coreapi.Core,
+	sm coreapi.SessionManager,
 	migrator migrations.Migrator,
 ) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	m := &Manager{
-		core:     core,
-		migrator: migrator,
-		roots:    map[string]*Topic{},
+		core:           core,
+		migrator:       migrator,
+		sessionManager: sm,
 
+		roots:      map[string]*Topic{},
 		workerPool: core.Config().Workers.Build(),
 
 		rootCtx:       ctx,
@@ -64,7 +69,7 @@ func NewManager(
 	return m
 }
 
-func (pm *Manager) Scheduler() *Scheduler { return pm.scheduler }
+func (pm *Manager) Scheduler() *OldScheduler { return pm.scheduler }
 
 func (pm *Manager) Subscribe(pattern SubscriptionPattern, handler func(notification Notification)) *Subscription {
 	root := pm.getOrCreateRoot(pattern.Path.Root(), true)
@@ -240,6 +245,16 @@ func (pm *Manager) Dispatch(entry *graphfs.JournalEntry) {
 				Xid:   entry.Xid,
 				Rid:   entry.Rid,
 				Nonce: not.Nonce,
+			}
+
+			if not.SessionID != "" {
+				sess := coreapi.GetSession(ctx)
+
+				if sess == nil || sess.UUID() != not.SessionID {
+					sess = pm.sessionManager.GetOrCreateSession(not.SessionID)
+
+					ctx = coreapi.WithSession(ctx, sess)
+				}
 			}
 
 			if _, err := not.Apply(ctx, target); err != nil {

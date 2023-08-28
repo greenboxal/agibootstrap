@@ -7,6 +7,8 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/chain"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 	"github.com/greenboxal/aip/aip-langchain/pkg/memory"
+
+	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 )
 
 var ReviewPrompt = chat.ComposeTemplate(
@@ -47,7 +49,7 @@ var ReviewChain = chain.New(
 
 	chain.Sequential(
 		chat.Predict(
-			GlobalModel,
+			gpt.GlobalModel,
 			ReviewPrompt,
 		),
 	),

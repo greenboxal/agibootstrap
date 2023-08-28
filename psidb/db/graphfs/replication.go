@@ -170,7 +170,8 @@ func (r *replicationSlot) Read(ctx context.Context, buffer []ReplicationMessage)
 
 		if entry.Op == JournalOpBegin {
 			tx = &Transaction{
-				xid: entry.Xid,
+				xid:        entry.Xid,
+				dirtyNodes: make(map[int64]*txNode),
 			}
 
 			r.recoveredTransactions[entry.Xid] = tx

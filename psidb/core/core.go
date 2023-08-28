@@ -146,14 +146,17 @@ func (c *Core) CreateReplicationSlot(ctx context.Context, options graphfs.Replic
 func (c *Core) BeginTransaction(ctx context.Context, options ...coreapi.TransactionOption) (coreapi.Transaction, error) {
 	var opts coreapi.TransactionOptions
 
+	session := coreapi.GetSession(ctx)
+
 	ctx, span := c.tracer.Start(ctx, "Core.BeginTransaction")
 	defer span.End()
 
 	opts.Apply(options...)
 
 	tx := &transaction{
-		core: c,
-		opts: opts,
+		core:    c,
+		session: session,
+		opts:    opts,
 	}
 
 	root := psi.PathFromElements(c.cfg.RootUUID, false)
@@ -163,6 +166,10 @@ func (c *Core) BeginTransaction(ctx context.Context, options ...coreapi.Transact
 
 	if err != nil {
 		return nil, err
+	}
+
+	if session != nil {
+		inject.RegisterInstance(lg.ServiceProvider(), session)
 	}
 
 	inject.Register(lg.ServiceProvider(), func(ctx inject.ResolutionContext) (*vm.Isolate, error) {

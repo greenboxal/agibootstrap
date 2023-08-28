@@ -9,6 +9,7 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/memory"
 
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
+	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 )
 
 var CommitMessagePrompt = chat.ComposeTemplate(
@@ -52,7 +53,7 @@ var CommitMessageChain = chain.New(
 
 	chain.Sequential(
 		chat.Predict(
-			GlobalModel,
+			gpt.GlobalModel,
 			CommitMessagePrompt,
 			chat.WithMaxTokens(1024),
 		),

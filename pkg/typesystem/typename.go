@@ -55,8 +55,8 @@ func (n TypeName) NameWithArgs() string {
 	if len(n.Parameters) > 0 {
 		a := n.Args()
 
-		args := strings.Join(a, "__")
-		args = "___" + args + "___"
+		args := strings.Join(a, "_QZQZ_")
+		args = "_QZQZ_" + args + "_QZQZ_"
 
 		return n.Name + args
 	}
@@ -68,8 +68,8 @@ func (n TypeName) FullNameWithArgs() string {
 	if len(n.Parameters) > 0 {
 		a := n.Args()
 
-		args := strings.Join(a, "__")
-		args = "___" + args + "___"
+		args := strings.Join(a, "_QZQZ_")
+		args = "_QZQZ_" + args + "_QZQZ_"
 
 		return n.FullName() + args
 	}
@@ -104,8 +104,8 @@ func (n TypeName) NormalizedFullNameWithArguments() string {
 			return arg.String()
 		})
 
-		args = strings.Join(a, "__")
-		args = "___" + args + "___"
+		args = strings.Join(a, "_QZQZ_")
+		args = "_QZQZ_" + args + "_QZQZ_"
 	}
 
 	return utils.NormalizeName(n.FullName() + args)
@@ -122,12 +122,14 @@ func AsTypeName(parsed utils.ParsedTypeName) TypeName {
 }
 
 var packageTypeNameMap = map[string]string{
-	"github.com/greenboxal/agibootstrap/pkg/platform/vfs": "vfs",
-	"github.com/greenboxal/agibootstrap/pkg/":             "agib.",
-	"github.com/greenboxal/agibootstrap/psidb/db/":        "psidb.",
-	"github.com/greenboxal/agibootstrap/psidb/services/":  "psidb.",
-	"github.com/greenboxal/agibootstrap/psidb/apps/":      "",
-	"github.com/greenboxal/agibootstrap/psidb/modules/":   "",
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs":    "vfs",
+	"github.com/greenboxal/agibootstrap/pkg/":                "agib.",
+	"github.com/greenboxal/agibootstrap/psidb/core/coreapi/": "psidb.",
+	"github.com/greenboxal/agibootstrap/psidb/core/api/":     "psidb.",
+	"github.com/greenboxal/agibootstrap/psidb/db/":           "psidb.",
+	"github.com/greenboxal/agibootstrap/psidb/services/":     "psidb.",
+	"github.com/greenboxal/agibootstrap/psidb/apps/":         "",
+	"github.com/greenboxal/agibootstrap/psidb/modules/":      "",
 }
 
 func GetTypeName(typ reflect.Type) TypeName {

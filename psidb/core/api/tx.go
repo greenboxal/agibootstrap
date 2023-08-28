@@ -121,7 +121,7 @@ func RunTransaction(
 	return
 }
 
-var ctxKeyTransaction = &struct{}{}
+var ctxKeyTransaction = struct{ name string }{name: "PsiDbTx"}
 
 func GetTransaction(ctx context.Context) Transaction {
 	tx := ctx.Value(ctxKeyTransaction)

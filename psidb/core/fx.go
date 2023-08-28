@@ -23,7 +23,6 @@ var Module = fx.Module(
 	fx.Provide(NewDataStore),
 	fx.Provide(NewMetadataStore),
 	fx.Provide(NewBlockManager),
-	fx.Provide(NewSessionManager),
 	fx.Provide(NewCore),
 
 	fx.Provide(func(core *Core) (res struct {
