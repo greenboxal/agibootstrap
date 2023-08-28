@@ -61,7 +61,7 @@ func (sch *OldScheduler) Recover() error {
 	iter, err := sch.tracker.Recover()
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	for iter.Next() {
@@ -267,6 +267,7 @@ func (sch *OldScheduler) onConfirm(item *scheduledItem, confirm *graphfs.Journal
 	sch.pendingMutex.Lock()
 	defer sch.pendingMutex.Unlock()
 
+	sch.tracker.Confirm(item.skey.Rid)
 	delete(sch.pending, item.skey)
 
 	queue := sch.getOrCreateQueue(item.qkey, true, false)
@@ -277,8 +278,6 @@ func (sch *OldScheduler) onConfirm(item *scheduledItem, confirm *graphfs.Journal
 
 		sch.trySchedule(item.qkey)
 	}
-
-	sch.tracker.Confirm(item.skey.Rid)
 }
 
 func (sch *OldScheduler) getOrCreateQueue(qkey string, lock, create bool) *schedulerQueue {

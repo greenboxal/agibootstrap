@@ -7,6 +7,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/pkg/errors"
+	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 
@@ -132,7 +133,11 @@ func (ns *NodeService) CallNodeAction(ctx context.Context, req *CallNodeActionRe
 			actionRequest = typesystem.Unwrap(argsNode)
 		}
 
-		ctx, span := tracer.Start(ctx, iface.Name()+"."+action.Name())
+		ctx, span := tracer.Start(ctx, "NodeService.CallNodeAction")
+		span.SetAttributes(semconv.ServiceName("NodeRunner"))
+		span.SetAttributes(semconv.RPCSystemKey.String("psidb-node"))
+		span.SetAttributes(semconv.RPCService(iface.Name()))
+		span.SetAttributes(semconv.RPCMethod(action.Name()))
 		defer span.End()
 
 		result, err := action.Invoke(ctx, n, actionRequest)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
+	"github.com/invopop/jsonschema"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/samber/lo"
@@ -549,11 +550,32 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 			req.ToolSelection.Focus = stdlib.RefFromPath[psi.Node](args.Path)
 		}
 
+	case "ShowAvailableFunctionsForNode":
+		fallthrough
+	case "ActionForNode":
+		var args struct {
+			Path psi.Path `json:"path"`
+		}
+
+		if err := json.Unmarshal([]byte(req.ToolSelection.Arguments), &args); err != nil {
+			panic(err)
+		}
+
+		if args.Path.IsEmpty() && len(baseMessage.Attachments) > 0 {
+			args.Path = baseMessage.Attachments[0]
+		}
+
+		target, err := tx.Resolve(ctx, args.Path)
+
+		if err != nil {
+			return handleError(err, true)
+		}
+
+		return c.showAvailableActions(ctx, req, target)
+
 	case "TraverseToNode":
 		fallthrough
 	case "TraverseTo":
-		fallthrough
-	case "ShowAvailableFunctionsForNode":
 		fallthrough
 	case "InspectNode":
 		var args struct {
@@ -730,6 +752,64 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 	return c.dispatchModel(ctx, c.CanonicalPath(), OnMessageReceivedRequest{
 		Message: stdlib.Ref(replyMessage),
 		Options: req.Options,
+	})
+}
+
+func (c *Conversation) showAvailableActions(ctx context.Context, req *OnMessageSideEffectRequest, target psi.Node) error {
+	tx := coreapi.GetTransaction(ctx)
+	writer := &bytes.Buffer{}
+
+	actionMap := map[string]*jsonschema.Schema{}
+
+	for _, iface := range target.PsiNodeType().Interfaces() {
+		for _, action := range iface.Interface().Actions() {
+			var schema *jsonschema.Schema
+
+			if action.RequestType != nil {
+				schema = action.RequestType.JsonSchema()
+			}
+
+			if schema == nil {
+				schema = &jsonschema.Schema{Type: "object"}
+			}
+
+			actionName := fmt.Sprintf("%s_QZQZ_%s", iface.Interface().Name(), action.Name)
+			actionMap[actionName] = schema
+		}
+	}
+
+	_, _ = fmt.Fprintf(writer, "**Path:** %s\n", target.CanonicalPath().String())
+	_, _ = fmt.Fprintf(writer, "**Node Type:** %s\n", target.PsiNodeType().Name())
+	_, _ = fmt.Fprintf(writer, "# Actions\n\n```json\n")
+
+	if err := json.NewEncoder(writer).Encode(actionMap); err != nil {
+		return err
+	}
+
+	_, _ = fmt.Fprintf(writer, "\n```\n")
+
+	replyMessage := NewMessage(MessageKindEmit)
+	replyMessage.From.ID = "function"
+	replyMessage.From.Name = req.ToolSelection.Name
+	replyMessage.From.Role = msn.RoleFunction
+	replyMessage.Text = writer.String()
+	replyMessage.Attachments = []psi.Path{target.CanonicalPath()}
+
+	replyMessage, err := c.addMessage(ctx, replyMessage)
+
+	if err != nil {
+		return err
+	}
+
+	return tx.Notify(ctx, psi.Notification{
+		Notifier:  c.CanonicalPath(),
+		Notified:  c.CanonicalPath(),
+		Interface: ConversationInterface.Name(),
+		Action:    "OnMessageReceived",
+		Argument: &OnMessageReceivedRequest{
+			Message: stdlib.Ref(replyMessage),
+			Options: req.Options,
+		},
 	})
 }
 

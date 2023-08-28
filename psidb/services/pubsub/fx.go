@@ -8,6 +8,7 @@ import (
 )
 
 var tracer = otel.Tracer("pubsub", trace.WithInstrumentationAttributes(
+	semconv.ServiceName("psidb-graph"),
 	semconv.MessagingSystem("psidb-pubsub"),
 ))
 

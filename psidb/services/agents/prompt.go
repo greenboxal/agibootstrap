@@ -314,6 +314,10 @@ func (b *PromptBuilder) Build(ctx context.Context) openai.ChatCompletionRequest 
 					panic(err)
 				}
 
+				msgs = iterators.Filter(msgs, func(msg *Message) bool {
+					return msg.From.Role != msn.RoleSystem || (msg.Text != "" || msg.FunctionCall != nil)
+				})
+
 				if hook != PromptBuilderHookFocus && b.focus != nil {
 					msgs = iterators.Filter(msgs, func(msg *Message) bool {
 						if msg == b.focus {

@@ -2,11 +2,13 @@ package psi
 
 import (
 	"context"
+	`encoding/json`
 
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel"
+	propagation2 `go.opentelemetry.io/otel/propagation`
 
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 )
@@ -46,8 +48,8 @@ type Confirmation struct {
 type Notification struct {
 	Nonce uint64 `json:"nonce"`
 
-	SessionID string             `json:"session_id"`
-	TraceID   *NotificationTrace `json:"trace_id"`
+	SessionID string `json:"session_id"`
+	TraceID   string `json:"trace_id"`
 
 	Notifier Path `json:"notifier"`
 	Notified Path `json:"notified"`
@@ -107,16 +109,22 @@ type NotificationTrace struct {
 func (n Notification) Apply(ctx context.Context, target Node) (any, error) {
 	var arg any
 
-	if n.TraceID != nil {
-		cfg := trace.SpanContextConfig{}
+	if n.TraceID != "" {
+		carrier := propagation2.MapCarrier{}
+
+		if err := json.Unmarshal([]byte(n.TraceID), &carrier); err != nil {
+			return nil, err
+		}
+
+		/*cfg := trace.SpanContextConfig{}
 		cfg.TraceID, _ = trace.TraceIDFromHex(n.TraceID.TraceID)
 		cfg.SpanID, _ = trace.SpanIDFromHex(n.TraceID.SpanID)
 		cfg.TraceState, _ = trace.ParseTraceState(n.TraceID.TraceState)
 		cfg.TraceFlags = trace.TraceFlags(n.TraceID.TraceFlags)
-		cfg.Remote = n.TraceID.Remote
+		cfg.Remote = n.TraceID.Remote*/
 
-		spanCtx := trace.NewSpanContext(cfg)
-		ctx = trace.ContextWithRemoteSpanContext(ctx, spanCtx)
+		propagator := otel.GetTextMapPropagator()
+		ctx = propagator.Extract(ctx, carrier)
 	}
 
 	typ := target.PsiNodeType()

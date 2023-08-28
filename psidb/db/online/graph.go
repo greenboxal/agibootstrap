@@ -7,6 +7,8 @@ import (
 
 	"github.com/ipld/go-ipld-prime/linking"
 	"go.opentelemetry.io/otel"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
@@ -16,7 +18,9 @@ import (
 )
 
 var logger = logging.GetLogger("livegraph")
-var tracer = otel.Tracer("livegraph")
+var tracer = otel.Tracer("livegraph", trace.WithInstrumentationAttributes(
+	semconv.ServiceName("psidb-graph"),
+))
 
 type LiveGraph struct {
 	mu sync.RWMutex

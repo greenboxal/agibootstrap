@@ -23,6 +23,7 @@ import (
 
 var logger = logging.GetLogger("psidsadapter")
 var tracer = otel.Tracer("psidsadapter", trace.WithInstrumentationAttributes(
+	semconv.ServiceName("psidb-graph"),
 	semconv.DBSystemKey.String("badger"),
 ))
 

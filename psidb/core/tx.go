@@ -2,8 +2,11 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	propagation2 "go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
@@ -67,13 +70,24 @@ func (t *transaction) Notify(ctx context.Context, not psi.Notification) error {
 	}
 
 	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
-		not.TraceID = &psi.NotificationTrace{
+		carrier := propagation2.MapCarrier{}
+
+		otel.GetTextMapPropagator().Inject(ctx, carrier)
+
+		data, err := json.Marshal(carrier)
+
+		if err != nil {
+			return err
+		}
+
+		not.TraceID = string(data)
+		/*&psi.NotificationTrace{
 			TraceID:    span.TraceID().String(),
 			SpanID:     span.SpanID().String(),
 			TraceFlags: int(span.TraceFlags()),
 			TraceState: span.TraceState().String(),
 			Remote:     span.IsRemote(),
-		}
+		}*/
 	}
 
 	return t.lg.Transaction().Notify(ctx, not)

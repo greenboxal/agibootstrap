@@ -22,6 +22,8 @@ func Initialize() {
 			providerInstance = ddotel.NewTracerProvider(
 				tracer.WithService("psidb"),
 				tracer.WithEnv("dev"),
+				tracer.WithProfilerEndpoints(true),
+				tracer.WithProfilerCodeHotspots(true),
 			)
 
 			otel.SetTracerProvider(providerInstance)

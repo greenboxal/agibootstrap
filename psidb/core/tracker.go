@@ -52,14 +52,13 @@ func (c *ConfirmationTracker) Recover() (iterators.Iterator[uint64], error) {
 	defer c.mu.RUnlock()
 
 	it := c.bmp.Iterator()
+	items := make([]uint64, 0, c.bmp.GetCardinality())
 
-	return iterators.NewIterator(func() (uint64, bool) {
-		if !it.HasNext() {
-			return 0, false
-		}
+	for it.HasNext() {
+		items = append(items, it.Next())
+	}
 
-		return it.Next(), true
-	}), nil
+	return iterators.FromSlice(items), nil
 }
 
 func (c *ConfirmationTracker) Track(ticket uint64) {

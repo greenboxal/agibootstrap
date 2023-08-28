@@ -50,9 +50,10 @@ func NewVirtualGraph(
 	vg := &VirtualGraph{
 		logger: logging.GetLogger("graphfs"),
 
-		tracer: otel.Tracer("graphfs",
-			trace.WithInstrumentationAttributes(semconv.DBSystemKey.String("psidb")),
-		),
+		tracer: otel.Tracer("graphfs", trace.WithInstrumentationAttributes(
+			semconv.ServiceName("psidb-graph"),
+			semconv.DBSystemKey.String("psidb"),
+		)),
 
 		ds:   metadataStore,
 		lsys: lsys,

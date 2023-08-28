@@ -88,22 +88,22 @@ func (pm *Manager) Start(ctx context.Context) error {
 		return err
 	}
 
-	pm.scheduler = NewScheduler(pm.core.Journal(), tracker, pm)
-
-	if err := pm.migrator.Migrate(ctx, migrationSet); err != nil {
-		return err
-	}
-
-	if err := pm.scheduler.Recover(); err != nil {
-		return err
-	}
-
 	slot, err := pm.core.CreateReplicationSlot(ctx, graphfs.ReplicationSlotOptions{
 		Name:       "pubsub",
 		Persistent: false,
 	})
 
 	if err != nil {
+		return err
+	}
+
+	if err := pm.migrator.Migrate(ctx, migrationSet); err != nil {
+		return err
+	}
+
+	pm.scheduler = NewScheduler(pm.core.Journal(), tracker, pm)
+
+	if err := pm.scheduler.Recover(); err != nil {
 		return err
 	}
 
@@ -162,7 +162,11 @@ func (pm *Manager) processReplicationMessage(ctx context.Context, entries []*gra
 		})
 	}
 
-	return wg.Wait()
+	if err := wg.Wait(); err != nil {
+		return err
+	}
+
+	return pm.scheduler.tracker.Flush()
 }
 
 func (pm *Manager) getOrCreateRoot(name string, create bool) *Topic {
@@ -219,7 +223,9 @@ func (pm *Manager) Dispatch(entry *graphfs.JournalEntry) {
 		ctx, cancel := context.WithCancel(pm.rootCtx)
 		defer cancel()
 
-		ctx, span := tracer.Start(ctx, not.Interface+"."+not.Action)
+		ctx, span := tracer.Start(ctx, "Scheduler.Dispatch")
+		span.SetAttributes(semconv.ServiceName("NodeRunner"))
+		span.SetAttributes(semconv.RPCSystemKey.String("psidb-node"))
 		span.SetAttributes(semconv.RPCService(not.Interface))
 		span.SetAttributes(semconv.RPCMethod(not.Action))
 
@@ -234,6 +240,16 @@ func (pm *Manager) Dispatch(entry *graphfs.JournalEntry) {
 			span.End()
 		}()
 
+		if not.SessionID != "" {
+			sess := coreapi.GetSession(ctx)
+
+			if sess == nil || sess.UUID() != not.SessionID {
+				sess = pm.sessionManager.GetOrCreateSession(not.SessionID)
+
+				ctx = coreapi.WithSession(ctx, sess)
+			}
+		}
+
 		err := pm.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
 			target, err := tx.Resolve(ctx, not.Notified)
 
@@ -245,16 +261,6 @@ func (pm *Manager) Dispatch(entry *graphfs.JournalEntry) {
 				Xid:   entry.Xid,
 				Rid:   entry.Rid,
 				Nonce: not.Nonce,
-			}
-
-			if not.SessionID != "" {
-				sess := coreapi.GetSession(ctx)
-
-				if sess == nil || sess.UUID() != not.SessionID {
-					sess = pm.sessionManager.GetOrCreateSession(not.SessionID)
-
-					ctx = coreapi.WithSession(ctx, sess)
-				}
 			}
 
 			if _, err := not.Apply(ctx, target); err != nil {
