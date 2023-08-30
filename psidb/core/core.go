@@ -10,10 +10,10 @@ import (
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/pkg/errors"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
-	"go.uber.org/zap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
@@ -27,7 +27,7 @@ import (
 )
 
 type Core struct {
-	logger *zap.SugaredLogger
+	logger *otelzap.SugaredLogger
 	tracer trace.Tracer
 
 	cfg *coreapi.Config
@@ -161,7 +161,7 @@ func (c *Core) BeginTransaction(ctx context.Context, options ...coreapi.Transact
 
 	root := psi.PathFromElements(c.cfg.RootUUID, false)
 	typingManager := inject.Inject[*typing.Manager](c.sp)
-	types := typing.NewTypeRegistry(typingManager)
+	types := vm.NewTypeRegistry(typingManager)
 	lg, err := online.NewLiveGraph(ctx, root, c.virtualGraph, &c.lsys, types, tx)
 
 	if err != nil {

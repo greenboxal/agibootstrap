@@ -24,17 +24,21 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 )
 
 var ConversationInterface = psi.DefineNodeInterface[IConversation]()
-var ConversationType = psi.DefineNodeType[*Conversation](psi.WithInterfaceFromNode(ConversationInterface))
-var ConversationMessageEdge = psi.DefineEdgeType[*Message]("message")
+var ConversationType = psi.DefineNodeType[*Conversation](
+	psi.WithInterfaceFromNode(chat.TopicSubscriberInterface),
+	psi.WithInterfaceFromNode(chat.ChatInterface),
+	psi.WithInterfaceFromNode(ConversationInterface),
+)
 var _ IConversation = (*Conversation)(nil)
 
 type IConversation interface {
-	GetMessages(ctx context.Context, req *GetMessagesRequest) ([]*Message, error)
-	SendMessage(ctx context.Context, req *SendMessageRequest) (*Message, error)
+	chat.IChat
 
 	OnMessageReceived(ctx context.Context, req *OnMessageReceivedRequest) error
 	OnMessageSideEffect(ctx context.Context, req *OnMessageSideEffectRequest) error
@@ -47,8 +51,8 @@ type Conversation struct {
 	Name string `json:"name"`
 
 	BaseConversation *stdlib.Reference[*Conversation] `json:"base_conversation"`
-	BaseMessage      *stdlib.Reference[*Message]      `json:"base_message"`
-	BaseOptions      ModelOptions                     `json:"base_options"`
+	BaseMessage      *stdlib.Reference[*chat.Message] `json:"base_message"`
+	BaseOptions      gpt.ModelOptions                 `json:"base_options"`
 
 	IsMerged bool `json:"is_merged"`
 
@@ -57,7 +61,28 @@ type Conversation struct {
 
 func (c *Conversation) PsiNodeName() string { return c.Name }
 
-func (c *Conversation) CreateThreadContext(ctx context.Context, message *Message) *ThreadContext {
+func (c *Conversation) HandleTopicMessage(ctx context.Context, message *stdlib.Reference[*chat.Message]) error {
+	msg, err := message.Resolve(ctx)
+
+	if err != nil {
+		return err
+	}
+
+	if err := c.AcceptMessage(ctx, msg); err != nil {
+		return err
+	}
+
+	if err := c.dispatchModel(ctx, c.CanonicalPath(), OnMessageReceivedRequest{
+		Message: message,
+		Options: c.BuildDefaultOptions(),
+	}); err != nil {
+		return err
+	}
+
+	return c.Update(ctx)
+}
+
+func (c *Conversation) CreateThreadContext(ctx context.Context, message *chat.Message) *ThreadContext {
 	return &ThreadContext{
 		Ctx:          ctx,
 		Client:       c.Client,
@@ -68,13 +93,13 @@ func (c *Conversation) CreateThreadContext(ctx context.Context, message *Message
 	}
 }
 
-func (c *Conversation) BuildDefaultOptions() ModelOptions {
+func (c *Conversation) BuildDefaultOptions() gpt.ModelOptions {
 	topP := float32(1.0)
 	temperature := float32(0.0)
 	model := "gpt-3.5-turbo-16k"
 	maxTokens := 1024
 
-	return ModelOptions{
+	return gpt.ModelOptions{
 		TopP:        &topP,
 		Temperature: &temperature,
 		Model:       &model,
@@ -82,19 +107,8 @@ func (c *Conversation) BuildDefaultOptions() ModelOptions {
 	}.MergeWith(c.BaseOptions)
 }
 
-type GetMessagesRequest struct {
-	From *stdlib.Reference[*Message] `json:"from"`
-	To   *stdlib.Reference[*Message] `json:"to"`
-
-	SkipBaseHistory bool `json:"skip_base_history"`
-}
-
-func (c *Conversation) GetMessages(ctx context.Context, req *GetMessagesRequest) ([]*Message, error) {
-	return c.doSliceMessages(ctx, req)
-}
-
-func (c *Conversation) SliceMessages(ctx context.Context, from, to *Message) ([]*Message, error) {
-	msgs, err := c.doSliceMessages(ctx, &GetMessagesRequest{
+func (c *Conversation) SliceMessages(ctx context.Context, from, to *chat.Message) ([]*chat.Message, error) {
+	msgs, err := c.GetMessages(ctx, &chat.GetMessagesRequest{
 		From: stdlib.Ref(from),
 		To:   stdlib.Ref(to),
 	})
@@ -106,7 +120,7 @@ func (c *Conversation) SliceMessages(ctx context.Context, from, to *Message) ([]
 	return msgs, nil
 }
 
-func (c *Conversation) MessageIterator(ctx context.Context) (iterators.Iterator[*Message], error) {
+func (c *Conversation) MessageIterator(ctx context.Context) (iterators.Iterator[*chat.Message], error) {
 	msgs, err := c.SliceMessages(ctx, nil, nil)
 
 	if err != nil {
@@ -116,10 +130,10 @@ func (c *Conversation) MessageIterator(ctx context.Context) (iterators.Iterator[
 	return iterators.FromSlice(msgs), nil
 }
 
-func (c *Conversation) doSliceMessages(ctx context.Context, req *GetMessagesRequest) ([]*Message, error) {
+func (c *Conversation) GetMessages(ctx context.Context, req *chat.GetMessagesRequest) ([]*chat.Message, error) {
 	var err error
-	var from, to *Message
-	var messages []*Message
+	var from, to *chat.Message
+	var messages []*chat.Message
 
 	if !req.From.IsEmpty() {
 		from, err = req.From.Resolve(ctx)
@@ -159,9 +173,9 @@ func (c *Conversation) doSliceMessages(ctx context.Context, req *GetMessagesRequ
 		messages = append(messages, baseMessages...)
 	}
 
-	ownMessages := psi.GetEdges(c, ConversationMessageEdge)
+	ownMessages := psi.GetEdges(c, chat.ConversationMessageEdge)
 
-	ownMessages = lo.Filter(ownMessages, func(item *Message, index int) bool {
+	ownMessages = lo.Filter(ownMessages, func(item *chat.Message, index int) bool {
 		if from != nil && item.Timestamp < from.Timestamp {
 			return false
 		}
@@ -173,7 +187,7 @@ func (c *Conversation) doSliceMessages(ctx context.Context, req *GetMessagesRequ
 		return true
 	})
 
-	slices.SortFunc(ownMessages, func(i, j *Message) bool {
+	slices.SortFunc(ownMessages, func(i, j *chat.Message) bool {
 		return strings.Compare(i.Timestamp, j.Timestamp) < 0
 	})
 
@@ -182,10 +196,10 @@ func (c *Conversation) doSliceMessages(ctx context.Context, req *GetMessagesRequ
 	return messages, nil
 }
 
-func (c *Conversation) SendMessage(ctx context.Context, req *SendMessageRequest) (*Message, error) {
+func (c *Conversation) SendMessage(ctx context.Context, req *chat.SendMessageRequest) (*chat.Message, error) {
 	tx := coreapi.GetTransaction(ctx)
 
-	m := NewMessage(MessageKindEmit)
+	m := chat.NewMessage(chat.MessageKindEmit)
 	m.Timestamp = ""
 	m.From = req.From
 	m.Text = req.Text
@@ -193,7 +207,7 @@ func (c *Conversation) SendMessage(ctx context.Context, req *SendMessageRequest)
 	m.Metadata = req.Metadata
 
 	if req.Function != "" {
-		m.FunctionCall = &FunctionCall{
+		m.FunctionCall = &chat.FunctionCall{
 			Name:      req.Function,
 			Arguments: req.FunctionArguments,
 		}
@@ -221,7 +235,7 @@ func (c *Conversation) SendMessage(ctx context.Context, req *SendMessageRequest)
 	return m, c.Update(ctx)
 }
 
-func (c *Conversation) ForkAsChatLog(ctx context.Context, baseMessage *Message, options ModelOptions) (ChatLog, error) {
+func (c *Conversation) ForkAsChatLog(ctx context.Context, baseMessage *chat.Message, options gpt.ModelOptions) (ChatLog, error) {
 	fork, err := c.Fork(ctx, baseMessage, options)
 
 	if err != nil {
@@ -231,7 +245,7 @@ func (c *Conversation) ForkAsChatLog(ctx context.Context, baseMessage *Message, 
 	return fork, nil
 }
 
-func (c *Conversation) Fork(ctx context.Context, baseMessage *Message, options ModelOptions) (*Conversation, error) {
+func (c *Conversation) Fork(ctx context.Context, baseMessage *chat.Message, options gpt.ModelOptions) (*Conversation, error) {
 	fork := &Conversation{}
 	fork.BaseConversation = stdlib.Ref(c)
 	fork.BaseMessage = stdlib.Ref(baseMessage)
@@ -244,7 +258,7 @@ func (c *Conversation) Fork(ctx context.Context, baseMessage *Message, options M
 		return nil, err
 	}
 
-	joinMsg := NewMessage(MessageKindJoin)
+	joinMsg := chat.NewMessage(chat.MessageKindJoin)
 	joinMsg.Attachments = []psi.Path{fork.CanonicalPath()}
 
 	if _, err := c.addMessage(ctx, joinMsg); err != nil {
@@ -254,46 +268,76 @@ func (c *Conversation) Fork(ctx context.Context, baseMessage *Message, options M
 	return fork, nil
 }
 
-func (c *Conversation) Merge(ctx context.Context, focus *Message) error {
-	if c.BaseConversation.IsEmpty() {
-		return nil
-	}
+func (c *Conversation) Merge(ctx context.Context, focus *chat.Message) error {
+	var mergeMsg *chat.Message
 
-	base, err := c.BaseConversation.Resolve(ctx)
+	baseMsg, err := c.BaseMessage.Resolve(ctx)
 
 	if err != nil {
 		return err
 	}
 
-	mergeMsg := NewMessage(MessageKindMerge)
-	mergeMsg.Attachments = []psi.Path{focus.CanonicalPath(), base.CanonicalPath()}
+	if !c.BaseConversation.IsEmpty() {
+		base, err := c.BaseConversation.Resolve(ctx)
 
-	if _, err := c.addMessage(ctx, mergeMsg); err != nil {
-		return err
+		if err != nil {
+			return err
+		}
+
+		mergeMsg = chat.NewMessage(chat.MessageKindMerge)
+		mergeMsg.Attachments = []psi.Path{focus.CanonicalPath(), base.CanonicalPath()}
+
+		if _, err := c.addMessage(ctx, mergeMsg); err != nil {
+			return err
+		}
+
+		c.IsMerged = true
+		c.Invalidate()
+
+		if err := coreapi.Dispatch(ctx, psi.Notification{
+			Notifier:  c.CanonicalPath(),
+			Notified:  base.CanonicalPath(),
+			Interface: ConversationInterface.Name(),
+			Action:    "OnForkMerging",
+			Argument: OnForkMergingRequest{
+				Fork:       stdlib.Ref(c),
+				MergePoint: stdlib.Ref(mergeMsg),
+			},
+		}); err != nil {
+			return err
+		}
 	}
 
-	c.IsMerged = true
-	c.Invalidate()
+	if len(baseMsg.ReplyTo) > 0 {
+		msgs, err := c.SliceMessages(ctx, baseMsg, mergeMsg)
 
-	if err := c.Update(ctx); err != nil {
-		return err
+		if err != nil {
+			return err
+		}
+
+		for _, msg := range msgs {
+			if msg.Kind == chat.MessageKindEmit && msg.From.Role == msn.RoleAI && msg.FunctionCall == nil {
+				for _, replyTo := range baseMsg.ReplyTo {
+					if err := coreapi.Dispatch(ctx, psi.Notification{
+						Notifier:  c.CanonicalPath(),
+						Notified:  replyTo,
+						Interface: chat.TopicSubscriberInterface.Name(),
+						Action:    "HandleTopicMessage",
+						Argument:  stdlib.Ref(msg),
+					}); err != nil {
+						return err
+					}
+				}
+			}
+		}
 	}
 
-	return coreapi.Dispatch(ctx, psi.Notification{
-		Notifier:  c.CanonicalPath(),
-		Notified:  base.CanonicalPath(),
-		Interface: ConversationInterface.Name(),
-		Action:    "OnForkMerging",
-		Argument: OnForkMergingRequest{
-			Fork:       stdlib.Ref(c),
-			MergePoint: stdlib.Ref(mergeMsg),
-		},
-	})
+	return c.Update(ctx)
 }
 
 type OnForkMergingRequest struct {
 	Fork       *stdlib.Reference[*Conversation] `json:"fork" jsonschema:"title=Fork,description=The fork to merge"`
-	MergePoint *stdlib.Reference[*Message]      `json:"merge_point" jsonschema:"title=Merge Point,description=The merge point"`
+	MergePoint *stdlib.Reference[*chat.Message] `json:"merge_point" jsonschema:"title=Merge Point,description=The merge point"`
 }
 
 func (c *Conversation) OnForkMerging(ctx context.Context, req *OnForkMergingRequest) (err error) {
@@ -322,7 +366,7 @@ func (c *Conversation) OnForkMerging(ctx context.Context, req *OnForkMergingRequ
 	}
 
 	for _, msg := range msgs {
-		if msg.Kind == MessageKindEmit && msg.From.Role == msn.RoleAI && msg.FunctionCall == nil {
+		if msg.Kind == chat.MessageKindError || (msg.Kind == chat.MessageKindEmit && msg.From.Role == msn.RoleAI && msg.FunctionCall == nil) {
 			if _, err := c.addMessage(ctx, msg); err != nil {
 				return err
 			}
@@ -352,8 +396,8 @@ func (c *Conversation) OnMessageReceived(ctx context.Context, req *OnMessageRece
 	}
 
 	handleError := func(cause error, dispatch bool) error {
-		m := NewMessage(MessageKindError)
-		m.From.ID = "function"
+		m := chat.NewMessage(chat.MessageKindError)
+		m.From.ID = c.CanonicalPath()
 		m.From.Name = "InspectNode"
 		m.From.Role = msn.RoleFunction
 		m.Text = fmt.Sprintf("Error: %v", cause)
@@ -484,8 +528,8 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 	tx := coreapi.GetTransaction(ctx)
 
 	handleError := func(cause error, dispatch bool) error {
-		m := NewMessage(MessageKindError)
-		m.From.ID = "function"
+		m := chat.NewMessage(chat.MessageKindError)
+		m.From.ID = c.CanonicalPath()
 		m.From.Name = "InspectNode"
 		m.From.Role = msn.RoleFunction
 		m.Text = fmt.Sprintf("Error: %v", cause)
@@ -736,8 +780,8 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 		}
 	}()
 
-	replyMessage := NewMessage(MessageKindEmit)
-	replyMessage.From.ID = "function"
+	replyMessage := chat.NewMessage(chat.MessageKindEmit)
+	replyMessage.From.ID = c.CanonicalPath()
 	replyMessage.From.Name = req.ToolSelection.Name
 	replyMessage.From.Role = msn.RoleFunction
 	replyMessage.Text = writer.String()
@@ -756,9 +800,7 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 }
 
 func (c *Conversation) showAvailableActions(ctx context.Context, req *OnMessageSideEffectRequest, target psi.Node) error {
-	tx := coreapi.GetTransaction(ctx)
 	writer := &bytes.Buffer{}
-
 	actionMap := map[string]*jsonschema.Schema{}
 
 	for _, iface := range target.PsiNodeType().Interfaces() {
@@ -788,8 +830,8 @@ func (c *Conversation) showAvailableActions(ctx context.Context, req *OnMessageS
 
 	_, _ = fmt.Fprintf(writer, "\n```\n")
 
-	replyMessage := NewMessage(MessageKindEmit)
-	replyMessage.From.ID = "function"
+	replyMessage := chat.NewMessage(chat.MessageKindEmit)
+	replyMessage.From.ID = c.CanonicalPath()
 	replyMessage.From.Name = req.ToolSelection.Name
 	replyMessage.From.Role = msn.RoleFunction
 	replyMessage.Text = writer.String()
@@ -801,15 +843,9 @@ func (c *Conversation) showAvailableActions(ctx context.Context, req *OnMessageS
 		return err
 	}
 
-	return tx.Notify(ctx, psi.Notification{
-		Notifier:  c.CanonicalPath(),
-		Notified:  c.CanonicalPath(),
-		Interface: ConversationInterface.Name(),
-		Action:    "OnMessageReceived",
-		Argument: &OnMessageReceivedRequest{
-			Message: stdlib.Ref(replyMessage),
-			Options: req.Options,
-		},
+	return c.dispatchModel(ctx, c.CanonicalPath(), OnMessageReceivedRequest{
+		Message: stdlib.Ref(replyMessage),
+		Options: req.Options,
 	})
 }
 
@@ -837,8 +873,8 @@ func (c *Conversation) inspectNode(ctx context.Context, req *OnMessageSideEffect
 		writer.Write([]byte(fmt.Sprintf("Error: %v", err)))
 	}
 
-	replyMessage := NewMessage(MessageKindEmit)
-	replyMessage.From.ID = "function"
+	replyMessage := chat.NewMessage(chat.MessageKindEmit)
+	replyMessage.From.ID = c.CanonicalPath()
 	replyMessage.From.Name = req.ToolSelection.Name
 	replyMessage.From.Role = msn.RoleFunction
 	replyMessage.Text = writer.String()
@@ -894,11 +930,11 @@ func (c *Conversation) dispatchSideEffect(ctx context.Context, path psi.Path, re
 	return nil
 }
 
-func (c *Conversation) AcceptChoice(ctx context.Context, baseMessage *Message, choice PromptResponseChoice) error {
+func (c *Conversation) AcceptChoice(ctx context.Context, baseMessage *chat.Message, choice PromptResponseChoice) error {
 	return c.consumeChoice(ctx, baseMessage, choice)
 }
 
-func (c *Conversation) AcceptMessage(ctx context.Context, msg *Message) error {
+func (c *Conversation) AcceptMessage(ctx context.Context, msg *chat.Message) error {
 	_, err := c.addMessage(ctx, msg)
 
 	if err != nil {
@@ -908,7 +944,7 @@ func (c *Conversation) AcceptMessage(ctx context.Context, msg *Message) error {
 	return nil
 }
 
-func (c *Conversation) addMessage(ctx context.Context, m *Message) (*Message, error) {
+func (c *Conversation) addMessage(ctx context.Context, m *chat.Message) (*chat.Message, error) {
 	if m.Timestamp == "" {
 		m.Timestamp = strconv.FormatInt(time.Now().UnixNano(), 10)
 	}
@@ -921,12 +957,12 @@ func (c *Conversation) addMessage(ctx context.Context, m *Message) (*Message, er
 		m.SetParent(c)
 	}
 
-	c.SetEdge(ConversationMessageEdge.Named(m.Timestamp), m)
+	c.SetEdge(chat.ConversationMessageEdge.Named(m.Timestamp), m)
 
 	return m, c.Update(ctx)
 }
 
-func (c *Conversation) consumeChoice(ctx context.Context, baseMessage *Message, choice PromptResponseChoice) error {
+func (c *Conversation) consumeChoice(ctx context.Context, baseMessage *chat.Message, choice PromptResponseChoice) error {
 	m, err := c.addMessage(ctx, choice.Message)
 
 	if err != nil {
@@ -958,109 +994,15 @@ func (c *Conversation) consumeChoice(ctx context.Context, baseMessage *Message, 
 	return nil
 }
 
-type SendMessageRequest struct {
-	Timestamp   string         `json:"timestamp" jsonschema:"title=Timestamp,description=The timestamp of the message"`
-	From        UserHandle     `json:"from" jsonschema:"title=From,description=The user who sent the message"`
-	Text        string         `json:"text" jsonschema:"title=Text,description=The text content of the message"`
-	Attachments []psi.Path     `json:"attachments" jsonschema:"title=Attachments,description=The attachments included in the message"`
-	Metadata    map[string]any `json:"metadata" jsonschema:"title=Metadata,description=The metadata associated with the message"`
-
-	ModelOptions ModelOptions `json:"model_options" jsonschema:"title=Model Options,description=The options for the model"`
-
-	Function          string `json:"function" jsonschema:"title=Function,description=The function to execute"`
-	FunctionArguments string `json:"function_arguments" jsonschema:"title=Function Arguments,description=The arguments for the function"`
-}
-
-type ModelOptions struct {
-	Model            *string        `json:"model" jsonschema:"title=Model,description=The model used for the conversation"`
-	MaxTokens        *int           `json:"max_tokens" jsonschema:"title=Max Tokens,description=The maximum number of tokens for the model"`
-	Temperature      *float32       `json:"temperature" jsonschema:"title=Temperature,description=The temperature setting for the model"`
-	TopP             *float32       `json:"top_p" jsonschema:"title=Top P,description=The top P setting for the model"`
-	FrequencyPenalty *float32       `json:"frequency_penalty" jsonschema:"title=Frequency Penalty,description=The frequency penalty setting for the model"`
-	PresencePenalty  *float32       `json:"presence_penalty" jsonschema:"title=Presence Penalty,description=The presence penalty setting for the model"`
-	Stop             []string       `json:"stop" jsonschema:"title=Stop,description=The stop words for the model"`
-	LogitBias        map[string]int `json:"logit_bias" jsonschema:"title=Logit Bias,description=The logit bias setting for the model"`
-}
-
-func (o ModelOptions) MergeWith(opts ModelOptions) ModelOptions {
-	if opts.Model != nil {
-		o.Model = opts.Model
-	}
-
-	if opts.MaxTokens != nil {
-		o.MaxTokens = opts.MaxTokens
-	}
-
-	if opts.Temperature != nil {
-		o.Temperature = opts.Temperature
-	}
-
-	if opts.TopP != nil {
-		o.TopP = opts.TopP
-	}
-
-	if opts.FrequencyPenalty != nil {
-		o.FrequencyPenalty = opts.FrequencyPenalty
-	}
-
-	if opts.PresencePenalty != nil {
-		o.PresencePenalty = opts.PresencePenalty
-	}
-
-	if opts.Stop != nil {
-		o.Stop = opts.Stop
-	}
-
-	if opts.LogitBias != nil {
-		o.LogitBias = opts.LogitBias
-	}
-
-	return o
-}
-
-func (o ModelOptions) Apply(req *openai.ChatCompletionRequest) {
-	if o.Model != nil {
-		req.Model = *o.Model
-	}
-
-	if o.MaxTokens != nil {
-		req.MaxTokens = *o.MaxTokens
-	}
-
-	if o.Temperature != nil {
-		req.Temperature = *o.Temperature
-	}
-
-	if o.TopP != nil {
-		req.TopP = *o.TopP
-	}
-
-	if o.FrequencyPenalty != nil {
-		req.FrequencyPenalty = *o.FrequencyPenalty
-	}
-
-	if o.PresencePenalty != nil {
-		req.PresencePenalty = *o.PresencePenalty
-	}
-
-	if o.Stop != nil {
-		req.Stop = o.Stop
-	}
-
-	if o.LogitBias != nil {
-		req.LogitBias = o.LogitBias
-	}
-}
-
 type OnMessageReceivedRequest struct {
-	Message       *stdlib.Reference[*Message] `json:"message" jsonschema:"title=Message,description=The message received"`
-	Options       ModelOptions                `json:"options" jsonschema:"title=Model Options,description=The options for the model"`
-	ToolSelection *PromptToolSelection        `json:"tool_selection" jsonschema:"title=Tool Selection,description=The tool selection,optional"`
+	Message       *stdlib.Reference[*chat.Message] `json:"message" jsonschema:"title=Message,description=The message received"`
+	Options       gpt.ModelOptions                 `json:"options" jsonschema:"title=Model Options,description=The options for the model"`
+	ToolSelection *PromptToolSelection             `json:"tool_selection" jsonschema:"title=Tool Selection,description=The tool selection,optional"`
 }
 
 type OnMessageSideEffectRequest struct {
-	Message *stdlib.Reference[*Message] `json:"message" jsonschema:"title=Message,description=The message received"`
-	Options ModelOptions                `json:"options" jsonschema:"title=Model Options,description=The options for the model"`
+	Message *stdlib.Reference[*chat.Message] `json:"message" jsonschema:"title=Message,description=The message received"`
+	Options gpt.ModelOptions                 `json:"options" jsonschema:"title=Model Options,description=The options for the model"`
 
 	ToolSelection *PromptToolSelection `json:"tool_selection" jsonschema:"title=Tool Selection,description=The tool selection"`
 }

@@ -7,7 +7,7 @@ import (
 
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
-	"go.uber.org/zap"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
@@ -16,7 +16,7 @@ import (
 type ReplicationStreamProcessorFunc func(ctx context.Context, entry []*graphfs.JournalEntry) error
 
 type ReplicationStreamProcessor struct {
-	logger  *zap.SugaredLogger
+	logger  *otelzap.SugaredLogger
 	slot    graphfs.ReplicationSlot
 	process ReplicationStreamProcessorFunc
 	proc    goprocess.Process

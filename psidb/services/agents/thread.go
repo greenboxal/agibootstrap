@@ -4,21 +4,24 @@ import (
 	"context"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
+
+	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
+	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 )
 
 type ThreadContext struct {
 	Ctx context.Context
 
 	Client       *openai.Client
-	ModelOptions ModelOptions
+	ModelOptions gpt.ModelOptions
 
 	History ChatHistory
 	Log     ChatLog
 
-	BaseMessage *Message
+	BaseMessage *chat.Message
 }
 
-func (tc *ThreadContext) Fork(ctx context.Context, baseMessage *Message, options ModelOptions) (*ThreadContext, error) {
+func (tc *ThreadContext) Fork(ctx context.Context, baseMessage *chat.Message, options gpt.ModelOptions) (*ThreadContext, error) {
 	baseHistory := tc.History
 
 	if tc.Log != nil {
@@ -45,7 +48,7 @@ func (tc *ThreadContext) Merge(ctx context.Context) error {
 		return nil
 	}
 
-	mergeMsg := NewMessage(MessageKindMerge)
+	mergeMsg := chat.NewMessage(chat.MessageKindMerge)
 
 	return tc.Log.AcceptMessage(ctx, mergeMsg)
 }

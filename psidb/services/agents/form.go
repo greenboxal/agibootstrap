@@ -7,6 +7,8 @@ import (
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 	"github.com/invopop/jsonschema"
 	"github.com/xeipuuv/gojsonschema"
+
+	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 )
 
 type Form struct {
@@ -105,7 +107,7 @@ func (f *Form) FixError(ctx *ThreadContext, formError gojsonschema.ResultError) 
 		return false, err
 	}
 
-	schemaMsg := NewMessage(MessageKindEmit)
+	schemaMsg := chat.NewMessage(chat.MessageKindEmit)
 	schemaMsg.From.Role = msn.RoleSystem
 	schemaMsg.Text = fmt.Sprintf(`"Response JSONSchema:
 `+"```jsonschema"+`
@@ -113,7 +115,7 @@ func (f *Form) FixError(ctx *ThreadContext, formError gojsonschema.ResultError) 
 `+"```"+`
 `, string(schema))
 
-	queryMsg := NewMessage(MessageKindEmit)
+	queryMsg := chat.NewMessage(chat.MessageKindEmit)
 	queryMsg.From.Role = msn.RoleUser
 	queryMsg.Text = fmt.Sprintf(`"
 **Current Data:**
@@ -154,7 +156,7 @@ func (f *Form) FillFields(ctx *ThreadContext, fields ...*gojsonschema.JsonContex
 		return err
 	}
 
-	schemaMsg := NewMessage(MessageKindEmit)
+	schemaMsg := chat.NewMessage(chat.MessageKindEmit)
 	schemaMsg.From.Role = msn.RoleSystem
 	schemaMsg.Text = fmt.Sprintf(`"Response JSONSchema:
 `+"```jsonschema"+`
@@ -171,7 +173,7 @@ func (f *Form) FillFields(ctx *ThreadContext, fields ...*gojsonschema.JsonContex
 			return err
 		}
 
-		queryMsg := NewMessage(MessageKindEmit)
+		queryMsg := chat.NewMessage(chat.MessageKindEmit)
 		queryMsg.From.Role = msn.RoleUser
 		queryMsg.Text = fmt.Sprintf(`"
 **Current Data:**
@@ -217,7 +219,7 @@ func (f *Form) FillAll(ctx *ThreadContext) error {
 		return err
 	}
 
-	queryMsg := NewMessage(MessageKindEmit)
+	queryMsg := chat.NewMessage(chat.MessageKindEmit)
 	queryMsg.From.Role = msn.RoleUser
 	queryMsg.Text = fmt.Sprintf(`"Response JSONSchema:
 `+"```jsonschema"+`

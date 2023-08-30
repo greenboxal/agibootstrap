@@ -6,8 +6,8 @@ import (
 
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
+	`github.com/uptrace/opentelemetry-go-extra/otelzap`
 	"go.uber.org/fx"
-	"go.uber.org/zap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
@@ -17,7 +17,7 @@ import (
 )
 
 type Workspace struct {
-	logger *zap.SugaredLogger
+	logger *otelzap.SugaredLogger
 
 	core coreapi.Core
 

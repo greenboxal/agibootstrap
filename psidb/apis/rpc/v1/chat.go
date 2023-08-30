@@ -3,9 +3,8 @@ package rpcv1
 import (
 	"context"
 
-	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
-
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
 	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 )
 
@@ -18,30 +17,15 @@ func NewChat(svc *chat.Service) *Chat {
 }
 
 type SendMessageRequest struct {
-	From  psi.Path `json:"from"`
-	Topic psi.Path `json:"topic"`
-	Role  msn.Role `json:"role"`
-
-	Message struct {
-		Content string `json:"content"`
-	} `json:"message"`
+	Topic          *stdlib.Reference[*chat.Topic] `json:"topic"`
+	MessageRequest chat.SendMessageRequest        `json:"request"`
 }
 
 type SendMessageResponse struct {
 }
 
 func (c *Chat) SendMessage(ctx context.Context, req *SendMessageRequest) (*SendMessageResponse, error) {
-	msg := &chat.PostMessageRequest{
-		From:    req.From,
-		Content: req.Message.Content,
-		Role:    req.Role,
-	}
-
-	if msg.Role == "" {
-		msg.Role = msn.RoleUser
-	}
-
-	if err := c.svc.SendMessage(ctx, req.Topic, msg); err != nil {
+	if err := c.svc.SendMessage(ctx, req.Topic.Path, &req.MessageRequest); err != nil {
 		return nil, err
 	}
 

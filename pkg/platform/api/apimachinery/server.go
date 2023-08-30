@@ -23,28 +23,76 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/riandyrn/otelchi"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
+	"moul.io/chizap"
 
+	`github.com/greenboxal/agibootstrap/pkg/platform/logging`
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
 type Server struct {
-	logger *zap.SugaredLogger
+	logger *otelzap.SugaredLogger
 	server http.Server
 	mux    chi.Router
 	cfg    *coreapi.Config
 }
 
+func NewRequestLogger(logger *otelzap.Logger, opts *chizap.Opts) func(next http.Handler) http.Handler {
+	if logger == nil {
+		return func(next http.Handler) http.Handler { return next }
+	}
+	if opts == nil {
+		opts = &chizap.Opts{}
+	}
+	return func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			t1 := time.Now()
+			defer func() {
+				reqLogger := logger.With(
+					zap.String("proto", r.Proto),
+					zap.String("path", r.URL.Path),
+					zap.String("reqId", middleware.GetReqID(r.Context())),
+					zap.Duration("lat", time.Since(t1)),
+					zap.Int("status", ww.Status()),
+					zap.Int("size", ww.BytesWritten()),
+				)
+				if opts.WithReferer {
+					ref := ww.Header().Get("Referer")
+					if ref == "" {
+						ref = r.Header.Get("Referer")
+					}
+					if ref != "" {
+						reqLogger = reqLogger.With(zap.String("ref", ref))
+					}
+				}
+				if opts.WithUserAgent {
+					ua := ww.Header().Get("User-Agent")
+					if ua == "" {
+						ua = r.Header.Get("User-Agent")
+					}
+					if ua != "" {
+						reqLogger = reqLogger.With(zap.String("ua", ua))
+					}
+				}
+				ctxLogger := otelzap.New(reqLogger)
+				ctxLogger.Info("Served")
+			}()
+			next.ServeHTTP(ww, r)
+		}
+		return http.HandlerFunc(fn)
+	}
+}
 func NewServer(
 	lc fx.Lifecycle,
 	cfg *coreapi.Config,
-	logger *zap.SugaredLogger,
 	sm coreapi.SessionManager,
 ) *Server {
 	api := &Server{}
 
-	api.logger = logger.Named("api")
+	api.logger = logging.GetLogger("api")
 	api.cfg = cfg
 	api.mux = chi.NewRouter()
 	api.server.Handler = api.mux
@@ -52,7 +100,7 @@ func NewServer(
 	api.mux.Use(otelchi.Middleware("psidb", otelchi.WithChiRoutes(api.mux)))
 	api.mux.Use(middleware.RealIP)
 	api.mux.Use(middleware.RequestID)
-	api.mux.Use(middleware.Logger)
+	api.mux.Use(NewRequestLogger(api.logger.Desugar(), &chizap.Opts{}))
 	api.mux.Use(middleware.Recoverer)
 
 	corsHandler := cors.New(cors.Options{

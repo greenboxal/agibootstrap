@@ -64,11 +64,11 @@ func (m *Module) Register(ctx context.Context) (any, error) {
 		return err, nil
 	}
 
-	r, err := lm.Invoke("register")
+	r, err := lm.register(ctx, m)
 
 	if err != nil {
 		return err, nil
 	}
 
-	return r.Value().Interface(), nil
+	return r, nil
 }

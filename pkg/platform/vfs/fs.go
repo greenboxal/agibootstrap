@@ -13,7 +13,7 @@ import (
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
+	`github.com/uptrace/opentelemetry-go-extra/otelzap`
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -36,7 +36,7 @@ func WithPathFilter(pathFilter func(string) bool) FileSystemOption {
 type fileSystem struct {
 	psi.NodeBase
 
-	logger *zap.SugaredLogger
+	logger *otelzap.SugaredLogger
 
 	root    string
 	manager *Manager

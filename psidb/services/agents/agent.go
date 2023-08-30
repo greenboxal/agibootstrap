@@ -37,7 +37,7 @@ func (a *Agent) HandleTopicMessage(ctx context.Context, message *stdlib.Referenc
 		return err
 	}
 
-	if msg.From.Equals(a.CanonicalPath()) {
+	if msg.From.ID.Equals(a.CanonicalPath()) {
 		return nil
 	}
 
@@ -85,9 +85,9 @@ Your name is ` + a.Name + `.
 			}
 
 			gptMsg.Entries = append(gptMsg.Entries, chat2.MessageEntry{
-				Name: msg.From.Name().Name,
-				Text: msg.Content,
-				Role: msg.Role,
+				Name: msg.From.Name,
+				Text: msg.Text,
+				Role: msg.From.Role,
 			})
 
 			messages = append(messages, msg)
@@ -100,16 +100,18 @@ Your name is ` + a.Name + `.
 		return err
 	}
 
-	replyReq := &chat.PostMessageRequest{
-		From:    a.CanonicalPath(),
-		Content: result.Entries[0].Text,
-		Role:    msn.RoleAI,
+	replyReq := &chat.SendMessageRequest{
+		From: chat.UserHandle{
+			ID:   a.CanonicalPath(),
+			Role: msn.RoleAI,
+		},
+		Text: result.Entries[0].Text,
 	}
 
 	return tx.Notify(ctx, psi.Notification{
 		Notifier:  a.CanonicalPath(),
 		Notified:  replyTo,
-		Interface: chat.TopicInterface.Name(),
+		Interface: chat.ChatInterface.Name(),
 		Action:    "PostMessage",
 		Argument:  replyReq,
 	})

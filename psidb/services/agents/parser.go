@@ -11,6 +11,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 )
 
 type ResultParser interface {
@@ -19,7 +20,7 @@ type ResultParser interface {
 
 type ResultParserFunc func(ctx context.Context, choice PromptResponseChoice) error
 
-func ParseToLog(log ChatLog, baseMessage *Message) ResultParser {
+func ParseToLog(log ChatLog, baseMessage *chat.Message) ResultParser {
 	return ResultParserFunc(func(ctx context.Context, choice PromptResponseChoice) error {
 		return log.AcceptChoice(ctx, baseMessage, choice)
 	})

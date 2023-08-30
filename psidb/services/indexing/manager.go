@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	"github.com/alitto/pond"
+	`github.com/uptrace/opentelemetry-go-extra/otelzap`
 	"go.uber.org/fx"
-	"go.uber.org/zap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -18,7 +18,7 @@ import (
 
 type Manager struct {
 	mu     sync.RWMutex
-	logger *zap.SugaredLogger
+	logger *otelzap.SugaredLogger
 
 	core     coreapi.Core
 	basePath string

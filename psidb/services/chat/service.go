@@ -32,7 +32,7 @@ func NewService(
 	return svc
 }
 
-func (s *Service) SendMessage(ctx context.Context, path psi.Path, req *PostMessageRequest) error {
+func (s *Service) SendMessage(ctx context.Context, path psi.Path, req *SendMessageRequest) error {
 	return s.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
 		topic, err := psi.ResolveOrCreate[*Topic](ctx, tx.Graph(), path, func() *Topic {
 			t := &Topic{Name: path.Name().Name}
@@ -44,7 +44,7 @@ func (s *Service) SendMessage(ctx context.Context, path psi.Path, req *PostMessa
 			return err
 		}
 
-		_, err = topic.PostMessage(ctx, req)
+		_, err = topic.SendMessage(ctx, req)
 
 		if err != nil {
 			return err

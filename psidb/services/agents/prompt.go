@@ -19,6 +19,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	gpt2 "github.com/greenboxal/agibootstrap/psidb/modules/gpt"
+	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 )
 
 type PromptBuilderHook int
@@ -36,10 +37,10 @@ const (
 
 type PromptBuilderHookFunc func(ctx context.Context, pb *PromptBuilder, req *openai.ChatCompletionRequest)
 
-type PromptMessageSource func(ctx context.Context, pb *PromptBuilder) (iterators.Iterator[*Message], error)
+type PromptMessageSource func(ctx context.Context, pb *PromptBuilder) (iterators.Iterator[*chat.Message], error)
 
-func StaticMessageSource(items ...*Message) PromptMessageSource {
-	return func(ctx context.Context, pb *PromptBuilder) (iterators.Iterator[*Message], error) {
+func StaticMessageSource(items ...*chat.Message) PromptMessageSource {
+	return func(ctx context.Context, pb *PromptBuilder) (iterators.Iterator[*chat.Message], error) {
 		return iterators.FromSlice(items), nil
 	}
 }
@@ -62,7 +63,7 @@ func (s simpleTool) ToolDefinition() *openai.FunctionDefinition { return s.defin
 
 type PromptBuilder struct {
 	client       *openai.Client
-	modelOptions ModelOptions
+	modelOptions gpt2.ModelOptions
 
 	tokenizer tokenizers.BasicTokenizer
 
@@ -73,8 +74,8 @@ type PromptBuilder struct {
 	forceTool   *string
 	tools       map[string]PromptBuilderTool
 
-	focus       *Message
-	allMessages []*Message
+	focus       *chat.Message
+	allMessages []*chat.Message
 
 	Context map[string]any
 }
@@ -97,7 +98,7 @@ func (b *PromptBuilder) WithClient(client *openai.Client) {
 	b.client = client
 }
 
-func (b *PromptBuilder) AllMessages() []*Message { return b.allMessages }
+func (b *PromptBuilder) AllMessages() []*chat.Message { return b.allMessages }
 
 func (b *PromptBuilder) AddHook(hook PromptBuilderHook, fn PromptBuilderHookFunc) {
 	b.hooks[hook] = append(b.hooks[hook], fn)
@@ -107,26 +108,26 @@ func (b *PromptBuilder) AppendMessageSources(hook PromptBuilderHook, srcs ...Pro
 	b.messages[hook] = append(b.messages[hook], srcs...)
 }
 
-func (b *PromptBuilder) AppendMessage(hook PromptBuilderHook, msg ...*Message) {
+func (b *PromptBuilder) AppendMessage(hook PromptBuilderHook, msg ...*chat.Message) {
 	b.AppendMessageSources(hook, StaticMessageSource(msg...))
 }
 
 func (b *PromptBuilder) AppendModelMessage(hook PromptBuilderHook, msg ...openai.ChatCompletionMessage) {
-	mapped := lo.Map(msg, func(m openai.ChatCompletionMessage, _ int) *Message {
-		msg := NewMessage(MessageKindEmit)
+	mapped := lo.Map(msg, func(m openai.ChatCompletionMessage, _ int) *chat.Message {
+		msg := chat.NewMessage(chat.MessageKindEmit)
 		msg.FromOpenAI(m)
 		return msg
 	})
 
-	b.AppendMessageSources(hook, func(ctx context.Context, pb *PromptBuilder) (iterators.Iterator[*Message], error) {
+	b.AppendMessageSources(hook, func(ctx context.Context, pb *PromptBuilder) (iterators.Iterator[*chat.Message], error) {
 		return iterators.FromSlice(mapped), nil
 	})
 }
 
-func (b *PromptBuilder) SetFocus(msg *Message) { b.focus = msg }
-func (b *PromptBuilder) GetFocus() *Message    { return b.focus }
+func (b *PromptBuilder) SetFocus(msg *chat.Message) { b.focus = msg }
+func (b *PromptBuilder) GetFocus() *chat.Message    { return b.focus }
 
-func (b *PromptBuilder) WithModelOptions(opts ModelOptions) {
+func (b *PromptBuilder) WithModelOptions(opts gpt2.ModelOptions) {
 	b.modelOptions = b.modelOptions.MergeWith(opts)
 }
 
@@ -282,7 +283,7 @@ func (b *PromptBuilder) Build(ctx context.Context) openai.ChatCompletionRequest 
 			_, _ = fmt.Fprintf(buffer, "- **%s:** %s `%s`\n", tool.ToolName(), tool.ToolDefinition().Description, string(j))
 		}
 
-		msg := NewMessage(MessageKindEmit)
+		msg := chat.NewMessage(chat.MessageKindEmit)
 		msg.From.Role = msn.RoleSystem
 		msg.Text = buffer.String()
 
@@ -314,12 +315,12 @@ func (b *PromptBuilder) Build(ctx context.Context) openai.ChatCompletionRequest 
 					panic(err)
 				}
 
-				msgs = iterators.Filter(msgs, func(msg *Message) bool {
+				msgs = iterators.Filter(msgs, func(msg *chat.Message) bool {
 					return msg.From.Role != msn.RoleSystem || (msg.Text != "" || msg.FunctionCall != nil)
 				})
 
 				if hook != PromptBuilderHookFocus && b.focus != nil {
-					msgs = iterators.Filter(msgs, func(msg *Message) bool {
+					msgs = iterators.Filter(msgs, func(msg *chat.Message) bool {
 						if msg == b.focus {
 							return false
 						}
@@ -328,7 +329,7 @@ func (b *PromptBuilder) Build(ctx context.Context) openai.ChatCompletionRequest 
 					})
 				}
 
-				return iterators.Map(msgs, func(msg *Message) promptml.Node {
+				return iterators.Map(msgs, func(msg *chat.Message) promptml.Node {
 					var options []promptml.StyleOpt[promptml.Node]
 
 					if msg.From.Role == msn.RoleSystem || msg == b.focus {
@@ -364,7 +365,7 @@ func (b *PromptBuilder) Build(ctx context.Context) openai.ChatCompletionRequest 
 
 type ExecuteOptions struct {
 	Client       *openai.Client
-	ModelOptions ModelOptions
+	ModelOptions gpt2.ModelOptions
 }
 
 func (o *ExecuteOptions) Apply(options ...ExecuteOption) {
@@ -382,36 +383,48 @@ func (b *PromptBuilder) Execute(ctx context.Context, options ...ExecuteOption) (
 	opts.Apply(options...)
 
 	request := b.Build(ctx)
-	res, err := opts.Client.CreateChatCompletionStream(ctx, request)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer res.Close()
 
 	trace := gpt2.CreateTrace(ctx, request)
 	defer trace.End()
 
-	for {
-		chunk, err := res.Recv()
+	err := func() error {
+		ctx, span := tracer.Start(ctx, "openai.CreateChatCompletionStream")
+		defer span.End()
 
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			trace.ReportError(err)
+		res, err := opts.Client.CreateChatCompletionStream(ctx, request)
 
-			return nil, err
+		if err != nil {
+			return err
 		}
 
-		trace.ConsumeOpenAI(chunk)
+		defer res.Close()
+
+		for {
+			chunk, err := res.Recv()
+
+			if errors.Is(err, io.EOF) {
+				break
+			} else if err != nil {
+				trace.ReportError(err)
+
+				return err
+			}
+
+			trace.ConsumeOpenAI(chunk)
+		}
+
+		return nil
+	}()
+
+	if err != nil {
+		return nil, err
 	}
 
 	return &PromptResponse{
 		Raw: trace,
 
 		Choices: lo.Map(trace.Choices, func(c openai.ChatCompletionChoice, _ int) PromptResponseChoice {
-			msg := NewMessage(MessageKindEmit)
+			msg := chat.NewMessage(chat.MessageKindEmit)
 			msg.FromOpenAI(c.Message)
 
 			choice := PromptResponseChoice{
@@ -481,7 +494,7 @@ func (b *PromptBuilder) renderPml(ctx context.Context, root promptml.Parent, o *
 			return err
 		}
 
-		originalMsg, hasOriginalMsg := msg.UserData.(*Message)
+		originalMsg, hasOriginalMsg := msg.UserData.(*chat.Message)
 
 		m := openai.ChatCompletionMessage{
 			Name:    msg.From.Value(),
@@ -514,7 +527,7 @@ func ExecuteWithClient(client *openai.Client) ExecuteOption {
 	}
 }
 
-func ExecuteWithModelOptions(opts ModelOptions) ExecuteOption {
+func ExecuteWithModelOptions(opts gpt2.ModelOptions) ExecuteOption {
 	return func(o *ExecuteOptions) {
 		o.ModelOptions = o.ModelOptions.MergeWith(opts)
 	}

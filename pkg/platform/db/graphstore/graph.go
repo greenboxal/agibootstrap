@@ -10,7 +10,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/linking"
 	"github.com/jbenet/goprocess"
-	"go.uber.org/zap"
+	`github.com/uptrace/opentelemetry-go-extra/otelzap`
 	"golang.org/x/exp/slices"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
@@ -30,7 +30,7 @@ type nodeUpdateRequest struct {
 }
 
 type IndexedGraph struct {
-	logger *zap.SugaredLogger
+	logger *otelzap.SugaredLogger
 	mu     sync.RWMutex
 
 	root psi.UniqueNode

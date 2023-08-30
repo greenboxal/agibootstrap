@@ -18,6 +18,8 @@ type Context struct {
 	ctx *v8go.Context
 
 	modules map[string]*LiveModule
+
+	objKeysFn *v8go.Function
 }
 
 func NewContext(baseCtx context.Context, iso *Isolate, sp inject.ServiceLocator) *Context {
@@ -99,4 +101,75 @@ func (vmctx *Context) Require(ctx context.Context, name string) (*LiveModule, er
 	vmctx.modules[name] = lm
 
 	return lm.Get()
+}
+
+func (vmctx *Context) ConvertToArray(value *v8go.Value) ([]*v8go.Value, error) {
+	var items []*v8go.Value
+
+	obj := value.Object()
+
+	for i := uint32(0); obj.HasIdx(i); i++ {
+		value, err := obj.GetIdx(i)
+
+		if err != nil {
+			return nil, err
+		}
+
+		items = append(items, value)
+	}
+
+	return items, nil
+}
+
+func (vmctx *Context) GetObjectAsMap(value *v8go.Value) (map[string]*v8go.Value, error) {
+	obj := value.Object()
+	keysValue, err := vmctx.getObjectKeysFn().Call(obj, obj)
+
+	if err != nil {
+		return nil, err
+	}
+
+	keysObj := keysValue.Object()
+	kv := map[string]*v8go.Value{}
+
+	for i := uint32(0); keysObj.HasIdx(i); i++ {
+		keyValue, err := keysObj.GetIdx(i)
+
+		if err != nil {
+			return nil, err
+		}
+
+		k := keyValue.String()
+		v, err := obj.Get(k)
+
+		if err != nil {
+			return nil, err
+		}
+
+		kv[k] = v
+	}
+
+	return kv, nil
+}
+
+func (vmctx *Context) getObjectKeysFn() *v8go.Function {
+	if vmctx.objKeysFn != nil {
+		return vmctx.objKeysFn
+	}
+
+	objKeys, err := vmctx.ctx.RunScript("Object.keys", "")
+
+	if err != nil {
+		panic(err)
+	}
+
+	objKeysFn, err := objKeys.AsFunction()
+
+	if err != nil {
+		panic(err)
+	}
+
+	vmctx.objKeysFn = objKeysFn
+
+	return objKeysFn
 }

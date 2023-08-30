@@ -7,7 +7,7 @@ import (
 
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
-	"go.uber.org/zap"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"golang.org/x/exp/slices"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
@@ -19,7 +19,7 @@ type Session struct {
 
 	manager *Manager
 
-	logger *zap.SugaredLogger
+	logger *otelzap.SugaredLogger
 
 	uuid          string
 	lastKeepAlive time.Time

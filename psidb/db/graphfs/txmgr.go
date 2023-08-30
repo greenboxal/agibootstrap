@@ -5,13 +5,13 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 )
 
 type TransactionManager struct {
-	logger     *zap.SugaredLogger
+	logger     *otelzap.SugaredLogger
 	journal    *Journal
 	checkpoint Checkpoint
 	graph      *VirtualGraph
@@ -213,5 +213,5 @@ func (txm *TransactionManager) commitTransaction(ctx context.Context, tx *Transa
 
 	last = tx.log[len(tx.log)-1]
 
-	return txm.checkpoint.Update(last.Rid)
+	return txm.checkpoint.Update(last.Rid, true)
 }

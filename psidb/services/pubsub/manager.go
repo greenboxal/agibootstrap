@@ -5,19 +5,12 @@ import (
 	"sync"
 
 	"github.com/alitto/pond"
-	"github.com/go-errors/errors"
-	"go.opentelemetry.io/otel/codes"
-	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 	"go.uber.org/fx"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 	"github.com/greenboxal/agibootstrap/psidb/services/migrations"
 )
-
-var logger = logging.GetLogger("pubsub")
 
 type Manager struct {
 	mu    sync.RWMutex
@@ -29,7 +22,6 @@ type Manager struct {
 	stream   *coreapi.ReplicationStreamProcessor
 	migrator migrations.Migrator
 
-	scheduler  *OldScheduler
 	workerPool *pond.WorkerPool
 
 	rootCtx       context.Context
@@ -69,8 +61,6 @@ func NewManager(
 	return m
 }
 
-func (pm *Manager) Scheduler() *OldScheduler { return pm.scheduler }
-
 func (pm *Manager) Subscribe(pattern SubscriptionPattern, handler func(notification Notification)) *Subscription {
 	root := pm.getOrCreateRoot(pattern.Path.Root(), true)
 
@@ -82,12 +72,6 @@ func (pm *Manager) Subscribe(pattern SubscriptionPattern, handler func(notificat
 }
 
 func (pm *Manager) Start(ctx context.Context) error {
-	tracker, err := pm.core.CreateConfirmationTracker(ctx, "pubsub")
-
-	if err != nil {
-		return err
-	}
-
 	slot, err := pm.core.CreateReplicationSlot(ctx, graphfs.ReplicationSlotOptions{
 		Name:       "pubsub",
 		Persistent: false,
@@ -101,12 +85,6 @@ func (pm *Manager) Start(ctx context.Context) error {
 		return err
 	}
 
-	pm.scheduler = NewScheduler(pm.core.Journal(), tracker, pm)
-
-	if err := pm.scheduler.Recover(); err != nil {
-		return err
-	}
-
 	pm.stream = coreapi.NewReplicationStream(slot, pm.processReplicationMessage)
 
 	return nil
@@ -114,18 +92,6 @@ func (pm *Manager) Start(ctx context.Context) error {
 
 func (pm *Manager) processReplicationMessage(ctx context.Context, entries []*graphfs.JournalEntry) error {
 	wg, _ := pm.workerPool.GroupContext(ctx)
-
-	for _, entry := range entries {
-		if entry.Op == graphfs.JournalOpNotify && entry.Confirmation == nil {
-			pm.scheduler.Dispatch(entry)
-		} else if entry.Op == graphfs.JournalOpConfirm {
-			pm.scheduler.Confirm(entry)
-		} else if entry.Op == graphfs.JournalOpWait {
-			pm.scheduler.Wait(entry)
-		} else if entry.Op == graphfs.JournalOpSignal {
-			pm.scheduler.Signal(entry)
-		}
-	}
 
 	for _, entry := range entries {
 		entry := entry
@@ -166,7 +132,7 @@ func (pm *Manager) processReplicationMessage(ctx context.Context, entries []*gra
 		return err
 	}
 
-	return pm.scheduler.tracker.Flush()
+	return nil
 }
 
 func (pm *Manager) getOrCreateRoot(name string, create bool) *Topic {
@@ -201,10 +167,6 @@ func (pm *Manager) Close() error {
 
 	pm.rootCtxCancel()
 
-	if err := pm.scheduler.Close(); err != nil {
-		return err
-	}
-
 	for _, t := range pm.roots {
 		if err := t.Close(); err != nil {
 			return err
@@ -214,77 +176,4 @@ func (pm *Manager) Close() error {
 	pm.workerPool.Stop()
 
 	return nil
-}
-
-func (pm *Manager) Dispatch(entry *graphfs.JournalEntry) {
-	pm.workerPool.TrySubmit(func() {
-		not := entry.Notification
-
-		ctx, cancel := context.WithCancel(pm.rootCtx)
-		defer cancel()
-
-		ctx, span := tracer.Start(ctx, "Scheduler.Dispatch")
-		span.SetAttributes(semconv.ServiceName("NodeRunner"))
-		span.SetAttributes(semconv.RPCSystemKey.String("psidb-node"))
-		span.SetAttributes(semconv.RPCService(not.Interface))
-		span.SetAttributes(semconv.RPCMethod(not.Action))
-
-		defer func() {
-			if e := recover(); e != nil {
-				span.SetStatus(codes.Error, "panic")
-				span.RecordError(errors.Wrap(e, 1))
-
-				logger.Error(e)
-			}
-
-			span.End()
-		}()
-
-		if not.SessionID != "" {
-			sess := coreapi.GetSession(ctx)
-
-			if sess == nil || sess.UUID() != not.SessionID {
-				sess = pm.sessionManager.GetOrCreateSession(not.SessionID)
-
-				ctx = coreapi.WithSession(ctx, sess)
-			}
-		}
-
-		err := pm.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
-			target, err := tx.Resolve(ctx, not.Notified)
-
-			if err != nil {
-				return err
-			}
-
-			ack := psi.Confirmation{
-				Xid:   entry.Xid,
-				Rid:   entry.Rid,
-				Nonce: not.Nonce,
-			}
-
-			if _, err := not.Apply(ctx, target); err != nil {
-				logger.Error(err)
-
-				span.RecordError(err)
-
-				ack.Ok = false
-			} else {
-				ack.Ok = true
-			}
-
-			if ack.Ok {
-				span.SetStatus(codes.Ok, "")
-			}
-
-			return tx.Confirm(ctx, ack)
-		})
-
-		if err != nil {
-			logger.Error(err)
-
-			span.SetStatus(codes.Error, "error running transaction")
-			span.RecordError(err)
-		}
-	})
 }

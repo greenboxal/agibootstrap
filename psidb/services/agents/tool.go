@@ -6,6 +6,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 )
 
 type PromptToolSelection struct {
@@ -23,7 +24,7 @@ type PromptResponse struct {
 
 type PromptResponseChoice struct {
 	Index   int                         `json:"index"`
-	Message *Message                    `json:"message"`
+	Message *chat.Message               `json:"message"`
 	Reason  openai.ChatCompletionReason `json:"reason"`
 
 	Tool *PromptToolSelection `json:"tool"`

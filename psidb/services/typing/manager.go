@@ -76,6 +76,7 @@ func (m *Manager) newTypeFromTypeWithName(ctx context.Context, name string, nt t
 
 	t := &Type{
 		Name:          name[lastIndex+1:],
+		FullName:      name,
 		PrimitiveKind: nt.PrimitiveKind(),
 	}
 
@@ -223,10 +224,30 @@ func (m *Manager) registerNodeType(ctx context.Context, nt psi.NodeType) (*Type,
 	return m.registerType(ctx, nt.TypeName(), nt.Type(), nt)
 }
 
-func (m *Manager) lookupType(ctx context.Context, name string) (resolved *Type, err error) {
-	pkgComponents := strings.Split(name, ".")
+func (m *Manager) CreateType(ctx context.Context, typ *Type) (*Type, error) {
+	pkgComponents := strings.Split(typ.FullName, ".")
 	pkgComponents = pkgComponents[:len(pkgComponents)-1]
 	pkgName := strings.Join(pkgComponents, ".")
+
+	pkg, err := m.lookupPackage(ctx, pkgName, true)
+
+	if err != nil {
+		return nil, err
+	}
+
+	typ.SetParent(pkg)
+
+	if err := pkg.Update(ctx); err != nil {
+		return nil, err
+	}
+
+	return typ, nil
+}
+
+func (m *Manager) LookupType(ctx context.Context, name string) (resolved *Type, err error) {
+	typeNameComponents := strings.Split(name, ".")
+	pkgName := strings.Join(typeNameComponents[:len(typeNameComponents)-1], ".")
+	typeName := typeNameComponents[len(typeNameComponents)-1]
 
 	pkg, err := m.lookupPackage(ctx, pkgName, false)
 
@@ -234,7 +255,7 @@ func (m *Manager) lookupType(ctx context.Context, name string) (resolved *Type, 
 		return nil, err
 	}
 
-	tn := pkg.ResolveChild(ctx, psi.PathElement{Name: name})
+	tn := pkg.ResolveChild(ctx, psi.PathElement{Name: typeName})
 
 	if tn == nil {
 		return nil, nil
@@ -248,11 +269,11 @@ func (m *Manager) lookupPackage(ctx context.Context, name string, create bool) (
 
 	pkgs := strings.Split(strings.ReplaceAll(name, "/", "."), ".")
 
-	elements := lo.Map(pkgs, func(pkg string, _ int) psi.PathElement {
-		return psi.PathElement{Name: pkg}
-	})
+	p := RootPath
 
-	p := RootPath.Join(psi.PathFromElements("", false, elements...))
+	for _, pkg := range pkgs {
+		p = p.Child(psi.PathElement{Name: pkg})
+	}
 
 	resolved, err = psi.Resolve[*Package](ctx, tx.Graph(), p)
 

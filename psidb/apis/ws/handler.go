@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/jbenet/goprocess"
-	"go.uber.org/zap"
+	`github.com/uptrace/opentelemetry-go-extra/otelzap`
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
@@ -14,7 +14,7 @@ import (
 )
 
 type Handler struct {
-	logger   *zap.SugaredLogger
+	logger   *otelzap.SugaredLogger
 	upgrader websocket.Upgrader
 
 	pubsub         *pubsub.Manager

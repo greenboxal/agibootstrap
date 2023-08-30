@@ -2,19 +2,29 @@ package core
 
 import (
 	"github.com/ipld/go-ipld-prime/linking"
+	"go.opentelemetry.io/otel"
+	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 	"go.uber.org/fx"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/core/scheduler"
 	"github.com/greenboxal/agibootstrap/psidb/modules/vm"
 	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
 	"github.com/greenboxal/agibootstrap/psidb/services/typing"
 )
 
+var tracer = otel.Tracer("psidb", trace.WithInstrumentationAttributes(
+	semconv.ServiceName("psidb-core"),
+))
+
 var Module = fx.Module(
 	"core",
+
+	scheduler.Module,
 
 	fx.Provide(inject.NewServiceProvider),
 
@@ -23,6 +33,7 @@ var Module = fx.Module(
 	fx.Provide(NewDataStore),
 	fx.Provide(NewMetadataStore),
 	fx.Provide(NewBlockManager),
+	fx.Provide(NewDispatcher),
 	fx.Provide(NewCore),
 
 	fx.Provide(func(core *Core) (res struct {
@@ -39,6 +50,8 @@ var Module = fx.Module(
 
 	fx.Invoke(func(
 		core *Core,
+		disp *Dispatcher,
+		sch *scheduler.Scheduler,
 		im *indexing.Manager,
 		vfsm *vfs.Manager,
 		tm *typing.Manager,

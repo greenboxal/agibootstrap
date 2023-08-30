@@ -9,7 +9,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/tidwall/wal"
-	"go.uber.org/zap"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 
@@ -19,7 +19,7 @@ import (
 )
 
 type Journal struct {
-	logger *zap.SugaredLogger
+	logger *otelzap.SugaredLogger
 
 	mu  sync.RWMutex
 	wal *wal.Log

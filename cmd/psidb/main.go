@@ -27,7 +27,7 @@ func main() {
 
 	app := fx.New(
 		fx.WithLogger(func() fxevent.Logger {
-			return &fxevent.ZapLogger{Logger: logging.GetRootLogger()}
+			return &fxevent.ZapLogger{Logger: logging.GetRootLogger().Logger}
 		}),
 
 		// FIXME

@@ -8,10 +8,10 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime/linking"
 	"github.com/pkg/errors"
+	`github.com/uptrace/opentelemetry-go-extra/otelzap`
 	"go.opentelemetry.io/otel"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
@@ -23,7 +23,7 @@ type SuperBlockProvider func(ctx context.Context, uuid string) (SuperBlock, erro
 type VirtualGraph struct {
 	mu sync.RWMutex
 
-	logger *zap.SugaredLogger
+	logger *otelzap.SugaredLogger
 	tracer trace.Tracer
 
 	lsys *linking.LinkSystem
