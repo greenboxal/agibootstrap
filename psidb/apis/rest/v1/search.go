@@ -13,7 +13,6 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
-	"github.com/greenboxal/agibootstrap/psidb/db/online"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
 	"github.com/greenboxal/agibootstrap/psidb/services/search"
 )
@@ -21,7 +20,7 @@ import (
 type SearchRequest struct {
 	*http.Request
 
-	Graph *online.LiveGraph
+	Graph coreapi.LiveGraph
 }
 
 type SearchHandler struct {

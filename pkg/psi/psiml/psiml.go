@@ -12,17 +12,17 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
-	"github.com/greenboxal/agibootstrap/psidb/db/online"
+	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/services/search"
 )
 
 type TextProcessor struct {
-	lg     *online.LiveGraph
+	lg     coreapi.LiveGraph
 	search *search.Service
 }
 
 func NewTextProcessor(
-	lg *online.LiveGraph,
+	lg coreapi.LiveGraph,
 	search *search.Service,
 
 ) *TextProcessor {

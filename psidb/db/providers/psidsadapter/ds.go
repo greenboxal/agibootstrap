@@ -15,13 +15,12 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/psids"
-	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
 
-var logger = logging.GetLogger("psidsadapter")
 var tracer = otel.Tracer("psidsadapter", trace.WithInstrumentationAttributes(
 	semconv.ServiceName("psidb-graph"),
 	semconv.DBSystemKey.String("badger"),
@@ -158,8 +157,8 @@ func (sb *DataStoreSuperBlock) Create(ctx context.Context, self *graphfs.CacheEn
 	if self.Parent() != nil {
 		k := dsKeyNodeEdge(self.Parent().Inode().ID(), self.Name())
 
-		if err := psids.Put(ctx, sb.ds, k, &graphfs.SerializedEdge{
-			Flags:   graphfs.EdgeFlagRegular,
+		if err := psids.Put(ctx, sb.ds, k, &coreapi.SerializedEdge{
+			Flags:   coreapi.EdgeFlagRegular,
 			Key:     self.Name().AsEdgeKey(),
 			ToIndex: ino.ID(),
 			ToPath:  self.Path(),
@@ -201,7 +200,7 @@ func (sb *DataStoreSuperBlock) Unlink(ctx context.Context, self *graphfs.INode, 
 	panic("implement me")
 }
 
-func (sb *DataStoreSuperBlock) Read(ctx context.Context, nh graphfs.NodeHandle) (*graphfs.SerializedNode, error) {
+func (sb *DataStoreSuperBlock) Read(ctx context.Context, nh graphfs.NodeHandle) (*coreapi.SerializedNode, error) {
 	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.Read")
 	defer span.End()
 
@@ -212,7 +211,7 @@ func (sb *DataStoreSuperBlock) Read(ctx context.Context, nh graphfs.NodeHandle) 
 	return psids.Get(ctx, sb.ds, k)
 }
 
-func (sb *DataStoreSuperBlock) Write(ctx context.Context, nh graphfs.NodeHandle, fe *graphfs.SerializedNode) error {
+func (sb *DataStoreSuperBlock) Write(ctx context.Context, nh graphfs.NodeHandle, fe *coreapi.SerializedNode) error {
 	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.Write")
 	defer span.End()
 
@@ -228,7 +227,7 @@ func (sb *DataStoreSuperBlock) Write(ctx context.Context, nh graphfs.NodeHandle,
 	return nil
 }
 
-func (sb *DataStoreSuperBlock) SetEdge(ctx context.Context, nh graphfs.NodeHandle, edge *graphfs.SerializedEdge) error {
+func (sb *DataStoreSuperBlock) SetEdge(ctx context.Context, nh graphfs.NodeHandle, edge *coreapi.SerializedEdge) error {
 	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.SetEdge")
 	defer span.End()
 
@@ -252,7 +251,7 @@ func (sb *DataStoreSuperBlock) RemoveEdge(ctx context.Context, nh graphfs.NodeHa
 	return psids.Delete(ctx, writer, k)
 }
 
-func (sb *DataStoreSuperBlock) ReadEdge(ctx context.Context, nh graphfs.NodeHandle, key psi.EdgeKey) (*graphfs.SerializedEdge, error) {
+func (sb *DataStoreSuperBlock) ReadEdge(ctx context.Context, nh graphfs.NodeHandle, key psi.EdgeKey) (*coreapi.SerializedEdge, error) {
 	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.ReadEdge")
 	defer span.End()
 
@@ -263,7 +262,7 @@ func (sb *DataStoreSuperBlock) ReadEdge(ctx context.Context, nh graphfs.NodeHand
 	return psids.Get(ctx, sb.ds, k)
 }
 
-func (sb *DataStoreSuperBlock) ReadEdges(ctx context.Context, nh graphfs.NodeHandle) (iterators.Iterator[*graphfs.SerializedEdge], error) {
+func (sb *DataStoreSuperBlock) ReadEdges(ctx context.Context, nh graphfs.NodeHandle) (iterators.Iterator[*coreapi.SerializedEdge], error) {
 	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.ReadEdges")
 	defer span.End()
 

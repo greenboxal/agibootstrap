@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
@@ -49,7 +50,7 @@ type LiveNode struct {
 	dentry *graphfs.CacheEntry
 	handle graphfs.NodeHandle
 
-	frozen *graphfs.SerializedNode
+	frozen *coreapi.SerializedNode
 	edges  map[psi.EdgeKey]*LiveEdge
 
 	parent *LiveNode
@@ -167,7 +168,7 @@ func (ln *LiveNode) Load(ctx context.Context) error {
 
 func (ln *LiveNode) recreateNode(ctx context.Context, n psi.Node) error {
 	if ln.frozen == nil && n != nil {
-		ln.frozen = &graphfs.SerializedNode{}
+		ln.frozen = &coreapi.SerializedNode{}
 	}
 
 	if n == nil {
@@ -175,7 +176,7 @@ func (ln *LiveNode) recreateNode(ctx context.Context, n psi.Node) error {
 			return psi.ErrNodeNotFound
 		}
 
-		if ln.frozen.Flags&graphfs.NodeFlagHasData != 0 {
+		if ln.frozen.Flags&coreapi.NodeFlagHasData != 0 {
 			typ := ln.g.typeRegistry.NodeTypeByName(ctx, ln.frozen.Type)
 
 			if typ == nil {
@@ -189,7 +190,7 @@ func (ln *LiveNode) recreateNode(ctx context.Context, n psi.Node) error {
 			}
 
 			n, _ = typesystem.TryUnwrap[psi.Node](wrapped)
-		} else if ln.frozen.Flags&graphfs.NodeFlagHasDataLink != 0 {
+		} else if ln.frozen.Flags&coreapi.NodeFlagHasDataLink != 0 {
 			_, err := cid.Cast(ln.frozen.Data)
 
 			if err != nil {
@@ -397,7 +398,7 @@ func (ln *LiveNode) prefetchEdges(ctx context.Context) error {
 	return nil
 }
 
-func (ln *LiveNode) prefetchEdge(ctx context.Context, key psi.EdgeKey, frozen *graphfs.SerializedEdge) (le *LiveEdge, err error) {
+func (ln *LiveNode) prefetchEdge(ctx context.Context, key psi.EdgeKey, frozen *coreapi.SerializedEdge) (le *LiveEdge, err error) {
 	if e := ln.edges[key]; e != nil {
 		if frozen == nil {
 			f, err := ln.handle.ReadEdge(ctx, key)
@@ -474,7 +475,7 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 	}
 
 	if ln.frozen == nil {
-		ln.frozen = &graphfs.SerializedNode{}
+		ln.frozen = &coreapi.SerializedNode{}
 	}
 
 	typ := ln.node.PsiNodeType()
@@ -511,9 +512,9 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 
 		ln.frozen.Data = data
 		ln.frozen.Link = &clink
-		ln.frozen.Flags |= graphfs.NodeFlagHasData
+		ln.frozen.Flags |= coreapi.NodeFlagHasData
 	} else {
-		ln.frozen.Flags &= ^graphfs.NodeFlagHasData
+		ln.frozen.Flags &= ^coreapi.NodeFlagHasData
 	}
 
 	nh, err := ln.reopen(ctx, graphfs.OpenNodeOptions{
@@ -627,8 +628,6 @@ func (ln *LiveNode) reopen(ctx context.Context, opts graphfs.OpenNodeOptions) (g
 	if h := ln.handle; h != nil && h.Options() == opts && ln.handle.Entry() == ln.dentry && ln.handle.Inode() == ln.inode {
 		return h, nil
 	}
-
-	opts.Transaction = ln.g.tx
 
 	nh, err := ln.g.graph.Open(ctx, ln.path, graphfs.WithOpenNodeOptions(opts))
 

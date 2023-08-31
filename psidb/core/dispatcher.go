@@ -13,7 +13,6 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	scheduler "github.com/greenboxal/agibootstrap/psidb/core/scheduler"
-	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
 
 type Dispatcher struct {
@@ -53,21 +52,21 @@ func NewDispatcher(
 	return d
 }
 
-func (d *Dispatcher) AcceptEntry(entry *graphfs.JournalEntry) {
+func (d *Dispatcher) AcceptEntry(entry *coreapi.JournalEntry) {
 	switch entry.Op {
-	case graphfs.JournalOpNotify:
+	case coreapi.JournalOpNotify:
 		d.acceptNotify(entry)
 
-	case graphfs.JournalOpConfirm:
+	case coreapi.JournalOpConfirm:
 		d.acceptConfirm(entry)
 
-	case graphfs.JournalOpWait:
+	case coreapi.JournalOpWait:
 		for _, handle := range entry.Promises {
 			sema := d.syncManager.GetOrCreateSemaphore(handle.PromiseHandle)
 			sema.Release(uint64(handle.Count))
 		}
 
-	case graphfs.JournalOpSignal:
+	case coreapi.JournalOpSignal:
 		for _, handle := range entry.Promises {
 			sema := d.syncManager.GetOrCreateSemaphore(handle.PromiseHandle)
 			sema.Acquire(uint64(handle.Count))
@@ -75,7 +74,7 @@ func (d *Dispatcher) AcceptEntry(entry *graphfs.JournalEntry) {
 	}
 }
 
-func (d *Dispatcher) acceptNotify(entry *graphfs.JournalEntry) {
+func (d *Dispatcher) acceptNotify(entry *coreapi.JournalEntry) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -96,7 +95,7 @@ func (d *Dispatcher) acceptNotify(entry *graphfs.JournalEntry) {
 	d.scheduler.ScheduleTask(task)
 }
 
-func (d *Dispatcher) acceptConfirm(entry *graphfs.JournalEntry) {
+func (d *Dispatcher) acceptConfirm(entry *coreapi.JournalEntry) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -215,7 +214,7 @@ func (d *Dispatcher) OnStart(ctx context.Context) error {
 
 	d.tracker = t
 
-	slot, err := d.core.CreateReplicationSlot(ctx, graphfs.ReplicationSlotOptions{
+	slot, err := d.core.CreateReplicationSlot(ctx, coreapi.ReplicationSlotOptions{
 		Name:       "core-dispatcher",
 		Persistent: true,
 	})
@@ -233,7 +232,7 @@ func (d *Dispatcher) OnStart(ctx context.Context) error {
 	return nil
 }
 
-func (d *Dispatcher) processReplicationMessage(ctx context.Context, entry []*graphfs.JournalEntry) error {
+func (d *Dispatcher) processReplicationMessage(ctx context.Context, entry []*coreapi.JournalEntry) error {
 	for _, e := range entry {
 		d.AcceptEntry(e)
 	}

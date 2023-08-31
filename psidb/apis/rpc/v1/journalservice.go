@@ -5,7 +5,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/psidb/core"
-	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
 type JournalService struct {
@@ -41,7 +41,7 @@ type GetEntryRequest struct {
 }
 
 type GetEntryResponse struct {
-	Entry graphfs.JournalEntry `json:"entry"`
+	Entry coreapi.JournalEntry `json:"entry"`
 }
 
 func (ns *JournalService) GetEntry(ctx context.Context, req *GetEntryRequest) (res *GetEntryResponse, err error) {
@@ -62,7 +62,7 @@ type GetEntryRangeRequest struct {
 }
 
 type GetEntryRangeResponse struct {
-	Entry []graphfs.JournalEntry `json:"entries"`
+	Entry []coreapi.JournalEntry `json:"entries"`
 }
 
 func (ns *JournalService) GetEntryRange(ctx context.Context, req *GetEntryRangeRequest) (res *GetEntryRangeResponse, err error) {

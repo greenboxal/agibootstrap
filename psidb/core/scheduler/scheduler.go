@@ -7,7 +7,6 @@ import (
 	"github.com/alitto/pond"
 	"go.uber.org/fx"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
@@ -97,8 +96,6 @@ func (s *Scheduler) ScheduleTask(task *Task) {
 		s.scheduleQueue(qkey)
 	}
 }
-
-var logger = logging.GetLogger("scheduler")
 
 func (s *Scheduler) scheduleQueue(qkey string) {
 	s.pool.Submit(func() {

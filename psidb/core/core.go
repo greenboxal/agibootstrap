@@ -19,10 +19,10 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
+	vm2 "github.com/greenboxal/agibootstrap/psidb/core/vm"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
-	"github.com/greenboxal/agibootstrap/psidb/modules/vm"
 	"github.com/greenboxal/agibootstrap/psidb/services/typing"
 )
 
@@ -36,7 +36,7 @@ type Core struct {
 	lsys linking.LinkSystem
 
 	journal      *graphfs.Journal
-	checkpoint   graphfs.Checkpoint
+	checkpoint   coreapi.Checkpoint
 	virtualGraph *graphfs.VirtualGraph
 
 	sp inject.ServiceProvider
@@ -57,7 +57,7 @@ func NewCore(
 	cfg *coreapi.Config,
 	ds coreapi.DataStore,
 	journal *graphfs.Journal,
-	checkpoint graphfs.Checkpoint,
+	checkpoint coreapi.Checkpoint,
 	blockManager *BlockManager,
 ) (*Core, error) {
 	dsa := &dsadapter.Adapter{
@@ -119,8 +119,8 @@ func (c *Core) IsReady() bool          { return c.ready }
 
 func (c *Core) Config() *coreapi.Config                 { return c.cfg }
 func (c *Core) DataStore() coreapi.DataStore            { return c.ds }
-func (c *Core) Journal() *graphfs.Journal               { return c.journal }
-func (c *Core) Checkpoint() graphfs.Checkpoint          { return c.checkpoint }
+func (c *Core) Journal() coreapi.Journal                { return c.journal }
+func (c *Core) Checkpoint() coreapi.Checkpoint          { return c.checkpoint }
 func (c *Core) LinkSystem() *linking.LinkSystem         { return &c.lsys }
 func (c *Core) VirtualGraph() *graphfs.VirtualGraph     { return c.virtualGraph }
 func (c *Core) ServiceProvider() inject.ServiceProvider { return c.sp }
@@ -135,7 +135,7 @@ func (c *Core) CreateConfirmationTracker(ctx context.Context, name string) (core
 	return ct, nil
 }
 
-func (c *Core) CreateReplicationSlot(ctx context.Context, options graphfs.ReplicationSlotOptions) (graphfs.ReplicationSlot, error) {
+func (c *Core) CreateReplicationSlot(ctx context.Context, options coreapi.ReplicationSlotOptions) (coreapi.ReplicationSlot, error) {
 	if err := c.waitReady(); err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func (c *Core) BeginTransaction(ctx context.Context, options ...coreapi.Transact
 
 	root := psi.PathFromElements(c.cfg.RootUUID, false)
 	typingManager := inject.Inject[*typing.Manager](c.sp)
-	types := vm.NewTypeRegistry(typingManager)
+	types := vm2.NewTypeRegistry(typingManager)
 	lg, err := online.NewLiveGraph(ctx, root, c.virtualGraph, &c.lsys, types, tx)
 
 	if err != nil {
@@ -172,8 +172,8 @@ func (c *Core) BeginTransaction(ctx context.Context, options ...coreapi.Transact
 		inject.RegisterInstance(lg.ServiceProvider(), session)
 	}
 
-	inject.Register(lg.ServiceProvider(), func(ctx inject.ResolutionContext) (*vm.Isolate, error) {
-		vms := inject.Inject[*vm.VM](lg.ServiceProvider())
+	inject.Register(lg.ServiceProvider(), func(ctx inject.ResolutionContext) (*vm2.Isolate, error) {
+		vms := inject.Inject[*vm2.VM](lg.ServiceProvider())
 		iso := vms.NewIsolate()
 
 		ctx.AppendShutdownHook(func(ctx context.Context) error {
@@ -183,10 +183,10 @@ func (c *Core) BeginTransaction(ctx context.Context, options ...coreapi.Transact
 		return iso, nil
 	})
 
-	inject.Register(lg.ServiceProvider(), func(_ inject.ResolutionContext) (*vm.Context, error) {
-		iso := inject.Inject[*vm.Isolate](lg.ServiceProvider())
+	inject.Register(lg.ServiceProvider(), func(_ inject.ResolutionContext) (*vm2.Context, error) {
+		iso := inject.Inject[*vm2.Isolate](lg.ServiceProvider())
 
-		return vm.NewContext(coreapi.WithTransaction(ctx, tx), iso, lg.ServiceProvider()), nil
+		return vm2.NewContext(coreapi.WithTransaction(ctx, tx), iso, lg.ServiceProvider()), nil
 	})
 
 	tx.lg = lg

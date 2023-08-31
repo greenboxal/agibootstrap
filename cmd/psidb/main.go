@@ -12,12 +12,11 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/workspace"
 	"github.com/greenboxal/agibootstrap/psidb"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
-	"github.com/greenboxal/agibootstrap/psidb/tracing"
 )
 
 func main() {
-	tracing.Initialize()
-	defer tracing.Shutdown()
+	logging.Initialize()
+	defer logging.Shutdown()
 
 	wd, err := os.Getwd()
 

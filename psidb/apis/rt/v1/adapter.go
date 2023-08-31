@@ -5,6 +5,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
 
@@ -39,18 +40,18 @@ func (sb *SuperBlockAdapter) Lookup(ctx context.Context, self *graphfs.INode, de
 	panic("implement me")
 }
 
-func (sb *SuperBlockAdapter) Read(ctx context.Context, nh graphfs.NodeHandle) (*graphfs.SerializedNode, error) {
+func (sb *SuperBlockAdapter) Read(ctx context.Context, nh graphfs.NodeHandle) (*coreapi.SerializedNode, error) {
 
 	//TODO implement me
 	panic("implement me")
 }
 
-func (sb *SuperBlockAdapter) Write(ctx context.Context, nh graphfs.NodeHandle, fe *graphfs.SerializedNode) error {
+func (sb *SuperBlockAdapter) Write(ctx context.Context, nh graphfs.NodeHandle, fe *coreapi.SerializedNode) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (sb *SuperBlockAdapter) SetEdge(ctx context.Context, nh graphfs.NodeHandle, edge *graphfs.SerializedEdge) error {
+func (sb *SuperBlockAdapter) SetEdge(ctx context.Context, nh graphfs.NodeHandle, edge *coreapi.SerializedEdge) error {
 	//TODO implement me
 	panic("implement me")
 }
@@ -60,12 +61,12 @@ func (sb *SuperBlockAdapter) RemoveEdge(ctx context.Context, nh graphfs.NodeHand
 	panic("implement me")
 }
 
-func (sb *SuperBlockAdapter) ReadEdge(ctx context.Context, nh graphfs.NodeHandle, key psi.EdgeKey) (*graphfs.SerializedEdge, error) {
+func (sb *SuperBlockAdapter) ReadEdge(ctx context.Context, nh graphfs.NodeHandle, key psi.EdgeKey) (*coreapi.SerializedEdge, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (sb *SuperBlockAdapter) ReadEdges(ctx context.Context, nh graphfs.NodeHandle) (iterators.Iterator[*graphfs.SerializedEdge], error) {
+func (sb *SuperBlockAdapter) ReadEdges(ctx context.Context, nh graphfs.NodeHandle) (iterators.Iterator[*coreapi.SerializedEdge], error) {
 	//TODO implement me
 	panic("implement me")
 }

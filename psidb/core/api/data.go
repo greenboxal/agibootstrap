@@ -1,4 +1,4 @@
-package graphfs
+package coreapi
 
 import (
 	"fmt"

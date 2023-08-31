@@ -25,7 +25,6 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
 	"github.com/greenboxal/agibootstrap/psidb/core"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
-	"github.com/greenboxal/agibootstrap/psidb/db/online"
 )
 
 var logger = logging.GetLogger("api/rest")
@@ -38,7 +37,7 @@ var decoderMap = map[string]ipld.Decoder{
 type Request struct {
 	*http.Request
 
-	Graph *online.LiveGraph
+	Graph coreapi.LiveGraph
 
 	ContentType     *contentnegotiation.MediaType
 	AcceptedFormats []contentnegotiation.MediaType

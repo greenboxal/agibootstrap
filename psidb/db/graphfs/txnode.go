@@ -7,12 +7,13 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
 type txNode struct {
 	Inode  int64
-	Frozen SerializedNode
-	Edges  map[string]SerializedEdge
+	Frozen coreapi.SerializedNode
+	Edges  map[string]coreapi.SerializedEdge
 }
 
 type txNodeHandle struct {
@@ -36,10 +37,10 @@ func (nh *txNodeHandle) getOrCreateStagedNode() *txNode {
 	if n == nil {
 		n = &txNode{
 			Inode: nh.inode.id,
-			Frozen: SerializedNode{
-				Flags: NodeFlagInvalid,
+			Frozen: coreapi.SerializedNode{
+				Flags: coreapi.NodeFlagInvalid,
 			},
-			Edges: map[string]SerializedEdge{},
+			Edges: map[string]coreapi.SerializedEdge{},
 		}
 
 		nh.tx.dirtyNodes[nh.inode.id] = n
@@ -48,18 +49,18 @@ func (nh *txNodeHandle) getOrCreateStagedNode() *txNode {
 	return n
 }
 
-func (nh *txNodeHandle) Read(ctx context.Context) (*SerializedNode, error) {
+func (nh *txNodeHandle) Read(ctx context.Context) (*coreapi.SerializedNode, error) {
 	if nh.closed {
 		return nil, ErrHandleClosed
 	}
 
 	staged := nh.getOrCreateStagedNode()
 
-	if staged.Frozen.Flags&NodeFlagRemoved != 0 {
+	if staged.Frozen.Flags&coreapi.NodeFlagRemoved != 0 {
 		return nil, psi.ErrNodeNotFound
 	}
 
-	if staged.Frozen.Flags&NodeFlagInvalid == 0 {
+	if staged.Frozen.Flags&coreapi.NodeFlagInvalid == 0 {
 		return &staged.Frozen, nil
 	}
 
@@ -74,13 +75,13 @@ func (nh *txNodeHandle) Read(ctx context.Context) (*SerializedNode, error) {
 	return sn, nil
 }
 
-func (nh *txNodeHandle) Write(ctx context.Context, fe *SerializedNode) error {
+func (nh *txNodeHandle) Write(ctx context.Context, fe *coreapi.SerializedNode) error {
 	if nh.closed {
 		return ErrHandleClosed
 	}
 
-	if err := nh.tx.Append(ctx, JournalEntry{
-		Op:    JournalOpWrite,
+	if err := nh.tx.Append(ctx, coreapi.JournalEntry{
+		Op:    coreapi.JournalOpWrite,
 		Inode: nh.inode.id,
 		Path:  &fe.Path,
 		Node:  fe,
@@ -90,21 +91,21 @@ func (nh *txNodeHandle) Write(ctx context.Context, fe *SerializedNode) error {
 
 	staged := nh.getOrCreateStagedNode()
 	staged.Frozen = *fe
-	staged.Frozen.Flags &= ^NodeFlagInvalid
-	staged.Frozen.Flags &= ^NodeFlagRemoved
+	staged.Frozen.Flags &= ^coreapi.NodeFlagInvalid
+	staged.Frozen.Flags &= ^coreapi.NodeFlagRemoved
 
 	return nil
 }
 
-func (nh *txNodeHandle) SetEdge(ctx context.Context, edge *SerializedEdge) error {
+func (nh *txNodeHandle) SetEdge(ctx context.Context, edge *coreapi.SerializedEdge) error {
 	if nh.closed {
 		return ErrHandleClosed
 	}
 
 	p := nh.dentry.Path()
 
-	if err := nh.tx.Append(ctx, JournalEntry{
-		Op:    JournalOpSetEdge,
+	if err := nh.tx.Append(ctx, coreapi.JournalEntry{
+		Op:    coreapi.JournalOpSetEdge,
 		Inode: nh.inode.id,
 		Path:  &p,
 		Edge:  edge,
@@ -113,7 +114,7 @@ func (nh *txNodeHandle) SetEdge(ctx context.Context, edge *SerializedEdge) error
 	}
 
 	e := *edge
-	e.Flags &= ^EdgeFlagRemoved
+	e.Flags &= ^coreapi.EdgeFlagRemoved
 
 	staged := nh.getOrCreateStagedNode()
 	staged.Edges[edge.Key.String()] = e
@@ -132,13 +133,13 @@ func (nh *txNodeHandle) RemoveEdge(ctx context.Context, key psi.EdgeKey) error {
 	se, ok := staged.Edges[key.String()]
 
 	if !ok {
-		se = SerializedEdge{Key: key, Flags: EdgeFlagRemoved}
+		se = coreapi.SerializedEdge{Key: key, Flags: coreapi.EdgeFlagRemoved}
 	}
 
-	se.Flags |= EdgeFlagRemoved
+	se.Flags |= coreapi.EdgeFlagRemoved
 
-	if err := nh.tx.Append(ctx, JournalEntry{
-		Op:    JournalOpRemoveEdge,
+	if err := nh.tx.Append(ctx, coreapi.JournalEntry{
+		Op:    coreapi.JournalOpRemoveEdge,
 		Inode: nh.inode.id,
 		Path:  &p,
 		Edge:  &se,
@@ -151,7 +152,7 @@ func (nh *txNodeHandle) RemoveEdge(ctx context.Context, key psi.EdgeKey) error {
 	return nil
 }
 
-func (nh *txNodeHandle) ReadEdge(ctx context.Context, key psi.EdgeKey) (*SerializedEdge, error) {
+func (nh *txNodeHandle) ReadEdge(ctx context.Context, key psi.EdgeKey) (*coreapi.SerializedEdge, error) {
 	if nh.closed {
 		return nil, ErrHandleClosed
 	}
@@ -159,7 +160,7 @@ func (nh *txNodeHandle) ReadEdge(ctx context.Context, key psi.EdgeKey) (*Seriali
 	n := nh.getOrCreateStagedNode()
 
 	if e, ok := n.Edges[key.String()]; ok {
-		if e.Flags&EdgeFlagRemoved != 0 {
+		if e.Flags&coreapi.EdgeFlagRemoved != 0 {
 			return nil, psi.ErrNodeNotFound
 		}
 
@@ -172,7 +173,7 @@ func (nh *txNodeHandle) ReadEdge(ctx context.Context, key psi.EdgeKey) (*Seriali
 		return nil, err
 	}
 
-	if e.Flags&EdgeFlagRemoved != 0 {
+	if e.Flags&coreapi.EdgeFlagRemoved != 0 {
 		return nil, psi.ErrNodeNotFound
 	}
 
@@ -181,7 +182,7 @@ func (nh *txNodeHandle) ReadEdge(ctx context.Context, key psi.EdgeKey) (*Seriali
 	return e, nil
 }
 
-func (nh *txNodeHandle) ReadEdges(ctx context.Context) (iterators.Iterator[*SerializedEdge], error) {
+func (nh *txNodeHandle) ReadEdges(ctx context.Context) (iterators.Iterator[*coreapi.SerializedEdge], error) {
 	if nh.closed {
 		return nil, ErrHandleClosed
 	}
@@ -195,7 +196,7 @@ func (nh *txNodeHandle) ReadEdges(ctx context.Context) (iterators.Iterator[*Seri
 	}
 
 	if base == nil {
-		base = iterators.Empty[*SerializedEdge]()
+		base = iterators.Empty[*coreapi.SerializedEdge]()
 	}
 
 	if n == nil {
@@ -205,7 +206,7 @@ func (nh *txNodeHandle) ReadEdges(ctx context.Context) (iterators.Iterator[*Seri
 	dirtyEdges := iterators.FromMap(n.Edges)
 	seenMap := map[string]struct{}{}
 
-	return iterators.NewIterator(func() (*SerializedEdge, bool) {
+	return iterators.NewIterator(func() (*coreapi.SerializedEdge, bool) {
 		for {
 			if base != nil {
 				if !base.Next() {
@@ -220,7 +221,7 @@ func (nh *txNodeHandle) ReadEdges(ctx context.Context) (iterators.Iterator[*Seri
 					seenMap[e.Key.String()] = struct{}{}
 				}
 
-				if e.Flags&EdgeFlagRemoved != 0 {
+				if e.Flags&coreapi.EdgeFlagRemoved != 0 {
 					continue
 				}
 
@@ -236,7 +237,7 @@ func (nh *txNodeHandle) ReadEdges(ctx context.Context) (iterators.Iterator[*Seri
 					continue
 				}
 
-				if e.V.Flags&EdgeFlagRemoved != 0 {
+				if e.V.Flags&coreapi.EdgeFlagRemoved != 0 {
 					continue
 				}
 

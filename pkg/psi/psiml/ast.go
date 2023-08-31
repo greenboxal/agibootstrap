@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/psidb/db/online"
+	coreapi `github.com/greenboxal/agibootstrap/psidb/core/api`
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
 )
 
@@ -29,7 +29,7 @@ type QueryTerm struct {
 var SearchType = psi.DefineNodeType[*Search]()
 var QueryTermType = psi.DefineNodeType[*QueryTerm]()
 
-func (q *QueryTerm) Resolve(ctx context.Context, lg *online.LiveGraph) (psi.Node, error) {
+func (q *QueryTerm) Resolve(ctx context.Context, lg coreapi.LiveGraph) (psi.Node, error) {
 	if q.Node != nil {
 		return q.Node, nil
 	}

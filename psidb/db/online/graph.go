@@ -14,6 +14,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	`github.com/greenboxal/agibootstrap/psidb/core/api`
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
 
@@ -183,7 +184,7 @@ func (lg *LiveGraph) ListNodeEdges(ctx context.Context, path psi.Path) (result [
 		return nil, err
 	}
 
-	result = iterators.ToSlice(iterators.Map(edges, func(edge *graphfs.SerializedEdge) *psi.FrozenEdge {
+	result = iterators.ToSlice(iterators.Map(edges, func(edge *coreapi.SerializedEdge) *psi.FrozenEdge {
 		return &psi.FrozenEdge{
 			Key:     edge.Key,
 			ToPath:  &edge.ToPath,

@@ -9,10 +9,11 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
-	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/core/scheduler"
-	"github.com/greenboxal/agibootstrap/psidb/modules/vm"
+	"github.com/greenboxal/agibootstrap/psidb/core/session"
+	"github.com/greenboxal/agibootstrap/psidb/core/vfs"
+	"github.com/greenboxal/agibootstrap/psidb/core/vm"
 	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
 	"github.com/greenboxal/agibootstrap/psidb/services/typing"
 )
@@ -24,7 +25,10 @@ var tracer = otel.Tracer("psidb", trace.WithInstrumentationAttributes(
 var Module = fx.Module(
 	"core",
 
+	session.Module,
 	scheduler.Module,
+	vfs.Module,
+	vm.FXModule,
 
 	fx.Provide(inject.NewServiceProvider),
 

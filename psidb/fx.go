@@ -15,7 +15,6 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/apis/ws"
 	"github.com/greenboxal/agibootstrap/psidb/core"
 	"github.com/greenboxal/agibootstrap/psidb/modules"
-	"github.com/greenboxal/agibootstrap/psidb/modules/session"
 	"github.com/greenboxal/agibootstrap/psidb/services/agents"
 	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 	"github.com/greenboxal/agibootstrap/psidb/services/iam"
@@ -39,21 +38,22 @@ var BaseModules = fx.Options(
 		return zl
 	}),
 
-	apimachinery.Module,
 	core.Module,
+	apimachinery.Module,
 	indexing.Module,
 	migrations.Module,
+
 	modules.Module,
 	search.Module,
 	pubsub.Module,
 	timekeep.Module,
 	typing.Module,
-	session.Module,
 	kb.Module,
 	iam.Module,
 	jobs.Module,
 	chat.Module,
 	agents.Module,
+
 	ws.Module,
 	rpc.Module,
 	rpcv1.Module,

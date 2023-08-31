@@ -75,7 +75,7 @@ func (im *Manager) Start(ctx context.Context) error {
 	return nil
 }
 
-func (im *Manager) processReplicationMessage(ctx context.Context, entries []*graphfs.JournalEntry) error {
+func (im *Manager) processReplicationMessage(ctx context.Context, entries []*coreapi.JournalEntry) error {
 	dirtyNodes := map[string]psi.Path{}
 
 	for _, entry := range entries {
@@ -84,12 +84,12 @@ func (im *Manager) processReplicationMessage(ctx context.Context, entries []*gra
 		}
 
 		switch entry.Op {
-		case graphfs.JournalOpWrite:
+		case coreapi.JournalOpWrite:
 			fallthrough
-		case graphfs.JournalOpSetEdge:
+		case coreapi.JournalOpSetEdge:
 			dirtyNodes[entry.Path.String()] = *entry.Path
 
-		case graphfs.JournalOpRemoveEdge:
+		case coreapi.JournalOpRemoveEdge:
 			delete(dirtyNodes, entry.Path.String())
 		}
 

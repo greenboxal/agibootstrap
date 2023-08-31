@@ -7,6 +7,8 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 )
 
+type Manager = vfs.Manager
+
 var Module = fx.Module(
 	"modules/vfs",
 

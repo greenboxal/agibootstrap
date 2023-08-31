@@ -1,6 +1,8 @@
 package scheduler
 
-import coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+import (
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
+)
 
 type TaskQueue struct {
 	coreapi.ListHead[*Task]

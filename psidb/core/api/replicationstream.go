@@ -10,20 +10,19 @@ import (
 	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
-	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
 
-type ReplicationStreamProcessorFunc func(ctx context.Context, entry []*graphfs.JournalEntry) error
+type ReplicationStreamProcessorFunc func(ctx context.Context, entry []*JournalEntry) error
 
 type ReplicationStreamProcessor struct {
 	logger  *otelzap.SugaredLogger
-	slot    graphfs.ReplicationSlot
+	slot    ReplicationSlot
 	process ReplicationStreamProcessorFunc
 	proc    goprocess.Process
 	running bool
 }
 
-func NewReplicationStream(slot graphfs.ReplicationSlot, processFn ReplicationStreamProcessorFunc) *ReplicationStreamProcessor {
+func NewReplicationStream(slot ReplicationSlot, processFn ReplicationStreamProcessorFunc) *ReplicationStreamProcessor {
 	rsp := &ReplicationStreamProcessor{
 		slot:   slot,
 		logger: logging.GetLogger("replication-stream:" + slot.Name()),
@@ -38,7 +37,7 @@ func NewReplicationStream(slot graphfs.ReplicationSlot, processFn ReplicationStr
 func (s *ReplicationStreamProcessor) run(proc goprocess.Process) {
 	ctx := goprocessctx.OnClosingContext(proc)
 
-	buffer := make([]graphfs.ReplicationMessage, 16)
+	buffer := make([]ReplicationMessage, 16)
 
 	s.running = true
 

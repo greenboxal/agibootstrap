@@ -8,7 +8,7 @@ import (
 )
 
 var Module = fx.Module(
-	"services/session",
+	"core/session",
 
 	fx.Provide(NewManager),
 

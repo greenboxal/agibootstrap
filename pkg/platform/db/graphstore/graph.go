@@ -10,11 +10,12 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/linking"
 	"github.com/jbenet/goprocess"
-	`github.com/uptrace/opentelemetry-go-extra/otelzap`
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"golang.org/x/exp/slices"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	graphfs2 "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
 )
@@ -37,7 +38,7 @@ type IndexedGraph struct {
 
 	ds         datastore.Batching
 	journal    *graphfs2.Journal
-	checkpoint graphfs2.Checkpoint
+	checkpoint coreapi.Checkpoint
 
 	vg *graphfs2.VirtualGraph
 	lg *online.LiveGraph
@@ -60,7 +61,7 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.UniqueNode)
 		return nil, err
 	}
 
-	checkpoint, err := graphfs2.OpenFileCheckpoint(path.Join(walPath, "ckpt"))
+	checkpoint, err := coreapi.OpenFileCheckpoint(path.Join(walPath, "ckpt"))
 
 	if err != nil {
 		return nil, err

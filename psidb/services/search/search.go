@@ -6,12 +6,12 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/psidb/db/online"
+	coreapi `github.com/greenboxal/agibootstrap/psidb/core/api`
 	indexing2 "github.com/greenboxal/agibootstrap/psidb/services/indexing"
 )
 
 type SearchRequest struct {
-	Graph *online.LiveGraph
+	Graph coreapi.LiveGraph
 	Query psi.Node
 	Scope psi.Path
 	Limit int

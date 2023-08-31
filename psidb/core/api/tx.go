@@ -9,7 +9,6 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/psidb/db/online"
 )
 
 type GraphOperations interface {
@@ -44,11 +43,22 @@ func WithServiceLocator(sl inject.ServiceLocator) TransactionOption {
 	}
 }
 
+type LiveGraph interface {
+	psi.Graph
+
+	GraphOperations
+
+	Delete(ctx context.Context, node psi.Node) error
+
+	Root() psi.Path
+	Services() inject.ServiceLocator
+}
+
 type Transaction interface {
 	GraphOperations
 
 	IsOpen() bool
-	Graph() *online.LiveGraph
+	Graph() LiveGraph
 
 	MakePromise() psi.PromiseHandle
 

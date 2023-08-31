@@ -8,7 +8,6 @@ import (
 	"go.uber.org/fx"
 
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
-	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 	"github.com/greenboxal/agibootstrap/psidb/services/migrations"
 )
 
@@ -72,7 +71,7 @@ func (pm *Manager) Subscribe(pattern SubscriptionPattern, handler func(notificat
 }
 
 func (pm *Manager) Start(ctx context.Context) error {
-	slot, err := pm.core.CreateReplicationSlot(ctx, graphfs.ReplicationSlotOptions{
+	slot, err := pm.core.CreateReplicationSlot(ctx, coreapi.ReplicationSlotOptions{
 		Name:       "pubsub",
 		Persistent: false,
 	})
@@ -90,7 +89,7 @@ func (pm *Manager) Start(ctx context.Context) error {
 	return nil
 }
 
-func (pm *Manager) processReplicationMessage(ctx context.Context, entries []*graphfs.JournalEntry) error {
+func (pm *Manager) processReplicationMessage(ctx context.Context, entries []*coreapi.JournalEntry) error {
 	wg, _ := pm.workerPool.GroupContext(ctx)
 
 	for _, entry := range entries {

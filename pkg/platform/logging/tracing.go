@@ -1,4 +1,4 @@
-package tracing
+package logging
 
 import (
 	"log"
@@ -9,12 +9,10 @@ import (
 	ddotel "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/opentelemetry"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
-
-	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 )
 
 var providerInstance *ddotel.TracerProvider
-var logger = logging.GetLogger("tracing")
+var logger = GetLogger("tracing")
 
 func Initialize() {
 	if os.Getenv("PSIDB_ENABLE_OTEL") != "" {

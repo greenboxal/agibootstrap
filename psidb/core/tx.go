@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -24,7 +25,7 @@ type transaction struct {
 }
 
 func (t *transaction) IsOpen() bool                          { return t.lg.Transaction().IsOpen() }
-func (t *transaction) Graph() *online.LiveGraph              { return t.lg }
+func (t *transaction) Graph() coreapi.LiveGraph              { return t.lg }
 func (t *transaction) ServiceLocator() inject.ServiceLocator { return t }
 
 func (t *transaction) GetService(key inject.ServiceKey) (any, error) {
@@ -33,7 +34,7 @@ func (t *transaction) GetService(key inject.ServiceKey) (any, error) {
 
 		if err == nil {
 			return r, nil
-		} else if err != inject.ServiceNotFound {
+		} else if !errors.Is(err, inject.ServiceNotFound) {
 			return nil, err
 		}
 	}

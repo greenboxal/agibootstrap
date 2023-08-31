@@ -122,14 +122,18 @@ func AsTypeName(parsed utils.ParsedTypeName) TypeName {
 }
 
 var packageTypeNameMap = map[string]string{
-	"github.com/greenboxal/agibootstrap/pkg/platform/vfs":    "vfs",
-	"github.com/greenboxal/agibootstrap/pkg/":                "agib.",
+	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/": "vfs.",
+	"github.com/greenboxal/agibootstrap/pkg/":              "agib.",
+
 	"github.com/greenboxal/agibootstrap/psidb/core/coreapi/": "psidb.",
 	"github.com/greenboxal/agibootstrap/psidb/core/api/":     "psidb.",
-	"github.com/greenboxal/agibootstrap/psidb/db/":           "psidb.",
-	"github.com/greenboxal/agibootstrap/psidb/services/":     "psidb.",
-	"github.com/greenboxal/agibootstrap/psidb/apps/":         "",
-	"github.com/greenboxal/agibootstrap/psidb/modules/":      "",
+	"github.com/greenboxal/agibootstrap/psidb/core/vm/":      "vm.",
+	"github.com/greenboxal/agibootstrap/psidb/core/vfs/":     "vfs.",
+
+	"github.com/greenboxal/agibootstrap/psidb/db/":       "psidb.",
+	"github.com/greenboxal/agibootstrap/psidb/services/": "psidb.",
+	"github.com/greenboxal/agibootstrap/psidb/apps/":     "",
+	"github.com/greenboxal/agibootstrap/psidb/modules/":  "",
 }
 
 func GetTypeName(typ reflect.Type) TypeName {

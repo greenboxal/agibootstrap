@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
 
@@ -15,7 +16,7 @@ type LiveEdge struct {
 	from   *LiveNode
 	to     *LiveNode
 	dentry *graphfs.CacheEntry
-	frozen *graphfs.SerializedEdge
+	frozen *coreapi.SerializedEdge
 
 	dirty bool
 }
@@ -93,7 +94,7 @@ func (le *LiveEdge) invalidate() {
 	le.to = nil
 }
 
-func (le *LiveEdge) update(se *graphfs.SerializedEdge) {
+func (le *LiveEdge) update(se *coreapi.SerializedEdge) {
 	le.frozen = se
 	le.dirty = false
 	le.to = nil
@@ -116,16 +117,16 @@ func (le *LiveEdge) Save(ctx context.Context, nh graphfs.NodeHandle) error {
 	key := le.Key().GetKey()
 
 	if le.frozen == nil {
-		le.frozen = &graphfs.SerializedEdge{}
+		le.frozen = &coreapi.SerializedEdge{}
 		le.frozen.Key = key
 	}
 
 	if le.key.Kind == "" || le.key.Kind == psi.EdgeKindChild {
-		le.frozen.Flags &= ^graphfs.EdgeFlagModes
-		le.frozen.Flags |= graphfs.EdgeFlagRegular
+		le.frozen.Flags &= ^coreapi.EdgeFlagModes
+		le.frozen.Flags |= coreapi.EdgeFlagRegular
 	} else {
-		le.frozen.Flags &= ^graphfs.EdgeFlagModes
-		le.frozen.Flags |= graphfs.EdgeFlagLink
+		le.frozen.Flags &= ^coreapi.EdgeFlagModes
+		le.frozen.Flags |= coreapi.EdgeFlagLink
 	}
 
 	if le.to != nil {
@@ -133,7 +134,7 @@ func (le *LiveEdge) Save(ctx context.Context, nh graphfs.NodeHandle) error {
 		le.frozen.ToPath = le.to.path
 	}
 
-	if le.frozen.Flags&graphfs.EdgeFlagRemoved == 0 {
+	if le.frozen.Flags&coreapi.EdgeFlagRemoved == 0 {
 		if err := nh.SetEdge(ctx, le.frozen); err != nil {
 			return err
 		}

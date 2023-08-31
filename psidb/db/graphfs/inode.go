@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
 type INodeOperations interface {
@@ -32,8 +34,8 @@ type INode struct {
 	cacheEntries []*CacheEntry
 
 	lastVersionMutex sync.RWMutex
-	lastVersion      *SerializedNode
-	edgeCache        map[string]*SerializedEdge
+	lastVersion      *coreapi.SerializedNode
+	edgeCache        map[string]*coreapi.SerializedEdge
 
 	sb SuperBlock
 }
@@ -46,10 +48,12 @@ func AllocateInode(sb SuperBlock, id int64) *INode {
 	}
 }
 
-func (i *INode) ID() int64                                  { return i.id }
-func (i *INode) SuperBlock() SuperBlock                     { return i.sb }
-func (i *INode) INodeOperations() INodeOperations           { return i.sb.INodeOperations() }
-func (i *INode) NodeHandleOperations() NodeHandleOperations { return i.sb.NodeHandleOperations() }
+func (i *INode) ID() int64                        { return i.id }
+func (i *INode) SuperBlock() SuperBlock           { return i.sb }
+func (i *INode) INodeOperations() INodeOperations { return i.sb.INodeOperations() }
+func (i *INode) NodeHandleOperations() NodeHandleOperations {
+	return i.sb.NodeHandleOperations()
+}
 
 func (i *INode) IsValid() bool { return i.flags&INodeFlagReferenced != 0 }
 

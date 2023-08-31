@@ -7,13 +7,12 @@ import (
 	"sync"
 
 	"github.com/alitto/pond"
-	`github.com/uptrace/opentelemetry-go-extra/otelzap`
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"go.uber.org/fx"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
-	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
 
 type Manager struct {
@@ -60,7 +59,7 @@ func NewIndexManager(
 }
 
 func (im *Manager) Start(ctx context.Context) error {
-	slot, err := im.core.CreateReplicationSlot(ctx, graphfs.ReplicationSlotOptions{
+	slot, err := im.core.CreateReplicationSlot(ctx, coreapi.ReplicationSlotOptions{
 		Name: "indexmanager",
 	})
 
@@ -73,7 +72,7 @@ func (im *Manager) Start(ctx context.Context) error {
 	return nil
 }
 
-func (im *Manager) processReplicationMessage(ctx context.Context, entries []*graphfs.JournalEntry) error {
+func (im *Manager) processReplicationMessage(ctx context.Context, entries []*coreapi.JournalEntry) error {
 	/*dirtyNodes := map[string]psi.Path{}
 
 	for _, entry := range entries {

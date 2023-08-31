@@ -3,6 +3,7 @@ package rtv1
 import (
 	"context"
 
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
 
@@ -28,12 +29,12 @@ type ReadRequest struct {
 }
 
 type ReadResponse struct {
-	Node *graphfs.SerializedNode `json:"node"`
+	Node *coreapi.SerializedNode `json:"node"`
 }
 
 type WriteRequest struct {
 	Handle int64                   `json:"handle"`
-	Node   *graphfs.SerializedNode `json:"node"`
+	Node   *coreapi.SerializedNode `json:"node"`
 }
 
 type WriteResponse struct {
@@ -41,7 +42,7 @@ type WriteResponse struct {
 
 type SetEdgeRequest struct {
 	Handle int64                   `json:"handle"`
-	Edge   *graphfs.SerializedEdge `json:"edge"`
+	Edge   *coreapi.SerializedEdge `json:"edge"`
 }
 
 type SetEdgeResponse struct {
@@ -49,7 +50,7 @@ type SetEdgeResponse struct {
 
 type RemoveEdgeRequest struct {
 	Handle int64                   `json:"handle"`
-	Edge   *graphfs.SerializedEdge `json:"edge"`
+	Edge   *coreapi.SerializedEdge `json:"edge"`
 }
 
 type RemoveEdgeResponse struct {
@@ -57,20 +58,20 @@ type RemoveEdgeResponse struct {
 
 type ReadEdgeRequest struct {
 	Handle int64                   `json:"handle"`
-	Edge   *graphfs.SerializedEdge `json:"edge"`
+	Edge   *coreapi.SerializedEdge `json:"edge"`
 }
 
 type ReadEdgeResponse struct {
-	Edge *graphfs.SerializedEdge `json:"edge"`
+	Edge *coreapi.SerializedEdge `json:"edge"`
 }
 
 type ReadEdgesRequest struct {
 	Handle int64                   `json:"handle"`
-	Edge   *graphfs.SerializedEdge `json:"edge"`
+	Edge   *coreapi.SerializedEdge `json:"edge"`
 }
 
 type ReadEdgesResponse struct {
-	Edges []*graphfs.SerializedEdge `json:"edges"`
+	Edges []*coreapi.SerializedEdge `json:"edges"`
 }
 
 type NodeAPI interface {

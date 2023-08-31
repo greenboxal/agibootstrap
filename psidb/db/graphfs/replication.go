@@ -9,16 +9,8 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/psids"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 )
-
-type ReplicationSlotOptions struct {
-	Name       string
-	Persistent bool
-}
-
-type ReplicationManager interface {
-	CreateReplicationSlot(ctx context.Context, options ReplicationSlotOptions) (ReplicationSlot, error)
-}
 
 type replicationManager struct {
 	mu sync.Mutex
@@ -34,7 +26,7 @@ func newReplicationManager(vg *VirtualGraph) *replicationManager {
 	}
 }
 
-func (r *replicationManager) CreateReplicationSlot(ctx context.Context, options ReplicationSlotOptions) (ReplicationSlot, error) {
+func (r *replicationManager) CreateReplicationSlot(ctx context.Context, options coreapi.ReplicationSlotOptions) (coreapi.ReplicationSlot, error) {
 	if options.Name == "" {
 		return nil, errors.New("name must not be empty")
 	}
@@ -74,28 +66,12 @@ func (r *replicationManager) Close(ctx context.Context) error {
 	return nil
 }
 
-type ReplicationMessage struct {
-	Xid     uint64
-	Entries []*JournalEntry
-}
-
-type ReplicationSlot interface {
-	Name() string
-
-	GetLastLSN(ctx context.Context) (uint64, error)
-	SetLastLSN(ctx context.Context, lsn uint64) error
-
-	Read(ctx context.Context, buffer []ReplicationMessage) (int, error)
-
-	FlushPosition(ctx context.Context) error
-}
-
 type replicationSlot struct {
 	mu sync.RWMutex
 
 	vg      *VirtualGraph
 	journal *Journal
-	options ReplicationSlotOptions
+	options coreapi.ReplicationSlotOptions
 
 	lastLsn uint64
 
@@ -105,7 +81,7 @@ type replicationSlot struct {
 	recoveredTransactions map[uint64]*Transaction
 }
 
-func newReplicationSlot(vg *VirtualGraph, journal *Journal, options ReplicationSlotOptions) *replicationSlot {
+func newReplicationSlot(vg *VirtualGraph, journal *Journal, options coreapi.ReplicationSlotOptions) *replicationSlot {
 	return &replicationSlot{
 		vg:      vg,
 		journal: journal,
@@ -141,7 +117,7 @@ func (r *replicationSlot) SetLastLSN(ctx context.Context, lsn uint64) error {
 	return nil
 }
 
-func (r *replicationSlot) Read(ctx context.Context, buffer []ReplicationMessage) (i int, err error) {
+func (r *replicationSlot) Read(ctx context.Context, buffer []coreapi.ReplicationMessage) (i int, err error) {
 	if err := r.ensureLoaded(ctx); err != nil {
 		return 0, err
 	}
@@ -156,7 +132,7 @@ func (r *replicationSlot) Read(ctx context.Context, buffer []ReplicationMessage)
 	for i < len(buffer) {
 		var tx *Transaction
 
-		entry := &JournalEntry{}
+		entry := &coreapi.JournalEntry{}
 
 		if _, err := r.journal.Read(r.lastLsn, entry); err != nil {
 			if err == io.EOF {
@@ -168,7 +144,7 @@ func (r *replicationSlot) Read(ctx context.Context, buffer []ReplicationMessage)
 
 		r.lastLsn = r.lastLsn + 1
 
-		if entry.Op == JournalOpBegin {
+		if entry.Op == coreapi.JournalOpBegin {
 			tx = &Transaction{
 				xid:        entry.Xid,
 				dirtyNodes: make(map[int64]*txNode),
@@ -189,8 +165,8 @@ func (r *replicationSlot) Read(ctx context.Context, buffer []ReplicationMessage)
 
 		tx.log = append(tx.log, entry)
 
-		if entry.Op == JournalOpCommit {
-			buffer[i] = ReplicationMessage{
+		if entry.Op == coreapi.JournalOpCommit {
+			buffer[i] = coreapi.ReplicationMessage{
 				Xid:     entry.Xid,
 				Entries: tx.log,
 			}
@@ -198,7 +174,7 @@ func (r *replicationSlot) Read(ctx context.Context, buffer []ReplicationMessage)
 			i++
 
 			tx.done = true
-		} else if entry.Op == JournalOpRollback {
+		} else if entry.Op == coreapi.JournalOpRollback {
 			tx.done = true
 		}
 

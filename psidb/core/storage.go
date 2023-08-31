@@ -39,14 +39,14 @@ func NewJournal(
 func NewCheckpoint(
 	cfg *coreapi.Config,
 	lc fx.Lifecycle,
-) (graphfs.Checkpoint, error) {
+) (coreapi.Checkpoint, error) {
 	ckptPath := path.Join(cfg.DataDir, "ckpt.bin")
 
 	if err := os.MkdirAll(path.Dir(ckptPath), 0755); err != nil {
 		return nil, err
 	}
 
-	checkpoint, err := graphfs.OpenFileCheckpoint(ckptPath)
+	checkpoint, err := coreapi.OpenFileCheckpoint(ckptPath)
 
 	if err != nil {
 		return nil, err

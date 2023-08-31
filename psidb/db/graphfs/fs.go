@@ -32,9 +32,8 @@ const (
 )
 
 type OpenNodeOptions struct {
-	Transaction *Transaction
-	Flags       OpenNodeFlags
-	ForceInode  *int64
+	Flags      OpenNodeFlags
+	ForceInode *int64
 }
 
 func (o *OpenNodeOptions) Apply(opts ...OpenNodeOption) {
@@ -50,12 +49,6 @@ func NewOpenNodeOptions(opts ...OpenNodeOption) OpenNodeOptions {
 }
 
 type OpenNodeOption func(*OpenNodeOptions)
-
-func WithOpenNodeTransaction(tx *Transaction) OpenNodeOption {
-	return func(opts *OpenNodeOptions) {
-		opts.Transaction = tx
-	}
-}
 
 func WithOpenNodeCreateIfMissing() OpenNodeOption {
 	return WithOpenNodeFlags(OpenNodeFlagsWrite | OpenNodeFlagsRead | OpenNodeFlagsCreate | OpenNodeFlagsAppend)

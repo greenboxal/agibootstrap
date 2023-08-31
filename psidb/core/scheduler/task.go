@@ -7,7 +7,6 @@ import (
 	"golang.org/x/exp/slices"
 
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
-	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
 
 type CompletionCondition = coreapi.CompletionCondition
@@ -19,7 +18,7 @@ type Task struct {
 	dispatcher Dispatcher
 
 	handle TaskHandle
-	entry  *graphfs.JournalEntry
+	entry  *coreapi.JournalEntry
 
 	mu sync.RWMutex
 
@@ -38,7 +37,7 @@ type Task struct {
 	cleanup []func()
 }
 
-func NewTask(sch *Scheduler, dispatcher Dispatcher, handle TaskHandle, entry *graphfs.JournalEntry) *Task {
+func NewTask(sch *Scheduler, dispatcher Dispatcher, handle TaskHandle, entry *coreapi.JournalEntry) *Task {
 	t := &Task{
 		sch:        sch,
 		dispatcher: dispatcher,
@@ -53,7 +52,7 @@ func NewTask(sch *Scheduler, dispatcher Dispatcher, handle TaskHandle, entry *gr
 
 func (t *Task) Handle() TaskHandle                  { return t.handle }
 func (t *Task) BaseContext() context.Context        { return t.ctx }
-func (t *Task) JournalEntry() *graphfs.JournalEntry { return t.entry }
+func (t *Task) JournalEntry() *coreapi.JournalEntry { return t.entry }
 
 func (t *Task) AddWaitSemaphore(sc coreapi.Semaphore, value uint64) {
 	t.mu.Lock()

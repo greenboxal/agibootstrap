@@ -8,7 +8,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime/linking"
 	"github.com/pkg/errors"
-	`github.com/uptrace/opentelemetry-go-extra/otelzap`
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"go.opentelemetry.io/otel"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
@@ -16,6 +16,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
 type SuperBlockProvider func(ctx context.Context, uuid string) (SuperBlock, error)
@@ -44,7 +45,7 @@ func NewVirtualGraph(
 	lsys *linking.LinkSystem,
 	spb SuperBlockProvider,
 	journal *Journal,
-	checkpoint Checkpoint,
+	checkpoint coreapi.Checkpoint,
 	metadataStore datastore.Batching,
 ) (*VirtualGraph, error) {
 	vg := &VirtualGraph{
@@ -80,7 +81,7 @@ func (vg *VirtualGraph) BeginTransaction(ctx context.Context) (*Transaction, err
 	return vg.transactionManager.BeginTransaction(ctx)
 }
 
-func (vg *VirtualGraph) CreateReplicationSlot(ctx context.Context, options ReplicationSlotOptions) (ReplicationSlot, error) {
+func (vg *VirtualGraph) CreateReplicationSlot(ctx context.Context, options coreapi.ReplicationSlotOptions) (coreapi.ReplicationSlot, error) {
 	return vg.replicationManager.CreateReplicationSlot(ctx, options)
 }
 
@@ -122,7 +123,6 @@ func (vg *VirtualGraph) Open(ctx context.Context, path psi.Path, options ...Open
 		opts.Flags = OpenNodeFlagsRead
 	}
 
-	opts.Transaction = GetTransaction(ctx)
 	opts.Apply(options...)
 
 	dentry, err := vg.Resolve(ctx, path)
@@ -172,7 +172,7 @@ func (vg *VirtualGraph) Resolve(ctx context.Context, path psi.Path) (*CacheEntry
 	return Resolve(ctx, root, path)
 }
 
-func (vg *VirtualGraph) Read(ctx context.Context, path psi.Path) (*SerializedNode, error) {
+func (vg *VirtualGraph) Read(ctx context.Context, path psi.Path) (*coreapi.SerializedNode, error) {
 	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.Read")
 	span.SetAttributes(semconv.DBOperation("read"))
 	defer span.End()
@@ -188,7 +188,7 @@ func (vg *VirtualGraph) Read(ctx context.Context, path psi.Path) (*SerializedNod
 	return nh.Read(ctx)
 }
 
-func (vg *VirtualGraph) Write(ctx context.Context, path psi.Path, node *SerializedNode) error {
+func (vg *VirtualGraph) Write(ctx context.Context, path psi.Path, node *coreapi.SerializedNode) error {
 	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.Write")
 	span.SetAttributes(semconv.DBOperation("write"))
 	defer span.End()
@@ -204,7 +204,7 @@ func (vg *VirtualGraph) Write(ctx context.Context, path psi.Path, node *Serializ
 	return nh.Write(ctx, node)
 }
 
-func (vg *VirtualGraph) ReadEdge(ctx context.Context, path psi.Path) (*SerializedEdge, error) {
+func (vg *VirtualGraph) ReadEdge(ctx context.Context, path psi.Path) (*coreapi.SerializedEdge, error) {
 	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.ReadEdge")
 	span.SetAttributes(semconv.DBOperation("readEdge"))
 	defer span.End()
@@ -220,7 +220,7 @@ func (vg *VirtualGraph) ReadEdge(ctx context.Context, path psi.Path) (*Serialize
 	return nh.ReadEdge(ctx, path.Name())
 }
 
-func (vg *VirtualGraph) ReadEdges(ctx context.Context, path psi.Path) (iterators.Iterator[*SerializedEdge], error) {
+func (vg *VirtualGraph) ReadEdges(ctx context.Context, path psi.Path) (iterators.Iterator[*coreapi.SerializedEdge], error) {
 	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.ReadEdges")
 	span.SetAttributes(semconv.DBOperation("applyTransaction"))
 	defer span.End()
@@ -281,7 +281,7 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 		}
 	}()
 
-	getHandle := func(entry *JournalEntry) NodeHandle {
+	getHandle := func(entry *coreapi.JournalEntry) NodeHandle {
 		if entry.Path == nil {
 			return nodeByHandle[entry.Inode]
 		}
@@ -309,21 +309,21 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 			return errors.New("invalid transaction log")
 		}
 
-		if entry.Op != JournalOpBegin && !hasBegun {
+		if entry.Op != coreapi.JournalOpBegin && !hasBegun {
 			return errors.New("invalid transaction log")
 		}
 
 		switch entry.Op {
-		case JournalOpBegin:
+		case coreapi.JournalOpBegin:
 			hasBegun = true
 
-		case JournalOpCommit:
+		case coreapi.JournalOpCommit:
 			hasFinished = true
 
-		case JournalOpRollback:
+		case coreapi.JournalOpRollback:
 			hasFinished = true
 
-		case JournalOpWrite:
+		case coreapi.JournalOpWrite:
 			nh := getHandle(entry)
 
 			if nh == nil {
@@ -337,7 +337,7 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 			sb := nh.Inode().SuperBlock()
 			superblocks[sb.UUID()] = sb
 
-		case JournalOpSetEdge:
+		case coreapi.JournalOpSetEdge:
 			nh := getHandle(entry)
 
 			if nh == nil {
@@ -351,7 +351,7 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 			sb := nh.Inode().SuperBlock()
 			superblocks[sb.UUID()] = sb
 
-		case JournalOpRemoveEdge:
+		case coreapi.JournalOpRemoveEdge:
 			nh := getHandle(entry)
 
 			if nh == nil {

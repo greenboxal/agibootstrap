@@ -8,12 +8,13 @@ import (
 	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
 type TransactionManager struct {
 	logger     *otelzap.SugaredLogger
 	journal    *Journal
-	checkpoint Checkpoint
+	checkpoint coreapi.Checkpoint
 	graph      *VirtualGraph
 
 	mu                 sync.RWMutex
@@ -22,7 +23,7 @@ type TransactionManager struct {
 	closed bool
 }
 
-func NewTransactionManager(graph *VirtualGraph, journal *Journal, checkpoint Checkpoint) *TransactionManager {
+func NewTransactionManager(graph *VirtualGraph, journal *Journal, checkpoint coreapi.Checkpoint) *TransactionManager {
 	return &TransactionManager{
 		logger:             logging.GetLogger("graphfs/transactionManager"),
 		graph:              graph,
@@ -59,7 +60,7 @@ func (txm *TransactionManager) Recover(ctx context.Context) error {
 
 	it := txm.journal.Iterate(xid+1, -1)
 
-	notifications := map[notificationKey]*JournalEntry{}
+	notifications := map[notificationKey]*coreapi.JournalEntry{}
 	recoveredTransactions := map[uint64]*Transaction{}
 
 	for it.Next() {
@@ -67,7 +68,7 @@ func (txm *TransactionManager) Recover(ctx context.Context) error {
 
 		entry := it.Value()
 
-		if entry.Op == JournalOpBegin {
+		if entry.Op == coreapi.JournalOpBegin {
 			tx = txm.newTransaction(true)
 
 			recoveredTransactions[entry.Xid] = tx
@@ -87,21 +88,21 @@ func (txm *TransactionManager) Recover(ctx context.Context) error {
 			return err
 		}
 
-		if entry.Op == JournalOpCommit {
+		if entry.Op == coreapi.JournalOpCommit {
 			if err := txm.commitTransaction(ctx, tx); err != nil {
 				return err
 			}
-		} else if entry.Op == JournalOpRollback {
+		} else if entry.Op == coreapi.JournalOpRollback {
 			if err := tx.Rollback(ctx); err != nil {
 				return err
 			}
-		} else if entry.Op == JournalOpNotify {
+		} else if entry.Op == coreapi.JournalOpNotify {
 			notifications[notificationKey{
 				xid:   entry.Xid,
 				rid:   entry.Rid,
 				nonce: entry.Notification.Nonce,
 			}] = &entry
-		} else if entry.Op == JournalOpConfirm {
+		} else if entry.Op == coreapi.JournalOpConfirm {
 			not := notifications[notificationKey{
 				xid:   entry.Confirmation.Xid,
 				rid:   entry.Confirmation.Rid,
@@ -203,9 +204,9 @@ func (txm *TransactionManager) commitTransaction(ctx context.Context, tx *Transa
 
 	last := tx.log[len(tx.log)-1]
 
-	if last.Op != JournalOpCommit {
-		if err := tx.append(JournalEntry{
-			Op: JournalOpCommit,
+	if last.Op != coreapi.JournalOpCommit {
+		if err := tx.append(coreapi.JournalEntry{
+			Op: coreapi.JournalOpCommit,
 		}); err != nil {
 			return err
 		}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
 type Transaction struct {
@@ -18,7 +19,7 @@ type Transaction struct {
 	journal *Journal
 	txm     *TransactionManager
 	xid     uint64
-	log     []*JournalEntry
+	log     []*coreapi.JournalEntry
 	done    bool
 
 	isReadOnly bool
@@ -26,9 +27,9 @@ type Transaction struct {
 	dirtyNodes map[int64]*txNode
 }
 
-func (tx *Transaction) GetXid() uint64          { return tx.xid }
-func (tx *Transaction) GetLog() []*JournalEntry { return tx.log }
-func (tx *Transaction) IsOpen() bool            { return !tx.done }
+func (tx *Transaction) GetXid() uint64                  { return tx.xid }
+func (tx *Transaction) GetLog() []*coreapi.JournalEntry { return tx.log }
+func (tx *Transaction) IsOpen() bool                    { return !tx.done }
 
 func (tx *Transaction) Notify(ctx context.Context, not psi.Notification) error {
 	if not.Argument != nil {
@@ -46,15 +47,15 @@ func (tx *Transaction) Notify(ctx context.Context, not psi.Notification) error {
 		not.Argument = nil
 	}
 
-	return tx.Append(ctx, JournalEntry{
-		Op:           JournalOpNotify,
+	return tx.Append(ctx, coreapi.JournalEntry{
+		Op:           coreapi.JournalOpNotify,
 		Notification: &not,
 	})
 }
 
 func (tx *Transaction) Confirm(ctx context.Context, ack psi.Confirmation) error {
-	return tx.Append(ctx, JournalEntry{
-		Op:           JournalOpConfirm,
+	return tx.Append(ctx, coreapi.JournalEntry{
+		Op:           coreapi.JournalOpConfirm,
 		Confirmation: &ack,
 	})
 }
@@ -64,8 +65,8 @@ func (tx *Transaction) Wait(ctx context.Context, handles ...psi.Promise) error {
 		return nil
 	}
 
-	return tx.Append(ctx, JournalEntry{
-		Op:       JournalOpWait,
+	return tx.Append(ctx, coreapi.JournalEntry{
+		Op:       coreapi.JournalOpWait,
 		Promises: handles,
 	})
 }
@@ -75,13 +76,13 @@ func (tx *Transaction) Signal(ctx context.Context, handles ...psi.Promise) error
 		return nil
 	}
 
-	return tx.Append(ctx, JournalEntry{
-		Op:       JournalOpSignal,
+	return tx.Append(ctx, coreapi.JournalEntry{
+		Op:       coreapi.JournalOpSignal,
 		Promises: handles,
 	})
 }
 
-func (tx *Transaction) Append(ctx context.Context, entry JournalEntry) error {
+func (tx *Transaction) Append(ctx context.Context, entry coreapi.JournalEntry) error {
 	tx.mu.Lock()
 	defer tx.mu.Unlock()
 
@@ -119,8 +120,8 @@ func (tx *Transaction) Rollback(ctx context.Context) error {
 		return errors.New("transaction already finished")
 	}
 
-	if err := tx.append(JournalEntry{
-		Op: JournalOpRollback,
+	if err := tx.append(coreapi.JournalEntry{
+		Op: coreapi.JournalOpRollback,
 	}); err != nil {
 		return err
 	}
@@ -140,10 +141,10 @@ func (tx *Transaction) close() error {
 	return nil
 }
 
-func (tx *Transaction) append(entry JournalEntry) error {
-	if len(tx.log) == 0 && entry.Op != JournalOpBegin {
-		if err := tx.append(JournalEntry{
-			Op: JournalOpBegin,
+func (tx *Transaction) append(entry coreapi.JournalEntry) error {
+	if len(tx.log) == 0 && entry.Op != coreapi.JournalOpBegin {
+		if err := tx.append(coreapi.JournalEntry{
+			Op: coreapi.JournalOpBegin,
 		}); err != nil {
 			return err
 		}
@@ -162,18 +163,18 @@ func (tx *Transaction) append(entry JournalEntry) error {
 	}
 
 	switch entry.Op {
-	case JournalOpBegin:
+	case coreapi.JournalOpBegin:
 		tx.xid = entry.Xid
 
-	case JournalOpWrite:
+	case coreapi.JournalOpWrite:
 		n := tx.getStagedNode(entry.Inode)
 		n.Frozen = *entry.Node
 
-	case JournalOpSetEdge:
+	case coreapi.JournalOpSetEdge:
 		n := tx.getStagedNode(entry.Inode)
 		n.Edges[entry.Edge.Key.String()] = *entry.Edge
 
-	case JournalOpRemoveEdge:
+	case coreapi.JournalOpRemoveEdge:
 		k := entry.Edge.Key.String()
 		n := tx.getStagedNode(entry.Inode)
 		e, ok := n.Edges[k]
@@ -182,7 +183,7 @@ func (tx *Transaction) append(entry JournalEntry) error {
 			e = *entry.Edge
 		}
 
-		e.Flags |= EdgeFlagRemoved
+		e.Flags |= coreapi.EdgeFlagRemoved
 
 		n.Edges[k] = e
 	}
@@ -199,7 +200,7 @@ func (tx *Transaction) getStagedNode(ino int64) *txNode {
 
 	n := &txNode{
 		Inode: ino,
-		Edges: map[string]SerializedEdge{},
+		Edges: map[string]coreapi.SerializedEdge{},
 	}
 
 	tx.dirtyNodes[ino] = n

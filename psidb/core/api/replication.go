@@ -4,13 +4,20 @@ import (
 	"context"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
-	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 )
 
-type ReplicationManager interface {
-	graphfs.ReplicationManager
+type ReplicationSlotOptions struct {
+	Name       string
+	Persistent bool
+}
 
+type ReplicationOperations interface {
 	CreateConfirmationTracker(ctx context.Context, name string) (ConfirmationTracker, error)
+	CreateReplicationSlot(ctx context.Context, options ReplicationSlotOptions) (ReplicationSlot, error)
+}
+
+type ReplicationManager interface {
+	ReplicationOperations
 }
 
 type ConfirmationTracker interface {
@@ -21,4 +28,20 @@ type ConfirmationTracker interface {
 
 	Flush() error
 	Close() error
+}
+
+type ReplicationMessage struct {
+	Xid     uint64
+	Entries []*JournalEntry
+}
+
+type ReplicationSlot interface {
+	Name() string
+
+	GetLastLSN(ctx context.Context) (uint64, error)
+	SetLastLSN(ctx context.Context, lsn uint64) error
+
+	Read(ctx context.Context, buffer []ReplicationMessage) (int, error)
+
+	FlushPosition(ctx context.Context) error
 }
