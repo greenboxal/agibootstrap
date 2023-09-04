@@ -31,6 +31,31 @@ func Ref[T psi.Node](node T) *Reference[T] {
 	return &Reference[T]{Path: p}
 }
 
+func (nr *Reference[T]) SetPathReference(ctx context.Context, p psi.Path) error {
+	if nr.Path.Equals(p) {
+		return nil
+	}
+
+	nr.Path = p
+	nr.hasCachedValue.Store(false)
+
+	return nil
+}
+
+func (nr *Reference[T]) SetNodeReference(ctx context.Context, n psi.Node) error {
+	if n == nil {
+		return nr.SetPathReference(ctx, psi.Path{})
+	}
+
+	_, ok := n.(T)
+
+	if !ok {
+		return coreapi.ErrInvalidNodeType
+	}
+
+	return nr.SetPathReference(ctx, n.CanonicalPath())
+}
+
 func (nr *Reference[T]) IsEmpty() bool {
 	if nr == nil {
 		return true

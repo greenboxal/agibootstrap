@@ -17,6 +17,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	graphfs2 "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
+	journal2 `github.com/greenboxal/agibootstrap/psidb/db/journal`
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
 )
 
@@ -37,7 +38,7 @@ type IndexedGraph struct {
 	root psi.UniqueNode
 
 	ds         datastore.Batching
-	journal    *graphfs2.Journal
+	journal    *journal2.Journal
 	checkpoint coreapi.Checkpoint
 
 	vg *graphfs2.VirtualGraph
@@ -55,7 +56,7 @@ func NewIndexedGraph(ds datastore.Batching, walPath string, root psi.UniqueNode)
 		return nil, err
 	}
 
-	journal, err := graphfs2.OpenJournal(walPath)
+	journal, err := journal2.OpenJournal(walPath)
 
 	if err != nil {
 		return nil, err

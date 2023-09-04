@@ -1,4 +1,4 @@
-package graphfs
+package journal
 
 import (
 	"fmt"

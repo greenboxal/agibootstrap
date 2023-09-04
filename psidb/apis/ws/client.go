@@ -85,8 +85,12 @@ func (c *Client) handleSession(msg Message) error {
 				msg.Session.SessionID = uuid.NewString()
 			}
 
-			sess := c.handler.sessionManager.GetOrCreateSession(msg.Session.SessionID)
+			sess := c.handler.sessionManager.GetOrCreateSession(coreapi.SessionConfig{
+				SessionID: msg.Session.SessionID,
+			})
+
 			sess.AttachClient(c)
+
 			c.session = sess
 		}
 

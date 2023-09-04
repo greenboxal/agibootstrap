@@ -119,6 +119,12 @@ func (ln *LiveNode) Get(ctx context.Context) (psi.Node, error) {
 			ln.g.markDirty(ln.node)
 		}
 
+		err := ln.Node().PsiNodeType().OnAfterNodeLoaded(ctx, ln.node)
+
+		if err != nil {
+			return nil, err
+		}
+
 		ln.flags |= liveNodeFlagInitialized
 	}
 
@@ -479,6 +485,10 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 	}
 
 	typ := ln.node.PsiNodeType()
+
+	if err := typ.OnBeforeNodeSaved(ctx, ln.node); err != nil {
+		return err
+	}
 
 	ln.frozen.Type = typ.Name()
 

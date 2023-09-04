@@ -8,7 +8,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
-	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
+	graphfs `github.com/greenboxal/agibootstrap/psidb/db/journal`
 )
 
 func NewJournal(

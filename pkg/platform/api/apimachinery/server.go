@@ -124,10 +124,14 @@ func NewServer(
 			sessionId := request.Header.Get("X-PsiDB-Session-ID")
 
 			if sessionId != "" {
-				sess := sm.GetOrCreateSession(sessionId)
+				sess := sm.GetOrCreateSession(coreapi.SessionConfig{
+					SessionID: sessionId,
+				})
 
 				if sess != nil {
-					request = request.WithContext(coreapi.WithSession(request.Context(), sess))
+					ctx := request.Context()
+					ctx = coreapi.WithSession(ctx, sess)
+					request = request.WithContext(ctx)
 
 					sess.KeepAlive()
 				}

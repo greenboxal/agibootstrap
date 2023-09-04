@@ -167,6 +167,7 @@ func NewNodeHandle(ctx context.Context, inode *INode, dentry *CacheEntry, option
 
 	if tx := coreapi.GetTransaction(ctx); tx != nil {
 		return &txNodeHandle{
+			tx:      tx.GetGraphTransaction().(*Transaction),
 			inode:   inode.Get(),
 			dentry:  dentry.Get(),
 			options: options,

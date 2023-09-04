@@ -17,6 +17,9 @@ type ServiceProvider interface {
 	ServiceLocator
 
 	RegisterService(registration ServiceDefinition)
+	Close(ctx context.Context) error
+
+	AppendShutdownHook(func(ctx context.Context) error)
 }
 
 type ServiceRegistration interface {
@@ -158,7 +161,7 @@ func (sp *serviceProvider) Close(ctx context.Context) error {
 	return merr
 }
 
-func (sp *serviceProvider) appendShutdownHook(f func(ctx context.Context) error) {
+func (sp *serviceProvider) AppendShutdownHook(f func(ctx context.Context) error) {
 	sp.shutdownHooks = append(sp.shutdownHooks, f)
 }
 
@@ -189,7 +192,7 @@ type rootResolutionContext struct {
 
 func (rc rootResolutionContext) Path() []ServiceKey { return nil }
 func (rc rootResolutionContext) AppendShutdownHook(f func(ctx context.Context) error) {
-	rc.appendShutdownHook(f)
+	rc.AppendShutdownHook(f)
 }
 
 type resolutionContext struct {
@@ -199,7 +202,7 @@ type resolutionContext struct {
 }
 
 func (rc *resolutionContext) AppendShutdownHook(f func(ctx context.Context) error) {
-	rc.sp.appendShutdownHook(f)
+	rc.sp.AppendShutdownHook(f)
 }
 
 func (rc *resolutionContext) Path() []ServiceKey { return rc.path }
@@ -285,7 +288,7 @@ func (sr *serviceRegistration) GetInstance(ctx ResolutionContext) (any, error) {
 
 	sr.instance = instance
 
-	sr.sp.appendShutdownHook(sr.Close)
+	sr.sp.AppendShutdownHook(sr.Close)
 
 	return instance, nil
 }

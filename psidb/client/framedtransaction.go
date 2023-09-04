@@ -10,6 +10,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
+	rtv1 "github.com/greenboxal/agibootstrap/psidb/apis/rt/v1"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
 )
@@ -27,6 +28,10 @@ type FramedTransaction struct {
 
 func (tx *FramedTransaction) IsOpen() bool             { return tx.open }
 func (tx *FramedTransaction) Graph() coreapi.LiveGraph { return tx.graph }
+
+func (tx *FramedTransaction) GetGraphTransaction() coreapi.GraphTransaction {
+	panic("implement me")
+}
 
 func (tx *FramedTransaction) Add(node psi.Node) {
 	tx.graph.Add(node)
@@ -117,7 +122,7 @@ func (tx *FramedTransaction) Commit(ctx context.Context) error {
 
 	frame := tx.builder.Build()
 
-	_, err := tx.driver.PushFrame(ctx, &PushFrameRequest{
+	_, err := tx.driver.PushFrame(ctx, &rtv1.PushFrameRequest{
 		Frame: frame,
 	})
 

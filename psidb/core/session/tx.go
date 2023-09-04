@@ -1,9 +1,8 @@
-package core
+package session
 
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -17,9 +16,10 @@ import (
 )
 
 type transaction struct {
-	core    *Core
-	session coreapi.Session
+	core    coreapi.Core
+	session *Session
 	lg      *online.LiveGraph
+	sp      inject.ServiceProvider
 
 	opts coreapi.TransactionOptions
 }
@@ -27,21 +27,7 @@ type transaction struct {
 func (t *transaction) IsOpen() bool                                  { return t.lg.Transaction().IsOpen() }
 func (t *transaction) Graph() coreapi.LiveGraph                      { return t.lg }
 func (t *transaction) GetGraphTransaction() coreapi.GraphTransaction { return t.lg.Transaction() }
-func (t *transaction) ServiceLocator() inject.ServiceLocator         { return t }
-
-func (t *transaction) GetService(key inject.ServiceKey) (any, error) {
-	if sl := t.opts.ServiceLocator; sl != nil {
-		r, err := sl.GetService(key)
-
-		if err == nil {
-			return r, nil
-		} else if !errors.Is(err, inject.ServiceNotFound) {
-			return nil, err
-		}
-	}
-
-	return t.core.sp.GetService(key)
-}
+func (t *transaction) ServiceLocator() inject.ServiceLocator         { return t.sp }
 
 func (t *transaction) Add(node psi.Node) {
 	t.lg.Add(node)
@@ -83,13 +69,6 @@ func (t *transaction) Notify(ctx context.Context, not psi.Notification) error {
 		}
 
 		not.TraceID = string(data)
-		/*&psi.NotificationTrace{
-			TraceID:    span.TraceID().String(),
-			SpanID:     span.SpanID().String(),
-			TraceFlags: int(span.TraceFlags()),
-			TraceState: span.TraceState().String(),
-			Remote:     span.IsRemote(),
-		}*/
 	}
 
 	return t.lg.Transaction().Notify(ctx, not)

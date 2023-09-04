@@ -12,7 +12,7 @@ import (
 	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/packages"
 
-	"github.com/greenboxal/agibootstrap/pkg/codex"
+	"github.com/greenboxal/agibootstrap/pkg/legacy/codex"
 
 	codex2 "github.com/greenboxal/agibootstrap/pkg/legacy/codex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"

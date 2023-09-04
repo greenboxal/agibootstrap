@@ -9,3 +9,4 @@ import (
 var ErrNotFound = psi.ErrNodeNotFound
 var ErrTransactionClosed = errors.New("transaction closed")
 var ErrUnsupportedOperation = errors.New("unsupported operation")
+var ErrInvalidNodeType = errors.New("invalid node type")

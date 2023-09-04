@@ -11,6 +11,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/apis/rt/v1"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
@@ -18,7 +19,7 @@ import (
 )
 
 type Driver struct {
-	client *Client
+	client *rtv1.Client
 
 	sp    inject.ServiceLocator
 	types psi.TypeRegistry
@@ -33,7 +34,7 @@ type Driver struct {
 }
 
 func NewDriver(
-	client *Client,
+	client *rtv1.Client,
 	sp inject.ServiceLocator,
 	types psi.TypeRegistry,
 	root psi.Path,
@@ -59,7 +60,7 @@ func NewDriver(
 	return d, nil
 }
 
-func (d *Driver) Client() *Client { return d.client }
+func (d *Driver) Client() *rtv1.Client { return d.client }
 
 func (d *Driver) BeginTransaction(ctx context.Context, options ...coreapi.TransactionOption) (coreapi.Transaction, error) {
 	var opts coreapi.TransactionOptions
@@ -79,38 +80,38 @@ func (d *Driver) BeginTransaction(ctx context.Context, options ...coreapi.Transa
 	return tx, nil
 }
 
-func (d *Driver) LookupNode(ctx context.Context, req *LookupNodeRequest) (*LookupNodeResponse, error) {
-	return MessageTypeLookupNode.MakeCall(ctx, d.client, req)
+func (d *Driver) LookupNode(ctx context.Context, req *rtv1.LookupNodeRequest) (*rtv1.LookupNodeResponse, error) {
+	return rtv1.MessageTypeLookupNode.MakeCall(ctx, d.client, req)
 }
 
-func (d *Driver) ReadNode(ctx context.Context, req *ReadNodeRequest) (*ReadNodeResponse, error) {
-	return MessageTypeReadNode.MakeCall(ctx, d.client, req)
+func (d *Driver) ReadNode(ctx context.Context, req *rtv1.ReadNodeRequest) (*rtv1.ReadNodeResponse, error) {
+	return rtv1.MessageTypeReadNode.MakeCall(ctx, d.client, req)
 }
 
-func (d *Driver) ReadEdge(ctx context.Context, req *ReadEdgeRequest) (*ReadEdgeResponse, error) {
-	return MessageTypeReadEdge.MakeCall(ctx, d.client, req)
+func (d *Driver) ReadEdge(ctx context.Context, req *rtv1.ReadEdgeRequest) (*rtv1.ReadEdgeResponse, error) {
+	return rtv1.MessageTypeReadEdge.MakeCall(ctx, d.client, req)
 }
 
-func (d *Driver) ReadEdges(ctx context.Context, req *ReadEdgesRequest) (*ReadEdgesResponse, error) {
-	return MessageTypeReadEdges.MakeCall(ctx, d.client, req)
+func (d *Driver) ReadEdges(ctx context.Context, req *rtv1.ReadEdgesRequest) (*rtv1.ReadEdgesResponse, error) {
+	return rtv1.MessageTypeReadEdges.MakeCall(ctx, d.client, req)
 }
 
-func (d *Driver) ReadEdgesStream(ctx context.Context, req *ReadEdgesRequest) (iterators.Iterator[*ReadEdgesResponse], error) {
-	ch, err := MessageTypeReadEdges.MakeCallStreamed(ctx, d.client, req, 16)
+func (d *Driver) ReadEdgesStream(ctx context.Context, req *rtv1.ReadEdgesRequest) (iterators.Iterator[*rtv1.ReadEdgesResponse], error) {
+	ch, err := rtv1.MessageTypeReadEdges.MakeCallStreamed(ctx, d.client, req, 16)
 
 	if err != nil {
 		return nil, err
 	}
 
-	it := iterators.FlatMap(iterators.FromChannel(ch), func(t RpcResponse) iterators.Iterator[*ReadEdgesResponse] {
-		return t.Result.(iterators.Iterator[*ReadEdgesResponse])
+	it := iterators.FlatMap(iterators.FromChannel(ch), func(t rtv1.RpcResponse) iterators.Iterator[*rtv1.ReadEdgesResponse] {
+		return t.Result.(iterators.Iterator[*rtv1.ReadEdgesResponse])
 	})
 
 	return it, nil
 }
 
-func (d *Driver) PushFrame(ctx context.Context, req *PushFrameRequest) (*PushFrameResponse, error) {
-	return MessageTypePushFrame.MakeCall(ctx, d.client, req)
+func (d *Driver) PushFrame(ctx context.Context, req *rtv1.PushFrameRequest) (*rtv1.PushFrameResponse, error) {
+	return rtv1.MessageTypePushFrame.MakeCall(ctx, d.client, req)
 }
 
 func (d *Driver) Close() error {

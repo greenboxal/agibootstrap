@@ -21,6 +21,7 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	vm2 "github.com/greenboxal/agibootstrap/psidb/core/vm"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
+	`github.com/greenboxal/agibootstrap/psidb/db/journal`
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
 	"github.com/greenboxal/agibootstrap/psidb/services/typing"
@@ -35,7 +36,7 @@ type Core struct {
 	ds   coreapi.DataStore
 	lsys linking.LinkSystem
 
-	journal      *graphfs.Journal
+	journal      *journal.Journal
 	checkpoint   coreapi.Checkpoint
 	virtualGraph *graphfs.VirtualGraph
 
@@ -56,7 +57,7 @@ func NewCore(
 	sp inject.ServiceProvider,
 	cfg *coreapi.Config,
 	ds coreapi.DataStore,
-	journal *graphfs.Journal,
+	journal *journal.Journal,
 	checkpoint coreapi.Checkpoint,
 	blockManager *BlockManager,
 ) (*Core, error) {
@@ -147,6 +148,10 @@ func (c *Core) BeginTransaction(ctx context.Context, options ...coreapi.Transact
 	var opts coreapi.TransactionOptions
 
 	session := coreapi.GetSession(ctx)
+
+	if session != nil {
+		return session.BeginTransaction(ctx, options...)
+	}
 
 	ctx, span := c.tracer.Start(ctx, "Core.BeginTransaction")
 	defer span.End()

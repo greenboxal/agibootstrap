@@ -1,4 +1,4 @@
-package client
+package rtv1
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/jbenet/goprocess"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
+	"github.com/greenboxal/agibootstrap/psidb/client"
 )
 
 var logger = logging.GetLogger("psidb/client")
@@ -15,8 +16,8 @@ var logger = logging.GetLogger("psidb/client")
 type Client struct {
 	mu sync.RWMutex
 
-	transport Transport
-	conn      Connection
+	transport client.Transport
+	conn      client.Connection
 
 	incomingCh chan Message
 	tracker    *RpcResponseTracker
@@ -24,21 +25,21 @@ type Client struct {
 	midCounter atomic.Uint64
 }
 
-func NewClient(transport Transport) *Client {
+func NewClient(transport client.Transport) *Client {
 	return &Client{
 		transport: transport,
 		tracker:   NewRpcResponseTracker(),
 	}
 }
 
-func (c *Client) Connect(ctx context.Context) (Connection, error) {
+func (c *Client) Connect(ctx context.Context) (client.Connection, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	return c.connectUnlocked(ctx)
 }
 
-func (c *Client) getConnection(ctx context.Context) (Connection, error) {
+func (c *Client) getConnection(ctx context.Context) (client.Connection, error) {
 	c.mu.RLock()
 	conn := c.conn
 	c.mu.RUnlock()
@@ -53,7 +54,7 @@ func (c *Client) getConnection(ctx context.Context) (Connection, error) {
 	return conn, nil
 }
 
-func (c *Client) connectUnlocked(ctx context.Context) (Connection, error) {
+func (c *Client) connectUnlocked(ctx context.Context) (client.Connection, error) {
 	if c.conn != nil && c.conn.IsConnected() {
 		return c.conn, nil
 	}

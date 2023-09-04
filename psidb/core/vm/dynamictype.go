@@ -3,9 +3,11 @@ package vm
 import (
 	"context"
 	"fmt"
+	"io"
 	"reflect"
 
 	"github.com/greenboxal/aip/aip-sdk/pkg/utils"
+	"github.com/ipld/go-ipld-prime"
 	"golang.org/x/exp/maps"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
@@ -20,6 +22,23 @@ type dynamicType struct {
 	typ    *typing.Type
 	def    psi.NodeTypeDefinition
 	ifaces map[string]*psi.VTable
+}
+
+func (d *dynamicType) OnAfterNodeLoaded(ctx context.Context, n psi.Node) error {
+	return nil
+}
+
+func (d *dynamicType) OnBeforeNodeSaved(ctx context.Context, n psi.Node) error {
+	return nil
+}
+
+func (d *dynamicType) EncodeNode(w io.Writer, encoder ipld.Encoder, n psi.Node) error {
+	panic("implement me")
+}
+
+func (d *dynamicType) DecodeNode(r io.Reader, decoder ipld.Decoder) (psi.Node, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func NewDynamicType(ctx context.Context, registry *TypeRegistry, definition *typing.Type) (psi.NodeType, error) {

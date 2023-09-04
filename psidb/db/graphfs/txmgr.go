@@ -13,7 +13,7 @@ import (
 
 type TransactionManager struct {
 	logger     *otelzap.SugaredLogger
-	journal    *Journal
+	journal    coreapi.Journal
 	checkpoint coreapi.Checkpoint
 	graph      *VirtualGraph
 
@@ -23,7 +23,7 @@ type TransactionManager struct {
 	closed bool
 }
 
-func NewTransactionManager(graph *VirtualGraph, journal *Journal, checkpoint coreapi.Checkpoint) *TransactionManager {
+func NewTransactionManager(graph *VirtualGraph, journal coreapi.Journal, checkpoint coreapi.Checkpoint) *TransactionManager {
 	return &TransactionManager{
 		logger:             logging.GetLogger("graphfs/transactionManager"),
 		graph:              graph,
@@ -40,7 +40,7 @@ type notificationKey struct {
 }
 
 func (txm *TransactionManager) Recover(ctx context.Context) error {
-	xid, ok, err := txm.checkpoint.Get()
+	lastCheckpointRid, ok, err := txm.checkpoint.Get()
 
 	if err != nil {
 		return err
@@ -50,15 +50,21 @@ func (txm *TransactionManager) Recover(ctx context.Context) error {
 		return nil
 	}
 
-	if xid+1 < txm.journal.nextIndex {
-		txm.logger.Infow("Recovering recent transactions", "from", xid, "to", txm.journal.nextIndex)
+	lastIndex, err := txm.journal.GetHead()
+
+	if err != nil {
+		return err
+	}
+
+	if lastCheckpointRid+1 <= lastIndex {
+		txm.logger.Infow("Recovering recent transactions", "from", lastCheckpointRid, "to", lastIndex)
 	}
 
 	if err != nil {
 		return err
 	}
 
-	it := txm.journal.Iterate(xid+1, -1)
+	it := txm.journal.Iterate(lastCheckpointRid+1, -1)
 
 	notifications := map[notificationKey]*coreapi.JournalEntry{}
 	recoveredTransactions := map[uint64]*Transaction{}
@@ -196,7 +202,7 @@ func (txm *TransactionManager) commitTransaction(ctx context.Context, tx *Transa
 		return nil
 	}
 
-	ctx = WithTransaction(ctx, nil)
+	ctx = coreapi.WithTransaction(ctx, nil)
 
 	if err := txm.graph.applyTransaction(ctx, tx); err != nil {
 		return err

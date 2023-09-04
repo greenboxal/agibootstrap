@@ -159,7 +159,9 @@ func (d *Dispatcher) DispatchTask(task *scheduler.Task) error {
 		sess := coreapi.GetSession(ctx)
 
 		if sess == nil || sess.UUID() != not.SessionID {
-			sess = d.sessionManager.GetOrCreateSession(not.SessionID)
+			sess = d.sessionManager.GetOrCreateSession(coreapi.SessionConfig{
+				SessionID: not.SessionID,
+			})
 
 			ctx = coreapi.WithSession(ctx, sess)
 		}

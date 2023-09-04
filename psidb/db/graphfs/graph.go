@@ -44,7 +44,7 @@ type VirtualGraphListener interface {
 func NewVirtualGraph(
 	lsys *linking.LinkSystem,
 	spb SuperBlockProvider,
-	journal *Journal,
+	journal coreapi.Journal,
 	checkpoint coreapi.Checkpoint,
 	metadataStore datastore.Batching,
 ) (*VirtualGraph, error) {
@@ -222,7 +222,6 @@ func (vg *VirtualGraph) ReadEdge(ctx context.Context, path psi.Path) (*coreapi.S
 
 func (vg *VirtualGraph) ReadEdges(ctx context.Context, path psi.Path) (iterators.Iterator[*coreapi.SerializedEdge], error) {
 	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.ReadEdges")
-	span.SetAttributes(semconv.DBOperation("applyTransaction"))
 	defer span.End()
 
 	nh, err := vg.Open(ctx, path)

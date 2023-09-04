@@ -1,6 +1,8 @@
-package client
+package rtv1
 
-import "sync"
+import (
+	"sync"
+)
 
 type RpcResponse struct {
 	MessageID uint64

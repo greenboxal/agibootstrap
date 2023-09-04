@@ -12,7 +12,6 @@ import (
 )
 
 var providerInstance *ddotel.TracerProvider
-var logger = GetLogger("tracing")
 
 func Initialize() {
 	if os.Getenv("PSIDB_ENABLE_OTEL") != "" {
@@ -56,6 +55,6 @@ func Shutdown() {
 	profiler.Stop()
 
 	if err := providerInstance.Shutdown(); err != nil {
-		logger.Error(err)
+		GetLogger("tracing").Error(err)
 	}
 }

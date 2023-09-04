@@ -1,8 +1,12 @@
 package psi
 
 import (
+	"context"
+	"io"
 	"reflect"
 
+	"github.com/ipld/go-ipld-prime"
+	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
 	"github.com/greenboxal/agibootstrap/pkg/typesystem"
@@ -61,6 +65,12 @@ type NodeType interface {
 	CreateInstance() Node
 	InitializeNode(n Node)
 
+	OnAfterNodeLoaded(ctx context.Context, n Node) error
+	OnBeforeNodeSaved(ctx context.Context, n Node) error
+
+	EncodeNode(w io.Writer, encoder ipld.Encoder, n Node) error
+	DecodeNode(r io.Reader, decoder ipld.Decoder) (Node, error)
+
 	String() string
 
 	Interfaces() []*VTable
@@ -82,6 +92,75 @@ type nodeType struct {
 	vtables map[string]*VTable
 }
 
+func (nt *nodeType) OnBeforeNodeSaved(ctx context.Context, n Node) error {
+	return nil
+}
+
+func (nt *nodeType) OnAfterNodeLoaded(ctx context.Context, n Node) error {
+	nv := reflect.ValueOf(n)
+
+	for nv.Kind() == reflect.Ptr {
+		nv = reflect.Indirect(nv)
+	}
+
+	t := nv.Type()
+
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+
+		tag := f.Tag.Get("psi-edge")
+
+		if tag == "" {
+			continue
+		}
+
+		name, err := ParsePathElement(tag)
+
+		if err != nil {
+			return err
+		}
+
+		fieldTypePtr := f.Type
+
+		if fieldTypePtr.Kind() != reflect.Ptr {
+			fieldTypePtr = reflect.PtrTo(fieldTypePtr)
+		}
+
+		if fieldTypePtr.Implements(mutableNodeReferenceType) {
+			var ref MutableNodeReference
+
+			v := nv.Field(i)
+
+			if v.Type().Kind() == reflect.Ptr {
+				if v.IsNil() {
+					v.Set(reflect.New(v.Type().Elem()))
+				}
+
+				ref = v.Interface().(MutableNodeReference)
+			} else {
+				ref = v.Addr().Interface().(MutableNodeReference)
+			}
+
+			p := n.CanonicalPath().Child(name)
+
+			if err := ref.SetPathReference(ctx, p); err != nil {
+				return err
+			}
+		} else {
+			return errors.New("field does not implement MutableNodeReference")
+		}
+	}
+
+	return nil
+}
+
+type MutableNodeReference interface {
+	SetNodeReference(ctx context.Context, n Node) error
+	SetPathReference(ctx context.Context, p Path) error
+}
+
+var mutableNodeReferenceType = reflect.TypeOf((*MutableNodeReference)(nil)).Elem()
+
 func (nt *nodeType) Name() string                   { return nt.name.FullNameWithArgs() }
 func (nt *nodeType) Type() typesystem.Type          { return nt.typ }
 func (nt *nodeType) TypeName() typesystem.TypeName  { return nt.name }
@@ -101,6 +180,23 @@ func (nt *nodeType) InitializeNode(n Node) {
 	} else if init, ok := n.(baseNodeInitializerWithOptions); ok {
 		init.Init(n, WithNodeType(nt))
 	}
+}
+
+func (nt *nodeType) EncodeNode(w io.Writer, encoder ipld.Encoder, n Node) error {
+	node := typesystem.Wrap(n)
+
+	return ipld.EncodeStreaming(w, node, encoder)
+}
+
+func (nt *nodeType) DecodeNode(r io.Reader, decoder ipld.Decoder) (Node, error) {
+	proto := nt.Type().IpldPrototype()
+	node, err := ipld.DecodeStreamingUsingPrototype(r, decoder, proto)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return typesystem.Unwrap(node).(Node), nil
 }
 
 type baseNodeInitializer interface {

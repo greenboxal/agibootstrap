@@ -1,7 +1,8 @@
-package client
+package rtv1
 
 import (
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/client"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
@@ -72,7 +73,7 @@ type ReadEdgesResponse struct {
 type PushFrameRequest struct {
 	MessageHeader
 
-	Frame *Frame `json:"frame"`
+	Frame *client.Frame `json:"frame"`
 }
 
 type PushFrameResponse struct {

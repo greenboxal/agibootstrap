@@ -8,7 +8,7 @@ import (
 type SessionManager interface {
 	CreateSession() Session
 	GetSession(id string) Session
-	GetOrCreateSession(id string) Session
+	GetOrCreateSession(id SessionConfig) Session
 }
 
 type SessionClient interface {

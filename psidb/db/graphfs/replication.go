@@ -70,7 +70,7 @@ type replicationSlot struct {
 	mu sync.RWMutex
 
 	vg      *VirtualGraph
-	journal *Journal
+	journal coreapi.Journal
 	options coreapi.ReplicationSlotOptions
 
 	lastLsn uint64
@@ -81,7 +81,7 @@ type replicationSlot struct {
 	recoveredTransactions map[uint64]*Transaction
 }
 
-func newReplicationSlot(vg *VirtualGraph, journal *Journal, options coreapi.ReplicationSlotOptions) *replicationSlot {
+func newReplicationSlot(vg *VirtualGraph, journal coreapi.Journal, options coreapi.ReplicationSlotOptions) *replicationSlot {
 	return &replicationSlot{
 		vg:      vg,
 		journal: journal,

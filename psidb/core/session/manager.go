@@ -9,8 +9,9 @@ import (
 )
 
 type Manager struct {
-	mu       sync.RWMutex
-	core     coreapi.Core
+	mu   sync.RWMutex
+	core coreapi.Core
+
 	sessions map[string]*Session
 }
 
@@ -25,7 +26,7 @@ func (m *Manager) CreateSession() coreapi.Session {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return m.createSessionUnlocked(uuid.NewString())
+	return m.createSessionUnlocked(coreapi.SessionConfig{SessionID: uuid.NewString()})
 }
 
 func (m *Manager) GetSession(id string) coreapi.Session {
@@ -42,7 +43,9 @@ func (m *Manager) onSessionFinish(s *Session) {
 	delete(m.sessions, s.UUID())
 }
 
-func (m *Manager) GetOrCreateSession(id string) coreapi.Session {
+func (m *Manager) GetOrCreateSession(cfg coreapi.SessionConfig) coreapi.Session {
+	id := cfg.SessionID
+
 	if id == "" {
 		return nil
 	}
@@ -54,11 +57,11 @@ func (m *Manager) GetOrCreateSession(id string) coreapi.Session {
 		return s
 	}
 
-	return m.createSessionUnlocked(id)
+	return m.createSessionUnlocked(cfg)
 }
 
-func (m *Manager) createSessionUnlocked(id string) coreapi.Session {
-	sess := NewSession(m, id)
+func (m *Manager) createSessionUnlocked(cfg coreapi.SessionConfig) coreapi.Session {
+	sess := NewSession(m, nil, cfg)
 
 	m.sessions[sess.UUID()] = sess
 

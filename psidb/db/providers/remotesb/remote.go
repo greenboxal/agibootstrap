@@ -8,6 +8,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/apis/rt/v1"
 	"github.com/greenboxal/agibootstrap/psidb/client"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
@@ -86,7 +87,7 @@ func (sb *RemoteSuperBlock) Create(ctx context.Context, self *graphfs.CacheEntry
 }
 
 func (sb *RemoteSuperBlock) Lookup(ctx context.Context, self *graphfs.INode, dentry *graphfs.CacheEntry) (*graphfs.CacheEntry, error) {
-	res, err := sb.driver.LookupNode(ctx, &client.LookupNodeRequest{
+	res, err := sb.driver.LookupNode(ctx, &v1.LookupNodeRequest{
 		Inode: self.ID(),
 		Path:  dentry.Path(),
 	})
@@ -108,7 +109,7 @@ func (sb *RemoteSuperBlock) Unlink(ctx context.Context, self *graphfs.INode, den
 }
 
 func (sb *RemoteSuperBlock) Read(ctx context.Context, nh graphfs.NodeHandle) (*coreapi.SerializedNode, error) {
-	res, err := sb.driver.ReadNode(ctx, &client.ReadNodeRequest{
+	res, err := sb.driver.ReadNode(ctx, &v1.ReadNodeRequest{
 		Inode: nh.Inode().ID(),
 		Path:  nh.Entry().Path(),
 	})
@@ -133,7 +134,7 @@ func (sb *RemoteSuperBlock) RemoveEdge(ctx context.Context, nh graphfs.NodeHandl
 }
 
 func (sb *RemoteSuperBlock) ReadEdge(ctx context.Context, nh graphfs.NodeHandle, key psi.EdgeKey) (*coreapi.SerializedEdge, error) {
-	res, err := sb.driver.ReadEdge(ctx, &client.ReadEdgeRequest{
+	res, err := sb.driver.ReadEdge(ctx, &v1.ReadEdgeRequest{
 		ParentInode: nh.Inode().ID(),
 		Path:        nh.Entry().Path(),
 	})
@@ -146,7 +147,7 @@ func (sb *RemoteSuperBlock) ReadEdge(ctx context.Context, nh graphfs.NodeHandle,
 }
 
 func (sb *RemoteSuperBlock) ReadEdges(ctx context.Context, nh graphfs.NodeHandle) (iterators.Iterator[*coreapi.SerializedEdge], error) {
-	res, err := sb.driver.ReadEdgesStream(ctx, &client.ReadEdgesRequest{
+	res, err := sb.driver.ReadEdgesStream(ctx, &v1.ReadEdgesRequest{
 		Inode: nh.Inode().ID(),
 		Path:  nh.Entry().Path(),
 	})
@@ -155,7 +156,7 @@ func (sb *RemoteSuperBlock) ReadEdges(ctx context.Context, nh graphfs.NodeHandle
 		return nil, err
 	}
 
-	it := iterators.FlatMap(res, func(t *client.ReadEdgesResponse) iterators.Iterator[*coreapi.SerializedEdge] {
+	it := iterators.FlatMap(res, func(t *v1.ReadEdgesResponse) iterators.Iterator[*coreapi.SerializedEdge] {
 		return iterators.FromSlice(t.Data)
 	})
 

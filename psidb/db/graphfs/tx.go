@@ -16,7 +16,7 @@ import (
 
 type Transaction struct {
 	mu      sync.Mutex
-	journal *Journal
+	journal coreapi.Journal
 	txm     *TransactionManager
 	xid     uint64
 	log     []*coreapi.JournalEntry
@@ -206,16 +206,4 @@ func (tx *Transaction) getStagedNode(ino int64) *txNode {
 	tx.dirtyNodes[ino] = n
 
 	return n
-}
-
-var ctxKeyTransaction = &struct{}{}
-
-func WithTransaction(ctx context.Context, tx *Transaction) context.Context {
-	return context.WithValue(ctx, ctxKeyTransaction, tx)
-}
-
-func GetTransaction(ctx context.Context) *Transaction {
-	tx, _ := ctx.Value(ctxKeyTransaction).(*Transaction)
-
-	return tx
 }

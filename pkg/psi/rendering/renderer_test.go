@@ -10,7 +10,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/greenboxal/agibootstrap/pkg/langs/golang"
+	"github.com/greenboxal/agibootstrap/pkg/psi/langs/golang"
 
 	"github.com/greenboxal/agibootstrap/pkg/legacy/codex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
