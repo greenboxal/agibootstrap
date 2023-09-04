@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"net/http"
 	"sync/atomic"
 	"time"
 
@@ -34,9 +35,12 @@ const (
 type Client struct {
 	handler *Handler
 	conn    *websocket.Conn
+	proc    goprocess.Process
 
 	midCounter atomic.Uint64
+
 	outgoingCh chan []byte
+	stopCh     chan struct{}
 
 	subscriptions map[string]*pubsub.Subscription
 
@@ -51,6 +55,7 @@ func NewClient(
 		conn:          conn,
 		handler:       handler,
 		outgoingCh:    make(chan []byte, 256),
+		stopCh:        make(chan struct{}),
 		subscriptions: map[string]*pubsub.Subscription{},
 	}
 }
@@ -70,7 +75,12 @@ func (c *Client) SendMessage(msg *Message) error {
 }
 
 func (c *Client) SendSessionMessage(sessionId string, msg coreapi.SessionMessage) error {
+	hdr := msg.SessionMessageHeader()
+	hdr.SessionID = sessionId
+	msg.SetSessionMessageHeader(hdr)
+
 	return c.SendMessage(&Message{
+		ReplyTo: hdr.ReplyToID,
 		Session: &SessionMessage{
 			SessionID: sessionId,
 			Message:   msg,
@@ -79,31 +89,49 @@ func (c *Client) SendSessionMessage(sessionId string, msg coreapi.SessionMessage
 }
 
 func (c *Client) handleSession(msg Message) error {
-	if _, ok := msg.Session.Message.(coreapi.SessionMessageOpen); ok {
-		if c.session == nil {
-			if msg.Session.SessionID == "" {
-				msg.Session.SessionID = uuid.NewString()
+	msg.Session.Message.SetSessionMessageHeader(coreapi.SessionMessageHeader{
+		SessionID: msg.Session.SessionID,
+		MessageID: msg.Mid,
+		ReplyToID: msg.ReplyTo,
+	})
+
+	if m, ok := msg.Session.Message.(*coreapi.SessionMessageOpen); ok {
+		if c.session != nil {
+			if c.session.UUID() != msg.Session.SessionID {
+				return c.SendMessage(&Message{
+					ReplyTo: msg.Mid,
+					Nack:    &NackMessage{},
+				})
 			}
-
-			sess := c.handler.sessionManager.GetOrCreateSession(coreapi.SessionConfig{
-				SessionID: msg.Session.SessionID,
-			})
-
-			sess.AttachClient(c)
-
-			c.session = sess
 		}
 
-		return c.SendMessage(&Message{
-			ReplyTo: msg.Mid,
-			Ack:     &AckMessage{},
-			Session: &SessionMessage{
-				SessionID: c.session.UUID(),
-				Message: coreapi.SessionMessageKeepAlive{
-					Timestamp: time.Now().UnixNano(),
-				},
-			},
-		})
+		if msg.Session.SessionID == "" && m.Config.SessionID != "" {
+			msg.Session.SessionID = m.Config.SessionID
+		} else if msg.Session.SessionID != "" && m.Config.SessionID == "" {
+			m.Config.SessionID = msg.Session.SessionID
+		}
+
+		if (m.Config.KeepAliveTimeout == 0 && m.Config.Deadline.IsZero()) && !m.Config.Persistent {
+			m.Config.KeepAliveTimeout = 30 * time.Second
+		}
+
+		if msg.Session.SessionID != m.Config.SessionID {
+			return c.SendMessage(&Message{
+				ReplyTo: msg.Mid,
+				Nack:    &NackMessage{},
+			})
+		}
+
+		if msg.Session.SessionID == "" {
+			m.Config.SessionID = uuid.NewString()
+			msg.Session.SessionID = m.Config.SessionID
+		}
+
+		sess := c.handler.sessionManager.GetOrCreateSession(m.Config)
+
+		sess.AttachClient(c)
+
+		c.session = sess
 	}
 
 	if c.session == nil {
@@ -193,6 +221,13 @@ func (c *Client) handleMessage(message []byte) error {
 }
 
 func (c *Client) readPump(proc goprocess.Process) {
+	defer func() {
+		if c.outgoingCh != nil {
+			close(c.outgoingCh)
+			c.outgoingCh = nil
+		}
+	}()
+
 	c.conn.SetReadLimit(maxMessageSize)
 
 	if err := c.conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
@@ -204,6 +239,14 @@ func (c *Client) readPump(proc goprocess.Process) {
 	})
 
 	for {
+		select {
+		case _, _ = <-proc.Closing():
+			return
+		case _, _ = <-c.stopCh:
+			return
+		default:
+		}
+
 		_, message, err := c.conn.ReadMessage()
 
 		if err != nil {
@@ -211,40 +254,47 @@ func (c *Client) readPump(proc goprocess.Process) {
 				c.handler.logger.Error(err)
 			}
 
-			break
+			return
+		}
+
+		select {
+		case _, _ = <-proc.Closing():
+			return
+		case _, _ = <-c.stopCh:
+			return
+		default:
 		}
 
 		if err := c.handleMessage(message); err != nil {
 			c.handler.logger.Error(err)
-
-			break
 		}
 	}
 }
 
 func (c *Client) writePump(proc goprocess.Process) {
-	ticker := time.NewTicker(pingPeriod)
-
 	defer func() {
-		ticker.Stop()
-
-		_ = c.conn.Close()
-
-		if c.session != nil {
-			c.session.DetachClient(c)
-			c.session = nil
+		if c.stopCh != nil {
+			close(c.stopCh)
+			c.stopCh = nil
 		}
 	}()
 
+	ticker := time.NewTicker(pingPeriod)
+	defer ticker.Stop()
+
 	for {
 		select {
+		case _, _ = <-proc.Closing():
+			return
+		case _, _ = <-c.stopCh:
+			return
 		case message, ok := <-c.outgoingCh:
-			if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
-				c.handler.logger.Error(err)
+			if !ok {
 				return
 			}
 
-			if !ok {
+			if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+				c.handler.logger.Error(err)
 				return
 			}
 
@@ -275,7 +325,45 @@ func (c *Client) writePump(proc goprocess.Process) {
 }
 
 func (c *Client) Close() error {
-	close(c.outgoingCh)
+	if c.outgoingCh != nil {
+		close(c.outgoingCh)
+		c.outgoingCh = nil
+	}
 
-	return c.conn.Close()
+	if c.proc != nil {
+		if err := c.proc.Close(); err != nil {
+			return nil
+		}
+	}
+
+	return nil
+}
+
+func (c *Client) teardown() error {
+	if c.session != nil {
+		c.session.DetachClient(c)
+		c.session = nil
+	}
+
+	if err := c.conn.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Client) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	c.proc = goprocess.Go(func(proc goprocess.Process) {
+		proc.SetTeardown(c.teardown)
+
+		proc.WaitFor(proc.Go(c.writePump))
+		proc.WaitFor(proc.Go(c.readPump))
+
+		select {
+		case _, _ = <-proc.Closing():
+			return
+		case _, _ = <-c.stopCh:
+			return
+		}
+	})
 }

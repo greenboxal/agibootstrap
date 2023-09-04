@@ -5,20 +5,20 @@ import (
 	"sync"
 	"time"
 
-	`github.com/go-errors/errors`
-	`github.com/ipld/go-ipld-prime/linking`
+	"github.com/go-errors/errors"
+	"github.com/ipld/go-ipld-prime/linking"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/uptrace/opentelemetry-go-extra/otelzap"
-	`golang.org/x/exp/slices`
+	"golang.org/x/exp/slices"
 
-	`github.com/greenboxal/agibootstrap/pkg/platform/inject`
+	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
-	vm `github.com/greenboxal/agibootstrap/psidb/core/vm`
-	`github.com/greenboxal/agibootstrap/psidb/db/graphfs`
-	`github.com/greenboxal/agibootstrap/psidb/db/online`
-	`github.com/greenboxal/agibootstrap/psidb/services/typing`
+	vm "github.com/greenboxal/agibootstrap/psidb/core/vm"
+	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
+	"github.com/greenboxal/agibootstrap/psidb/db/online"
+	"github.com/greenboxal/agibootstrap/psidb/services/typing"
 )
 
 type SessionStatus int
@@ -185,8 +185,10 @@ func (sess *Session) Run(proc goprocess.Process) {
 	}
 
 	if sess.parent != nil {
-		sess.parent.ReceiveMessage(sessionMessageChildForked{child: sess})
+		sess.parent.ReceiveMessage(&sessionMessageChildForked{child: sess})
 	}
+
+	sess.manager.onSessionStarted(sess)
 
 	sess.status = SessionStateActive
 	close(sess.readyCh)
@@ -224,10 +226,10 @@ func (sess *Session) processMessage(ctx context.Context, msg coreapi.SessionMess
 	sess.lastKeepAlive = time.Now()
 
 	switch msg := msg.(type) {
-	case coreapi.SessionMessageKeepAlive:
+	case *coreapi.SessionMessageKeepAlive:
 		return nil
 
-	case sessionMessageChildForked:
+	case *sessionMessageChildForked:
 		for _, child := range sess.children {
 			if child.UUID() == msg.child.UUID() {
 				return nil
@@ -238,7 +240,7 @@ func (sess *Session) processMessage(ctx context.Context, msg coreapi.SessionMess
 
 		return nil
 
-	case sessionMessageChildFinished:
+	case *sessionMessageChildFinished:
 		idx := slices.Index(sess.children, msg.child)
 
 		if idx != -1 {
@@ -251,8 +253,15 @@ func (sess *Session) processMessage(ctx context.Context, msg coreapi.SessionMess
 
 		return nil
 
-	case coreapi.SessionMessageShutdown:
+	case *coreapi.SessionMessageShutdown:
 		sess.RequestShutdown()
+
+		return nil
+
+	case *coreapi.SessionMessageOpen:
+		sess.SendReply(msg, &coreapi.SessionMessageOpen{
+			Config: sess.config,
+		})
 
 		return nil
 
@@ -275,7 +284,7 @@ func (sess *Session) teardown(ctx context.Context) error {
 	sess.status = SessionStateClosed
 
 	if sess.parent != nil {
-		sess.parent.ReceiveMessage(sessionMessageChildFinished{child: sess})
+		sess.parent.ReceiveMessage(&sessionMessageChildFinished{child: sess})
 	}
 
 	return nil

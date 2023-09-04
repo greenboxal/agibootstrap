@@ -107,7 +107,7 @@ func (t *Trace) dispatchChunk(chunk StreamingTraceChunk) {
 
 	chunk.TraceID = t.TraceID
 
-	t.sess.SendMessage(SessionMessageGPTraceChunk{
+	t.sess.SendMessage(&SessionMessageGPTraceChunk{
 		Chunk: chunk,
 	})
 }
@@ -117,7 +117,7 @@ func (t *Trace) onTraceFinished() {
 		return
 	}
 
-	t.sess.SendMessage(SessionMessageGPTrace{
+	t.sess.SendMessage(&SessionMessageGPTrace{
 		Trace: *t,
 	})
 }
@@ -141,11 +141,12 @@ func (t *Trace) ConsumeOpenAI(chunk openai2.ChatCompletionStreamResponse) {
 }
 
 type SessionMessageGPTraceChunk struct {
+	coreapi.SessionMessageBase
+
 	Chunk StreamingTraceChunk `json:"chunk"`
 }
 type SessionMessageGPTrace struct {
+	coreapi.SessionMessageBase
+
 	Trace Trace `json:"trace"`
 }
-
-func (sm SessionMessageGPTraceChunk) SessionMessageMarker() {}
-func (sm SessionMessageGPTrace) SessionMessageMarker()      {}

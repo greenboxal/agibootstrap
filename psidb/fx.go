@@ -6,7 +6,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/api/apimachinery"
-	`github.com/greenboxal/agibootstrap/pkg/platform/inject`
+	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	mgmtv1 "github.com/greenboxal/agibootstrap/psidb/apis/mgmt/v1"
 	openaiv1 "github.com/greenboxal/agibootstrap/psidb/apis/openai/v1"
@@ -56,6 +56,7 @@ var BaseModules = fx.Options(
 	chat.Module,
 	agents.Module,
 
+	//fuse.Module,
 	ws.Module,
 	rpc.Module,
 	rpcv1.Module,

@@ -36,20 +36,6 @@ var viewDefinitions = []NodeViewDefinition{
 			return ipld.EncodeStreaming(w, typesystem.Wrap(n), dagjson.Encode)
 		},
 	},
-
-	{
-		Name: "!snapshot.json",
-
-		Prepare: func(ctx context.Context, w io.Writer, n psi.Node) error {
-			snap := psi.GetNodeSnapshot(n)
-
-			if snap == nil {
-				return nil
-			}
-
-			return ipld.EncodeStreaming(w, typesystem.Wrap(snap.FrozenNode()), dagjson.Encode)
-		},
-	},
 }
 
 var viewDefinitionsMap = iterators.ToMap(iterators.Map(iterators.FromSlice(viewDefinitions), func(def NodeViewDefinition) iterators.KeyValue[string, *NodeViewDefinition] {

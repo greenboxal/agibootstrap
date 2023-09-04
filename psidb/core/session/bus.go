@@ -1,13 +1,13 @@
 package session
 
 import (
-	`sync`
+	"sync"
 
-	`github.com/jbenet/goprocess`
-	`golang.org/x/exp/slices`
-	`golang.org/x/sync/errgroup`
+	"github.com/jbenet/goprocess"
+	"golang.org/x/exp/slices"
+	"golang.org/x/sync/errgroup"
 
-	coreapi `github.com/greenboxal/agibootstrap/psidb/core/api`
+	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
 type BusConnection interface {
@@ -40,6 +40,15 @@ func (conn *BusConnectionBase) ReceiveMessage(m coreapi.SessionMessage) {
 
 func (conn *BusConnectionBase) SendMessage(m coreapi.SessionMessage) {
 	conn.OutgoingMessageCh <- m
+}
+
+func (conn *BusConnectionBase) SendReply(msg coreapi.SessionMessage, reply coreapi.SessionMessage) {
+	srcHdr := msg.SessionMessageHeader()
+	dstHdr := reply.SessionMessageHeader()
+	dstHdr.ReplyToID = srcHdr.MessageID
+	reply.SetSessionMessageHeader(dstHdr)
+
+	conn.SendMessage(reply)
 }
 
 type ClientBusConnection struct {

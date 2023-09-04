@@ -1,13 +1,11 @@
 package session
 
 import (
-	`context`
 	"sync"
 
 	"github.com/google/uuid"
 
 	`github.com/greenboxal/agibootstrap/pkg/platform/inject`
-	`github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators`
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
@@ -28,49 +26,42 @@ func NewManager(core coreapi.Core, srm *inject.ServiceRegistrationManager) corea
 	}
 }
 
-func (m *Manager) CreateSession() coreapi.Session {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (sm *Manager) CreateSession() coreapi.Session {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 
-	return m.createSessionUnlocked(coreapi.SessionConfig{SessionID: uuid.NewString()})
+	return sm.createSessionUnlocked(coreapi.SessionConfig{SessionID: uuid.NewString()})
 }
 
-func (m *Manager) GetSession(id string) coreapi.Session {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+func (sm *Manager) GetSession(id string) coreapi.Session {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
 
-	return m.sessions[id]
+	return sm.sessions[id]
 }
 
-func (m *Manager) onSessionFinish(s *Session) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	delete(m.sessions, s.UUID())
-}
-
-func (m *Manager) GetOrCreateSession(cfg coreapi.SessionConfig) coreapi.Session {
+func (sm *Manager) GetOrCreateSession(cfg coreapi.SessionConfig) coreapi.Session {
 	id := cfg.SessionID
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 
-	if s := m.sessions[id]; s != nil {
+	if s := sm.sessions[id]; s != nil {
 		return s
 	}
 
-	if id == "" && len(m.sessions) > 0 {
+	if id == "" && len(sm.sessions) > 0 {
 		return nil
 	}
 
-	return m.createSessionUnlocked(cfg)
+	return sm.createSessionUnlocked(cfg)
 }
 
-func (m *Manager) createSessionUnlocked(cfg coreapi.SessionConfig) coreapi.Session {
+func (sm *Manager) createSessionUnlocked(cfg coreapi.SessionConfig) coreapi.Session {
 	var sess, parent *Session
 
 	if cfg.ParentSessionID != cfg.SessionID {
-		parent = m.sessions[cfg.ParentSessionID]
+		parent = sm.sessions[cfg.ParentSessionID]
 	}
 
 	if parent != nil {
@@ -81,56 +72,39 @@ func (m *Manager) createSessionUnlocked(cfg coreapi.SessionConfig) coreapi.Sessi
 
 		sess = parent.Fork(cfg).(*Session)
 	} else {
-		sess = NewSession(m, nil, cfg)
+		sess = NewSession(sm, nil, cfg)
 	}
 
-	m.sessions[sess.UUID()] = sess
+	sm.sessions[sess.UUID()] = sess
 
 	return sess
 }
 
-type sessionFramer struct {
-	mu      sync.RWMutex
-	head    uint64
-	records []coreapi.JournalEntry
+func (sm *Manager) onSessionStarted(sess *Session) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	sm.sessions[sess.UUID()] = sess
+
+	parentId := ""
+
+	if sess.parent != nil {
+		parentId = sess.parent.UUID()
+	}
+
+	sess.logger.Infow("Session started", "session_id", sess.UUID(), "parent_session_id", parentId)
 }
 
-func (s *sessionFramer) GetHead() (uint64, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+func (sm *Manager) onSessionFinish(sess *Session) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 
-	return s.head, nil
-}
+	delete(sm.sessions, sess.UUID())
+	parentId := ""
 
-func (s *sessionFramer) Iterate(startIndex uint64, count int) iterators.Iterator[coreapi.JournalEntry] {
-	return iterators.FromSlice(s.records[startIndex-1 : startIndex+uint64(count)-1])
-}
+	if sess.parent != nil {
+		parentId = sess.parent.UUID()
+	}
 
-func (s *sessionFramer) Read(index uint64, dst *coreapi.JournalEntry) (*coreapi.JournalEntry, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	*dst = s.records[index-1]
-
-	return dst, nil
-}
-
-func (s *sessionFramer) Write(op *coreapi.JournalEntry) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.head++
-
-	op.Rid = s.head
-	s.records = append(s.records, *op)
-
-	return nil
-}
-
-func (s *sessionFramer) Close() error {
-	return nil
-}
-
-func (s *sessionFramer) CreateJournal(ctx context.Context) (coreapi.Journal, error) {
-	return s, nil
+	sess.logger.Infow("Session closed", "session_id", sess.UUID(), "parent_session_id", parentId)
 }

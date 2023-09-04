@@ -6,9 +6,8 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/pkg/errors"
+	`github.com/pkg/errors`
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
@@ -20,8 +19,6 @@ type psiNodeDir struct {
 	core coreapi.Core
 	path psi.Path
 }
-
-var logger = logging.GetLogger("psifuse")
 
 func NewPsiNodeDir(
 	core coreapi.Core,
@@ -187,7 +184,7 @@ func (pn *psiNodeDir) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno)
 	return fs.NewListDirStream(iterators.ToSlice(all)), 0
 }
 
-func (pn *psiNodeDir) lookupNode(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+func (pn *psiNodeDir) lookupNode(ctx context.Context, name string, out *fuse.EntryOut) (child *fs.Inode, errno syscall.Errno) {
 	p, err := psi.ParsePathElement(name)
 
 	if err != nil {
@@ -196,24 +193,35 @@ func (pn *psiNodeDir) lookupNode(ctx context.Context, name string, out *fuse.Ent
 	}
 
 	path := pn.path.Child(p)
-	n, err := pn.g.ResolveNode(ctx, path)
 
-	if err != nil {
-		if !errors.Is(err, psi.ErrNodeNotFound) {
-			logger.Errorw("failed to resolve node", "path", path, "err", err)
+	err = pn.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
+		n, err := tx.Resolve(ctx, path)
+
+		if err != nil {
+			if !errors.Is(err, psi.ErrNodeNotFound) {
+				logger.Errorw("failed to resolve node", "path", path, "err", err)
+			}
+
+			return syscall.ENOENT
 		}
 
-		return nil, syscall.ENOENT
+		stable := fs.StableAttr{
+			Mode: fuse.S_IFDIR,
+			Ino:  0x8100000000000000 | uint64(n.ID()),
+		}
+
+		operations := NewPsiNodeDir(pn.core, path)
+
+		child = pn.NewInode(ctx, operations, stable)
+
+		return nil
+	})
+
+	if errors.As(err, &errno) {
+		return nil, errno
+	} else if err != nil {
+		return nil, syscall.EIO
 	}
-
-	stable := fs.StableAttr{
-		Mode: fuse.S_IFDIR,
-		Ino:  0x8100000000000000 | uint64(n.ID()),
-	}
-
-	operations := NewPsiNodeDir(pn.g, path)
-
-	child := pn.NewInode(ctx, operations, stable)
 
 	return child, 0
 }

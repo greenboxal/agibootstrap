@@ -53,6 +53,7 @@ func main() {
 		}),
 
 		fx.Invoke(func(server *apimachinery.Server) {}),
+		//fx.Invoke(func(server *fuse.Manager) {}),
 
 		fx.Invoke(func(wrk *workspace.Workspace) {
 		}),

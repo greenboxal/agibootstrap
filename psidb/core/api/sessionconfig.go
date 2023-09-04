@@ -1,15 +1,15 @@
 package coreapi
 
 import (
-	`context`
-	`time`
+	"context"
+	"time"
 
-	`github.com/greenboxal/agibootstrap/pkg/psi`
+	"github.com/greenboxal/agibootstrap/pkg/psi"
 )
 
 type SessionConfig struct {
 	SessionID       string `json:"session_id"`
-	ParentSessionID string `json:"parent_session_id"`
+	ParentSessionID string `json:"parent_session_id,omitempty"`
 
 	Root          psi.Path            `json:"root"`
 	Journal       JournalConfig       `json:"journal"`

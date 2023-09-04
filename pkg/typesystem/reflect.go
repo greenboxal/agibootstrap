@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"strings"
 
-	`github.com/iancoleman/orderedmap`
+	"github.com/iancoleman/orderedmap"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
@@ -182,10 +182,10 @@ func (st *structType) initialize(ts *TypeSystem) {
 			name := f.Name
 			taggedName := ""
 			tag, hasTag := f.Tag.Lookup("json")
+			tagParts := strings.Split(tag, ",")
 
 			if hasTag {
-				parts := strings.Split(tag, ",")
-				taggedName = parts[0]
+				taggedName = tagParts[0]
 			}
 
 			if taggedName == "-" {
@@ -207,11 +207,16 @@ func (st *structType) initialize(ts *TypeSystem) {
 				}
 			}
 
+			nullable := directKind == reflect.Ptr || directKind == reflect.Interface
+			optional := nullable || hasTag && slices.Contains(tagParts, "omitempty")
+
 			fld := &reflectedField{
 				fieldBase: fieldBase{
 					declaringType: st,
 					name:          name,
 					typ:           ts.LookupByType(f.Type),
+					nullable:      nullable,
+					optional:      optional,
 				},
 
 				runtimeField: patchedField,
@@ -229,18 +234,22 @@ func (st *structType) initialize(ts *TypeSystem) {
 	st.jsonSchema.Properties = orderedmap.New()
 
 	for i, f := range st.fields {
-		k := f.Type().RuntimeType().Kind()
-		nullable := k == reflect.Ptr || k == reflect.Interface
+		if f.IsVirtual() {
+			continue
+		}
 
 		ipldFields[i] = schema.SpawnStructField(
 			f.Name(),
 			f.Type().IpldType().Name(),
-			nullable,
-			nullable,
+			f.IsOptional(),
+			f.IsNullable(),
 		)
 
 		st.jsonSchema.Properties.Set(f.Name(), f.Type().JsonSchema())
-		st.jsonSchema.Required = append(st.jsonSchema.Required, f.Name())
+
+		if !f.IsOptional() {
+			st.jsonSchema.Required = append(st.jsonSchema.Required, f.Name())
+		}
 	}
 
 	var repr schema.StructRepresentation

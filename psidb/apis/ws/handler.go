@@ -5,8 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"github.com/jbenet/goprocess"
-	`github.com/uptrace/opentelemetry-go-extra/otelzap`
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
@@ -54,6 +53,5 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	client := NewClient(h, conn)
 
-	goprocess.Go(client.writePump)
-	goprocess.Go(client.readPump)
+	client.ServeHTTP(writer, request)
 }

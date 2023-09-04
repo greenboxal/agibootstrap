@@ -53,6 +53,8 @@ type Field interface {
 	Type() Type
 	DeclaringType() StructType
 	IsVirtual() bool
+	IsNullable() bool
+	IsOptional() bool
 
 	Resolve(v Value) Value
 }

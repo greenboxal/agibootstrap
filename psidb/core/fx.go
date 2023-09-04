@@ -49,4 +49,6 @@ var Module = fx.Module(
 
 	inject.WithRegisteredService[coreapi.Core](inject.ServiceRegistrationScopeSingleton),
 	inject.WithRegisteredService[*coreapi.Config](inject.ServiceRegistrationScopeSingleton),
+
+	fx.Invoke(func(dispatcher *Dispatcher) {}),
 )
