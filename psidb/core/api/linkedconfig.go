@@ -13,8 +13,7 @@ type LinkedStoreConfig interface {
 	CreateLinkedStore(ctx context.Context, store MetadataStore) (linking.LinkSystem, error)
 }
 
-type BadgerLinkedStoreConfig struct {
-}
+type BadgerLinkedStoreConfig struct{}
 
 func (b BadgerLinkedStoreConfig) CreateLinkedStore(ctx context.Context, store MetadataStore) (linking.LinkSystem, error) {
 	dsa := &dsadapter.Adapter{

@@ -14,7 +14,5 @@ var Module = fx.Module(
 
 	fx.Provide(vfs.NewManager),
 
-	fx.Invoke(func(sp inject.ServiceProvider, m *vfs.Manager) {
-		inject.RegisterInstance(sp, m)
-	}),
+	inject.WithRegisteredService[*vfs.Manager](inject.ServiceRegistrationScopeSingleton),
 )

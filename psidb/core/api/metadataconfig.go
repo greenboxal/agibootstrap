@@ -12,6 +12,18 @@ type MetadataStoreConfig interface {
 	CreateMetadataStore(ctx context.Context) (MetadataStore, error)
 }
 
+type ExistingMetadataStore struct {
+	MetadataStore
+}
+
+func (e ExistingMetadataStore) CreateMetadataStore(ctx context.Context) (MetadataStore, error) {
+	return e, nil
+}
+
+func (e ExistingMetadataStore) Close() error {
+	return nil
+}
+
 type BadgerMetadataStoreConfig struct {
 	Path string `json:"path"`
 }

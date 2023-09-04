@@ -7,8 +7,8 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/db/adapters/psidsadapter"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
-	"github.com/greenboxal/agibootstrap/psidb/db/providers/psidsadapter"
 )
 
 func NewBlockManager(

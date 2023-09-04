@@ -17,7 +17,5 @@ var Module = fx.Module(
 
 	fx.Provide(NewManager),
 
-	fx.Invoke(func(sp inject.ServiceProvider, m coreapi.SessionManager) {
-		inject.RegisterInstance(sp, m)
-	}),
+	inject.WithRegisteredService[coreapi.SessionManager](inject.ServiceRegistrationScopeSingleton),
 )

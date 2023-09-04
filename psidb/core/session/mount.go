@@ -8,21 +8,21 @@ import (
 	`github.com/greenboxal/agibootstrap/psidb/db/graphfs`
 )
 
-type BlockManager struct {
+type MountManager struct {
 	mu sync.RWMutex
 
 	mountTab     map[string]coreapi.MountDefinition
 	activeMounts map[string]graphfs.SuperBlock
 }
 
-func NewBlockManager() *BlockManager {
-	return &BlockManager{
+func NewBlockManager() *MountManager {
+	return &MountManager{
 		mountTab:     map[string]coreapi.MountDefinition{},
 		activeMounts: map[string]graphfs.SuperBlock{},
 	}
 }
 
-func (m *BlockManager) Resolve(ctx context.Context, uuid string) (graphfs.SuperBlock, error) {
+func (m *MountManager) Resolve(ctx context.Context, uuid string) (graphfs.SuperBlock, error) {
 	m.mu.RLock()
 
 	if sb := m.activeMounts[uuid]; sb != nil {
@@ -40,21 +40,21 @@ func (m *BlockManager) Resolve(ctx context.Context, uuid string) (graphfs.SuperB
 	return nil, nil
 }
 
-func (m *BlockManager) RegisterMountDefinition(md coreapi.MountDefinition) {
+func (m *MountManager) RegisterMountDefinition(md coreapi.MountDefinition) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.mountTab[md.Name] = md
 }
 
-func (m *BlockManager) RegisterSuperBlock(name string, sb graphfs.SuperBlock) {
+func (m *MountManager) RegisterSuperBlock(name string, sb graphfs.SuperBlock) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.activeMounts[name] = sb
 }
 
-func (m *BlockManager) Mount(ctx context.Context, md coreapi.MountDefinition) (graphfs.SuperBlock, error) {
+func (m *MountManager) Mount(ctx context.Context, md coreapi.MountDefinition) (graphfs.SuperBlock, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -77,7 +77,7 @@ func (m *BlockManager) Mount(ctx context.Context, md coreapi.MountDefinition) (g
 	return sb, nil
 }
 
-func (m *BlockManager) Unmount(ctx context.Context, sb graphfs.SuperBlock) error {
+func (m *MountManager) Unmount(ctx context.Context, sb graphfs.SuperBlock) error {
 	uuid := sb.UUID()
 
 	m.mu.RLock()
@@ -104,7 +104,7 @@ func (m *BlockManager) Unmount(ctx context.Context, sb graphfs.SuperBlock) error
 	return nil
 }
 
-func (m *BlockManager) UnmountAll(ctx context.Context) error {
+func (m *MountManager) UnmountAll(ctx context.Context) error {
 	for {
 		var sb graphfs.SuperBlock
 

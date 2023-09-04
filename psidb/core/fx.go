@@ -1,7 +1,6 @@
 package core
 
 import (
-	"github.com/ipld/go-ipld-prime/linking"
 	"go.opentelemetry.io/otel"
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 	"go.opentelemetry.io/otel/trace"
@@ -14,8 +13,6 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/core/session"
 	"github.com/greenboxal/agibootstrap/psidb/core/vfs"
 	"github.com/greenboxal/agibootstrap/psidb/core/vm"
-	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
-	"github.com/greenboxal/agibootstrap/psidb/services/typing"
 )
 
 var tracer = otel.Tracer("psidb", trace.WithInstrumentationAttributes(
@@ -29,8 +26,6 @@ var Module = fx.Module(
 	scheduler.Module,
 	vfs.Module,
 	vm.FXModule,
-
-	fx.Provide(inject.NewServiceProvider),
 
 	fx.Provide(NewCheckpoint),
 	fx.Provide(NewJournal),
@@ -47,26 +42,11 @@ var Module = fx.Module(
 		ServiceLocator inject.ServiceLocator
 	}) {
 		res.Core = core
-		res.ServiceLocator = core.sp
+		res.ServiceLocator = core.serviceProvider
 
 		return
 	}),
 
-	fx.Invoke(func(
-		core *Core,
-		disp *Dispatcher,
-		sch *scheduler.Scheduler,
-		im *indexing.Manager,
-		vfsm *vfs.Manager,
-		tm *typing.Manager,
-		vms *vm.VM,
-	) {
-		inject.RegisterInstance[coreapi.Core](core.sp, core)
-		inject.RegisterInstance[*coreapi.Config](core.sp, core.cfg)
-		inject.RegisterInstance[*indexing.Manager](core.sp, im)
-		inject.RegisterInstance[*linking.LinkSystem](core.sp, &core.lsys)
-		inject.RegisterInstance[*vfs.Manager](core.sp, vfsm)
-		inject.RegisterInstance[*typing.Manager](core.sp, tm)
-		inject.RegisterInstance[*vm.VM](core.sp, vms)
-	}),
+	inject.WithRegisteredService[coreapi.Core](inject.ServiceRegistrationScopeSingleton),
+	inject.WithRegisteredService[*coreapi.Config](inject.ServiceRegistrationScopeSingleton),
 )

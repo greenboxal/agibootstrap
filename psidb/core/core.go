@@ -2,11 +2,9 @@ package core
 
 import (
 	"context"
-	"encoding/hex"
+	`path`
 
-	"github.com/ipld/go-ipld-prime/linking"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/ipld/go-ipld-prime/storage/dsadapter"
+	`github.com/ipld/go-ipld-prime/linking`
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/pkg/errors"
@@ -19,28 +17,21 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
-	vm2 "github.com/greenboxal/agibootstrap/psidb/core/vm"
-	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
+	`github.com/greenboxal/agibootstrap/psidb/db/adapters/psidsadapter`
 	`github.com/greenboxal/agibootstrap/psidb/db/journal`
-	"github.com/greenboxal/agibootstrap/psidb/db/online"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
-	"github.com/greenboxal/agibootstrap/psidb/services/typing"
 )
 
 type Core struct {
 	logger *otelzap.SugaredLogger
 	tracer trace.Tracer
 
-	cfg *coreapi.Config
+	srm    *inject.ServiceRegistrationManager
+	config *coreapi.Config
 
-	ds   coreapi.DataStore
-	lsys linking.LinkSystem
-
-	journal      *journal.Journal
-	checkpoint   coreapi.Checkpoint
-	virtualGraph *graphfs.VirtualGraph
-
-	sp inject.ServiceProvider
+	serviceProvider inject.ServiceProvider
+	rootSession     coreapi.Session
+	metadataStore   coreapi.MetadataStore
 
 	proc goprocess.Process
 
@@ -54,53 +45,22 @@ type Core struct {
 
 func NewCore(
 	lc fx.Lifecycle,
-	sp inject.ServiceProvider,
 	cfg *coreapi.Config,
-	ds coreapi.DataStore,
-	journal *journal.Journal,
-	checkpoint coreapi.Checkpoint,
-	blockManager *BlockManager,
+	metadataStore coreapi.MetadataStore,
+	srm *inject.ServiceRegistrationManager,
 ) (*Core, error) {
-	dsa := &dsadapter.Adapter{
-		Wrapped: ds,
-
-		EscapingFunc: func(s string) string {
-			return "_cas/" + hex.EncodeToString([]byte(s))
-		},
-	}
-
 	core := &Core{
 		logger: logging.GetLogger("core"),
 		tracer: otel.Tracer("core"),
 
-		cfg:        cfg,
-		ds:         ds,
-		sp:         sp,
-		journal:    journal,
-		checkpoint: checkpoint,
+		srm:    srm,
+		config: cfg,
 
 		readyCh: make(chan struct{}),
 		closeCh: make(chan struct{}),
+
+		metadataStore: metadataStore,
 	}
-
-	core.lsys = cidlink.DefaultLinkSystem()
-	core.lsys.SetReadStorage(dsa)
-	core.lsys.SetWriteStorage(dsa)
-	core.lsys.TrustedStorage = true
-
-	virtualGraph, err := graphfs.NewVirtualGraph(
-		&core.lsys,
-		blockManager.Resolve,
-		journal,
-		checkpoint,
-		ds,
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	core.virtualGraph = virtualGraph
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -118,16 +78,19 @@ func NewCore(
 func (c *Core) Ready() <-chan struct{} { return c.readyCh }
 func (c *Core) IsReady() bool          { return c.ready }
 
-func (c *Core) Config() *coreapi.Config                 { return c.cfg }
-func (c *Core) DataStore() coreapi.DataStore            { return c.ds }
-func (c *Core) Journal() coreapi.Journal                { return c.journal }
-func (c *Core) Checkpoint() coreapi.Checkpoint          { return c.checkpoint }
-func (c *Core) LinkSystem() *linking.LinkSystem         { return &c.lsys }
-func (c *Core) VirtualGraph() *graphfs.VirtualGraph     { return c.virtualGraph }
-func (c *Core) ServiceProvider() inject.ServiceProvider { return c.sp }
+func (c *Core) Config() *coreapi.Config                 { return c.config }
+func (c *Core) Journal() coreapi.Journal                { return c.rootSession.Journal() }
+func (c *Core) VirtualGraph() coreapi.VirtualGraph      { return c.rootSession.VirtualGraph() }
+func (c *Core) LinkSystem() *linking.LinkSystem         { return c.rootSession.LinkSystem() }
+func (c *Core) MetadataStore() coreapi.MetadataStore    { return c.metadataStore }
+func (c *Core) ServiceProvider() inject.ServiceProvider { return c.serviceProvider }
 
 func (c *Core) CreateConfirmationTracker(ctx context.Context, name string) (coreapi.ConfirmationTracker, error) {
-	ct, err := NewConfirmationTracker(ctx, c.ds, name)
+	if err := c.waitReady(ctx); err != nil {
+		return nil, err
+	}
+
+	ct, err := NewConfirmationTracker(ctx, c.MetadataStore(), name)
 
 	if err != nil {
 		return nil, err
@@ -137,66 +100,21 @@ func (c *Core) CreateConfirmationTracker(ctx context.Context, name string) (core
 }
 
 func (c *Core) CreateReplicationSlot(ctx context.Context, options coreapi.ReplicationSlotOptions) (coreapi.ReplicationSlot, error) {
-	if err := c.waitReady(); err != nil {
+	if err := c.waitReady(ctx); err != nil {
 		return nil, err
 	}
 
-	return c.virtualGraph.CreateReplicationSlot(ctx, options)
+	return c.VirtualGraph().CreateReplicationSlot(ctx, options)
 }
 
 func (c *Core) BeginTransaction(ctx context.Context, options ...coreapi.TransactionOption) (coreapi.Transaction, error) {
-	var opts coreapi.TransactionOptions
+	sess := coreapi.GetSession(ctx)
 
-	session := coreapi.GetSession(ctx)
-
-	if session != nil {
-		return session.BeginTransaction(ctx, options...)
+	if sess != nil {
+		return sess.BeginTransaction(ctx, options...)
 	}
 
-	ctx, span := c.tracer.Start(ctx, "Core.BeginTransaction")
-	defer span.End()
-
-	opts.Apply(options...)
-
-	tx := &transaction{
-		core:    c,
-		session: session,
-		opts:    opts,
-	}
-
-	root := psi.PathFromElements(c.cfg.RootUUID, false)
-	typingManager := inject.Inject[*typing.Manager](c.sp)
-	types := vm2.NewTypeRegistry(typingManager)
-	lg, err := online.NewLiveGraph(ctx, root, c.virtualGraph, &c.lsys, types, tx)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if session != nil {
-		inject.RegisterInstance(lg.ServiceProvider(), session)
-	}
-
-	inject.Register(lg.ServiceProvider(), func(ctx inject.ResolutionContext) (*vm2.Isolate, error) {
-		vms := inject.Inject[*vm2.VM](lg.ServiceProvider())
-		iso := vms.NewIsolate()
-
-		ctx.AppendShutdownHook(func(ctx context.Context) error {
-			return iso.Close()
-		})
-
-		return iso, nil
-	})
-
-	inject.Register(lg.ServiceProvider(), func(_ inject.ResolutionContext) (*vm2.Context, error) {
-		iso := inject.Inject[*vm2.Isolate](lg.ServiceProvider())
-
-		return vm2.NewContext(coreapi.WithTransaction(ctx, tx), iso, lg.ServiceProvider()), nil
-	})
-
-	tx.lg = lg
-
-	return tx, nil
+	return c.rootSession.BeginTransaction(ctx, options...)
 }
 
 func (c *Core) RunTransaction(ctx context.Context, fn coreapi.TransactionFunc, options ...coreapi.TransactionOption) (err error) {
@@ -204,9 +122,11 @@ func (c *Core) RunTransaction(ctx context.Context, fn coreapi.TransactionFunc, o
 }
 
 func (c *Core) Start(ctx context.Context) error {
+	c.serviceProvider = c.srm.Global.Build()
+
 	c.proc = goprocess.Go(c.run)
 
-	return nil
+	return c.waitReady(ctx)
 }
 
 func (c *Core) Stop(ctx context.Context) error {
@@ -218,11 +138,11 @@ func (c *Core) Stop(ctx context.Context) error {
 		c.logger.Error(err)
 	}
 
-	if err := c.virtualGraph.Close(ctx); err != nil {
+	if err := c.rootSession.ShutdownAndWait(ctx); err != nil {
 		panic(err)
 	}
 
-	return nil
+	return c.rootSession.Close()
 }
 
 func (c *Core) run(proc goprocess.Process) {
@@ -231,20 +151,56 @@ func (c *Core) run(proc goprocess.Process) {
 	}()
 
 	ctx := goprocessctx.OnClosingContext(proc)
+	ctx, cancel := context.WithCancelCause(ctx)
 
-	if err := c.virtualGraph.Recover(ctx); err != nil {
-		panic(err)
-	}
+	sm := inject.Inject[coreapi.SessionManager](c.serviceProvider)
+
+	c.rootSession = sm.GetOrCreateSession(coreapi.SessionConfig{
+		SessionID:       "",
+		ParentSessionID: "",
+		Persistent:      true,
+
+		Root: psi.PathFromElements(c.config.RootUUID, false),
+
+		MetadataStore: coreapi.ExistingMetadataStore{MetadataStore: c.metadataStore},
+		LinkedStore:   coreapi.BadgerLinkedStoreConfig{},
+
+		Checkpoint: coreapi.FileCheckpointConfig{
+			Path: path.Join(c.config.DataDir, "psidb.ckpt"),
+		},
+
+		Journal: journal.FileJournalConfig{
+			Path: path.Join(c.config.DataDir, "journal"),
+		},
+
+		MountPoints: []coreapi.MountDefinition{
+			{
+				Name: "QmYXZ",
+				Path: psi.PathFromElements(c.config.RootUUID, false),
+				Target: psidsadapter.BadgerSuperBlockConfig{
+					MetadataStoreConfig: coreapi.ExistingMetadataStore{MetadataStore: c.metadataStore},
+				},
+			},
+		},
+	})
+
+	proc.Go(func(proc goprocess.Process) {
+		<-c.rootSession.Closed()
+
+		if err := proc.Close(); err != nil {
+			cancel(err)
+		}
+	})
 
 	err := c.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
-		root, err := tx.Resolve(ctx, psi.PathFromElements(c.cfg.RootUUID, false))
+		root, err := tx.Resolve(ctx, psi.PathFromElements(c.config.RootUUID, false))
 
 		if err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
 			return err
 		}
 
 		if root == nil {
-			r := &stdlib.RootNode{NodeUUID: c.cfg.RootUUID}
+			r := &stdlib.RootNode{NodeUUID: c.config.RootUUID}
 			r.Init(r)
 
 			tx.Add(r)
@@ -266,15 +222,26 @@ func (c *Core) run(proc goprocess.Process) {
 	c.ready = true
 	close(c.readyCh)
 
-	_, _ = <-c.closeCh
+	select {
+	case <-ctx.Done():
+		if err := ctx.Err(); err != nil {
+			panic(err)
+		}
+
+	case _, _ = <-c.closeCh:
+		return
+	}
 }
 
-func (c *Core) waitReady() error {
-	_, _ = <-c.readyCh
+func (c *Core) waitReady(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case _, _ = <-c.readyCh:
+		if c.closed {
+			return errors.New("core closed")
+		}
 
-	if c.closed {
-		return errors.New("core closed")
+		return nil
 	}
-
-	return nil
 }

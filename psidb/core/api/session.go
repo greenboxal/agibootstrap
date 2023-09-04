@@ -3,6 +3,10 @@ package coreapi
 import (
 	"context"
 	"time"
+
+	`github.com/ipld/go-ipld-prime/linking`
+
+	`github.com/greenboxal/agibootstrap/pkg/platform/inject`
 )
 
 type SessionManager interface {
@@ -20,12 +24,26 @@ type Session interface {
 
 	KeepAlive()
 	LastKeepAlive() time.Time
+	Closing() <-chan struct{}
+	Closed() <-chan struct{}
+	Ready() <-chan struct{}
+	Err() error
+
+	Journal() Journal
+	MetadataStore() MetadataStore
+	VirtualGraph() VirtualGraph
+	LinkSystem() *linking.LinkSystem
+	ServiceProvider() inject.ServiceProvider
+
+	AttachClient(client SessionClient)
+	DetachClient(client SessionClient)
 
 	ReceiveMessage(m SessionMessage)
 	SendMessage(m SessionMessage)
 
-	AttachClient(client SessionClient)
-	DetachClient(client SessionClient)
+	ShutdownNow()
+	ShutdownAndWait(ctx context.Context) error
+	Close() error
 
 	TransactionOperations
 }

@@ -2,12 +2,14 @@ package coreapi
 
 import (
 	`context`
+	`time`
 
 	`github.com/greenboxal/agibootstrap/pkg/psi`
 )
 
 type SessionConfig struct {
-	SessionID string `json:"session_id"`
+	SessionID       string `json:"session_id"`
+	ParentSessionID string `json:"parent_session_id"`
 
 	Root          psi.Path            `json:"root"`
 	Journal       JournalConfig       `json:"journal"`
@@ -15,6 +17,10 @@ type SessionConfig struct {
 	LinkedStore   LinkedStoreConfig   `json:"blob_store"`
 	MetadataStore MetadataStoreConfig `json:"metadata_store"`
 	MountPoints   []MountDefinition   `json:"mount_points"`
+
+	Persistent       bool          `json:"persistent"`
+	KeepAliveTimeout time.Duration `json:"keep_alive_timeout"`
+	Deadline         time.Time     `json:"deadline"`
 }
 
 func (c SessionConfig) Extend(mixin SessionConfig) SessionConfig {
@@ -43,6 +49,14 @@ func (c SessionConfig) Extend(mixin SessionConfig) SessionConfig {
 	}
 
 	c.MountPoints = append(c.MountPoints, mixin.MountPoints...)
+
+	if mixin.KeepAliveTimeout > 0 {
+		c.KeepAliveTimeout = mixin.KeepAliveTimeout
+	}
+
+	if !mixin.Deadline.IsZero() {
+		c.Deadline = mixin.Deadline
+	}
 
 	return c
 }

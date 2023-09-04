@@ -50,8 +50,10 @@ require (
 	github.com/libp2p/go-libp2p v0.27.4
 	github.com/libp2p/go-libp2p-kad-dht v0.23.0
 	github.com/libp2p/go-libp2p-pubsub v0.9.3
+	github.com/mattn/go-shellwords v1.0.12
 	github.com/multiformats/go-multiaddr v0.9.0
 	github.com/multiformats/go-multihash v0.2.3
+	github.com/openengineer/go-repl v0.2.2
 	github.com/pdfcpu/pdfcpu v0.4.2
 	github.com/pkg/errors v0.9.1
 	github.com/riandyrn/otelchi v0.5.1
@@ -260,6 +262,7 @@ require (
 	golang.org/x/mod v0.11.0 // indirect
 	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
+	golang.org/x/term v0.10.0 // indirect
 	golang.org/x/text v0.11.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect

@@ -17,8 +17,6 @@ var Module = fx.Module(
 		return GlobalClient
 	}),
 
-	fx.Invoke(func(sp inject.ServiceProvider, e indexing2.NodeEmbedder, client *openai.Client) {
-		inject.RegisterInstance(sp, e)
-		inject.RegisterInstance(sp, client)
-	}),
+	inject.WithRegisteredService[indexing2.NodeEmbedder](inject.ServiceRegistrationScopeSingleton),
+	inject.WithRegisteredService[*openai.Client](inject.ServiceRegistrationScopeSingleton),
 )

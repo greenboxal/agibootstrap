@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
+	`github.com/go-errors/errors`
 	`github.com/ipld/go-ipld-prime/linking`
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
-	`github.com/pkg/errors`
 	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	`golang.org/x/exp/slices`
 
@@ -21,15 +21,21 @@ import (
 	`github.com/greenboxal/agibootstrap/psidb/services/typing`
 )
 
-type SessionState int
+type SessionStatus int
 
 const (
-	SessionStateNew SessionState = iota
+	SessionStateNew SessionStatus = iota
 	SessionStateInitialized
 	SessionStateActive
 	SessionStateClosing
 	SessionStateClosed
 )
+
+type SessionState struct {
+	Config        coreapi.SessionConfig `json:"config,omitempty"`
+	Status        SessionStatus         `json:"status,omitempty"`
+	LastKeepAlive time.Time             `json:"lastKeepAlive,omitempty"`
+}
 
 type Session struct {
 	mu sync.RWMutex
@@ -45,17 +51,19 @@ type Session struct {
 
 	proc   goprocess.Process
 	state  SessionState
-	stopCh chan struct{}
+	status SessionStatus
 
-	lastKeepAlive time.Time
+	readyCh chan struct{}
+	stopCh  chan struct{}
 
+	lastKeepAlive   time.Time
 	serviceProvider inject.ServiceProvider
 
 	lsys          linking.LinkSystem
 	metadataStore coreapi.MetadataStore
 	journal       coreapi.Journal
 	checkpoint    coreapi.Checkpoint
-	blockManager  *BlockManager
+	blockManager  *MountManager
 	virtualGraph  *graphfs.VirtualGraph
 
 	*ClientBusConnection
@@ -68,6 +76,8 @@ func NewSession(manager *Manager, parent *Session, config coreapi.SessionConfig)
 		parentSp = parent.serviceProvider
 	}
 
+	serviceProvider := manager.srm.Session.Build(inject.WithParentServiceProvider(parentSp))
+
 	sess := &Session{
 		logger: logging.GetLogger("session"),
 
@@ -76,10 +86,11 @@ func NewSession(manager *Manager, parent *Session, config coreapi.SessionConfig)
 		manager: manager,
 		core:    manager.core,
 
-		state:  SessionStateNew,
-		stopCh: make(chan struct{}),
+		status:  SessionStateNew,
+		readyCh: make(chan struct{}),
+		stopCh:  make(chan struct{}),
 
-		serviceProvider: inject.NewServiceProvider(inject.WithParentServiceProvider(parentSp)),
+		serviceProvider: serviceProvider,
 		blockManager:    NewBlockManager(),
 
 		ClientBusConnection: NewClientBusConnection(config.SessionID, 16, 16),
@@ -95,6 +106,19 @@ func NewSession(manager *Manager, parent *Session, config coreapi.SessionConfig)
 func (sess *Session) UUID() string             { return sess.config.SessionID }
 func (sess *Session) KeepAlive()               { sess.lastKeepAlive = time.Now() }
 func (sess *Session) LastKeepAlive() time.Time { return sess.lastKeepAlive }
+
+func (sess *Session) Journal() coreapi.Journal                { return sess.journal }
+func (sess *Session) Checkpoint() coreapi.Checkpoint          { return sess.checkpoint }
+func (sess *Session) MetadataStore() coreapi.MetadataStore    { return sess.metadataStore }
+func (sess *Session) LinkSystem() *linking.LinkSystem         { return &sess.lsys }
+func (sess *Session) VirtualGraph() coreapi.VirtualGraph      { return sess.virtualGraph }
+func (sess *Session) ServiceProvider() inject.ServiceProvider { return sess.serviceProvider }
+func (sess *Session) ServiceLocator() inject.ServiceLocator   { return sess.serviceProvider }
+
+func (sess *Session) Closed() <-chan struct{}  { return sess.proc.Closed() }
+func (sess *Session) Closing() <-chan struct{} { return sess.stopCh }
+func (sess *Session) Ready() <-chan struct{}   { return sess.readyCh }
+func (sess *Session) Err() error               { return sess.proc.Err() }
 
 func (sess *Session) Fork(config coreapi.SessionConfig) coreapi.Session {
 	sess.mu.Lock()
@@ -119,6 +143,14 @@ func (sess *Session) Run(proc goprocess.Process) {
 	ctx = coreapi.WithSession(ctx, sess)
 
 	defer func() {
+		if e := recover(); e != nil {
+			err := errors.Wrap(e, 1)
+
+			sess.logger.Error(err)
+
+			panic(err)
+		}
+
 		sess.mu.Lock()
 		defer sess.mu.Unlock()
 
@@ -137,13 +169,27 @@ func (sess *Session) Run(proc goprocess.Process) {
 		panic(err)
 	}
 
-	ticker := time.NewTicker(30 * time.Second)
+	if sess.config.KeepAliveTimeout == 0 {
+		sess.config.KeepAliveTimeout = 30 * time.Second
+		sess.config.Persistent = true
+	}
 
-	sess.state = SessionStateActive
+	ticker := time.NewTicker(sess.config.KeepAliveTimeout)
+
+	if !sess.config.Deadline.IsZero() {
+		remaining := sess.config.Deadline.Sub(time.Now())
+
+		time.AfterFunc(remaining, func() {
+			sess.RequestShutdown()
+		})
+	}
 
 	if sess.parent != nil {
 		sess.parent.ReceiveMessage(sessionMessageChildForked{child: sess})
 	}
+
+	sess.status = SessionStateActive
+	close(sess.readyCh)
 
 	for {
 		select {
@@ -152,13 +198,15 @@ func (sess *Session) Run(proc goprocess.Process) {
 				return
 			}
 
-			sess.state = SessionStateClosing
+			sess.status = SessionStateClosing
 
 			sess.TryShutdownNow()
 
 		case <-ticker.C:
-			if time.Now().Sub(sess.lastKeepAlive) > 30*time.Second {
-				sess.RequestShutdown()
+			if !sess.config.Persistent {
+				if time.Now().Sub(sess.lastKeepAlive) > 30*time.Second {
+					sess.RequestShutdown()
+				}
 			}
 
 		case msg := <-sess.IncomingMessageCh:
@@ -197,7 +245,7 @@ func (sess *Session) processMessage(ctx context.Context, msg coreapi.SessionMess
 			sess.children = slices.Delete(sess.children, idx, idx+1)
 		}
 
-		if sess.state == SessionStateClosing && len(sess.children) == 0 {
+		if sess.status == SessionStateClosing && len(sess.children) == 0 {
 			sess.RequestShutdown()
 		}
 
@@ -224,7 +272,7 @@ func (sess *Session) teardown(ctx context.Context) error {
 		return err
 	}
 
-	sess.state = SessionStateClosed
+	sess.status = SessionStateClosed
 
 	if sess.parent != nil {
 		sess.parent.ReceiveMessage(sessionMessageChildFinished{child: sess})
@@ -252,6 +300,19 @@ func (sess *Session) RequestShutdown() {
 
 func (sess *Session) ShutdownNow() {
 	close(sess.stopCh)
+	close(sess.readyCh)
+}
+
+func (sess *Session) ShutdownAndWait(ctx context.Context) error {
+	sess.RequestShutdown()
+
+	select {
+	case <-sess.proc.Closed():
+		return sess.proc.Err()
+
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (sess *Session) Close() error {
@@ -265,8 +326,13 @@ func (sess *Session) BeginTransaction(ctx context.Context, options ...coreapi.Tr
 	var opts coreapi.TransactionOptions
 
 	opts.Root = sess.config.Root
-
 	opts.Apply(options...)
+
+	if opts.Root.IsEmpty() {
+		opts.Root = sess.config.Root
+	} else if opts.Root.IsRelative() {
+		opts.Root = sess.config.Root.Join(opts.Root)
+	}
 
 	tx := &transaction{
 		session: sess,
@@ -274,18 +340,24 @@ func (sess *Session) BeginTransaction(ctx context.Context, options ...coreapi.Tr
 		opts:    opts,
 	}
 
-	tx.sp = inject.NewServiceProvider(
-		inject.WithParentServiceProvider(sess.serviceProvider),
-	)
-
-	ctx = coreapi.WithSession(ctx, sess)
-	ctx = coreapi.WithTransaction(ctx, tx)
+	tx.sp = sess.manager.srm.Transaction.Build(inject.WithParentServiceProvider(sess.serviceProvider))
 
 	ctx, span := tracer.Start(ctx, "Core.BeginTransaction")
 	defer span.End()
 
+	ctx = coreapi.WithSession(ctx, sess)
+	ctx = coreapi.WithTransaction(ctx, tx)
+
+	if err := sess.waitReady(ctx); err != nil {
+		return nil, err
+	}
+
 	typingManager := inject.Inject[*typing.Manager](tx.sp)
 	types := vm.NewTypeRegistry(typingManager)
+
+	if opts.Root.IsRelative() {
+		panic("wtf")
+	}
 
 	tx.lg, err = online.NewLiveGraph(
 		ctx,
@@ -319,8 +391,8 @@ func (sess *Session) initialize(ctx context.Context) error {
 	sess.mu.Lock()
 	defer sess.mu.Unlock()
 
-	if sess.state != SessionStateNew {
-		return errors.New("session already initialized")
+	if sess.status != SessionStateNew {
+		return nil
 	}
 
 	if sess.parent != nil {
@@ -413,7 +485,7 @@ func (sess *Session) initialize(ctx context.Context) error {
 		return err
 	}
 
-	sess.state = SessionStateInitialized
+	sess.status = SessionStateInitialized
 
 	return nil
 }
@@ -431,4 +503,19 @@ func (sess *Session) initializeServices(ctx context.Context) error {
 	})
 
 	return nil
+}
+
+func (sess *Session) waitReady(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+
+	case _, _ = <-sess.readyCh:
+
+		if sess.status != SessionStateActive {
+			return errors.New("session not active")
+		}
+
+		return nil
+	}
 }

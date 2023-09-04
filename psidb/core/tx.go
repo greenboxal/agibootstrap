@@ -40,7 +40,7 @@ func (t *transaction) GetService(key inject.ServiceKey) (any, error) {
 		}
 	}
 
-	return t.core.sp.GetService(key)
+	return t.core.serviceProvider.GetService(key)
 }
 
 func (t *transaction) Add(node psi.Node) {

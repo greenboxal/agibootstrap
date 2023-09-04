@@ -12,12 +12,13 @@ type ReplicationSlotOptions struct {
 }
 
 type ReplicationOperations interface {
-	CreateConfirmationTracker(ctx context.Context, name string) (ConfirmationTracker, error)
 	CreateReplicationSlot(ctx context.Context, options ReplicationSlotOptions) (ReplicationSlot, error)
 }
 
 type ReplicationManager interface {
 	ReplicationOperations
+
+	CreateConfirmationTracker(ctx context.Context, name string) (ConfirmationTracker, error)
 }
 
 type ConfirmationTracker interface {
