@@ -23,7 +23,7 @@ type Type struct {
 	Interfaces    []InterfaceDefinition    `json:"interfaces,omitempty"`
 	PrimitiveKind typesystem.PrimitiveKind `json:"primitive_kind,omitempty"`
 
-	Schema jsonschema.Schema `json:"-"`
+	Schema *jsonschema.Schema `json:"-"`
 }
 
 var TypeType = psi.DefineNodeType[*Type]()

@@ -3,6 +3,8 @@ package typesystem
 import (
 	"reflect"
 	"sync"
+
+	"github.com/invopop/jsonschema"
 )
 
 var globalTypeSystem = newTypeSystem()
@@ -11,6 +13,10 @@ func newTypeSystem() *TypeSystem {
 	return &TypeSystem{
 		typesByName: map[string]Type{},
 		typesByType: map[reflect.Type]Type{},
+
+		globalJsonSchema: jsonschema.Schema{
+			Definitions: map[string]*jsonschema.Schema{},
+		},
 	}
 }
 
@@ -19,6 +25,12 @@ type TypeSystem struct {
 
 	typesByName map[string]Type
 	typesByType map[reflect.Type]Type
+
+	globalJsonSchema jsonschema.Schema
+}
+
+func (ts *TypeSystem) GlobalJsonSchema() *jsonschema.Schema {
+	return &ts.globalJsonSchema
 }
 
 func (ts *TypeSystem) Register(t Type) {
@@ -49,6 +61,7 @@ func (ts *TypeSystem) doRegister(t Type) bool {
 
 	ts.typesByType[t.RuntimeType()] = t
 	ts.typesByName[name] = t
+	ts.globalJsonSchema.Definitions[t.Name().NormalizedFullNameWithArguments()] = t.JsonSchema()
 
 	return true
 }

@@ -2,9 +2,10 @@ package core
 
 import (
 	"context"
-	`path`
+	"path"
+	"sync"
 
-	`github.com/ipld/go-ipld-prime/linking`
+	"github.com/ipld/go-ipld-prime/linking"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/pkg/errors"
@@ -17,12 +18,14 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
-	`github.com/greenboxal/agibootstrap/psidb/db/adapters/psidsadapter`
-	`github.com/greenboxal/agibootstrap/psidb/db/journal`
+	"github.com/greenboxal/agibootstrap/psidb/db/adapters/psidsadapter"
+	"github.com/greenboxal/agibootstrap/psidb/db/journal"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
 )
 
 type Core struct {
+	mu sync.Mutex
+
 	logger *otelzap.SugaredLogger
 	tracer trace.Tracer
 
@@ -63,13 +66,8 @@ func NewCore(
 	}
 
 	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			return core.Start(ctx)
-		},
-
-		OnStop: func(ctx context.Context) error {
-			return core.Stop(ctx)
-		},
+		OnStart: core.Start,
+		OnStop:  core.Stop,
 	})
 
 	return core, nil
@@ -130,28 +128,24 @@ func (c *Core) Start(ctx context.Context) error {
 }
 
 func (c *Core) Stop(ctx context.Context) error {
-	c.closing = true
+	c.mu.Lock()
+
+	if c.closing {
+		c.mu.Unlock()
+		return nil
+	}
 
 	close(c.closeCh)
+	c.closing = true
+	c.mu.Unlock()
 
-	if err := c.proc.CloseAfterChildren(); err != nil {
-		c.logger.Error(err)
-	}
-
-	if err := c.rootSession.ShutdownAndWait(ctx); err != nil {
-		panic(err)
-	}
-
-	return c.rootSession.Close()
+	return c.proc.Close()
 }
 
 func (c *Core) run(proc goprocess.Process) {
-	defer func() {
-		c.closed = true
-	}()
+	proc.SetTeardown(c.teardown)
 
 	ctx := goprocessctx.OnClosingContext(proc)
-	ctx, cancel := context.WithCancelCause(ctx)
 
 	sm := inject.Inject[coreapi.SessionManager](c.serviceProvider)
 
@@ -182,14 +176,6 @@ func (c *Core) run(proc goprocess.Process) {
 				},
 			},
 		},
-	})
-
-	proc.Go(func(proc goprocess.Process) {
-		<-c.rootSession.Closed()
-
-		if err := proc.Close(); err != nil {
-			cancel(err)
-		}
 	})
 
 	err := c.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
@@ -244,4 +230,15 @@ func (c *Core) waitReady(ctx context.Context) error {
 
 		return nil
 	}
+}
+
+func (c *Core) teardown() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.logger.Error("Initiating shutdown")
+
+	c.closed = true
+
+	return nil
 }

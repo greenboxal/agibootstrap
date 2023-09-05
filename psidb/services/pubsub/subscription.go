@@ -41,6 +41,8 @@ func (s *Subscription) Close() error {
 		return nil
 	}
 
+	close(s.ch)
+
 	return s.proc.Close()
 }
 
@@ -48,10 +50,9 @@ func (s *Subscription) pump(proc goprocess.Process) {
 	defer func() {
 		s.closed = true
 		s.topic.Unsubscribe(s.pattern.ID)
-		close(s.ch)
 	}()
 
-	for !s.closed {
+	for {
 		select {
 		case <-proc.Closing():
 			return
@@ -63,5 +64,4 @@ func (s *Subscription) pump(proc goprocess.Process) {
 			s.handler(n)
 		}
 	}
-
 }

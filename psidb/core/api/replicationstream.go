@@ -81,7 +81,7 @@ func (s *ReplicationStreamProcessor) Commit(ctx context.Context) error {
 func (s *ReplicationStreamProcessor) Close(ctx context.Context) error {
 	s.running = false
 
-	if err := s.proc.CloseAfterChildren(); err != nil {
+	if err := s.proc.Close(); err != nil {
 		return err
 	}
 

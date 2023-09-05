@@ -102,8 +102,6 @@ func (conn *ClientBusConnection) DetachClient(client coreapi.SessionClient) {
 }
 
 func (conn *ClientBusConnection) Run(proc goprocess.Process) {
-	defer conn.Close()
-
 	for {
 		select {
 		case <-proc.Closing():

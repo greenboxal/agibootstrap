@@ -161,9 +161,6 @@ func (pm *Manager) getOrCreateRoot(name string, create bool) *Topic {
 }
 
 func (pm *Manager) Close() error {
-	pm.mu.Lock()
-	defer pm.mu.Unlock()
-
 	pm.rootCtxCancel()
 
 	for _, t := range pm.roots {

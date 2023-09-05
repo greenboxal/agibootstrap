@@ -1,11 +1,13 @@
 package session
 
 import (
+	"context"
 	"sync"
 
 	"github.com/google/uuid"
+	"go.uber.org/fx"
 
-	`github.com/greenboxal/agibootstrap/pkg/platform/inject`
+	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
@@ -18,12 +20,22 @@ type Manager struct {
 	sessions map[string]*Session
 }
 
-func NewManager(core coreapi.Core, srm *inject.ServiceRegistrationManager) coreapi.SessionManager {
-	return &Manager{
+func NewManager(
+	lc fx.Lifecycle,
+	core coreapi.Core,
+	srm *inject.ServiceRegistrationManager,
+) coreapi.SessionManager {
+	sm := &Manager{
 		srm:      srm,
 		core:     core,
 		sessions: map[string]*Session{},
 	}
+
+	lc.Append(fx.Hook{
+		OnStop: sm.Shutdown,
+	})
+
+	return sm
 }
 
 func (sm *Manager) CreateSession() coreapi.Session {
@@ -107,4 +119,38 @@ func (sm *Manager) onSessionFinish(sess *Session) {
 	}
 
 	sess.logger.Infow("Session closed", "session_id", sess.UUID(), "parent_session_id", parentId)
+}
+
+func (sm *Manager) Shutdown(ctx context.Context) error {
+	if len(sm.sessions) > 0 {
+		logger.Infow("Terminating open sessions")
+
+		for len(sm.sessions) > 0 {
+			var wg sync.WaitGroup
+
+			sm.mu.Lock()
+
+			for _, sess := range sm.sessions {
+				sess := sess
+
+				wg.Add(1)
+
+				go func() {
+					defer wg.Done()
+
+					if err := sess.ShutdownAndWait(ctx); err != nil {
+						logger.Error(err)
+					}
+				}()
+			}
+
+			sm.mu.Unlock()
+			wg.Wait()
+			sm.mu.Lock()
+		}
+
+		sm.mu.Unlock()
+	}
+
+	return nil
 }

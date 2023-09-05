@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/iancoleman/orderedmap"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
@@ -78,59 +77,7 @@ func (m *Manager) newTypeFromTypeWithName(ctx context.Context, name string, nt t
 		Name:          name[lastIndex+1:],
 		FullName:      name,
 		PrimitiveKind: nt.PrimitiveKind(),
-	}
-
-	switch nt.PrimitiveKind() {
-	case typesystem.PrimitiveKindBoolean:
-		t.Schema.Type = "boolean"
-	case typesystem.PrimitiveKindUnsignedInt:
-		t.Schema.Type = "number"
-	case typesystem.PrimitiveKindInt:
-		t.Schema.Type = "number"
-	case typesystem.PrimitiveKindFloat:
-		t.Schema.Type = "number"
-	case typesystem.PrimitiveKindStruct:
-		t.Schema.Type = "object"
-	case typesystem.PrimitiveKindList:
-		t.Schema.Type = "array"
-	case typesystem.PrimitiveKindString:
-		t.Schema.Type = "string"
-	case typesystem.PrimitiveKindBytes:
-		t.Schema.Type = "string"
-	}
-
-	if nt.PrimitiveKind() == typesystem.PrimitiveKindStruct {
-		st := nt.Struct()
-
-		t.Schema.Properties = orderedmap.New()
-
-		for i := 0; i < st.NumField(); i++ {
-			field := st.FieldByIndex(i)
-
-			typ, err := m.registerType(ctx, field.Type().Name(), field.Type(), nil)
-
-			if err != nil {
-				return nil, err
-			}
-
-			t.Fields = append(t.Fields, FieldDefinition{
-				Name: field.Name(),
-				Type: typ.CanonicalPath(),
-			})
-
-			t.Schema.Properties.Set(field.Name(), &jsonschema.Schema{
-				Ref: "#/$defs/" + field.Type().Name().FullNameWithArgs(),
-			})
-			t.Schema.Required = append(t.Schema.Required, field.Name())
-		}
-	} else if nt.PrimitiveKind() == typesystem.PrimitiveKindList {
-		inner, err := m.registerType(ctx, nt.List().Elem().Name(), nt.List().Elem(), nil)
-
-		if err != nil {
-			return nil, err
-		}
-
-		t.Schema.Items = &inner.Schema
+		Schema:        nt.JsonSchema(),
 	}
 
 	t.Init(t, psi.WithNodeType(TypeType))
@@ -215,7 +162,7 @@ func (m *Manager) registerType(ctx context.Context, name typesystem.TypeName, ty
 	registeredType := tn.(*Type)
 
 	m.typeCache[typ] = registeredType.CanonicalPath()
-	m.jsonSchema.Definitions[name.FullNameWithArgs()] = &registeredType.Schema
+	m.jsonSchema.Definitions[name.FullNameWithArgs()] = registeredType.Schema
 
 	return registeredType, nil
 }

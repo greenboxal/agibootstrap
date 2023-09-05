@@ -39,9 +39,7 @@ func NewScheduler(
 	}
 
 	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
-			return sch.Shutdown(ctx)
-		},
+		OnStop: sch.Shutdown,
 	})
 
 	return sch

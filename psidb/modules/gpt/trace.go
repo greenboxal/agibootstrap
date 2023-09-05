@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	openai2 "github.com/sashabaranov/go-openai"
 
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 )
 
@@ -149,4 +150,9 @@ type SessionMessageGPTrace struct {
 	coreapi.SessionMessageBase
 
 	Trace Trace `json:"trace"`
+}
+
+func init() {
+	typesystem.GetType[SessionMessageGPTrace]()
+	typesystem.GetType[SessionMessageGPTraceChunk]()
 }

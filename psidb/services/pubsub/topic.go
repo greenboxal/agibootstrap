@@ -98,18 +98,27 @@ func (t *Topic) Unsubscribe(id string) {
 }
 
 func (t *Topic) Close() error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	for len(t.children) > 0 {
+		for k, c := range t.children {
+			if err := c.Close(); err != nil {
+				return err
+			}
 
-	for _, c := range t.children {
-		if err := c.Close(); err != nil {
-			return err
+			delete(t.children, k)
+
+			break
 		}
 	}
 
-	for _, s := range t.subscriptions {
-		if err := s.Close(); err != nil {
-			return err
+	for len(t.subscriptions) > 0 {
+		for k, s := range t.subscriptions {
+			if err := s.Close(); err != nil {
+				return err
+			}
+
+			delete(t.subscriptions, k)
+
+			break
 		}
 	}
 

@@ -139,6 +139,8 @@ func (sess *Session) Fork(config coreapi.SessionConfig) coreapi.Session {
 }
 
 func (sess *Session) Run(proc goprocess.Process) {
+	proc.SetTeardown(sess.teardown)
+
 	ctx := goprocessctx.OnClosingContext(proc)
 	ctx = coreapi.WithSession(ctx, sess)
 
@@ -150,15 +152,6 @@ func (sess *Session) Run(proc goprocess.Process) {
 
 			panic(err)
 		}
-
-		sess.mu.Lock()
-		defer sess.mu.Unlock()
-
-		if err := sess.teardown(ctx); err != nil {
-			panic(err)
-		}
-
-		sess.manager.onSessionFinish(sess)
 	}()
 
 	if err := sess.initialize(ctx); err != nil {
@@ -200,9 +193,9 @@ func (sess *Session) Run(proc goprocess.Process) {
 				return
 			}
 
-			sess.status = SessionStateClosing
-
-			sess.TryShutdownNow()
+			if sess.TryShutdownNow() {
+				return
+			}
 
 		case <-ticker.C:
 			if !sess.config.Persistent {
@@ -272,7 +265,9 @@ func (sess *Session) processMessage(ctx context.Context, msg coreapi.SessionMess
 	}
 }
 
-func (sess *Session) teardown(ctx context.Context) error {
+func (sess *Session) teardown() error {
+	ctx := context.Background()
+
 	if err := sess.serviceProvider.Close(ctx); err != nil {
 		return nil
 	}
@@ -287,6 +282,8 @@ func (sess *Session) teardown(ctx context.Context) error {
 		sess.parent.ReceiveMessage(&sessionMessageChildFinished{child: sess})
 	}
 
+	sess.manager.onSessionFinish(sess)
+
 	return nil
 }
 
@@ -295,6 +292,10 @@ func (sess *Session) TryShutdownNow() bool {
 	defer sess.mu.Unlock()
 
 	if len(sess.children) > 0 {
+		for _, child := range sess.children {
+			child.ReceiveMessage(&coreapi.SessionMessageShutdown{})
+		}
+
 		return false
 	}
 
@@ -308,15 +309,23 @@ func (sess *Session) RequestShutdown() {
 }
 
 func (sess *Session) ShutdownNow() {
-	close(sess.stopCh)
-	close(sess.readyCh)
+	if sess.status == SessionStateClosing || sess.status == SessionStateClosed {
+		return
+	}
+
+	sess.status = SessionStateClosing
+
+	if sess.stopCh != nil {
+		close(sess.stopCh)
+		sess.stopCh = nil
+	}
 }
 
 func (sess *Session) ShutdownAndWait(ctx context.Context) error {
 	sess.RequestShutdown()
 
 	select {
-	case <-sess.proc.Closed():
+	case _, _ = <-sess.proc.Closed():
 		return sess.proc.Err()
 
 	case <-ctx.Done():

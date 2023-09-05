@@ -10,6 +10,7 @@ import (
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime/schema"
+	"github.com/swaggest/jsonschema-go"
 	"golang.org/x/exp/slices"
 )
 
@@ -245,7 +246,10 @@ func (st *structType) initialize(ts *TypeSystem) {
 			f.IsNullable(),
 		)
 
-		st.jsonSchema.Properties.Set(f.Name(), f.Type().JsonSchema())
+		refPath := "#/$defs/" + f.Type().Name().NormalizedFullNameWithArguments()
+		schemaRef := &jsonschema.Schema{Ref: &refPath}
+
+		st.jsonSchema.Properties.Set(f.Name(), schemaRef)
 
 		if !f.IsOptional() {
 			st.jsonSchema.Required = append(st.jsonSchema.Required, f.Name())

@@ -1,9 +1,9 @@
 package restv1
 
 import (
-	"encoding/json"
 	"net/http"
 
+	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	"github.com/greenboxal/agibootstrap/psidb/services/typing"
 )
 
@@ -18,8 +18,8 @@ func NewOpenAPISchemaHandler(typeManager *typing.Manager) *OpenAPISchemaHandler 
 }
 
 func (o *OpenAPISchemaHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	schema := o.manager.FullJsonSchema()
-	data, err := json.Marshal(schema)
+	schema := typesystem.Universe().GlobalJsonSchema()
+	data, err := schema.MarshalJSON()
 
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusInternalServerError)
