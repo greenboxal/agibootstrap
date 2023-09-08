@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type Entry struct {

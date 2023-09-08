@@ -19,14 +19,14 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
-	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi/rendering"
+	"github.com/greenboxal/agibootstrap/psidb/psi/rendering/themes"
 	"github.com/greenboxal/agibootstrap/psidb/services/chat"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 var ConversationInterface = psi.DefineNodeInterface[IConversation]()
@@ -670,7 +670,7 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 			return handleError(err, true)
 		}
 
-		valid, err := form.Validate()
+		/*valid, err := form.Validate()
 
 		if err != nil {
 			return handleError(err, true)
@@ -695,7 +695,7 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 					return c.dispatchSideEffect(ctx, c.CanonicalPath(), *req)
 				}
 			}
-		}
+		}*/
 
 		fixed, err := form.ToJSON()
 
@@ -776,7 +776,7 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 				return
 			}
 		} else {
-			writer.Write([]byte("Done."))
+			writer.Write([]byte("Continue"))
 		}
 	}()
 

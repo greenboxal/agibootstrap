@@ -3,9 +3,9 @@ package agents
 import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/providers/openai"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 )
 

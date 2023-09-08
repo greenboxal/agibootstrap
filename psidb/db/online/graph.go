@@ -13,9 +13,9 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	`github.com/greenboxal/agibootstrap/psidb/core/api`
+	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 var logger = logging.GetLogger("livegraph")
@@ -47,7 +47,7 @@ func NewLiveGraph(
 	vg *graphfs.VirtualGraph,
 	lsys *linking.LinkSystem,
 	types psi.TypeRegistry,
-	sp inject.ServiceLocator,
+	sp inject.ServiceProvider,
 ) (*LiveGraph, error) {
 	tx, err := vg.BeginTransaction(ctx)
 
@@ -61,16 +61,12 @@ func NewLiveGraph(
 		lsys:         lsys,
 		tx:           tx,
 		typeRegistry: types,
+		sp:           sp,
 
 		nodeCache: map[int64]*LiveNode{},
 		pathCache: map[string]*LiveNode{},
 		dirtySet:  map[psi.Node]struct{}{},
 	}
-
-	lg.sp = inject.NewServiceProvider(inject.WithParentServiceProvider(sp))
-
-	inject.RegisterInstance[psi.TypeRegistry](lg.sp, lg.typeRegistry)
-	inject.RegisterInstance[psi.Graph](lg.sp, lg)
 
 	return lg, nil
 }

@@ -1,6 +1,6 @@
 package query
 
-import "github.com/greenboxal/agibootstrap/pkg/psi"
+import "github.com/greenboxal/agibootstrap/psidb/psi"
 
 type FilterFunc func(ctx QueryContext, n psi.Node) bool
 

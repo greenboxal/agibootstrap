@@ -10,10 +10,10 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/jedib0t/go-pretty/v6/table"
 
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi/rendering"
 )
 
 func (gw *Gateway) handlePsiDb(writer http.ResponseWriter, request *http.Request) {

@@ -3,7 +3,7 @@ package chat
 import (
 	"time"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 // Message represents a single message in a channel.

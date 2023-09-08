@@ -12,7 +12,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphindex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 	"github.com/greenboxal/agibootstrap/psidb/apis/rest/v1"
 	"github.com/greenboxal/agibootstrap/psidb/core"
 )

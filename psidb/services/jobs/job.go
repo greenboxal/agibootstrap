@@ -1,6 +1,6 @@
 package jobs
 
-import "github.com/greenboxal/agibootstrap/pkg/psi"
+import "github.com/greenboxal/agibootstrap/psidb/psi"
 
 type Job struct {
 	psi.NodeBase

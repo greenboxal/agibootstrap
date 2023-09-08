@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/typing"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 type TypeRegistry struct {

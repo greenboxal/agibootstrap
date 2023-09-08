@@ -1,7 +1,7 @@
 package inject
 
 import (
-	`go.uber.org/fx`
+	"go.uber.org/fx"
 )
 
 type ServiceRegistrationScope int
@@ -41,7 +41,7 @@ func (sr *ServiceRegistry) Add(def ScopedServiceDefinition) {
 func ProvideRegisteredService[T any](scope ServiceRegistrationScope, factory func(ctx ResolutionContext) (T, error)) fx.Option {
 	return fx.Invoke(func(srm *ServiceRegistrationManager, svc T) {
 		def := ScopedServiceDefinition{
-			ServiceDefinition: Provide(factory),
+			ServiceDefinition: ProvideFactory(factory),
 			Scope:             scope,
 		}
 

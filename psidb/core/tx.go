@@ -11,9 +11,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type transaction struct {

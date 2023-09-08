@@ -10,7 +10,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 // Directory is a directory in the virtual file system.

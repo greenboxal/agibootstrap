@@ -3,7 +3,7 @@ package rtv1
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 type MessageFlags uint8

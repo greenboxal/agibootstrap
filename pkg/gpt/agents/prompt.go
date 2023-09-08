@@ -7,8 +7,8 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/gpt/promptml"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type AgentPrompt interface {

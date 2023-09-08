@@ -23,8 +23,8 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
 	"github.com/greenboxal/agibootstrap/pkg/platform/tasks"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/visor/guifx"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type ChatUI struct {

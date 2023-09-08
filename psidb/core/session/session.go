@@ -2,15 +2,14 @@ package session
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"time"
 
 	"github.com/go-errors/errors"
 	"github.com/ipld/go-ipld-prime/linking"
 	"github.com/jbenet/goprocess"
-	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/uptrace/opentelemetry-go-extra/otelzap"
-	"golang.org/x/exp/slices"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
@@ -18,6 +17,7 @@ import (
 	vm "github.com/greenboxal/agibootstrap/psidb/core/vm"
 	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/typing"
 )
 
@@ -59,7 +59,6 @@ type Session struct {
 	lastKeepAlive   time.Time
 	serviceProvider inject.ServiceProvider
 
-	lsys          linking.LinkSystem
 	metadataStore coreapi.MetadataStore
 	journal       coreapi.Journal
 	checkpoint    coreapi.Checkpoint
@@ -110,7 +109,7 @@ func (sess *Session) LastKeepAlive() time.Time { return sess.lastKeepAlive }
 func (sess *Session) Journal() coreapi.Journal                { return sess.journal }
 func (sess *Session) Checkpoint() coreapi.Checkpoint          { return sess.checkpoint }
 func (sess *Session) MetadataStore() coreapi.MetadataStore    { return sess.metadataStore }
-func (sess *Session) LinkSystem() *linking.LinkSystem         { return &sess.lsys }
+func (sess *Session) LinkSystem() *linking.LinkSystem         { return sess.metadataStore.LinkSystem() }
 func (sess *Session) VirtualGraph() coreapi.VirtualGraph      { return sess.virtualGraph }
 func (sess *Session) ServiceProvider() inject.ServiceProvider { return sess.serviceProvider }
 func (sess *Session) ServiceLocator() inject.ServiceLocator   { return sess.serviceProvider }
@@ -138,207 +137,6 @@ func (sess *Session) Fork(config coreapi.SessionConfig) coreapi.Session {
 	return child
 }
 
-func (sess *Session) Run(proc goprocess.Process) {
-	proc.SetTeardown(sess.teardown)
-
-	ctx := goprocessctx.OnClosingContext(proc)
-	ctx = coreapi.WithSession(ctx, sess)
-
-	defer func() {
-		if e := recover(); e != nil {
-			err := errors.Wrap(e, 1)
-
-			sess.logger.Error(err)
-
-			panic(err)
-		}
-	}()
-
-	if err := sess.initialize(ctx); err != nil {
-		panic(err)
-	}
-
-	if err := sess.virtualGraph.Recover(ctx); err != nil {
-		panic(err)
-	}
-
-	if sess.config.KeepAliveTimeout == 0 {
-		sess.config.KeepAliveTimeout = 30 * time.Second
-		sess.config.Persistent = true
-	}
-
-	ticker := time.NewTicker(sess.config.KeepAliveTimeout)
-
-	if !sess.config.Deadline.IsZero() {
-		remaining := sess.config.Deadline.Sub(time.Now())
-
-		time.AfterFunc(remaining, func() {
-			sess.RequestShutdown()
-		})
-	}
-
-	if sess.parent != nil {
-		sess.parent.ReceiveMessage(&sessionMessageChildForked{child: sess})
-	}
-
-	sess.manager.onSessionStarted(sess)
-
-	sess.status = SessionStateActive
-	close(sess.readyCh)
-
-	for {
-		select {
-		case _, ok := <-sess.stopCh:
-			if !ok {
-				return
-			}
-
-			if sess.TryShutdownNow() {
-				return
-			}
-
-		case <-ticker.C:
-			if !sess.config.Persistent {
-				if time.Now().Sub(sess.lastKeepAlive) > 30*time.Second {
-					sess.RequestShutdown()
-				}
-			}
-
-		case msg := <-sess.IncomingMessageCh:
-			if err := sess.processMessage(ctx, msg); err != nil {
-				sess.logger.Error(err)
-			}
-		}
-	}
-}
-
-func (sess *Session) processMessage(ctx context.Context, msg coreapi.SessionMessage) error {
-	sess.mu.Lock()
-	defer sess.mu.Unlock()
-
-	sess.lastKeepAlive = time.Now()
-
-	switch msg := msg.(type) {
-	case *coreapi.SessionMessageKeepAlive:
-		return nil
-
-	case *sessionMessageChildForked:
-		for _, child := range sess.children {
-			if child.UUID() == msg.child.UUID() {
-				return nil
-			}
-		}
-
-		sess.children = append(sess.children, msg.child)
-
-		return nil
-
-	case *sessionMessageChildFinished:
-		idx := slices.Index(sess.children, msg.child)
-
-		if idx != -1 {
-			sess.children = slices.Delete(sess.children, idx, idx+1)
-		}
-
-		if sess.status == SessionStateClosing && len(sess.children) == 0 {
-			sess.RequestShutdown()
-		}
-
-		return nil
-
-	case *coreapi.SessionMessageShutdown:
-		sess.RequestShutdown()
-
-		return nil
-
-	case *coreapi.SessionMessageOpen:
-		sess.SendReply(msg, &coreapi.SessionMessageOpen{
-			Config: sess.config,
-		})
-
-		return nil
-
-	default:
-		logger.Warn("unknown message type: %T", msg)
-
-		return nil
-	}
-}
-
-func (sess *Session) teardown() error {
-	ctx := context.Background()
-
-	if err := sess.serviceProvider.Close(ctx); err != nil {
-		return nil
-	}
-
-	if err := sess.ClientBusConnection.Close(); err != nil {
-		return err
-	}
-
-	sess.status = SessionStateClosed
-
-	if sess.parent != nil {
-		sess.parent.ReceiveMessage(&sessionMessageChildFinished{child: sess})
-	}
-
-	sess.manager.onSessionFinish(sess)
-
-	return nil
-}
-
-func (sess *Session) TryShutdownNow() bool {
-	sess.mu.Lock()
-	defer sess.mu.Unlock()
-
-	if len(sess.children) > 0 {
-		for _, child := range sess.children {
-			child.ReceiveMessage(&coreapi.SessionMessageShutdown{})
-		}
-
-		return false
-	}
-
-	sess.ShutdownNow()
-
-	return true
-}
-
-func (sess *Session) RequestShutdown() {
-	sess.stopCh <- struct{}{}
-}
-
-func (sess *Session) ShutdownNow() {
-	if sess.status == SessionStateClosing || sess.status == SessionStateClosed {
-		return
-	}
-
-	sess.status = SessionStateClosing
-
-	if sess.stopCh != nil {
-		close(sess.stopCh)
-		sess.stopCh = nil
-	}
-}
-
-func (sess *Session) ShutdownAndWait(ctx context.Context) error {
-	sess.RequestShutdown()
-
-	select {
-	case _, _ = <-sess.proc.Closed():
-		return sess.proc.Err()
-
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-func (sess *Session) Close() error {
-	sess.RequestShutdown()
-
-	return sess.proc.Err()
-}
-
 func (sess *Session) BeginTransaction(ctx context.Context, options ...coreapi.TransactionOption) (coreapi.Transaction, error) {
 	var err error
 	var opts coreapi.TransactionOptions
@@ -358,10 +156,10 @@ func (sess *Session) BeginTransaction(ctx context.Context, options ...coreapi.Tr
 		opts:    opts,
 	}
 
-	tx.sp = sess.manager.srm.Transaction.Build(inject.WithParentServiceProvider(sess.serviceProvider))
-
-	ctx, span := tracer.Start(ctx, "Core.BeginTransaction")
-	defer span.End()
+	tx.sp = inject.NewServiceProvider(
+		inject.WithParentServiceProvider(sess.serviceProvider),
+		inject.WithServiceRegistry(&sess.manager.srm.Transaction),
+	)
 
 	ctx = coreapi.WithSession(ctx, sess)
 	ctx = coreapi.WithTransaction(ctx, tx)
@@ -371,18 +169,14 @@ func (sess *Session) BeginTransaction(ctx context.Context, options ...coreapi.Tr
 	}
 
 	typingManager := inject.Inject[*typing.Manager](tx.sp)
-	types := vm.NewTypeRegistry(typingManager)
-
-	if opts.Root.IsRelative() {
-		panic("wtf")
-	}
+	typeRegistry := vm.NewTypeRegistry(typingManager)
 
 	tx.lg, err = online.NewLiveGraph(
 		ctx,
 		opts.Root,
 		sess.virtualGraph,
-		&sess.lsys,
-		types,
+		sess.metadataStore.LinkSystem(),
+		typeRegistry,
 		tx.sp,
 	)
 
@@ -390,11 +184,17 @@ func (sess *Session) BeginTransaction(ctx context.Context, options ...coreapi.Tr
 		return nil, err
 	}
 
-	inject.Register(tx.sp, func(rctx inject.ResolutionContext) (*vm.Context, error) {
-		iso := inject.Inject[*vm.Isolate](rctx)
+	inject.Register[*vm.Context](tx.sp, func(iso *vm.Isolate) (*vm.Context, error) {
+		vmctx := vm.NewContext(ctx, iso, tx.sp)
 
-		return vm.NewContext(ctx, iso, tx.sp), nil
+		vm.MustSet(vmctx.Global(), "_psidb_tx", vmctx.MustWrapValue(reflect.ValueOf(coreapi.Transaction(tx))))
+		vm.MustSet(vmctx.Global(), "_psidb_sp", vmctx.MustWrapValue(reflect.ValueOf(tx.ServiceLocator())))
+
+		return vmctx, nil
 	})
+
+	inject.RegisterInstance[psi.TypeRegistry](tx.sp, typeRegistry)
+	inject.RegisterInstance[psi.Graph](tx.sp, tx.lg)
 
 	return tx, nil
 }
@@ -439,18 +239,6 @@ func (sess *Session) initialize(ctx context.Context) error {
 		return errors.New("no metadata store configured")
 	}
 
-	if sess.config.LinkedStore != nil {
-		sess.lsys, err = sess.config.LinkedStore.CreateLinkedStore(ctx, sess.metadataStore)
-
-		if err != nil {
-			return err
-		}
-	} else if sess.parent != nil {
-		sess.lsys = sess.parent.lsys
-	} else {
-		return errors.New("no linked store configured")
-	}
-
 	if sess.config.Journal != nil {
 		sess.journal, err = sess.config.Journal.CreateJournal(ctx)
 
@@ -484,7 +272,7 @@ func (sess *Session) initialize(ctx context.Context) error {
 	}
 
 	sess.virtualGraph, err = graphfs.NewVirtualGraph(
-		&sess.lsys,
+		sess.metadataStore.LinkSystem(),
 		sess.blockManager.Resolve,
 		sess.journal,
 		sess.checkpoint,
@@ -509,15 +297,8 @@ func (sess *Session) initialize(ctx context.Context) error {
 }
 
 func (sess *Session) initializeServices(ctx context.Context) error {
-	inject.Register(sess.serviceProvider, func(ctx inject.ResolutionContext) (*vm.Isolate, error) {
-		vms := inject.Inject[*vm.VM](ctx)
-		iso := vms.NewIsolate()
-
-		ctx.AppendShutdownHook(func(ctx context.Context) error {
-			return iso.Close()
-		})
-
-		return iso, nil
+	inject.Register[*vm.Isolate](sess.serviceProvider, func(ctx inject.ResolutionContext, vms *vm.Supervisor) (*vm.Isolate, error) {
+		return vms.NewIsolate(), nil
 	})
 
 	return nil

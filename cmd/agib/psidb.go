@@ -16,11 +16,11 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/spf13/cobra"
 
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 
 	"github.com/greenboxal/agibootstrap/pkg/legacy/api/gateway"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/apis/fuse"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 func buildPsiDbCmd() *cobra.Command {

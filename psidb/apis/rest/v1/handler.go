@@ -16,15 +16,15 @@ import (
 	contentnegotiation "gitlab.com/jamietanna/content-negotiation-go"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
-	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
 	"github.com/greenboxal/agibootstrap/psidb/core"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi/rendering"
+	"github.com/greenboxal/agibootstrap/psidb/psi/rendering/themes"
 )
 
 var logger = logging.GetLogger("api/rest")

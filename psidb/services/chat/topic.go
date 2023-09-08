@@ -9,9 +9,9 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type TopicSubscriber interface {

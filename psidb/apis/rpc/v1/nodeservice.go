@@ -9,13 +9,13 @@ import (
 	"github.com/pkg/errors"
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
-	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
 	"github.com/greenboxal/agibootstrap/psidb/core"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi/rendering"
+	"github.com/greenboxal/agibootstrap/psidb/psi/rendering/themes"
 )
 
 type NodeService struct {

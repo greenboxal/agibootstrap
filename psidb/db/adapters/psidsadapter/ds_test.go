@@ -7,8 +7,8 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/stretchr/testify/require"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	graphfs2 "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 func TestNewDataStoreSuperBlock(t *testing.T) {

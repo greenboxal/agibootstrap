@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 func Dispatch(ctx context.Context, not psi.Notification, options ...psi.NotificationOption) error {

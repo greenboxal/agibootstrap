@@ -3,8 +3,8 @@ package rpcv1
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 )
 

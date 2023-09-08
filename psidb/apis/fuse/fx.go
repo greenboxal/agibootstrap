@@ -1,19 +1,19 @@
 package fuse
 
 import (
-	`context`
-	`os`
-	`os/exec`
-	`runtime`
-	`sync`
+	"context"
+	"os"
+	"os/exec"
+	"runtime"
+	"sync"
 
-	fusefs `github.com/hanwen/go-fuse/v2/fs`
-	`github.com/hanwen/go-fuse/v2/fuse`
-	`go.uber.org/fx`
+	fusefs "github.com/hanwen/go-fuse/v2/fs"
+	"github.com/hanwen/go-fuse/v2/fuse"
+	"go.uber.org/fx"
 
-	logging `github.com/greenboxal/agibootstrap/pkg/platform/logging`
-	`github.com/greenboxal/agibootstrap/pkg/psi`
-	coreapi `github.com/greenboxal/agibootstrap/psidb/core/api`
+	logging "github.com/greenboxal/agibootstrap/pkg/platform/logging"
+	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 var logger = logging.GetLogger("psifuse")

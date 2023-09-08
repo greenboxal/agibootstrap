@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type GraphOperations interface {

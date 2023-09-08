@@ -3,8 +3,8 @@ package indexing
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type Embedding struct {

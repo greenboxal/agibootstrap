@@ -8,13 +8,13 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
-	graphfs `github.com/greenboxal/agibootstrap/psidb/db/journal`
+	graphfs "github.com/greenboxal/agibootstrap/psidb/db/journal"
 )
 
 func NewJournal(
 	cfg *coreapi.Config,
 	lc fx.Lifecycle,
-) (*graphfs.Journal, error) {
+) (*graphfs.FileJournal, error) {
 	walPath := path.Join(cfg.DataDir, "wal")
 
 	if err := os.MkdirAll(walPath, 0755); err != nil {

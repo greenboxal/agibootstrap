@@ -19,7 +19,7 @@ import (
 	tasks "github.com/greenboxal/agibootstrap/pkg/platform/tasks"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 const SourceFileEdge psi.TypedEdgeKind[project.SourceFile] = "SourceFile"

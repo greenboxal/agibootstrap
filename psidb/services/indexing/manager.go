@@ -11,8 +11,8 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type Manager struct {

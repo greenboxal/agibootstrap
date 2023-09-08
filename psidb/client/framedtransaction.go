@@ -8,11 +8,11 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	rtv1 "github.com/greenboxal/agibootstrap/psidb/apis/rt/v1"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 type FramedTransaction struct {

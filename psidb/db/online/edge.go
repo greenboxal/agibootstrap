@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type LiveEdge struct {

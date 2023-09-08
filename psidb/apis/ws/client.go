@@ -11,10 +11,10 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/jbenet/goprocess"
 
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
 )
 

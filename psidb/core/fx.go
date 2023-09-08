@@ -29,9 +29,6 @@ var Module = fx.Module(
 
 	fx.Provide(NewCheckpoint),
 	fx.Provide(NewJournal),
-	fx.Provide(NewDataStore),
-	fx.Provide(NewMetadataStore),
-	fx.Provide(NewBlockManager),
 	fx.Provide(NewDispatcher),
 	fx.Provide(NewCore),
 

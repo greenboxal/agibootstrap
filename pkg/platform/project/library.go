@@ -1,7 +1,7 @@
 package project
 
 import (
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type Library interface {

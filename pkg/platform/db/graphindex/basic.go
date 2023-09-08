@@ -9,7 +9,7 @@ import (
 	"github.com/multiformats/go-multihash"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type IndexedItem struct {

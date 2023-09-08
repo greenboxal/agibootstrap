@@ -2,7 +2,7 @@ package query
 
 import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type Iterator interface {

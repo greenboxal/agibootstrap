@@ -12,12 +12,12 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type liveNodeFlag uint32

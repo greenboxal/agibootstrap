@@ -5,8 +5,8 @@ import (
 	"fyne.io/fyne/v2/container"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/visor/guifx"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type ProjectExplorer struct {

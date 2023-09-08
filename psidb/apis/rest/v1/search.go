@@ -9,11 +9,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
-	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi/rendering"
+	"github.com/greenboxal/agibootstrap/psidb/psi/rendering/themes"
 	"github.com/greenboxal/agibootstrap/psidb/services/search"
 )
 

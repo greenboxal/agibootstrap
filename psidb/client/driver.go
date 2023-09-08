@@ -10,12 +10,12 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/apis/rt/v1"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/adapters/remotesb"
 	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type Driver struct {

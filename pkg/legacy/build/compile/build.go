@@ -16,7 +16,7 @@ import (
 
 	codex2 "github.com/greenboxal/agibootstrap/pkg/legacy/codex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type BuildError struct {

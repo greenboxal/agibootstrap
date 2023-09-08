@@ -1,8 +1,40 @@
 {
   "compilerOptions": {
+    "target": "ES2020",
+    "outDir": "dist",
+    "sourceMap": true,
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext",
+      "es2021"
+    ],
     "noImplicitAny": true,
-    "target": "ES5",
-    "module": "es2020",
-    "moduleResolution": "nodenext",
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "declaration": true,
+    "forceConsistentCasingInFileNames": true,
+    "experimentalDecorators": true,
+    "noFallthroughCasesInSwitch": true,
+    "emitDecoratorMetadata": true,
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "plugins": [{ "transform": "typescript-rtti/dist/transformer" }]
+  },
+  "include": [
+    "./src"
+  ],
+  "ts-node": {
+    "compiler": "ts-patch/compiler"
+  },
+  "reflection": {
+    "metadata": false,
+    "debugMode": false
   }
 }

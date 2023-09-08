@@ -31,11 +31,12 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/greenboxal/aip/aip-controller v0.0.0-20230613210128-ceee04e39305
+	github.com/greenboxal/aip/aip-forddb v0.0.0-20230613210128-ceee04e39305
 	github.com/greenboxal/aip/aip-langchain v0.0.0-20230613210128-ceee04e39305
 	github.com/greenboxal/aip/aip-sdk v0.0.0-20230613210128-ceee04e39305
 	github.com/hanwen/go-fuse/v2 v2.3.0
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/iancoleman/orderedmap v0.2.0
+	github.com/iancoleman/orderedmap v0.3.0
 	github.com/iancoleman/strcase v0.3.0
 	github.com/ichiban/prolog v1.1.3
 	github.com/invopop/jsonschema v0.7.0
@@ -145,7 +146,7 @@ require (
 	github.com/graph-gophers/dataloader v5.0.0+incompatible // indirect
 	github.com/graphql-go/graphql v0.8.1 // indirect
 	github.com/graphql-go/handler v0.2.3 // indirect
-	github.com/greenboxal/aip/aip-forddb v0.0.0-20230613210128-ceee04e39305 // indirect
+	github.com/hajimehoshi/oto v1.0.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.2 // indirect
@@ -237,6 +238,7 @@ require (
 	github.com/swaggest/openapi-go v0.2.30 // indirect
 	github.com/swaggest/refl v1.1.0 // indirect
 	github.com/tevino/abool v1.2.0 // indirect
+	github.com/thejerf/suture/v4 v4.0.2 // indirect
 	github.com/tidwall/gjson v1.14.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
@@ -257,6 +259,7 @@ require (
 	go4.org/intern v0.0.0-20211027215823-ae77deb06f29 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20220617031537-928513b29760 // indirect
 	golang.org/x/crypto v0.11.0 // indirect
+	golang.org/x/exp/shiny v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/image v0.8.0 // indirect
 	golang.org/x/mobile v0.0.0-20211207041440-4e6c2922fdee // indirect
 	golang.org/x/mod v0.11.0 // indirect
@@ -288,3 +291,5 @@ replace github.com/greenboxal/aip/aip-forddb => ../aip/aip-forddb
 replace github.com/greenboxal/aip/aip-controller => ../aip/aip-controller
 
 replace github.com/greenboxal/aip/aip-wiki => ../aip/aip-wiki
+
+replace rogchap.com/v8go => ./external/v8go

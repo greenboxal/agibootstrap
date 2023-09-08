@@ -3,8 +3,8 @@ package coreapi
 import (
 	"fmt"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	`github.com/greenboxal/agibootstrap/pkg/typesystem`
+	"github.com/greenboxal/agibootstrap/psidb/psi"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 type JournalEntry struct {

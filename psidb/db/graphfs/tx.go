@@ -9,9 +9,9 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 type Transaction struct {

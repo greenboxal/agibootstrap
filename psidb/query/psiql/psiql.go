@@ -5,7 +5,7 @@ import (
 	"github.com/alecthomas/participle/v2/lexer"
 	"github.com/alecthomas/repr"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type Boolean bool

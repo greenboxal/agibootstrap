@@ -1,7 +1,7 @@
 package restv1
 
 import (
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
 )
 

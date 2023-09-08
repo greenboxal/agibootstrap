@@ -10,8 +10,8 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	"github.com/greenboxal/agibootstrap/psidb/services/chat"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 type ResultParser interface {

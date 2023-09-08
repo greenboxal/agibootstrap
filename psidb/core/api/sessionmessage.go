@@ -1,6 +1,6 @@
 package coreapi
 
-import "github.com/greenboxal/agibootstrap/pkg/typesystem"
+import "github.com/greenboxal/agibootstrap/psidb/typesystem"
 
 type SessionMessage interface {
 	SessionMessageMarker()

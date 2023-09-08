@@ -11,7 +11,7 @@ import (
 	"github.com/greenboxal/aip/aip-langchain/pkg/chunkers"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type IndexedDocument struct {

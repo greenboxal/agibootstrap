@@ -11,7 +11,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/tasks"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type Project interface {

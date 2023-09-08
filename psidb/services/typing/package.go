@@ -1,7 +1,7 @@
 package typing
 
 import (
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type Package struct {

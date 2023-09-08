@@ -11,10 +11,10 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/typing"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 type dynamicType struct {
@@ -146,7 +146,7 @@ type dynamicInterface struct {
 
 	actions map[string]psi.NodeActionDefinition
 
-	lm *LiveModule
+	lm *ModuleInstance
 }
 
 func (d *dynamicInterface) Name() string { return d.ifaceDefinition.Name }
@@ -165,7 +165,7 @@ func (d *dynamicInterface) ValidateImplementation(def psi.VTableDefinition) erro
 	return nil
 }
 
-func (d *dynamicInterface) getModule(ctx context.Context) (*LiveModule, error) {
+func (d *dynamicInterface) getModule(ctx context.Context) (*ModuleInstance, error) {
 	if d.lm != nil {
 		return d.lm, nil
 	}

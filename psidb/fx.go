@@ -21,6 +21,7 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/services/iam"
 	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
 	"github.com/greenboxal/agibootstrap/psidb/services/jobs"
+	"github.com/greenboxal/agibootstrap/psidb/services/jukebox"
 	"github.com/greenboxal/agibootstrap/psidb/services/kb"
 	"github.com/greenboxal/agibootstrap/psidb/services/migrations"
 	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
@@ -46,6 +47,7 @@ var BaseModules = fx.Options(
 	migrations.Module,
 
 	modules.Module,
+	jukebox.Module,
 	search.Module,
 	pubsub.Module,
 	timekeep.Module,

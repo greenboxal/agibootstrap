@@ -3,7 +3,7 @@ package agents
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type ITask interface {
@@ -36,8 +36,6 @@ func (t *Task) Start(ctx context.Context) error {
 	if t.Completed {
 		return nil
 	}
-
-
 
 	return nil
 }

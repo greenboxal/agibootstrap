@@ -1,7 +1,7 @@
 package chat
 
 import (
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type Manager struct {
@@ -11,5 +11,3 @@ type Manager struct {
 func NewManager() *Manager {
 	return &Manager{}
 }
-
-

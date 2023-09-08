@@ -6,7 +6,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 // A Node is a node in the virtual file system.

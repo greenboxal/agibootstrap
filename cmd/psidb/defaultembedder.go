@@ -2,15 +2,16 @@ package main
 
 import (
 	"bytes"
-	`context`
+	"context"
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/chunkers"
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm"
 
+	"github.com/greenboxal/agibootstrap/psidb/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi/rendering"
+	"github.com/greenboxal/agibootstrap/psidb/psi/rendering/themes"
+
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	`github.com/greenboxal/agibootstrap/pkg/psi/rendering`
-	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
 	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 	indexing2 "github.com/greenboxal/agibootstrap/psidb/services/indexing"
 )

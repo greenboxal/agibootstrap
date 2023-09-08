@@ -2,6 +2,8 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/external/ts-json-schema-generator" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/sandbox" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/sdk/psidb-ts/packages/psidb-webpack/psidb-webpack" vcs="Git" />
   </component>
 </project>

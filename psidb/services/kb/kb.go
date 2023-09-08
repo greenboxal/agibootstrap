@@ -8,9 +8,9 @@ import (
 	"golang.org/x/exp/slices"
 	"gonum.org/v1/gonum/floats"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
 )
 

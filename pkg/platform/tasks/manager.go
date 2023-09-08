@@ -9,7 +9,7 @@ import (
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 var taskCtxKey = struct{ name string }{name: "TaskCtxKey"}

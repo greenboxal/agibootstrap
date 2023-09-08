@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type SessionConfig struct {
@@ -14,7 +14,6 @@ type SessionConfig struct {
 	Root          psi.Path            `json:"root"`
 	Journal       JournalConfig       `json:"journal"`
 	Checkpoint    CheckpointConfig    `json:"checkpoint"`
-	LinkedStore   LinkedStoreConfig   `json:"blob_store"`
 	MetadataStore MetadataStoreConfig `json:"metadata_store"`
 	MountPoints   []MountDefinition   `json:"mount_points"`
 
@@ -38,10 +37,6 @@ func (c SessionConfig) Extend(mixin SessionConfig) SessionConfig {
 
 	if mixin.Checkpoint != nil {
 		c.Checkpoint = mixin.Checkpoint
-	}
-
-	if mixin.LinkedStore != nil {
-		c.LinkedStore = mixin.LinkedStore
 	}
 
 	if mixin.MetadataStore != nil {

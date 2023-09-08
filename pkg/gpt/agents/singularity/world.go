@@ -5,7 +5,7 @@ import (
 
 	"github.com/greenboxal/aip/aip-langchain/pkg/llm/chat"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type WorldState struct {

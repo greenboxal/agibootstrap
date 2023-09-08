@@ -3,8 +3,8 @@ package graphstore
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type GraphOperations interface {

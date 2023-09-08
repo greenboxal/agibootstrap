@@ -2,9 +2,11 @@
 
 set -euo pipefail
 
-DIST_DIR="$(realpath ./dist)"
+. "$PSIDB_SDK/sdk/psidb-bash/psidb.sh"
 
-rm -rf "$DIST_DIR"
+DIST_DIR="$(realpath .)/dist"
+
+rm -rf "$DIST_DIR" > /dev/null 2>&1 || true
 
 echo "Building..."
 env BABEL_ENV=development npx webpack
@@ -14,9 +16,7 @@ for name in "$DIST_DIR"/*; do
 
   MOD_NAME="$(basename "$name" .bundle.js)"
 
-  http --verify=no \
-    POST "https://0.0.0.0:22440/v1/psi/$MOD_NAME" \
-    Accept:application/json \
-    type==vm.Module \
-    "name=$MOD_NAME" "source=@$name"
+  create_node "QmYXZ//$MOD_NAME" type==psidb.vm.Module name="$MOD_NAME" source="@$name"
 done
+
+rpc_node QmYXZ//main IModule Test

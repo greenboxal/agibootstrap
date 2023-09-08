@@ -5,8 +5,8 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	mdutils2 "github.com/greenboxal/agibootstrap/pkg/text/mdutils"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type CodeBocks struct {

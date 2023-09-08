@@ -3,8 +3,8 @@ package restv1
 import (
 	"net/http"
 
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	"github.com/greenboxal/agibootstrap/psidb/services/typing"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 type OpenAPISchemaHandler struct {

@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type Reference[T psi.Node] struct {

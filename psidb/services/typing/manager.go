@@ -10,10 +10,10 @@ import (
 	"github.com/samber/lo"
 	"go.uber.org/fx"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/migrations"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 type Manager struct {

@@ -14,15 +14,15 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/legacy/build/fiximports"
 	"github.com/greenboxal/agibootstrap/pkg/legacy/codex"
 	"github.com/greenboxal/agibootstrap/pkg/platform/runtime"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/visor"
 	"github.com/greenboxal/agibootstrap/pkg/visor/chatui"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 
 	// Register languages
-	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/clang"
-	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/golang/v2"
-	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/mdlang"
-	_ "github.com/greenboxal/agibootstrap/pkg/psi/langs/pylang"
+	_ "github.com/greenboxal/agibootstrap/psidb/psi/langs/clang"
+	_ "github.com/greenboxal/agibootstrap/psidb/psi/langs/golang/v2"
+	_ "github.com/greenboxal/agibootstrap/psidb/psi/langs/mdlang"
+	_ "github.com/greenboxal/agibootstrap/psidb/psi/langs/pylang"
 )
 
 var projectRoot string

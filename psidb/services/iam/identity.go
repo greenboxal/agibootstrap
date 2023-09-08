@@ -1,6 +1,6 @@
 package iam
 
-import "github.com/greenboxal/agibootstrap/pkg/psi"
+import "github.com/greenboxal/agibootstrap/psidb/psi"
 
 type Identity struct {
 	psi.NodeBase
@@ -11,5 +11,3 @@ type Identity struct {
 var IdentityType = psi.DefineNodeType[*Identity]()
 
 func (i *Identity) PsiNodeName() string { return i.Username }
-
-

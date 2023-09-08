@@ -79,10 +79,9 @@ func (sm *Manager) createSessionUnlocked(cfg coreapi.SessionConfig) coreapi.Sess
 	if parent != nil {
 		cfg.Journal = nil
 		cfg.Checkpoint = nil
-		cfg.LinkedStore = nil
 		cfg.MetadataStore = nil
 
-		sess = parent.Fork(cfg).(*Session)
+		sess = parent
 	} else {
 		sess = NewSession(sm, nil, cfg)
 	}

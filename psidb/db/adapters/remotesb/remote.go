@@ -7,11 +7,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/apis/rt/v1"
 	"github.com/greenboxal/agibootstrap/psidb/client"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/db/graphfs"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type RemoteSuperBlock struct {

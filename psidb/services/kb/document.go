@@ -8,9 +8,9 @@ import (
 	"github.com/greenboxal/aip/aip-controller/pkg/collective/msn"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type LearnRequest struct {

@@ -5,7 +5,7 @@ import (
 
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type NodeFlag int32

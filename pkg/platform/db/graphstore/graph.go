@@ -14,11 +14,11 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	graphfs2 "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
-	journal2 `github.com/greenboxal/agibootstrap/psidb/db/journal`
+	journal2 "github.com/greenboxal/agibootstrap/psidb/db/journal"
 	"github.com/greenboxal/agibootstrap/psidb/db/online"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 var logger = logging.GetLogger("graphstore")
@@ -38,7 +38,7 @@ type IndexedGraph struct {
 	root psi.UniqueNode
 
 	ds         datastore.Batching
-	journal    *journal2.Journal
+	journal    *journal2.FileJournal
 	checkpoint coreapi.Checkpoint
 
 	vg *graphfs2.VirtualGraph

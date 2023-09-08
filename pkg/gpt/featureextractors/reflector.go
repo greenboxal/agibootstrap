@@ -16,9 +16,9 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt"
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
 	gpt2 "github.com/greenboxal/agibootstrap/psidb/modules/gpt"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type ReflectOptions struct {

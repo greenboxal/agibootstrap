@@ -9,7 +9,7 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/thoughtdb"
 	"github.com/greenboxal/agibootstrap/pkg/platform/project"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type Editor interface {

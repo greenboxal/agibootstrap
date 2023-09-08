@@ -16,9 +16,9 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/psids"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 var tracer = otel.Tracer("psidsadapter", trace.WithInstrumentationAttributes(

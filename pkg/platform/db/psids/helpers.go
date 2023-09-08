@@ -12,10 +12,10 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type TypedKey[T any] interface {

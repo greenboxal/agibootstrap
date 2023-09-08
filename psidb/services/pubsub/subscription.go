@@ -3,7 +3,7 @@ package pubsub
 import (
 	"github.com/jbenet/goprocess"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type SubscriptionPattern struct {

@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 	"rogchap.com/v8go"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 type VirtualNode struct {

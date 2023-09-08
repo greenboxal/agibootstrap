@@ -1,6 +1,6 @@
 package typing
 
-import "github.com/greenboxal/agibootstrap/pkg/psi"
+import "github.com/greenboxal/agibootstrap/psidb/psi"
 
 type ActionDefinition struct {
 	Name          string    `json:"name"`

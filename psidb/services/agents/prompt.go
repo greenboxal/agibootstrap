@@ -17,8 +17,8 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt/promptml"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	gpt2 "github.com/greenboxal/agibootstrap/psidb/modules/gpt"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 )
 

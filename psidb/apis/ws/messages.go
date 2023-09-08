@@ -1,9 +1,9 @@
 package ws
 
 import (
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 type Message struct {

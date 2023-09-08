@@ -13,10 +13,10 @@ import (
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	"github.com/pkg/errors"
-	`github.com/uptrace/opentelemetry-go-extra/otelzap`
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type FileSystem interface {

@@ -4,8 +4,8 @@ import (
 	"html/template"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/graphindex"
-	"github.com/greenboxal/agibootstrap/pkg/psi/rendering"
-	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
+	"github.com/greenboxal/agibootstrap/psidb/psi/rendering"
+	"github.com/greenboxal/agibootstrap/psidb/psi/rendering/themes"
 )
 
 var ApiTheme = rendering.BuildTheme(

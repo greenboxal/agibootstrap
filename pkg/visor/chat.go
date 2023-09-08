@@ -13,8 +13,8 @@ import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	obsfx "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx"
 	collectionsfx2 "github.com/greenboxal/agibootstrap/pkg/platform/stdlib/obsfx/collectionsfx"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/visor/guifx"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type ChatExplorer struct {

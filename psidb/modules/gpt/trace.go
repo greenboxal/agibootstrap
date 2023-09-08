@@ -9,8 +9,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 	openai2 "github.com/sashabaranov/go-openai"
 
-	"github.com/greenboxal/agibootstrap/pkg/typesystem"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 type StreamingTraceChunk struct {

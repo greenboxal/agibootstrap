@@ -3,7 +3,7 @@ package graphfs
 import (
 	"context"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 func Resolve(ctx context.Context, root *CacheEntry, path psi.Path) (*CacheEntry, error) {

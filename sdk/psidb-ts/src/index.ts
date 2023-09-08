@@ -1,50 +1,4 @@
-import {Type} from "@loopback/repository";
-
-export type NodeActionContext = {
-
-}
-
-export type NodeActionHandler<TSelf, TReq, TRes> = (ctx: NodeActionContext, self: TSelf, req: TReq) => TRes | Promise<TRes>;
-
-export type NodeActionDefinition<TReq, TRes> = {
-    name: string;
-    request_type: TypeRegistration<TReq>["name"];
-    response_type: TypeRegistration<TRes>["name"];
-}
-
-export type _NodeInterface = {
-    [k: string]: NodeActionHandler<any, any, any>
-}
-
-export type NodeInterface<TInterface extends _NodeInterface = {}> = {
-    name: string;
-    actions: {
-        [K in keyof TInterface]: NodeActionDefinition<Parameters<TInterface[K]>[1], ReturnType<TInterface[K]>>;
-    }
-}
-
-export type NodeVTable<TSelf = {}, TInterface extends _NodeInterface = {}> = {
-    interface: NodeInterface<TInterface>;
-    actions: {
-        [K in keyof TInterface]: NodeActionHandler<TSelf, Parameters<TInterface[K]>[1], ReturnType<TInterface[K]>>;
-    }
-}
-
-export type FieldDefinition = {
-    name: string;
-    type: string;
-    optional?: boolean;
-}
-
-export interface TypeRegistration<TFields = {}, TInterfaces extends { [k: string]: _NodeInterface } = {}, TName extends string = ""> {
-    name: string;
-    fields: { [K in keyof TFields]: FieldDefinition; };
-    interfaces: { [K in keyof TInterfaces]: NodeInterface<TInterfaces[K]>; };
-}
-
-export type ModuleRegistration = {
-    types: TypeRegistration[];
-}
+import {ModuleRegistration, NodeActionContext, NodeInterface, NodeVTable, StaticModuleInterface, TypeRegistration} from "./api";
 
 type IPerson = {
     sayHello(ctx: NodeActionContext, req: {pandas?: string}): {};
@@ -52,6 +6,57 @@ type IPerson = {
 
 type PersonSchema = {
     name: string;
+}
+
+declare const _psidb_tx: any;
+declare const _psidb_sp: any;
+
+function test(ctx: any) {
+    console.log("Hello from psidb-ts")
+}
+
+function testTypes(reg: ModuleRegistration, ip: NodeInterface<IPerson>) {
+
+}
+
+export const psidbModule = {
+    test(person: IPerson): PersonSchema {
+        return {name: ""}
+    },
+
+    lol() {
+
+    },
+}
+
+class Module {
+    constructor() {
+    }
+
+    test(person: IPerson): PersonSchema {
+        return {name: ""}
+    }
+
+    lol() {
+
+    }
+}
+
+export type Act<Name extends string, Req extends any, Res extends any> = {
+    name: Name;
+    request_type: Req;
+    response_type: Res;
+}
+
+export interface ModuleInterface {
+    actions: {
+        test2: Act<"test2", IPerson, PersonSchema>;
+        test: {
+            name: "test";
+            request_type: IPerson;
+            response_type: PersonSchema;
+        }
+    }
 }
 
 export function register(): ModuleRegistration {
@@ -94,3 +99,5 @@ export function register(): ModuleRegistration {
         ]
     }
 }
+
+

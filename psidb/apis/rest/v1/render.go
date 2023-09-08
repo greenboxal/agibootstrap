@@ -6,9 +6,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi/psiml"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/psi/psiml"
 	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
 	"github.com/greenboxal/agibootstrap/psidb/services/search"
 )

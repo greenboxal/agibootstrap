@@ -8,9 +8,9 @@ import (
 	"go.uber.org/fx"
 	"golang.org/x/exp/slices"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type MigrationHookFunc func(ctx context.Context, tx coreapi.Transaction) error

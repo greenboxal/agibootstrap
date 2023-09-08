@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs/repofs"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/pkg/text/mdutils"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type LanguageID string

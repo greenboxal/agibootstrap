@@ -6,14 +6,14 @@ import (
 
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
-	`github.com/uptrace/opentelemetry-go-extra/otelzap`
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"go.uber.org/fx"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/fti"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type Workspace struct {

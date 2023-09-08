@@ -2,8 +2,8 @@ package project
 
 import (
 	"github.com/greenboxal/agibootstrap/pkg/platform/vfs"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/psi/analysis"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi/analysis"
 )
 
 type Module interface {

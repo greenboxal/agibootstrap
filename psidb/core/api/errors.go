@@ -3,7 +3,7 @@ package coreapi
 import (
 	"github.com/pkg/errors"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 var ErrNotFound = psi.ErrNodeNotFound

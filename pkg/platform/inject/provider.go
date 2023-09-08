@@ -11,6 +11,8 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+var errorType = reflect.TypeOf((*error)(nil)).Elem()
+var resolutionContextType = reflect.TypeOf((*ResolutionContext)(nil)).Elem()
 var ServiceNotFound = errors.New("service not found")
 
 type ServiceProvider interface {
@@ -52,6 +54,12 @@ type ServiceProviderOption func(*serviceProvider)
 func WithParentServiceProvider(sp ServiceLocator) ServiceProviderOption {
 	return func(s *serviceProvider) {
 		s.parent = sp
+	}
+}
+
+func WithServiceRegistry(sr *ServiceRegistry) ServiceProviderOption {
+	return func(s *serviceProvider) {
+		sr.ApplyTo(s)
 	}
 }
 
@@ -142,15 +150,16 @@ func (sp *serviceProvider) Close(ctx context.Context) error {
 	for done := false; !done; {
 		func() {
 			sp.mu.Lock()
-			defer sp.mu.Unlock()
 
 			if len(sp.shutdownHooks) == 0 {
 				done = true
+				sp.mu.Unlock()
 				return
 			}
 
 			hook := sp.shutdownHooks[0]
 			sp.shutdownHooks = sp.shutdownHooks[1:]
+			sp.mu.Unlock()
 
 			if err := hook(ctx); err != nil {
 				merr = multierror.Append(merr, err)
@@ -162,6 +171,9 @@ func (sp *serviceProvider) Close(ctx context.Context) error {
 }
 
 func (sp *serviceProvider) AppendShutdownHook(f func(ctx context.Context) error) {
+	sp.mu.Lock()
+	defer sp.mu.Unlock()
+
 	sp.shutdownHooks = append(sp.shutdownHooks, f)
 }
 
@@ -351,16 +363,103 @@ func RegisterInstance[T any](sp ServiceProvider, instance T) {
 }
 
 func ProvideInstance[T any](instance T) ServiceDefinition {
-	return Provide[T](func(ctx ResolutionContext) (T, error) {
+	return ProvideFactory[T](func(ctx ResolutionContext) (T, error) {
 		return instance, nil
 	})
 }
 
-func Register[T any](sp ServiceProvider, factory func(ctx ResolutionContext) (T, error)) {
+type constructorDefinition struct {
+	parameters    []ServiceKey
+	resultIndex   int
+	errorOutIndex int
+}
+
+func Provide[T any](factory any) ServiceDefinition {
+	definedType := reflect.TypeOf((*T)(nil)).Elem()
+	constructorValue := reflect.ValueOf(factory)
+	constructorType := constructorValue.Type()
+
+	if constructorValue.Kind() != reflect.Func {
+		panic("factory must be a function")
+	}
+
+	def := constructorDefinition{
+		errorOutIndex: -1,
+		resultIndex:   -1,
+		parameters:    make([]ServiceKey, constructorType.NumIn()),
+	}
+
+	for i := 0; i < constructorType.NumIn(); i++ {
+		def.parameters[i] = ServiceKeyFor(constructorType.In(i))
+	}
+
+	for i := 0; i < constructorType.NumOut(); i++ {
+		arg := constructorType.Out(i)
+
+		if arg.AssignableTo(errorType) {
+			if i != constructorType.NumOut()-1 {
+				panic("error must be the last return value")
+			}
+
+			if def.errorOutIndex != -1 {
+				panic("multiple error return values")
+			}
+
+			def.errorOutIndex = i
+		} else if arg.AssignableTo(definedType) {
+			if def.resultIndex != -1 {
+				panic("multiple return values assignable to T")
+			}
+
+			def.resultIndex = i
+		} else {
+			panic("return value not assignable to T or error")
+		}
+	}
+
+	return ProvideFactory[T](func(ctx ResolutionContext) (empty T, _ error) {
+		args := make([]reflect.Value, len(def.parameters))
+
+		for i := 0; i < len(args); i++ {
+			parameterType := def.parameters[i]
+
+			if parameterType.Type == resolutionContextType {
+				args[i] = reflect.ValueOf(ctx)
+				continue
+			}
+
+			arg, err := ctx.GetService(parameterType)
+
+			if err != nil {
+				return empty, err
+			}
+
+			args[i] = reflect.ValueOf(arg)
+		}
+
+		result := constructorValue.Call(args)
+
+		if def.errorOutIndex != -1 {
+			errValue := result[def.errorOutIndex]
+
+			if !errValue.IsNil() {
+				return empty, errValue.Interface().(error)
+			}
+		}
+
+		return result[0].Interface().(T), nil
+	})
+}
+
+func Register[T any](sp ServiceProvider, factory any) {
 	sp.RegisterService(Provide[T](factory))
 }
 
-func Provide[T any](factory func(ctx ResolutionContext) (T, error)) ServiceDefinition {
+func RegisterFactory[T any](sp ServiceProvider, factory func(ctx ResolutionContext) (T, error)) {
+	sp.RegisterService(ProvideFactory[T](factory))
+}
+
+func ProvideFactory[T any](factory func(ctx ResolutionContext) (T, error)) ServiceDefinition {
 	return ServiceDefinition{
 		Key:          ServiceKeyOf[T](),
 		Dependencies: []ServiceKey{},
@@ -375,7 +474,14 @@ func ServiceKeyOf[T any]() ServiceKey {
 }
 
 func ServiceKeyFor(typ reflect.Type) ServiceKey {
+	realTyp := typ
+
+	for realTyp.Kind() == reflect.Ptr {
+		realTyp = realTyp.Elem()
+	}
+
 	return ServiceKey{
+		Name: realTyp.PkgPath() + "/" + realTyp.Name(),
 		Type: typ,
 	}
 }

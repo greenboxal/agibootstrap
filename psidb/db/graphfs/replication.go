@@ -8,8 +8,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/db/psids"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type replicationManager struct {

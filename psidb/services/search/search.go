@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	coreapi `github.com/greenboxal/agibootstrap/psidb/core/api`
+	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 	indexing2 "github.com/greenboxal/agibootstrap/psidb/services/indexing"
 )
 

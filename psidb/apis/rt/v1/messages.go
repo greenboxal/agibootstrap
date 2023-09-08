@@ -1,9 +1,9 @@
 package rtv1
 
 import (
-	"github.com/greenboxal/agibootstrap/pkg/psi"
 	"github.com/greenboxal/agibootstrap/psidb/client"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 var MessageTypeLookupNode = DefineMessageReplyWithType[*LookupNodeRequest, *LookupNodeResponse](MessageKindReadNode)

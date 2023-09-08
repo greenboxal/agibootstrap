@@ -1,9 +1,9 @@
 package coreapi
 
 import (
-	`context`
+	"context"
 
-	`github.com/greenboxal/agibootstrap/pkg/psi`
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
 type JournalConfig interface {

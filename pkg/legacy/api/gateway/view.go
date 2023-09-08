@@ -5,8 +5,8 @@ import (
 
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
-	"github.com/greenboxal/agibootstrap/pkg/psi"
-	"github.com/greenboxal/agibootstrap/pkg/psi/rendering/themes"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
+	"github.com/greenboxal/agibootstrap/psidb/psi/rendering/themes"
 )
 
 type EdgeDescription struct {
