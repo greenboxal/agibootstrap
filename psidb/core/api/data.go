@@ -61,8 +61,9 @@ type SerializedEdge struct {
 	Flags EdgeFlag    `json:"flags"`
 	Key   psi.EdgeKey `json:"key"`
 
-	ToIndex int64    `json:"toIndex"`
-	ToPath  psi.Path `json:"toPath,omitempty"`
+	ToIndex int64         `json:"toIndex"`
+	ToPath  psi.Path      `json:"toPath,omitempty"`
+	ToLink  *cidlink.Link `json:"toLink,omitempty"`
 
 	Data []byte `json:"data,omitempty"`
 

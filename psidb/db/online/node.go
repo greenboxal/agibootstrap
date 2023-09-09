@@ -9,6 +9,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
+	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/pkg/errors"
 
@@ -502,7 +503,8 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 
 	if !typ.Definition().IsRuntimeOnly {
 		wrapped := typesystem.Wrap(ln.node)
-		link, err := ln.g.lsys.ComputeLink(linkPrototype, wrapped)
+
+		link, err := ln.g.lsys.Store(linking.LinkContext{Ctx: ctx}, linkPrototype, wrapped)
 
 		if err != nil {
 			return err
@@ -590,7 +592,7 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 		}
 	}
 
-	link, err := ln.g.lsys.ComputeLink(linkPrototype, typesystem.Wrap(ln.frozen))
+	link, err := ln.g.lsys.Store(linking.LinkContext{Ctx: ctx}, linkPrototype, typesystem.Wrap(ln.frozen))
 
 	if err != nil {
 		return err

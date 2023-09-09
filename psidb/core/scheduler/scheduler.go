@@ -39,7 +39,7 @@ func NewScheduler(
 	}
 
 	lc.Append(fx.Hook{
-		OnStop: sch.Shutdown,
+		OnStop: sch.Stop,
 	})
 
 	return sch
@@ -49,7 +49,7 @@ func (s *Scheduler) BaseContext() context.Context {
 	return s.ctx
 }
 
-func (s *Scheduler) Shutdown(ctx context.Context) error {
+func (s *Scheduler) Stop(ctx context.Context) error {
 	done := make(chan struct{})
 
 	go func() {

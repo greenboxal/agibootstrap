@@ -2,6 +2,7 @@ package restv1
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -9,10 +10,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-errors/errors"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
-	"github.com/pkg/errors"
 	contentnegotiation "gitlab.com/jamietanna/content-negotiation-go"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
@@ -62,7 +63,7 @@ func (r *ResourceHandler) ServeHTTP(writer http.ResponseWriter, request *http.Re
 
 	defer func() {
 		if err := recover(); err != nil {
-			r.handleError(writer, req, err)
+			r.handleError(writer, req, errors.Wrap(err, 1))
 		}
 	}()
 
@@ -160,7 +161,7 @@ func (r *ResourceHandler) handleRequest(req *Request) (any, error) {
 		return r.handleDelete(req)
 	}
 
-	return nil, ErrMethodNotAllowed
+	return nil, ErrMethodNotAllowed.Format("method %s not allowed", req.Method)
 }
 
 func (r *ResourceHandler) handleGet(request *Request) (any, error) {
@@ -182,7 +183,7 @@ func (r *ResourceHandler) handlePost(request *Request) (any, error) {
 	}
 
 	if request.ContentType == nil {
-		return nil, ErrBadRequest
+		return nil, ErrBadRequest.Format("missing content type")
 	}
 
 	if request.ContentType.GetType() == "multipart" && request.ContentType.GetSubType() == "form-data" {
@@ -278,16 +279,67 @@ func (r *ResourceHandler) handleDelete(request *Request) (any, error) {
 	return node, nil
 }
 
-func (r *ResourceHandler) handleError(writer http.ResponseWriter, request *Request, e any) {
-	err, ok := e.(error)
+var MediaTypeTextPlain = contentnegotiation.NewMediaType("text/plain")
+var MediaTypeApplicationJson = contentnegotiation.NewMediaType("application/json")
 
-	if !ok {
-		err = fmt.Errorf("%v", e)
+type StructuredError struct {
+	Error        string              `json:"error"`
+	ErrorCode    int                 `json:"error_code"`
+	ErrorMessage string              `json:"error_message"`
+	ErrorDetails any                 `json:"error_details"`
+	ErrorCause   *StructuredError    `json:"error_cause,omitempty"`
+	StackTrace   []errors.StackFrame `json:"stack_trace"`
+}
+
+func StructureErrorFrom(err error, skip int) (se StructuredError) {
+	var httpErr HttpError
+
+	if errors.As(err, &httpErr) {
+		se.ErrorCode = httpErr.StatusCode()
+	} else if errors.Is(err, fs.ErrNotExist) {
+		se.ErrorCode = http.StatusNotFound
 	}
 
-	status := http.StatusInternalServerError
+	errWithFrames, _ := err.(interface {
+		StackFrames() []errors.StackFrame
+	})
 
+	errWithTypeName, _ := err.(interface {
+		TypeName() string
+	})
+
+	errWithCause, _ := err.(interface {
+		Cause() error
+	})
+
+	if errWithTypeName == nil {
+		errWithTypeName = errors.Wrap(err, 0)
+	}
+
+	if errWithFrames != nil {
+		se.StackTrace = errWithFrames.StackFrames()
+	}
+
+	se.Error = errWithTypeName.TypeName()
+	se.ErrorMessage = err.Error()
+	se.ErrorDetails = err
+
+	if errWithCause != nil {
+		cause := errWithCause.Cause()
+
+		if !errors.Is(cause, err) && cause != nil {
+			cse := StructureErrorFrom(cause, skip+1)
+			se.ErrorCause = &cse
+		}
+	}
+
+	return
+}
+
+func (r *ResourceHandler) handleError(writer http.ResponseWriter, request *Request, err error) {
 	var httpErr HttpError
+
+	status := http.StatusInternalServerError
 
 	if errors.As(err, &httpErr) {
 		status = httpErr.StatusCode()
@@ -300,6 +352,29 @@ func (r *ResourceHandler) handleError(writer http.ResponseWriter, request *Reque
 	}
 
 	writer.WriteHeader(status)
+
+	hasFormat := false
+	se := StructureErrorFrom(err, 1)
+
+	for _, acceptFormat := range request.AcceptedFormats {
+		if hasFormat {
+			break
+		}
+
+		if acceptFormat.IsCompatibleWith(MediaTypeApplicationJson) {
+			if err := json.NewEncoder(writer).Encode(se); err != nil {
+				panic(err)
+			}
+
+			hasFormat = true
+		}
+	}
+
+	if !hasFormat {
+		if _, err := fmt.Fprintf(writer, "Error: %s\n%s\n\nStack Trace\n%s", se.Error, se.ErrorMessage, errors.Wrap(err, 0).ErrorStack()); err != nil {
+			panic(err)
+		}
+	}
 }
 
 func (r *ResourceHandler) handlePostFile(request *Request, reader io.Reader) (any, error) {
@@ -329,7 +404,7 @@ func (r *ResourceHandler) handlePostFile(request *Request, reader io.Reader) (an
 	}
 
 	if f == nil {
-		return nil, ErrNotFound
+		return nil, ErrNotFound.Format("node %s not found", request.PsiPath.String())
 	}
 
 	vf := f.(*vfs.File)

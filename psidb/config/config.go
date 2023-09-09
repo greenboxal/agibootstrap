@@ -17,9 +17,8 @@ import (
 )
 
 type Config struct {
-	PeerID   peer.ID
-	Identity crypto.PrivKey
-
+	PeerID       peer.ID
+	Identity     crypto.PrivKey
 	IdentityFile string `mapstructure:"IDENTITY_FILE"`
 
 	PublicAddresses []string
@@ -91,7 +90,7 @@ func autoBindConfig(v *viper.Viper, typ reflect.Type, base string) {
 
 func (c *Config) InitializeDefaults() error {
 	if c.DatabasePath == "" {
-		c.DatabasePath = "./data"
+		c.DatabasePath = "./.fti/psi"
 	}
 
 	if c.IdentityFile == "" {
@@ -100,17 +99,11 @@ func (c *Config) InitializeDefaults() error {
 
 	if c.IdentityFile != "" {
 		if err := c.ReadIdentityFile(); err != nil {
-			//return err
-		}
-	}
-
-	if c.Identity == nil {
-		if err := c.GenerateIdentity(); err != nil {
 			return err
 		}
 	}
 
-	if c.PeerID == "" {
+	if c.PeerID == "" && c.Identity != nil {
 		pid, err := peer.IDFromPublicKey(c.Identity.GetPublic())
 
 		if err != nil {
@@ -132,18 +125,18 @@ func (c *Config) InitializeDefaults() error {
 		c.BootstrapPeers = append(c.BootstrapPeers, addresses...)
 	}
 
-	//if len(c.ListenAddresses) == 0 {
-	//	c.ListenAddresses = append(c.ListenAddresses,
-	//		"/ip4/0.0.0.0/tcp/0",
-	//		"/ip4/0.0.0.0/udp/0/quic",
-	//		"/ip4/0.0.0.0/udp/0/quic-v1",
-	//		"/ip4/0.0.0.0/udp/0/quic-v1/webtransport",
-	//		"/ip6/::/tcp/0",
-	//		"/ip6/::/udp/0/quic",
-	//		"/ip6/::/udp/0/quic-v1",
-	//		"/ip6/::/udp/0/quic-v1/webtransport",
-	//	)
-	//}
+	if len(c.ListenAddresses) == 0 {
+		c.ListenAddresses = append(c.ListenAddresses,
+			"/ip4/0.0.0.0/tcp/0",
+			"/ip4/0.0.0.0/udp/0/quic",
+			"/ip4/0.0.0.0/udp/0/quic-v1",
+			"/ip4/0.0.0.0/udp/0/quic-v1/webtransport",
+			"/ip6/::/tcp/0",
+			"/ip6/::/udp/0/quic",
+			"/ip6/::/udp/0/quic-v1",
+			"/ip6/::/udp/0/quic-v1/webtransport",
+		)
+	}
 
 	if len(c.ListenAddresses) == 0 {
 		ifaces, err := net.Interfaces()
@@ -200,7 +193,7 @@ func (c *Config) InitializeDefaults() error {
 	}
 
 	if c.HttpEndpoint == "" {
-		c.HttpEndpoint = "/ip4/127.0.0.1/tcp/25000/http"
+		c.HttpEndpoint = "/ip4/0.0.0.0/tcp/22440/http"
 	}
 
 	return nil

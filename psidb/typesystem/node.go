@@ -85,7 +85,7 @@ func (n valueNode) LookupByString(key string) (datamodel.Node, error) {
 	case PrimitiveKindMap:
 		v := n.v.Indirect().MapIndex(reflect.ValueOf(key))
 
-		return ValueFrom(v).As(n.v.typ.Map().Value()).AsNode(), nil
+		return ValueFrom(v).UncheckedCast(n.v.typ.Map().Value()).AsNode(), nil
 
 	case PrimitiveKindStruct:
 		st := n.v.typ.Struct()
@@ -132,7 +132,7 @@ func (n valueNode) LookupByIndex(idx int64) (datamodel.Node, error) {
 	case PrimitiveKindList:
 		v := n.v.Value().Index(int(idx))
 
-		return ValueFrom(v).As(n.v.typ.List().Elem()).AsNode(), nil
+		return ValueFrom(v).UncheckedCast(n.v.typ.List().Elem()).AsNode(), nil
 
 	case PrimitiveKindStruct:
 		st := n.v.Type().Struct()

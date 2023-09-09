@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+. "$PSIDB_SDK/sdk/psidb-bash/psidb.sh"
+
+psidb_rpc_node "$@"

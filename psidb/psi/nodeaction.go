@@ -7,6 +7,11 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
+type NodeActionRef[Req any, Res any] struct {
+	Interface NodeInterface
+	Action    NodeAction
+}
+
 type NodeAction interface {
 	Name() string
 	RequestType() typesystem.Type

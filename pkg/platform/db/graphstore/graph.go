@@ -133,7 +133,7 @@ func (g *IndexedGraph) RemoveListener(l IndexedGraphListener) {
 	}
 }
 
-func (g *IndexedGraph) Shutdown(ctx context.Context) error {
+func (g *IndexedGraph) Stop(ctx context.Context) error {
 	if g.closeCh != nil {
 		close(g.closeCh)
 		g.closeCh = nil

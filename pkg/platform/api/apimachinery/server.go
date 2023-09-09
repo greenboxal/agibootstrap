@@ -101,7 +101,7 @@ func NewServer(
 		},
 
 		OnStop: func(ctx context.Context) error {
-			return api.Shutdown(ctx)
+			return api.Stop(ctx)
 		},
 	})
 
@@ -116,10 +116,6 @@ func (a *Server) Start(ctx context.Context) error {
 	var listener net.Listener
 
 	endpoint := a.cfg.ListenEndpoint
-
-	if endpoint == "" {
-		endpoint = os.Getenv("AGIB_LISTEN_ENDPOINT")
-	}
 
 	if endpoint == "" {
 		endpoint = "0.0.0.0:22440"
@@ -178,7 +174,7 @@ func (a *Server) Start(ctx context.Context) error {
 	return nil
 }
 
-func (a *Server) Shutdown(ctx context.Context) error {
+func (a *Server) Stop(ctx context.Context) error {
 	return a.server.Shutdown(ctx)
 }
 

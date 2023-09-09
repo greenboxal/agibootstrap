@@ -60,7 +60,7 @@ func initializeProject(ctx context.Context, load bool) error {
 
 func teardownProject(ctx context.Context) error {
 	if project != nil {
-		if err := project.Shutdown(ctx); err != nil {
+		if err := project.Stop(ctx); err != nil {
 			return err
 		}
 

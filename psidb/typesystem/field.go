@@ -30,5 +30,5 @@ type reflectedField struct {
 func (f *reflectedField) Resolve(receiver Value) Value {
 	v := reflect.Indirect(receiver.Value()).FieldByIndex(f.runtimeField.Index)
 
-	return ValueFrom(v).As(f.typ)
+	return ValueFrom(v).UncheckedCast(f.typ)
 }

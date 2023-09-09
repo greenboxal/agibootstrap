@@ -233,6 +233,6 @@ func (p *Project) Reindex() error {
 	return nil
 }
 
-func (p *Project) Shutdown(ctx context.Context) error {
+func (p *Project) Stop(ctx context.Context) error {
 	return nil
 }

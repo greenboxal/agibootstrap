@@ -14,8 +14,10 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/apis/rpc"
 	rpcv1 "github.com/greenboxal/agibootstrap/psidb/apis/rpc/v1"
 	"github.com/greenboxal/agibootstrap/psidb/apis/ws"
+	"github.com/greenboxal/agibootstrap/psidb/config"
 	"github.com/greenboxal/agibootstrap/psidb/core"
 	"github.com/greenboxal/agibootstrap/psidb/modules"
+	"github.com/greenboxal/agibootstrap/psidb/network"
 	"github.com/greenboxal/agibootstrap/psidb/services/agents"
 	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 	"github.com/greenboxal/agibootstrap/psidb/services/iam"
@@ -40,6 +42,7 @@ var BaseModules = fx.Options(
 		return zl
 	}),
 
+	config.Module,
 	inject.Module,
 	core.Module,
 	apimachinery.Module,
@@ -58,6 +61,7 @@ var BaseModules = fx.Options(
 	chat.Module,
 	agents.Module,
 
+	network.Module,
 	//fuse.Module,
 	ws.Module,
 	rpc.Module,

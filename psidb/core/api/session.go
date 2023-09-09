@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	`github.com/ipld/go-ipld-prime/linking`
+	"github.com/ipld/go-ipld-prime/linking"
 
-	`github.com/greenboxal/agibootstrap/pkg/platform/inject`
+	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 )
 
 type SessionManager interface {
@@ -30,7 +30,7 @@ type Session interface {
 	Err() error
 
 	Journal() Journal
-	MetadataStore() MetadataStore
+	MetadataStore() DataStore
 	VirtualGraph() VirtualGraph
 	LinkSystem() *linking.LinkSystem
 	ServiceProvider() inject.ServiceProvider

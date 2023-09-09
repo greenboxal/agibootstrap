@@ -1,9 +1,10 @@
-import {Schema as JsonSchema} from "jsonschema";
+import {JSONSchema7 as JSONSchema} from "json-schema";
+import {Schema} from "./api";
 
 export type ModuleManifest = {
     name: string;
     entrypoint: string;
-    schema: JsonSchema;
+    schema: Schema;
 }
 
 export type PackageManifest = {
@@ -20,7 +21,7 @@ export type PackageFileManifest = {
 export class ModuleManifestBuilder {
     name: string = "";
     entrypoint: string = "";
-    schema = new SchemaBuilder()
+    schema: Partial<Schema> = {}
 
     withName(name: string): ModuleManifestBuilder {
         this.name = name;
@@ -32,8 +33,8 @@ export class ModuleManifestBuilder {
         return this;
     }
 
-    withSchemaDefinition(schema: JsonSchema): ModuleManifestBuilder {
-        this.schema.withSchemaDefinition(schema)
+    withSchemaDefinition(schema: Schema): ModuleManifestBuilder {
+        this.schema = schema
         return this;
     }
 
@@ -41,25 +42,25 @@ export class ModuleManifestBuilder {
         return {
             name: this.name,
             entrypoint: this.entrypoint,
-            schema: this.schema.build(),
+            schema: this.schema as Schema,
         }
     }
 }
 
 export class SchemaBuilder {
-    private readonly definitions: Record<string, JsonSchema> = {}
+    private readonly definitions: Record<string, JSONSchema> = {}
 
-    withSchemaDefinition(schema: JsonSchema): SchemaBuilder {
+    withSchemaDefinition(schema: JSONSchema): SchemaBuilder {
         schema = {...schema}
 
         if (!schema.$id) {
             throw new Error("Schema must have an $id");
         }
 
-        const defs = Object.keys(schema.definitions || {})
+        const defs = Object.keys(schema.$defs || {})
 
         if (defs.length > 0) {
-            schema.definitions = this.importSchemaDefinitions(schema, defs)
+            schema.$defs = this.importSchemaDefinitions(schema, defs)
         }
 
         this.definitions[schema.$id] = schema;
@@ -67,22 +68,28 @@ export class SchemaBuilder {
         return this;
     }
 
-    private importSchemaDefinitions(from: JsonSchema, names: string[]) {
-        const refs: Record<string, JsonSchema> = {}
+    private importSchemaDefinitions(from: JSONSchema, names: string[]) {
+        const refs: Record<string, JSONSchema> = {}
 
         for (const name of names) {
             refs[name] = {
-                "$ref": "#/definitions/" + name,
+                "$ref": "#/$defs/" + name,
             }
 
             if (this.definitions[name]) {
                 continue;
             }
 
-            let def = (from.definitions || {})[name]
+            let def = (from.$defs || {})[name]
 
             if (!def) {
                 throw new Error(`Schema definition ${name} not found`)
+            }
+
+            if (typeof def !== "object") {
+                def = {}
+            } else {
+                def = {...def}
             }
 
             if (!def.$id) {
@@ -92,16 +99,16 @@ export class SchemaBuilder {
             this.withSchemaDefinition(def)
 
             if (def.$id != name) {
-                this.definitions[name] = { $ref: "#/definitions/" + def.$id }
+                this.definitions[name] = { $ref: "#/$defs/" + def.$id }
             }
         }
 
         return refs
     }
 
-    build(): JsonSchema {
+    build(): JSONSchema {
         return {
-            definitions: { ...this.definitions },
+            $defs: { ...this.definitions },
         }
     }
 }

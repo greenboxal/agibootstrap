@@ -1,7 +1,7 @@
 package coreapi
 
 import (
-	`github.com/ipld/go-ipld-prime/linking`
+	"github.com/ipld/go-ipld-prime/linking"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 )
@@ -9,7 +9,7 @@ import (
 type Core interface {
 	Config() *Config
 	Journal() Journal
-	MetadataStore() MetadataStore
+	MetadataStore() DataStore
 	VirtualGraph() VirtualGraph
 	LinkSystem() *linking.LinkSystem
 	ServiceProvider() inject.ServiceProvider

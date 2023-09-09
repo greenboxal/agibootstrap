@@ -8,11 +8,7 @@ import (
 
 type DataStore interface {
 	datastore.Batching
-}
 
-type MetadataStore interface {
 	DB() *badger.DB
 	LinkSystem() *linking.LinkSystem
-
-	DataStore
 }

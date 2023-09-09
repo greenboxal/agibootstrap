@@ -25,6 +25,8 @@ type Type interface {
 	Map() MapType
 
 	AssignableTo(other Type) bool
+
+	ConvertFromAny(v Value) (Value, error)
 }
 
 type StructType interface {

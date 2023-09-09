@@ -9,7 +9,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -18,12 +17,6 @@ import (
 )
 
 type LocalResourceManager interface {
-	NetworkListenAddresses() []multiaddr.Multiaddr
-
-	ManagementEndpoint() net.Addr
-	IpfsGatewayEndpoint() net.Addr
-	RelayListenEndpoint() net.Addr
-
 	ListenMultiaddr(name string) multiaddr.Multiaddr
 	ListenMultiaddrs(name string) []multiaddr.Multiaddr
 	ListenEndpoint(name string) net.Addr
@@ -45,11 +38,8 @@ func NewLocalResourceManager(config *Config) LocalResourceManager {
 	}
 
 	lrm.SetListenEndpoints("p2p", config.ListenAddresses)
+	lrm.SetListenEndpoint("api", config.HttpEndpoint)
 	lrm.SetListenEndpoint("management", config.HttpEndpoint)
-	lrm.SetListenEndpoint("relay", config.RelayEndpoint)
-	lrm.SetListenEndpoint("ipfs-gateway", config.IpfsGatewayEndpoint)
-	lrm.SetListenEndpoint("dns", config.DnsBindEndpoint)
-	lrm.SetListenEndpoint("ssh", "/ip4/0.0.0.0/tcp/2222")
 
 	return lrm
 }
@@ -198,140 +188,6 @@ func (l *localResourceManager) StoragePath(s string) string {
 	_ = os.MkdirAll(p, 0755)
 
 	return p
-}
-
-func (l *localResourceManager) PublicListenAddresses() []multiaddr.Multiaddr {
-	var addrs []multiaddr.Multiaddr
-	var candidates []multiaddr.Multiaddr
-
-	if len(l.config.PublicAddresses) > 0 {
-		candidates = make([]multiaddr.Multiaddr, len(l.config.PublicAddresses))
-
-		for i, v := range l.config.PublicAddresses {
-			ma, err := multiaddr.NewMultiaddr(v)
-
-			if err != nil {
-				panic(err)
-			}
-
-			candidates[i] = ma
-		}
-	} else {
-		candidates = l.NetworkListenAddresses()
-	}
-
-	for _, addr := range candidates {
-		skip := false
-
-		multiaddr.ForEach(addr, func(c multiaddr.Component) bool {
-			switch c.Protocol().Code {
-			case multiaddr.P_IP4:
-				fallthrough
-
-			case multiaddr.P_IP6:
-				ip := netip.MustParseAddr(c.Value())
-
-				if !ip.IsValid() {
-					skip = true
-				} else if ip.IsLoopback() {
-					skip = true
-				}
-			}
-
-			if skip {
-				return false
-			}
-
-			return true
-		})
-
-		if skip {
-			continue
-		}
-
-		addrs = append(addrs, addr)
-	}
-
-	sort.SliceStable(addrs, func(i, j int) bool {
-		a := addrs[i]
-		b := addrs[j]
-		s1 := 0
-		s2 := 0
-
-		if v, err := a.ValueForProtocol(multiaddr.P_IP4); err == nil && v != "" {
-			s1++
-		}
-
-		if v, err := b.ValueForProtocol(multiaddr.P_IP4); err == nil && v != "" {
-			s2++
-		}
-
-		if s1 != s2 {
-			return s1 < s2
-		}
-
-		return a.String() < b.String()
-	})
-
-	return addrs
-}
-
-func (l *localResourceManager) NetworkListenAddresses() []multiaddr.Multiaddr {
-	addrs := make([]multiaddr.Multiaddr, 0, len(l.config.ListenAddresses))
-
-	for _, addr := range l.config.ListenAddresses {
-		skip := false
-		ma, err := multiaddr.NewMultiaddr(addr)
-
-		if err != nil {
-			continue
-		}
-
-		var components []multiaddr.Multiaddr
-
-		multiaddr.ForEach(ma, func(c multiaddr.Component) bool {
-			switch c.Protocol().Code {
-			case multiaddr.P_IP6:
-				if l.config.DisableIP6 {
-					skip = true
-				}
-			case multiaddr.P_TCP:
-				c = l.patchMultiAddrComponent(c)
-			case multiaddr.P_UDP:
-				c = l.patchMultiAddrComponent(c)
-			}
-
-			components = append(components, &c)
-
-			if skip {
-				return false
-			}
-
-			return true
-		})
-
-		if skip {
-			continue
-		}
-
-		ma = multiaddr.Join(components...)
-
-		addrs = append(addrs, ma)
-	}
-
-	return addrs
-}
-
-func (l *localResourceManager) ManagementEndpoint() net.Addr {
-	return l.ListenEndpoint("management")
-}
-
-func (l *localResourceManager) IpfsGatewayEndpoint() net.Addr {
-	return l.ListenEndpoint("ipfs-gateway")
-}
-
-func (l *localResourceManager) RelayListenEndpoint() net.Addr {
-	return l.ListenEndpoint("relay")
 }
 
 func (l *localResourceManager) patchAddresses(network string, endpoints []string) []net.Addr {

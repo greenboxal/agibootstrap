@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/exp/slices"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
@@ -68,6 +69,8 @@ func NewVirtualGraph(
 
 	return vg, nil
 }
+
+func (vg *VirtualGraph) LinkSystem() *linking.LinkSystem { return vg.lsys }
 
 func (vg *VirtualGraph) Recover(ctx context.Context) error {
 	ctx, span := vg.tracer.Start(ctx, "VirtualGraph.Recover")
@@ -267,6 +270,14 @@ func (vg *VirtualGraph) applyTransaction(ctx context.Context, tx *Transaction) e
 
 	hasBegun := false
 	hasFinished := false
+
+	hasRollback := slices.IndexFunc(tx.log, func(entry *coreapi.JournalEntry) bool {
+		return entry.Op == coreapi.JournalOpRollback
+	}) != -1
+
+	if hasRollback {
+		panic("rollback not implemented")
+	}
 
 	superblocks := map[string]SuperBlock{}
 	nodeByPath := map[string]NodeHandle{}

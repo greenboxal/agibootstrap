@@ -34,7 +34,7 @@ const paths = {
     appJsConfig: resolveApp('jsconfig.json'),
     appNodeModules: resolveApp('node_modules'),
     appTsBuildInfoFile: resolveApp('node_modules/.cache/tsconfig.tsbuildinfo'),
-    publicUrlOrPath: "QmYXZ//",
+    publicUrlOrPath: "/",
 };
 
 const moduleFileExtensions = [

@@ -2,17 +2,14 @@ package vm
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/psi"
-	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 type IModule interface {
 	Register(ctx context.Context) error
-	Test(ctx context.Context) error
 }
 
 type Module struct {
@@ -60,41 +57,18 @@ func (m *Module) Get(ctx context.Context) (*ModuleInstance, error) {
 	return m.instance, nil
 }
 
-func (m *Module) Register(ctx context.Context) (any, error) {
+func (m *Module) Register(ctx context.Context) error {
 	lm, err := m.Get(ctx)
 
 	if err != nil {
-		return err, nil
+		return err
 	}
 
-	r, err := lm.register(ctx, m)
+	_, err = lm.register(ctx, m)
 
 	if err != nil {
-		return err, nil
+		return err
 	}
 
-	return r, nil
-}
-
-func (m *Module) Test(ctx context.Context) (any, error) {
-	lm, err := m.Get(ctx)
-
-	if err != nil {
-		return err, nil
-	}
-
-	r, err := lm.Invoke("test", typesystem.ValueOf(&TestContext{}))
-
-	if err != nil {
-		return err, nil
-	}
-
-	return r, nil
-}
-
-type TestContext struct {
-}
-
-func (a *TestContext) Log(str string) {
-	fmt.Printf("%s\n", str)
+	return nil
 }

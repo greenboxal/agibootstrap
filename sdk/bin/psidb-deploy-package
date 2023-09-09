@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -euo pipefail
+
+. "$PSIDB_SDK/sdk/psidb-bash/psidb.sh"
+
+DEPLOY_PATH="$1"
+PKG_PATH="$(realpath "$2")"
+
+MANIFEST_FILE="$PKG_PATH/manifest.psidb-package.json"
+
+if [ ! -f "$MANIFEST_FILE" ]; then
+  echo "No manifest file found at $MANIFEST_FILE"
+  exit 1
+fi
+
+MODULE_NAME="$(jq -r .name "$MANIFEST_FILE")"
+
+TMP_PKG_DIR="$(mktemp -d)"
+
+"$PSIDB_SDK/sdk/psidb-ts/node_modules/.bin/ts-node" "$PSIDB_SDK/sdk/psidb-ts/src/build-deploy-package.ts" \
+  "$MANIFEST_FILE" \
+  "$PKG_PATH" > "$TMP_PKG_DIR/pkg.json"
+
+echo "Deploying..."
+psidb_create_node "$MODULE_NAME" type==psidb.vm.Package "@$TMP_PKG_DIR/pkg.json"

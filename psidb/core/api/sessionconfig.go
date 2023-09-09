@@ -11,11 +11,12 @@ type SessionConfig struct {
 	SessionID       string `json:"session_id"`
 	ParentSessionID string `json:"parent_session_id,omitempty"`
 
-	Root          psi.Path            `json:"root"`
-	Journal       JournalConfig       `json:"journal"`
-	Checkpoint    CheckpointConfig    `json:"checkpoint"`
-	MetadataStore MetadataStoreConfig `json:"metadata_store"`
-	MountPoints   []MountDefinition   `json:"mount_points"`
+	Root          psi.Path          `json:"root"`
+	Journal       JournalConfig     `json:"journal"`
+	Checkpoint    CheckpointConfig  `json:"checkpoint"`
+	GraphStore    DataStoreConfig   `json:"graph_store"`
+	MetadataStore DataStoreConfig   `json:"metadata_store"`
+	MountPoints   []MountDefinition `json:"mount_points"`
 
 	Persistent       bool          `json:"persistent"`
 	KeepAliveTimeout time.Duration `json:"keep_alive_timeout"`
@@ -41,6 +42,10 @@ func (c SessionConfig) Extend(mixin SessionConfig) SessionConfig {
 
 	if mixin.MetadataStore != nil {
 		c.MetadataStore = mixin.MetadataStore
+	}
+
+	if mixin.GraphStore != nil {
+		c.GraphStore = mixin.GraphStore
 	}
 
 	c.MountPoints = append(c.MountPoints, mixin.MountPoints...)

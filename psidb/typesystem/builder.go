@@ -32,13 +32,14 @@ func (bb *nodeBuilder) BeginMap(sizeHint int64) (datamodel.MapAssembler, error) 
 	switch bb.v.Type().PrimitiveKind() {
 	case PrimitiveKindMap:
 		mt := bb.v.Type().Map()
+		mtr := mt.RuntimeType()
 
 		if !bb.v.Value().IsValid() {
-			bb.v = MakeMap(mt.Key(), mt.Value(), int(sizeHint))
+			bb.v = MakeMap(mtr.Key(), mtr.Elem(), int(sizeHint))
 		}
 
 		if bb.v.v.IsNil() {
-			bb.v.v.Set(MakeMap(mt.Key(), mt.Value(), int(sizeHint)).v)
+			bb.v.v.Set(MakeMap(mtr.Key(), mtr.Elem(), int(sizeHint)).v)
 		}
 
 		return &mapAssembler{bb: bb}, nil
@@ -67,7 +68,7 @@ func (bb *nodeBuilder) BeginList(sizeHint int64) (datamodel.ListAssembler, error
 	}
 
 	if !bb.v.v.IsValid() {
-		bb.v = MakeList(bb.v.Type().List().Elem(), 0, int(sizeHint))
+		bb.v = MakeList(bb.v.Type().RuntimeType().Elem(), 0, int(sizeHint))
 		bb.v.v = bb.v.v.Addr()
 	}
 
@@ -84,27 +85,78 @@ func (bb *nodeBuilder) AssignNull() error {
 	return nil
 }
 
+func checkTypeDataKind(t reflect.Type, kind ...reflect.Kind) bool {
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	for _, k := range kind {
+		if t.Kind() == k {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (v Value) checkPrimitiveKind(kind ...PrimitiveKind) bool {
+	for _, k := range kind {
+		if v.typ.PrimitiveKind() == k {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (v Value) checkTypeDataKind(kind ...reflect.Kind) bool {
+	return checkTypeDataKind(v.v.Type(), kind...)
+}
+
+func (bb *nodeBuilder) tryFallbackToAny(v any) error {
+	result, err := bb.v.Type().ConvertFromAny(ValueOf(v))
+
+	if err != nil {
+		return err
+	}
+
+	if !result.IsValid() {
+		return errors.New("cannot assign any to non-any type")
+	}
+
+	bb.v.Indirect().Set(result.v)
+
+	return nil
+}
+
 func (bb *nodeBuilder) AssignBool(b bool) error {
 	if bb.v.v.Kind() == reflect.Ptr && bb.v.v.IsNil() {
 		bb.v.v.Set(reflect.New(bb.v.v.Type().Elem()))
 	}
 
-	bb.v.Indirect().SetBool(b)
+	if bb.v.checkTypeDataKind(reflect.Bool) {
+		bb.v.Indirect().SetBool(b)
+	} else {
+		return bb.tryFallbackToAny(b)
+	}
 
 	return nil
 }
 
 func (bb *nodeBuilder) AssignInt(i int64) error {
+
 	if bb.v.v.Kind() == reflect.Ptr && bb.v.v.IsNil() {
 		bb.v.v.Set(reflect.New(bb.v.v.Type().Elem()))
 	}
 
-	if bb.v.Type().PrimitiveKind() == PrimitiveKindFloat {
-		bb.v.Indirect().SetFloat(float64(float32(i)))
-	} else if bb.v.Type().PrimitiveKind() == PrimitiveKindUnsignedInt {
+	if bb.v.checkTypeDataKind(reflect.Float32, reflect.Float64) {
+		bb.v.Indirect().SetFloat(float64(i))
+	} else if bb.v.checkTypeDataKind(reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64) {
 		bb.v.Indirect().SetUint(uint64(i))
-	} else {
+	} else if bb.v.checkTypeDataKind(reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64) {
 		bb.v.Indirect().SetInt(i)
+	} else {
+		return bb.tryFallbackToAny(i)
 	}
 
 	return nil
@@ -115,7 +167,15 @@ func (bb *nodeBuilder) AssignFloat(f float64) error {
 		bb.v.v.Set(reflect.New(bb.v.v.Type().Elem()))
 	}
 
-	bb.v.Indirect().SetFloat(f)
+	if bb.v.checkTypeDataKind(reflect.Float32, reflect.Float64) {
+		bb.v.Indirect().SetFloat(f)
+	} else if bb.v.checkTypeDataKind(reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64) {
+		bb.v.Indirect().SetUint(uint64(f))
+	} else if bb.v.checkTypeDataKind(reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64) {
+		bb.v.Indirect().SetInt(int64(f))
+	} else {
+		return bb.tryFallbackToAny(f)
+	}
 
 	return nil
 }
@@ -173,6 +233,10 @@ func (bb *nodeBuilder) AssignString(s string) error {
 			return u.UnmarshalText([]byte(s))
 		} else if u, ok := TryCast[encoding.TextUnmarshaler](v); ok {
 			return u.UnmarshalText([]byte(s))
+		} else if v.Type() == anyType {
+			v.Set(reflect.ValueOf(any(s)))
+
+			return nil
 		}
 
 		return errors.New("cannot assign string to non-string type")
@@ -421,7 +485,14 @@ func (ma *mapAssembler) Finish() error {
 
 func (ma *mapAssembler) next() {
 	if ma.nextValue != nil {
-		ma.bb.v.Value().SetMapIndex(ma.nextKey.Value(), ma.nextValue.Value())
+		k := ma.nextKey.Value()
+		v := ma.nextValue.Value()
+
+		if v.Kind() != reflect.Ptr && ma.bb.v.Type().RuntimeType().Elem().Kind() == reflect.Ptr {
+			v = v.Addr()
+		}
+
+		ma.bb.v.Value().SetMapIndex(k, v)
 
 		ma.nextKey = nil
 		ma.nextValue = nil
@@ -488,5 +559,3 @@ func (sa *structAssembler) ValuePrototype(k string) datamodel.NodePrototype {
 func (sa *structAssembler) Finish() error {
 	return nil
 }
-
-var textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()

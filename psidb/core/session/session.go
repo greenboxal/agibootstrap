@@ -59,7 +59,8 @@ type Session struct {
 	lastKeepAlive   time.Time
 	serviceProvider inject.ServiceProvider
 
-	metadataStore coreapi.MetadataStore
+	metadataStore coreapi.DataStore
+	graphStore    coreapi.DataStore
 	journal       coreapi.Journal
 	checkpoint    coreapi.Checkpoint
 	blockManager  *MountManager
@@ -108,7 +109,7 @@ func (sess *Session) LastKeepAlive() time.Time { return sess.lastKeepAlive }
 
 func (sess *Session) Journal() coreapi.Journal                { return sess.journal }
 func (sess *Session) Checkpoint() coreapi.Checkpoint          { return sess.checkpoint }
-func (sess *Session) MetadataStore() coreapi.MetadataStore    { return sess.metadataStore }
+func (sess *Session) MetadataStore() coreapi.DataStore        { return sess.metadataStore }
 func (sess *Session) LinkSystem() *linking.LinkSystem         { return sess.metadataStore.LinkSystem() }
 func (sess *Session) VirtualGraph() coreapi.VirtualGraph      { return sess.virtualGraph }
 func (sess *Session) ServiceProvider() inject.ServiceProvider { return sess.serviceProvider }
@@ -175,7 +176,7 @@ func (sess *Session) BeginTransaction(ctx context.Context, options ...coreapi.Tr
 		ctx,
 		opts.Root,
 		sess.virtualGraph,
-		sess.metadataStore.LinkSystem(),
+		sess.graphStore.LinkSystem(),
 		typeRegistry,
 		tx.sp,
 	)
@@ -224,7 +225,7 @@ func (sess *Session) initialize(ctx context.Context) error {
 	}
 
 	if sess.config.MetadataStore != nil {
-		sess.metadataStore, err = sess.config.MetadataStore.CreateMetadataStore(ctx)
+		sess.metadataStore, err = sess.config.MetadataStore.CreateDataStore(ctx)
 
 		if err != nil {
 			return err
@@ -237,6 +238,22 @@ func (sess *Session) initialize(ctx context.Context) error {
 		sess.metadataStore = sess.parent.metadataStore
 	} else {
 		return errors.New("no metadata store configured")
+	}
+
+	if sess.config.GraphStore != nil {
+		sess.graphStore, err = sess.config.GraphStore.CreateDataStore(ctx)
+
+		if err != nil {
+			return err
+		}
+
+		sess.serviceProvider.AppendShutdownHook(func(ctx context.Context) error {
+			return sess.graphStore.Close()
+		})
+	} else if sess.parent != nil {
+		sess.graphStore = sess.parent.graphStore
+	} else {
+		return errors.New("no graph store configured")
 	}
 
 	if sess.config.Journal != nil {
@@ -272,7 +289,7 @@ func (sess *Session) initialize(ctx context.Context) error {
 	}
 
 	sess.virtualGraph, err = graphfs.NewVirtualGraph(
-		sess.metadataStore.LinkSystem(),
+		sess.graphStore.LinkSystem(),
 		sess.blockManager.Resolve,
 		sess.journal,
 		sess.checkpoint,

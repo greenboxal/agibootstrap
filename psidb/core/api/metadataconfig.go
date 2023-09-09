@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	badger2 "github.com/dgraph-io/badger"
+	"github.com/ipfs/go-datastore"
 	badger "github.com/ipfs/go-ds-badger"
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -15,19 +16,19 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/core/refcount"
 )
 
-type MetadataStoreConfig interface {
-	CreateMetadataStore(ctx context.Context) (MetadataStore, error)
+type DataStoreConfig interface {
+	CreateDataStore(ctx context.Context) (DataStore, error)
 }
 
-type ExistingMetadataStore struct {
-	MetadataStore
+type ExistingDataStore struct {
+	DataStore
 }
 
-func (e ExistingMetadataStore) CreateMetadataStore(ctx context.Context) (MetadataStore, error) {
+func (e ExistingDataStore) CreateDataStore(ctx context.Context) (DataStore, error) {
 	return e, nil
 }
 
-func (e ExistingMetadataStore) Close() error {
+func (e ExistingDataStore) Close() error {
 	return nil
 }
 
@@ -91,7 +92,7 @@ func (c *sharedResourceCache[K, V]) Get(key K) (refcount.ObjectHandle[V], error)
 	return rc.Ref(), nil
 }
 
-var badgerSrc = newSharedResourceCache(func(k BadgerMetadataStoreConfig) (MetadataStore, error) {
+var badgerSrc = newSharedResourceCache(func(k BadgerDataStoreConfig) (DataStore, error) {
 	dsOpts := badger.DefaultOptions
 
 	if err := os.MkdirAll(k.Path, 0755); err != nil {
@@ -117,48 +118,53 @@ var badgerSrc = newSharedResourceCache(func(k BadgerMetadataStoreConfig) (Metada
 	lsys.SetWriteStorage(dsa)
 	lsys.TrustedStorage = true
 
-	return &BadgerMetadataStore{DataStore: ds, lsys: lsys}, nil
-}, func(v MetadataStore) error {
+	return &BadgerDataStore{Batching: ds, lsys: lsys}, nil
+}, func(v DataStore) error {
 	return v.Close()
 })
 
-type BadgerMetadataStoreConfig struct {
+type BadgerDataStoreConfig struct {
 	Path string `json:"path"`
 }
 
-func (b BadgerMetadataStoreConfig) CreateMetadataStore(ctx context.Context) (MetadataStore, error) {
+func (b BadgerDataStoreConfig) CreateDataStore(ctx context.Context) (DataStore, error) {
 	handle, err := badgerSrc.Get(b)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &refCountedMetadataStore{MetadataStore: handle.Get()}, nil
+	return &refCountedMetadataStore{DataStore: handle.Get()}, nil
 }
 
 type refCountedMetadataStore struct {
-	MetadataStore
+	DataStore
 
-	handle refcount.ObjectHandle[MetadataStore]
+	handle refcount.ObjectHandle[DataStore]
 }
 
 func (r *refCountedMetadataStore) Close() error {
+	if r.handle == nil {
+		return nil
+	}
+
 	r.handle.Release()
-	r.MetadataStore = nil
+	r.handle = nil
+	r.DataStore = nil
 
 	return nil
 }
 
-type BadgerMetadataStore struct {
-	DataStore
+type BadgerDataStore struct {
+	datastore.Batching
 
 	lsys linking.LinkSystem
 }
 
-func (m *BadgerMetadataStore) LinkSystem() *linking.LinkSystem {
+func (m *BadgerDataStore) LinkSystem() *linking.LinkSystem {
 	return &m.lsys
 }
 
-func (m *BadgerMetadataStore) DB() *badger2.DB {
-	return m.DataStore.(*badger.Datastore).DB
+func (m *BadgerDataStore) DB() *badger2.DB {
+	return m.Batching.(*badger.Datastore).DB
 }

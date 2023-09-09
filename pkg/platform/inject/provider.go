@@ -320,7 +320,7 @@ func (sr *serviceRegistration) Close(ctx context.Context) error {
 			return err
 		}
 	} else if shutdown, ok := sr.instance.(ShutdownContext); ok {
-		err := shutdown.Shutdown(ctx)
+		err := shutdown.Stop(ctx)
 
 		if err != nil {
 			return err
@@ -345,7 +345,7 @@ type CloseContext interface {
 }
 
 type ShutdownContext interface {
-	Shutdown(ctx context.Context) error
+	Stop(ctx context.Context) error
 }
 
 func Inject[T any](sp ServiceLocator) T {

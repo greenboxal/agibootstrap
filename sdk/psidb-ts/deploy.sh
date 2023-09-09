@@ -16,7 +16,7 @@ for name in "$DIST_DIR"/*; do
 
   MOD_NAME="$(basename "$name" .bundle.js)"
 
-  create_node "QmYXZ//$MOD_NAME" type==psidb.vm.Module name="$MOD_NAME" source="@$name"
+  psidb_create_node "QmYXZ//$MOD_NAME" type==psidb.vm.Module name="$MOD_NAME" source="@$name"
 done
 
-rpc_node QmYXZ//main IModule Test
+psidb_rpc_node QmYXZ//main IModule Test

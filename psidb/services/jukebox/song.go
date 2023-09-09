@@ -1,19 +1,15 @@
 package jukebox
 
 import (
+	"encoding/binary"
+	"io"
 	"math"
-	"time"
 
-	"github.com/hajimehoshi/oto"
+	"github.com/ebitengine/oto/v3"
+	"github.com/jbenet/goprocess"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/psidb/psi"
-)
-
-const (
-	sampleRate = 44100
-	channelNum = 2
-	bitDepth   = 2
 )
 
 type MidiNote struct {
@@ -41,58 +37,94 @@ type Song struct {
 
 func (s *Song) PsiNodeName() string { return s.Name }
 
-var otoCtx *oto.Context
-var otoPlayer *oto.Player
-var otoRequests = make(chan []FreqDuration, 4096)
+var otoContext *oto.Context
+var otoPlayer *SoundPlayer
+
+type SoundPlayer struct {
+	player   *oto.Player
+	requests chan []FreqDuration
+
+	sampleRate int
+	bitDepth   int
+	channelNum int
+
+	pipeReader *io.PipeReader
+	pipeWriter *io.PipeWriter
+
+	time uint64
+}
+
+func NewSoundPlayer() *SoundPlayer {
+	pipeReader, pipeWriter := io.Pipe()
+
+	sp := &SoundPlayer{
+		sampleRate: 44100,
+		requests:   make(chan []FreqDuration, 4096),
+
+		pipeReader: pipeReader,
+		pipeWriter: pipeWriter,
+	}
+
+	sp.player = otoContext.NewPlayer(pipeReader)
+
+	goprocess.Go(sp.Run)
+
+	return sp
+}
+
+func (sp *SoundPlayer) Run(proc goprocess.Process) {
+	proc.Go(func(proc goprocess.Process) {
+		sp.player.Play()
+	})
+
+	for notes := range sp.requests {
+		for _, note := range notes {
+			freq := note.Frequency
+			duration := note.Duration
+
+			writeSample := func(l, r float64) {
+				var buffer [8]byte
+				ivl := math.Float32bits(float32(l))
+				ivr := math.Float32bits(float32(r))
+				binary.LittleEndian.PutUint32(buffer[:4], ivl)
+				binary.LittleEndian.PutUint32(buffer[4:], ivr)
+				if _, err := sp.pipeWriter.Write(buffer[:]); err != nil {
+					logger.Error(err)
+				}
+
+				sp.time++
+			}
+
+			numSamples := int(float64(sp.sampleRate) * (duration / 1000))
+
+			for i := 0; i < numSamples; i++ {
+				val := math.Sin(2.0 * math.Pi * freq * float64(sp.time) / float64(sp.sampleRate))
+
+				writeSample(val, val)
+			}
+		}
+	}
+}
 
 var logger = logging.GetLogger("jukebox")
 
 func init() {
-	ctx, err := oto.NewContext(sampleRate, channelNum, bitDepth, 8192)
+	ctx, ready, err := oto.NewContext(&oto.NewContextOptions{
+		SampleRate:   44100,
+		ChannelCount: 2,
+		Format:       oto.FormatFloat32LE,
+	})
 
 	if err != nil {
 		panic(err)
 	}
 
-	otoCtx = ctx
-	otoPlayer = ctx.NewPlayer()
+	otoContext = ctx
 
 	go func() {
-		for notes := range otoRequests {
-			for _, note := range notes {
-				freq := note.Frequency
-				duration := note.Duration
+		_, _ = <-ready
 
-				if freq == 0 {
-					time.Sleep(time.Duration(duration) * time.Millisecond)
-					continue
-				}
-
-				numSamples := int(float64(sampleRate) * (duration / 1000))
-				samples := make([]byte, numSamples*channelNum*bitDepth)
-
-				for totalSamples := 0; totalSamples < numSamples; totalSamples += sampleRate {
-					sampleCount := sampleRate
-
-					if totalSamples+sampleRate > numSamples {
-						sampleCount = numSamples - totalSamples
-					}
-
-					for sampleIndex := 0; sampleIndex < sampleCount; sampleIndex++ {
-						i := totalSamples + sampleIndex
-						val := int16(32767.0 * math.Sin(2.0*math.Pi*freq*float64(i)/float64(sampleRate)))
-						samples[4*sampleIndex], samples[4*sampleIndex+1] = byte(val), byte(val>>8)   // Left channel
-						samples[4*sampleIndex+2], samples[4*sampleIndex+3] = byte(val), byte(val>>8) // Right channel
-					}
-
-					if _, err := otoPlayer.Write(samples); err != nil {
-						logger.Error(err)
-					}
-
-					totalSamples += sampleRate
-				}
-			}
-		}
+		otoPlayer = NewSoundPlayer()
 	}()
 }
 
@@ -103,7 +135,7 @@ func midiNoteToFrequency(note int) float64 {
 
 type FreqDuration struct {
 	Frequency float64 `json:"freq" jsonschema:"title=Freq,type=number,minimum=0.0,maximum=20000.0"`
-	Duration  float64 `json:"duration" jsonschema:"title=Duration,description=Duration in milliseconds,type=number,format=duration"`
+	Duration  float64 `json:"duration_in_ms" jsonschema:"title=Duration,description=Duration in milliseconds,type=number,format=duration"`
 }
 
 type PlayToneRequest struct {
@@ -111,7 +143,7 @@ type PlayToneRequest struct {
 }
 
 func (s *Song) PlayTone(req PlayToneRequest) error {
-	otoRequests <- req.FreqDurations
+	otoPlayer.requests <- req.FreqDurations
 
 	return nil
 }

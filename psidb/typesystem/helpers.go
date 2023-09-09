@@ -9,6 +9,10 @@ import (
 
 var globalTypeSystem = newTypeSystem()
 
+func init() {
+	globalTypeSystem.Initialize()
+}
+
 func Universe() TypeSystem {
 	return globalTypeSystem
 }
@@ -26,6 +30,14 @@ func TypeFrom(t reflect.Type) Type {
 }
 
 func ValueOf(v interface{}) Value {
+	if v, ok := v.(Value); ok {
+		return v
+	}
+
+	if v, ok := v.(reflect.Value); ok {
+		return ValueFrom(v)
+	}
+
 	return Value{
 		typ: TypeOf(v),
 		v:   reflect.ValueOf(v),
@@ -46,8 +58,8 @@ func New(t Type) Value {
 	}
 }
 
-func MakeList(t Type, length, cap int) Value {
-	sliceType := reflect.SliceOf(t.RuntimeType())
+func MakeList(t reflect.Type, length, cap int) Value {
+	sliceType := reflect.SliceOf(t)
 
 	v := Value{
 		v: reflect.MakeSlice(sliceType, length, cap),
@@ -58,8 +70,8 @@ func MakeList(t Type, length, cap int) Value {
 	return v
 }
 
-func MakeMap(k, v Type, length int) Value {
-	rt := reflect.MapOf(k.RuntimeType(), v.RuntimeType())
+func MakeMap(k, v reflect.Type, length int) Value {
+	rt := reflect.MapOf(k, v)
 	t := TypeFrom(rt)
 
 	return Value{

@@ -76,7 +76,7 @@ func (c *Core) Config() *coreapi.Config                 { return c.config }
 func (c *Core) Journal() coreapi.Journal                { return c.rootSession.Journal() }
 func (c *Core) VirtualGraph() coreapi.VirtualGraph      { return c.rootSession.VirtualGraph() }
 func (c *Core) LinkSystem() *linking.LinkSystem         { return c.rootSession.LinkSystem() }
-func (c *Core) MetadataStore() coreapi.MetadataStore    { return c.rootSession.MetadataStore() }
+func (c *Core) MetadataStore() coreapi.DataStore        { return c.rootSession.MetadataStore() }
 func (c *Core) ServiceProvider() inject.ServiceProvider { return c.serviceProvider }
 
 func (c *Core) CreateConfirmationTracker(ctx context.Context, name string) (coreapi.ConfirmationTracker, error) {
@@ -138,44 +138,69 @@ func (c *Core) Stop(ctx context.Context) error {
 	return c.proc.Close()
 }
 
-func (c *Core) run(proc goprocess.Process) {
-	proc.SetTeardown(c.teardown)
-
-	ctx := goprocessctx.OnClosingContext(proc)
-
-	sm := inject.Inject[coreapi.SessionManager](c.serviceProvider)
-
-	c.rootSession = sm.GetOrCreateSession(coreapi.SessionConfig{
+func (c *Core) buildSessionConfig() coreapi.SessionConfig {
+	return coreapi.SessionConfig{
 		SessionID:       "",
 		ParentSessionID: "",
 		Persistent:      true,
 
 		Root: psi.PathFromElements(c.config.RootUUID, false),
 
-		MetadataStore: coreapi.BadgerMetadataStoreConfig{
-			Path: path.Join(c.config.DataDir, "metadata"),
-		},
-
-		Checkpoint: coreapi.FileCheckpointConfig{
-			Path: path.Join(c.config.DataDir, "psidb.ckpt"),
-		},
-
-		Journal: journal.FileJournalConfig{
-			Path: path.Join(c.config.DataDir, "journal"),
-		},
+		MetadataStore: c.buildMetadataStoreConfig(),
+		GraphStore:    c.buildGraphStoreConfig(),
+		Checkpoint:    c.buildCheckpointConfig(),
+		Journal:       c.buildJournalConfig(),
 
 		MountPoints: []coreapi.MountDefinition{
-			{
-				Name: "QmYXZ",
-				Path: psi.PathFromElements(c.config.RootUUID, false),
-				Target: psidsadapter.BadgerSuperBlockConfig{
-					MetadataStoreConfig: coreapi.BadgerMetadataStoreConfig{
-						Path: path.Join(c.config.DataDir, "data"),
-					},
-				},
+			c.buildDataMountPoint(c.config.RootUUID),
+		},
+	}
+}
+
+func (c *Core) buildCheckpointConfig() coreapi.CheckpointConfig {
+	return coreapi.FileCheckpointConfig{
+		Path: path.Join(c.config.DataDir, "psidb.ckpt"),
+	}
+}
+
+func (c *Core) buildJournalConfig() coreapi.JournalConfig {
+	return journal.FileJournalConfig{
+		Path: path.Join(c.config.DataDir, "journal"),
+	}
+}
+
+func (c *Core) buildGraphStoreConfig() coreapi.DataStoreConfig {
+	return coreapi.BadgerDataStoreConfig{
+		Path: path.Join(c.config.DataDir, "data"),
+	}
+}
+
+func (c *Core) buildMetadataStoreConfig() coreapi.DataStoreConfig {
+	return coreapi.BadgerDataStoreConfig{
+		Path: path.Join(c.config.DataDir, "metadata"),
+	}
+}
+
+func (c *Core) buildDataMountPoint(name string) coreapi.MountDefinition {
+	return coreapi.MountDefinition{
+		Name: name,
+		Path: psi.PathFromElements(c.config.RootUUID, false),
+		Target: psidsadapter.BadgerSuperBlockConfig{
+			MetadataStoreConfig: coreapi.BadgerDataStoreConfig{
+				Path: path.Join(c.config.DataDir, "blocks", name),
 			},
 		},
-	})
+	}
+}
+
+func (c *Core) run(proc goprocess.Process) {
+	proc.SetTeardown(c.teardown)
+
+	ctx := goprocessctx.OnClosingContext(proc)
+
+	sessionManager := inject.Inject[coreapi.SessionManager](c.serviceProvider)
+	sessionConfig := c.buildSessionConfig()
+	c.rootSession = sessionManager.GetOrCreateSession(sessionConfig)
 
 	err := c.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
 		root, err := tx.Resolve(ctx, psi.PathFromElements(c.config.RootUUID, false))

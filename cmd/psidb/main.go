@@ -5,13 +5,14 @@ import (
 	"path"
 
 	"go.uber.org/fx"
-	"go.uber.org/fx/fxevent"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/api/apimachinery"
 	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/workspace"
 	"github.com/greenboxal/agibootstrap/psidb"
+	"github.com/greenboxal/agibootstrap/psidb/config"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/network"
 )
 
 func main() {
@@ -25,18 +26,15 @@ func main() {
 	}
 
 	app := fx.New(
-		fx.WithLogger(func() fxevent.Logger {
-			return &fxevent.ZapLogger{Logger: logging.GetRootLogger().Logger}
-		}),
-
 		// FIXME
 		fx.Provide(NewDefaultNodeEmbedder),
 
 		psidb.BaseModules,
 		workspace.Module,
 
-		fx.Provide(func() *coreapi.Config {
+		fx.Provide(func(c *config.Config, lrm config.LocalResourceManager) *coreapi.Config {
 			cfg := &coreapi.Config{}
+			cfg.ListenEndpoint = lrm.ListenEndpoint("api").String()
 			cfg.RootUUID = "QmYXZ"
 			cfg.ProjectDir = wd
 			cfg.DataDir = path.Join(cfg.ProjectDir, ".fti/psi")
@@ -52,11 +50,10 @@ func main() {
 			return cfg
 		}),
 
+		fx.Invoke(func(core coreapi.Core) {}),
+		fx.Invoke(func(server *network.Network) {}),
 		fx.Invoke(func(server *apimachinery.Server) {}),
 		//fx.Invoke(func(server *fuse.Manager) {}),
-
-		fx.Invoke(func(wrk *workspace.Workspace) {
-		}),
 	)
 
 	app.Run()

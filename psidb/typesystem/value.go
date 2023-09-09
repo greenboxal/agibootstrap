@@ -16,9 +16,25 @@ func (v Value) Indirect() reflect.Value   { return reflect.Indirect(v.v) }
 func (v Value) Type() Type                { return v.typ }
 func (v Value) RuntimeType() reflect.Type { return v.typ.RuntimeType() }
 
-func (v Value) As(typ Type) Value {
+func (v Value) UncheckedCast(typ Type) Value {
 	v.typ = typ
 	return v
+}
+
+func (v Value) IsValid() bool {
+	return v.v.IsValid() && v.typ != nil
+}
+
+func (v Value) IsZero() bool {
+	return !v.v.IsValid() || v.v.IsZero()
+}
+
+func (v Value) IsNull() bool {
+	return v.v.IsValid() && !v.v.IsNil()
+}
+
+func (v Value) Interface() any {
+	return v.v.Interface()
 }
 
 func (v Value) AsNode() ipld.Node {

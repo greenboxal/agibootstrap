@@ -116,6 +116,7 @@ require (
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/ebitengine/oto/v3 v3.0.0 // indirect
 	github.com/ebitengine/purego v0.5.0-alpha // indirect
 	github.com/eientei/wsgraphql v1.4.2 // indirect
 	github.com/elastic/gosigar v0.14.2 // indirect

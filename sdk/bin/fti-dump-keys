@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+. "$PSIDB_SDK/sdk/psidb-bash/psidb.sh"
+
+
+parser_definition() {
+  setup   REST help:usage -- "Usage: fti-dump-keys [options]... <datastore>" ''
+  msg -- 'Options:'
+  disp    :usage  -h --help
+  disp    VERSION    --version
+}
+
+eval "$(getoptions parser_definition) exit 1"
+
+DATASTORE="${1:-}"
+
+if [[ -z "$DATASTORE" ]]; then
+  echo "Missing datastore name" >&2
+  exit 1
+fi
+
+badger-cli -d .fti/psi/"$DATASTORE" list -l 5000000

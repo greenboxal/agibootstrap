@@ -32,7 +32,7 @@ func NewManager(
 	}
 
 	lc.Append(fx.Hook{
-		OnStop: sm.Shutdown,
+		OnStop: sm.Stop,
 	})
 
 	return sm
@@ -80,6 +80,7 @@ func (sm *Manager) createSessionUnlocked(cfg coreapi.SessionConfig) coreapi.Sess
 		cfg.Journal = nil
 		cfg.Checkpoint = nil
 		cfg.MetadataStore = nil
+		cfg.GraphStore = nil
 
 		sess = parent
 	} else {
@@ -120,7 +121,7 @@ func (sm *Manager) onSessionFinish(sess *Session) {
 	sess.logger.Infow("Session closed", "session_id", sess.UUID(), "parent_session_id", parentId)
 }
 
-func (sm *Manager) Shutdown(ctx context.Context) error {
+func (sm *Manager) Stop(ctx context.Context) error {
 	if len(sm.sessions) > 0 {
 		logger.Infow("Terminating open sessions")
 

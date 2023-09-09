@@ -19,39 +19,29 @@ import (
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
-	routing2 "github.com/libp2p/go-libp2p/p2p/discovery/routing"
+	routedisco "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
-	"go.uber.org/zap"
-
 	"go.uber.org/fx"
 
-	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/psidb/config"
 )
 
-type IpfsRouting interface {
-	routing.ContentRouting
-	routing.PeerRouting
-	routing.ValueStore
-
-	Bootstrap(context.Context) error
-}
-
 type Network struct {
-	logger *zap.SugaredLogger
-
 	cfg *config.Config
 	lrm config.LocalResourceManager
 	cm  *connmgr.BasicConnMgr
+	ps  peerstore.Peerstore
 
 	host          host.Host
 	mdns          mdns.Service
-	disco         *routing2.RoutingDiscovery
+	disco         *routedisco.RoutingDiscovery
 	dht           *dual.DHT
 	peerRouter    routing.PeerRouting
 	providerStore *providers.ProviderManager
+
+	proc goprocess.Process
 }
 
 func NewNetwork(
@@ -59,13 +49,14 @@ func NewNetwork(
 	cfg *config.Config,
 	lrm config.LocalResourceManager,
 	cm *connmgr.BasicConnMgr,
+	ps peerstore.Peerstore,
 ) (*Network, error) {
 	hf := &Network{
+		cfg: cfg,
 		lrm: lrm,
 		cm:  cm,
+		ps:  ps,
 	}
-
-	hf.logger = logging.GetLogger("network/p2p")
 
 	if err := hf.initializeHost(context.Background()); err != nil {
 		return nil, err
@@ -76,15 +67,34 @@ func NewNetwork(
 	}
 
 	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
-			return hf.Shutdown(ctx)
-		},
+		OnStart: hf.Start,
+		OnStop:  hf.Stop,
 	})
 
 	return hf, nil
 }
 
 func (n *Network) initializeHost(ctx context.Context) error {
+	if n.cfg.Identity == nil {
+		if n.cfg.PeerID != "" {
+			n.cfg.Identity = n.ps.PrivKey(n.cfg.PeerID)
+		} else {
+			if err := n.cfg.GenerateIdentity(); err != nil {
+				return err
+			}
+		}
+	}
+
+	if n.cfg.PeerID == "" {
+		pid, err := peer.IDFromPublicKey(n.cfg.Identity.GetPublic())
+
+		if err != nil {
+			return err
+		}
+
+		n.cfg.PeerID = pid
+	}
+
 	h, err := libp2p.New(
 		// Use the keypair we generated
 		libp2p.Identity(n.cfg.Identity),
@@ -116,6 +126,7 @@ func (n *Network) initializeHost(ctx context.Context) error {
 		libp2p.EnableRelay(),
 		libp2p.EnableRelayService(),
 		//libp2p.EnableAutoRelayWithPeerSource(n.findBootstrapPeers),
+		libp2p.Peerstore(n.ps),
 	)
 
 	if err != nil {
@@ -164,9 +175,8 @@ func (n *Network) initializeDht(ctx context.Context, h host.Host) (routing.PeerR
 }
 
 func (n *Network) initializeMdns() error {
-	n.mdns = mdns.NewMdnsService(n.host, "npnsd", n)
-
-	n.disco = routing2.NewRoutingDiscovery(n.dht)
+	n.mdns = mdns.NewMdnsService(n.host, "psidb", n)
+	n.disco = routedisco.NewRoutingDiscovery(n.dht)
 
 	return nil
 }
@@ -175,14 +185,24 @@ func (n *Network) HandlePeerFound(info peer.AddrInfo) {
 	n.host.Peerstore().AddAddrs(info.ID, info.Addrs, peerstore.TempAddrTTL)
 }
 
+func (n *Network) Start(ctx context.Context) error {
+	n.proc = goprocess.Go(n.Run)
+
+	return nil
+}
+
 func (n *Network) Run(proc goprocess.Process) {
+	proc.SetTeardown(n.teardown)
+
 	ctx := goprocessctx.OnClosingContext(proc)
 
-	addrs := n.lrm.NetworkListenAddresses()
+	addrs := n.lrm.ListenMultiaddrs("p2p")
 
 	if err := n.host.Network().Listen(addrs...); err != nil {
 		panic(err)
 	}
+
+	logger.Infow("Listening for connections", "peer_id", n.host.ID(), "addrs", n.host.Addrs())
 
 	if err := n.dht.Bootstrap(ctx); err != nil {
 		panic(err)
@@ -202,14 +222,24 @@ func (n *Network) Run(proc goprocess.Process) {
 				defer wg.Done()
 
 				if err := n.host.Connect(ctx, info); err != nil {
-					n.logger.Warn(err)
+					logger.Warn(err)
 				}
 			}(info)
 		}
 	})
+
+	<-proc.Closing()
 }
 
-func (n *Network) Shutdown(ctx context.Context) error {
+func (n *Network) Stop(ctx context.Context) error {
+	return n.proc.Close()
+}
+
+func (n *Network) getDhtBootstrapPeers() []peer.AddrInfo {
+	return nil
+}
+
+func (n *Network) teardown() error {
 	if n.dht != nil {
 		if err := n.dht.Close(); err != nil {
 			return err
@@ -226,9 +256,5 @@ func (n *Network) Shutdown(ctx context.Context) error {
 		n.host = nil
 	}
 
-	return nil
-}
-
-func (n *Network) getDhtBootstrapPeers() []peer.AddrInfo {
 	return nil
 }

@@ -17,10 +17,6 @@ type NodeInterface interface {
 	ValidateImplementation(def VTableDefinition) error
 }
 
-type NodeActions interface {
-	Invoke(ctx context.Context, name string, node Node, request any) (any, error)
-}
-
 type NodeInterfaceDefinition struct {
 	Name    string                 `json:"name"`
 	Actions []NodeActionDefinition `json:"actions"`

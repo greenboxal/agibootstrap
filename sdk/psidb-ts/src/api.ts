@@ -1,81 +1,145 @@
-export type NodeActionContext = {
+import {KeyOf} from "@loopback/repository";
+import {JSONSchema} from "@apidevtools/json-schema-ref-parser/dist/lib/types";
 
+export type PrimitiveKind = KeyOf<typeof PrimitiveKindMap>
+
+export const PrimitiveKindMap: Record<string, number> = {
+    "Boolean": 1,
+    "Bytes": 2,
+    "String": 3,
+    "Int": 4,
+    "UnsignedInt": 5,
+    "Float":  6,
+    "List": 7,
+    "Map": 8,
+    "Struct": 9,
+    "Interface": 10,
+    "Link": 11,
 }
 
-export type NodeActionHandler<TSelf, TReq, TRes> = (ctx: NodeActionContext, self: TSelf, req: TReq) => TRes | Promise<TRes>;
+export type TypeOrRef<T = any> = BasicType<T> | string;
 
-export type NodeActionDefinition<TReq, TRes> = {
+export interface BasicType<T = any> {
     name: string;
-    request_type: TypeRegistration<TReq>["name"];
-    response_type: TypeRegistration<TRes>["name"];
+    primitive_kind: PrimitiveKind;
 }
 
-export type _NodeInterface = {
-    [k: string]: NodeActionHandler<any, any, any>
+export interface PrimitiveType<T = any> extends BasicType<T> {
+    primitive_kind: "Boolean" | "Bytes" | "String" | "Int" | "UnsignedInt" | "Float";
 }
 
-export type NodeInterface<TInterface extends _NodeInterface = {}> = {
+export type ListType<T = any> = BasicType<Array<T>> & {
+    primitive_kind: "List";
+    element_type: TypeOrRef<T>;
+}
+
+export type MapType<K extends string | number | symbol = any, V = any> = BasicType<Record<K, V>> & {
+    primitive_kind: "Map";
+    key_type: TypeOrRef<K>;
+    value_type: TypeOrRef<V>;
+}
+
+export interface StructMember<T = any> {
     name: string;
-    actions: {
-        [K in keyof TInterface]: NodeActionDefinition<Parameters<TInterface[K]>[1], ReturnType<TInterface[K]>>;
+    type: TypeOrRef<T>;
+    required: boolean;
+    nullable: boolean;
+}
+
+export type StructType<T = any> = BasicType<T> & {
+    primitive_kind: "Struct";
+    members: Record<string, StructMember>;
+}
+
+export interface InterfaceType<T = any> extends BasicType<T> {
+    primitive_kind: "Interface";
+}
+
+export interface LinkType<T = any> extends BasicType<T> {
+    primitive_kind: "Link";
+}
+
+export type Type = (BasicType | ListType | MapType | StructType | InterfaceType | LinkType);
+
+export type Schema = JSONSchema
+export interface CustomSchema {
+    name: string;
+    types: Record<string, Type>;
+}
+
+export class SchemaBuilder {
+    private validatedTypes = new Set<string>()
+
+    private schema: CustomSchema = {
+        name: "",
+        types: {},
     }
-}
 
-export type NodeVTable<TSelf = {}, TInterface extends _NodeInterface = {}> = {
-    interface: NodeInterface<TInterface>;
-    actions: {
-        [K in keyof TInterface]: NodeActionHandler<TSelf, Parameters<TInterface[K]>[1], ReturnType<TInterface[K]>>;
+    constructor(name: string) {
+        this.schema.name = name
     }
-}
 
-export type FieldDefinition = {
-    name: string;
-    type: string;
-    optional?: boolean;
-}
+    addType(type: Type) {
+        this.schema.types[type.name] = type
+    }
 
-export interface TypeRegistration<TFields = {}, TInterfaces extends { [k: string]: _NodeInterface } = {}, TName extends string = ""> {
-    name: string;
-    fields: { [K in keyof TFields]: FieldDefinition; };
-    interfaces: { [K in keyof TInterfaces]: NodeInterface<TInterfaces[K]>; };
-}
+    resolveType(type: TypeOrRef): Type {
+        if (typeof type === "string") {
+            return this.schema.types[type]
+        }
 
-export type ModuleRegistration = {
-    types: TypeRegistration[];
-}
+        return type
+    }
 
-type IPerson = {
-    sayHello(ctx: NodeActionContext, req: {pandas?: string}): {};
-}
+    validate() {
+        const {name, types} = this.schema
 
-type PersonSchema = {
-    name: string;
-}
+        if (!name) {
+            throw new Error("Schema name is required")
+        }
 
-declare const _psidb_tx: any;
-declare const _psidb_sp: any;
+        if (Object.keys(types).length === 0) {
+            throw new Error("Schema must contain at least one type")
+        }
 
-export function test(ctx: any) {
-    console.log("Hello from psidb-ts")
-}
+        for (const type of Object.values(types)) {
+            this.validateType(type)
+        }
+    }
 
-export function testTypes(reg: ModuleRegistration, ip: NodeInterface<IPerson>) {
+    build() {
+        return this.schema
+    }
 
-}
+    private validateType(type: Type) {
+        if (this.validatedTypes.has(type.name)) {
+            return
+        }
 
-export type ModuleInterfaceDefinition = {
-    [k: string]: (...args: any) => any;
-}
+        switch (type.primitive_kind) {
+            case "List":
+                const lt = type as ListType
 
-//type UnwrapReturnType<T extends (...args: any) => any> = ReturnType<T> extends Promise<infer R> ? R : ReturnType<T>;
+                this.validateType(this.resolveType(lt.element_type))
 
-export type StaticModuleInterface<Def extends ModuleInterfaceDefinition> = {
-    [K in keyof Def]: {
-        name: K;
-        requestType: {
-            0: Parameters<Def[K]>[0];
-            1: Parameters<Def[K]>[1];
-        };
-        returnType: ReturnType<Def[K]>;
+                break;
+            case "Map":
+                const mt = type as MapType
+
+                this.validateType(this.resolveType(mt.key_type))
+                this.validateType(this.resolveType(mt.value_type))
+
+                break;
+            case "Struct":
+                const st = type as StructType
+
+                for (const member of Object.values(st.members)) {
+                    this.validateType(this.resolveType(member.type))
+                }
+
+                break
+        }
+
+        this.validatedTypes.add(type.name)
     }
 }

@@ -2,8 +2,8 @@ package coreapi
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/go-errors/errors"
 	"github.com/hashicorp/go-multierror"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
@@ -100,7 +100,7 @@ func RunTransaction(
 
 		defer func() {
 			if e := recover(); e != nil {
-				er := fmt.Errorf("%v", e)
+				er := errors.Wrap(e, 2)
 
 				if tx.IsOpen() {
 					if err := tx.Rollback(ctx); err != nil {
@@ -108,7 +108,7 @@ func RunTransaction(
 					}
 				}
 
-				panic(e)
+				panic(er)
 			}
 		}()
 	}

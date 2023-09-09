@@ -1,6 +1,7 @@
 package typesystem
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/invopop/jsonschema"
@@ -15,7 +16,6 @@ type typeInitializer interface {
 
 type basicType struct {
 	self Type
-
 	name TypeName
 
 	primitiveKind PrimitiveKind
@@ -26,10 +26,13 @@ type basicType struct {
 	ipldPrototype          schema.TypedPrototype
 	ipldRepresentationKind datamodel.Kind
 	jsonSchema             jsonschema.Schema
-	decorations            []Decoration
+
+	decorations []Decoration
 
 	operators   []Operator
 	operatorMap []map[string]Operator
+
+	decodeFromAny func(v Value) (Value, error)
 
 	universe TypeSystem
 }
@@ -57,6 +60,22 @@ func (bt *basicType) AssignableTo(other Type) bool {
 	}
 
 	return bt.runtimeType.AssignableTo(other.RuntimeType())
+}
+
+func (bt *basicType) ConvertFromAny(v Value) (Value, error) {
+	if bt.decodeFromAny != nil {
+		result, err := bt.decodeFromAny(v)
+
+		if err != nil {
+			return Value{}, err
+		}
+
+		if result.IsValid() {
+			return result, nil
+		}
+	}
+
+	return Value{}, fmt.Errorf("cannot convert from any to %s", bt.name)
 }
 
 type interfaceType struct {

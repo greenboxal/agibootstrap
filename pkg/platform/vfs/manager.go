@@ -67,7 +67,7 @@ func (m *Manager) GetNodeForPath(ctx context.Context, p string) (n Node, err err
 	return fsys.GetNodeForPath(ctx, p)
 }
 
-func (m *Manager) Shutdown(ctx context.Context) error {
+func (m *Manager) Stop(ctx context.Context) error {
 	for _, fsys := range m.fsMap {
 		if err := fsys.Close(); err != nil {
 			return err

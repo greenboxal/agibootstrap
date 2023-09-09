@@ -30,7 +30,7 @@ const app = command({
         tsconfig: option({ type: string, long: 'ts-config', defaultValue: () => "./tsconfig.json" }),
     },
 
-    handler: (args) => {
+    handler: async (args) => {
         if (!args.context) {
             args.context = "."
         }
@@ -56,7 +56,8 @@ const app = command({
             additionalProperties: false,
         });
 
-        const schema = schemaCompiler.compileSchema()
+        const schema = await schemaCompiler.compileSchema()
+        console.log(JSON.stringify(schema))
 
         const builder = new PackageManifestBuilder()
         builder.withName(args.packageName)
@@ -66,9 +67,18 @@ const app = command({
         for (const entrypoint of assetManifest.entrypoints) {
             const fileName = resolve(args.build, entrypoint)
             const hash = hashInputFile(fileName)
-            const modName = assetManifest.files[fileName]
 
             builder.withFile(relative(args.output, fileName), hash)
+
+            const fullModName = assetManifest.files[entrypoint] || assetManifest.files[`${entrypoint}.${entrypoint}`]
+
+            if (!fullModName) {
+                throw new Error(`Entrypoint '${entrypoint}' not found in asset manifest`)
+            }
+
+            const fullModNameLastSlash = fullModName.lastIndexOf("/")
+            const modName = fullModNameLastSlash > 0 ? fullModName.substring(fullModNameLastSlash + 1) : fullModName
+
 
             const modBuilder = new ModuleManifestBuilder()
 
@@ -87,7 +97,7 @@ const app = command({
         const serializedManifest = JSON.stringify(manifest, null, 2)
 
         fs.mkdirSync(args.output, {recursive: true})
-        fs.writeFileSync(args.output + "/manifest.psidb-module.json", serializedManifest)
+        fs.writeFileSync(args.output + "/manifest.psidb-package.json", serializedManifest)
     },
 });
 

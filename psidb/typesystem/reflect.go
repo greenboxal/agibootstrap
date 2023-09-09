@@ -2,8 +2,10 @@ package typesystem
 
 import (
 	"encoding"
+	"encoding/json"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/iancoleman/orderedmap"
 	"github.com/invopop/jsonschema"
@@ -14,7 +16,20 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-func newTypeFromReflection(typ reflect.Type) Type {
+var anyType = reflect.TypeOf((*any)(nil)).Elem()
+var timeType = reflect.TypeOf((*time.Time)(nil)).Elem()
+var durationType = reflect.TypeOf((*time.Duration)(nil)).Elem()
+var jsonMarshalerType = reflect.TypeOf((*json.Marshaler)(nil)).Elem()
+var jsonUnmarshalerType = reflect.TypeOf((*json.Unmarshaler)(nil)).Elem()
+var textMarshalerType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+var textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+var binaryMarshalerType = reflect.TypeOf((*encoding.BinaryMarshaler)(nil)).Elem()
+var binaryUnmarshalerType = reflect.TypeOf((*encoding.BinaryUnmarshaler)(nil)).Elem()
+var jsonSchemaType = reflect.TypeOf((*jsonschema.Schema)(nil)).Elem()
+
+type typeCreationOption func(t *basicType)
+
+func newTypeFromReflection(typ reflect.Type, opts ...typeCreationOption) Type {
 	for typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
 	}
@@ -26,23 +41,23 @@ func newTypeFromReflection(typ reflect.Type) Type {
 		panic("invalid type")
 
 	case PrimitiveKindList:
-		return newListType(typ)
+		return newListType(typ, opts...)
 
 	case PrimitiveKindMap:
-		return newMapType(typ)
+		return newMapType(typ, opts...)
 
 	case PrimitiveKindStruct:
-		return newStructType(typ)
+		return newStructType(typ, opts...)
 
 	case PrimitiveKindInterface:
-		return newInterfaceType(typ)
+		return newInterfaceType(typ, opts...)
 
 	default:
-		return newScalarType(typ)
+		return newScalarType(typ, opts...)
 	}
 }
 
-func newInterfaceType(typ reflect.Type) *interfaceType {
+func newInterfaceType(typ reflect.Type, option ...typeCreationOption) *interfaceType {
 	it := &interfaceType{
 		basicType: basicType{
 			name:          GetTypeName(typ),
@@ -52,6 +67,10 @@ func newInterfaceType(typ reflect.Type) *interfaceType {
 	}
 
 	it.self = it
+
+	for _, opt := range option {
+		opt(&it.basicType)
+	}
 
 	return it
 }
@@ -71,7 +90,7 @@ func (it *interfaceType) initialize(ts TypeSystem) {
 	it.ipldPrototype = &ValuePrototype{T: it}
 }
 
-func newScalarType(typ reflect.Type) *scalarType {
+func newScalarType(typ reflect.Type, option ...typeCreationOption) *scalarType {
 	st := &scalarType{
 		basicType: basicType{
 			name:          GetTypeName(typ),
@@ -127,10 +146,14 @@ func newScalarType(typ reflect.Type) *scalarType {
 	st.self = st
 	st.ipldPrototype = &ValuePrototype{T: st}
 
+	for _, opt := range option {
+		opt(&st.basicType)
+	}
+
 	return st
 }
 
-func newStructType(typ reflect.Type) *structType {
+func newStructType(typ reflect.Type, option ...typeCreationOption) *structType {
 	st := &structType{
 		basicType: basicType{
 			name:          GetTypeName(typ),
@@ -150,6 +173,10 @@ func newStructType(typ reflect.Type) *structType {
 		case NameDecoration:
 			st.name = ParseTypeName(dec.Name)
 		}
+	}
+
+	for _, opt := range option {
+		opt(&st.basicType)
 	}
 
 	return st
@@ -250,7 +277,7 @@ func (st *structType) initialize(ts TypeSystem) {
 
 		ipldFields[i] = schema.SpawnStructField(
 			f.Name(),
-			f.Type().IpldType().Name(),
+			f.Type().Name().ToTitle(),
 			f.IsOptional(),
 			f.IsNullable(),
 		)
@@ -334,7 +361,7 @@ func (st *structType) initialize(ts TypeSystem) {
 	st.ipldPrototype = &ValuePrototype{T: st}
 }
 
-func newMapType(typ reflect.Type) *mapType {
+func newMapType(typ reflect.Type, option ...typeCreationOption) *mapType {
 	keyName := GetTypeName(typ.Key())
 	valName := GetTypeName(typ.Elem())
 	name := GetTypeName(typ).WithParameters(keyName, valName)
@@ -349,6 +376,10 @@ func newMapType(typ reflect.Type) *mapType {
 
 	mt.self = mt
 
+	for _, opt := range option {
+		opt(&mt.basicType)
+	}
+
 	return mt
 }
 
@@ -360,14 +391,22 @@ func (mt *mapType) initialize(ts TypeSystem) {
 	mt.key = ts.LookupByType(typ.Key())
 	mt.val = ts.LookupByType(typ.Elem())
 
-	mt.ipldType = schema.SpawnMap(mt.name.ToTitle(), mt.key.IpldType().Name(), mt.val.IpldType().Name(), false)
+	if mt.key == nil {
+		panic("key type not found")
+	}
+
+	if mt.val == nil {
+		panic("value type not found")
+	}
+
+	mt.ipldType = schema.SpawnMap(mt.name.ToTitle(), mt.key.Name().ToTitle(), mt.val.Name().ToTitle(), false)
 	mt.ipldPrimitive = basicnode.Prototype.Map
 	mt.ipldPrototype = &ValuePrototype{T: mt}
 	mt.ipldRepresentationKind = datamodel.Kind_Map
 	mt.jsonSchema.Type = "object"
 }
 
-func newListType(typ reflect.Type) *listType {
+func newListType(typ reflect.Type, option ...typeCreationOption) *listType {
 	valName := GetTypeName(typ.Elem())
 	name := GetTypeName(typ).WithParameters(valName)
 
@@ -381,6 +420,10 @@ func newListType(typ reflect.Type) *listType {
 
 	lt.self = lt
 
+	for _, opt := range option {
+		opt(&lt.basicType)
+	}
+
 	return lt
 }
 
@@ -390,7 +433,7 @@ func (lt *listType) initialize(ts TypeSystem) {
 	typ := lt.runtimeType
 
 	lt.elem = ts.LookupByType(typ.Elem())
-	lt.ipldType = schema.SpawnList(lt.name.ToTitle(), lt.elem.IpldType().Name(), false)
+	lt.ipldType = schema.SpawnList(lt.name.ToTitle(), lt.elem.Name().ToTitle(), false)
 	lt.ipldPrimitive = basicnode.Prototype.List
 	lt.ipldPrototype = &ValuePrototype{T: lt}
 	lt.ipldRepresentationKind = datamodel.Kind_List

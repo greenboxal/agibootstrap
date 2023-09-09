@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+# This file must be used with "source bin/activate" *from bash*
+# you cannot run it directly
+
+function _find_psidb_sdk() {
+  local script_dir
+  local sdk_path
+
+  script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  sdk_path="$script_dir/../.."
+  sdk_path="$( cd "$sdk_path" && pwd )"
+
+  if [[ ! -d "$sdk_path" ]]; then
+    echo "Failed to find PSIDB SDK"
+    return 1
+  fi
+
+  if [[ ! -d "$sdk_path/.psidb-sdk" ]]; then
+    echo "Failed to find PSIDB SDK"
+    return 1
+  fi
+
+  echo "$sdk_path"
+}
+
+
+function _configure_psidb_sdk() {
+  local sdk_path="${PSIDB_SDK:-}"
+
+  sdk_path="$(_find_psidb_sdk)"
+
+  export PSIDB_SDK=$sdk_path
+  export PSIDB_ENDPOINT="${PSIDB_ENDPOINT:-https://localhost:22440}"
+  export PSIDB_SDK_CONFIGURED=1
+
+  export PATH="$PSIDB_SDK/.bin:$PSIDB_SDK/sdk/bin:$PATH"
+}
+
+_configure_psidb_sdk || (echo "Failed to configure PSIDB_SDK" && return 1)

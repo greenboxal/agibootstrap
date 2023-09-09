@@ -2,7 +2,7 @@ import { JSONSchema7Definition } from "json-schema";
 import { Definition } from "../Schema/Definition";
 import { StringMap } from "./StringMap";
 
-const DEFINITION_OFFSET = "#/definitions/".length;
+const DEFINITION_OFFSET = "#/$defs/".length;
 
 function addReachable(
     definition: Definition | JSONSchema7Definition,
