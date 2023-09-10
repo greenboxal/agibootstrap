@@ -37,7 +37,8 @@ func (f NodeActionFunc[T, Req, Res]) Invoke(ctx context.Context, node Node, requ
 }
 
 type NodeActionDefinition struct {
-	Name string `json:"name"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 
 	RequestType  typesystem.Type `json:"request_type"`
 	ResponseType typesystem.Type `json:"response_type"`

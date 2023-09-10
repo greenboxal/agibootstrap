@@ -11,6 +11,8 @@ type ModelOptions struct {
 	PresencePenalty  *float32       `json:"presence_penalty" jsonschema:"title=Presence Penalty,description=The presence penalty setting for the model"`
 	Stop             []string       `json:"stop" jsonschema:"title=Stop,description=The stop words for the model"`
 	LogitBias        map[string]int `json:"logit_bias" jsonschema:"title=Logit Bias,description=The logit bias setting for the model"`
+
+	ForceFunctionCall *string `json:"force_function_call"`
 }
 
 func (o ModelOptions) MergeWith(opts ModelOptions) ModelOptions {
@@ -44,6 +46,10 @@ func (o ModelOptions) MergeWith(opts ModelOptions) ModelOptions {
 
 	if opts.LogitBias != nil {
 		o.LogitBias = opts.LogitBias
+	}
+
+	if opts.ForceFunctionCall != nil {
+		o.ForceFunctionCall = opts.ForceFunctionCall
 	}
 
 	return o

@@ -9,6 +9,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/core/pubsub"
 	"github.com/greenboxal/agibootstrap/psidb/core/scheduler"
 	"github.com/greenboxal/agibootstrap/psidb/core/session"
 	"github.com/greenboxal/agibootstrap/psidb/core/vfs"
@@ -26,6 +27,7 @@ var Module = fx.Module(
 	scheduler.Module,
 	vfs.Module,
 	vm.FXModule,
+	pubsub.Module,
 
 	fx.Provide(NewCheckpoint),
 	fx.Provide(NewJournal),

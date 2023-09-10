@@ -286,7 +286,6 @@ type StructuredError struct {
 	Error        string              `json:"error"`
 	ErrorCode    int                 `json:"error_code"`
 	ErrorMessage string              `json:"error_message"`
-	ErrorDetails any                 `json:"error_details"`
 	ErrorCause   *StructuredError    `json:"error_cause,omitempty"`
 	StackTrace   []errors.StackFrame `json:"stack_trace"`
 }
@@ -322,7 +321,6 @@ func StructureErrorFrom(err error, skip int) (se StructuredError) {
 
 	se.Error = errWithTypeName.TypeName()
 	se.ErrorMessage = err.Error()
-	se.ErrorDetails = err
 
 	if errWithCause != nil {
 		cause := errWithCause.Cause()
@@ -345,6 +343,10 @@ func (r *ResourceHandler) handleError(writer http.ResponseWriter, request *Reque
 		status = httpErr.StatusCode()
 	} else if errors.Is(err, fs.ErrNotExist) {
 		status = http.StatusNotFound
+	} else if errors.Is(err, context.Canceled) {
+		status = http.StatusRequestTimeout
+	} else if errors.Is(err, context.DeadlineExceeded) {
+		status = http.StatusRequestTimeout
 	}
 
 	if status >= http.StatusInternalServerError {

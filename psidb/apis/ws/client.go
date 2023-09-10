@@ -1,12 +1,14 @@
 package ws
 
 import (
+	"context"
 	"net/http"
 	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/hashicorp/go-multierror"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/jbenet/goprocess"
@@ -14,8 +16,8 @@ import (
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 
+	"github.com/greenboxal/agibootstrap/psidb/core/pubsub"
 	"github.com/greenboxal/agibootstrap/psidb/psi"
-	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
 )
 
 const (
@@ -165,14 +167,12 @@ func (c *Client) handleSubscribe(msg Message) error {
 		ID:    uuid.NewString(),
 		Path:  path,
 		Depth: msg.Subscribe.Depth,
-	}, func(not pubsub.Notification) {
-		if err := c.SendMessage(&Message{
+	}, func(ctx context.Context, not pubsub.Notification) error {
+		return c.SendMessage(&Message{
 			Notify: &NotificationMessage{
 				Notification: not,
 			},
-		}); err != nil {
-			c.handler.logger.Error(err)
-		}
+		})
 	})
 
 	c.subscriptions[msg.Subscribe.Topic] = s
@@ -340,13 +340,21 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) teardown() error {
+	var merr error
+
 	if c.session != nil {
 		c.session.DetachClient(c)
 		c.session = nil
 	}
 
 	if err := c.conn.Close(); err != nil {
-		return err
+		merr = multierror.Append(merr, err)
+	}
+
+	for _, s := range c.subscriptions {
+		if err := s.Close(); err != nil {
+			merr = multierror.Append(merr, err)
+		}
 	}
 
 	return nil

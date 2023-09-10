@@ -158,7 +158,7 @@ func buildActionsFor(node psi.Node) map[string]llm.FunctionDeclaration {
 
 			functions = append(functions, llm.FunctionDeclaration{
 				Name:        fmt.Sprintf("%s_QZQZ_%s", iface.Interface().Name(), action.Name),
-				Description: "",
+				Description: action.Description,
 				Parameters:  &args,
 			})
 		}

@@ -9,7 +9,9 @@ import (
 )
 
 type IChat interface {
+	// GetMessages returns a list of messages between the two given messages
 	GetMessages(ctx context.Context, req *GetMessagesRequest) ([]*Message, error)
+	// SendMessage sends a message from the given user
 	SendMessage(ctx context.Context, req *SendMessageRequest) (*Message, error)
 }
 

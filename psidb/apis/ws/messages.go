@@ -2,7 +2,7 @@ package ws
 
 import (
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
-	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
+	"github.com/greenboxal/agibootstrap/psidb/core/pubsub"
 	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 

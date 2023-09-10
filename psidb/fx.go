@@ -20,13 +20,13 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/network"
 	"github.com/greenboxal/agibootstrap/psidb/services/agents"
 	"github.com/greenboxal/agibootstrap/psidb/services/chat"
+	"github.com/greenboxal/agibootstrap/psidb/services/copywriter"
 	"github.com/greenboxal/agibootstrap/psidb/services/iam"
 	"github.com/greenboxal/agibootstrap/psidb/services/indexing"
 	"github.com/greenboxal/agibootstrap/psidb/services/jobs"
 	"github.com/greenboxal/agibootstrap/psidb/services/jukebox"
 	"github.com/greenboxal/agibootstrap/psidb/services/kb"
 	"github.com/greenboxal/agibootstrap/psidb/services/migrations"
-	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
 	"github.com/greenboxal/agibootstrap/psidb/services/search"
 	"github.com/greenboxal/agibootstrap/psidb/services/timekeep"
 	"github.com/greenboxal/agibootstrap/psidb/services/typing"
@@ -52,13 +52,14 @@ var BaseModules = fx.Options(
 	modules.Module,
 	jukebox.Module,
 	search.Module,
-	pubsub.Module,
+	//pubsub.Module,
 	timekeep.Module,
 	typing.Module,
 	kb.Module,
 	iam.Module,
 	jobs.Module,
 	chat.Module,
+	copywriter.Module,
 	agents.Module,
 
 	network.Module,

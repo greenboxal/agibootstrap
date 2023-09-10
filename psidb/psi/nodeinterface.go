@@ -12,14 +12,16 @@ import (
 
 type NodeInterface interface {
 	Name() string
+	Description() string
 	Actions() []NodeActionDefinition
 
 	ValidateImplementation(def VTableDefinition) error
 }
 
 type NodeInterfaceDefinition struct {
-	Name    string                 `json:"name"`
-	Actions []NodeActionDefinition `json:"actions"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Actions     []NodeActionDefinition `json:"actions"`
 }
 
 type NodeInterfaceOption func(*NodeInterfaceDefinition)
@@ -32,9 +34,7 @@ func WithInterfaceName(name string) NodeInterfaceOption {
 
 func WithInterfaceAction(action NodeActionDefinition) NodeInterfaceOption {
 	return func(ni *NodeInterfaceDefinition) {
-		ni.Actions = append(ni.Actions, NodeActionDefinition{
-			Name: "interface",
-		})
+		ni.Actions = append(ni.Actions, action)
 	}
 }
 
@@ -52,7 +52,8 @@ func DefineNodeInterface[T interface{}](options ...NodeInterfaceOption) NodeInte
 
 func ReflectNodeInterface(typ reflect.Type, options ...NodeInterfaceOption) NodeInterface {
 	def := NodeInterfaceDefinition{
-		Name: typ.Name(),
+		Name:        typ.Name(),
+		Description: typesystem.Universe().LookupComment(typ, ""),
 	}
 
 	for _, opt := range options {
@@ -67,7 +68,8 @@ func ReflectNodeInterface(typ reflect.Type, options ...NodeInterfaceOption) Node
 		}
 
 		ifaceAction := NodeActionDefinition{
-			Name: m.Name,
+			Name:        m.Name,
+			Description: typesystem.Universe().LookupComment(typ, m.Name),
 		}
 
 		if m.Type.NumIn() < 1 && m.Type.NumIn() > 3 {
@@ -129,6 +131,7 @@ type nodeInterface struct {
 }
 
 func (ni *nodeInterface) Name() string                    { return ni.definition.Name }
+func (ni *nodeInterface) Description() string             { return ni.definition.Description }
 func (ni *nodeInterface) Actions() []NodeActionDefinition { return ni.definition.Actions }
 
 func (ni *nodeInterface) ValidateImplementation(def VTableDefinition) error {
@@ -153,6 +156,7 @@ type VTable struct {
 }
 
 func (t VTable) Name() string                    { return t.iface.Name() }
+func (t VTable) Description() string             { return t.iface.Description() }
 func (t VTable) Interface() NodeInterface        { return t.iface }
 func (t VTable) Action(action string) NodeAction { return t.def.actions[action] }
 

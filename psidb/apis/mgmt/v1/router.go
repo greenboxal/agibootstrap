@@ -3,7 +3,7 @@ package mgmtv1
 import (
 	"github.com/go-chi/chi/v5"
 
-	"github.com/greenboxal/agibootstrap/psidb/services/pubsub"
+	"github.com/greenboxal/agibootstrap/psidb/core/pubsub"
 )
 
 type Router struct {

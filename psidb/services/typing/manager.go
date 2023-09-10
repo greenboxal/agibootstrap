@@ -115,11 +115,15 @@ func (m *Manager) registerType(ctx context.Context, name typesystem.TypeName, ty
 		if nt != nil {
 			for _, iface := range nt.Interfaces() {
 				def := InterfaceDefinition{
-					Name: iface.Name(),
+					Name:        iface.Name(),
+					Description: iface.Description(),
 				}
 
 				for _, action := range iface.Interface().Actions() {
-					ad := ActionDefinition{Name: action.Name}
+					ad := ActionDefinition{
+						Name:        action.Name,
+						Description: action.Description,
+					}
 
 					if action.RequestType != nil {
 						typ, err := m.registerType(ctx, action.RequestType.Name(), action.RequestType, nil)

@@ -283,7 +283,13 @@ func (st *structType) initialize(ts TypeSystem) {
 		)
 
 		refPath := "#/$defs/" + f.Type().Name().NormalizedFullNameWithArguments()
-		schemaRef := &jsonschema.Schema{Ref: refPath}
+		schemaRef := &jsonschema.Schema{
+			Ref: refPath,
+		}
+
+		if f.RuntimeField() != nil {
+			schemaRef.Description = ts.(*typeSystem).LookupComment(st.RuntimeType(), f.RuntimeField().Name)
+		}
 
 		st.jsonSchema.Properties.Set(f.Name(), schemaRef)
 

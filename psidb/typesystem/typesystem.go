@@ -1,6 +1,8 @@
 package typesystem
 
 import (
+	"os"
+	"path"
 	"reflect"
 	"sync"
 	"time"
@@ -18,7 +20,29 @@ func newTypeSystem() *typeSystem {
 		},
 	}
 
+	ts.reflector.CommentMap = map[string]string{}
+
+	if sdkPath := os.Getenv("PSIDB_SDK"); sdkPath != "" {
+		if err := ExtractGoComments("github.com/greenboxal/agibootstrap/psidb", path.Join(sdkPath, "psidb"), ts.reflector.CommentMap); err != nil {
+			panic(err)
+		}
+	}
+
 	return ts
+}
+
+func (ts *typeSystem) LookupComment(t reflect.Type, name string) string {
+	if ts.reflector.CommentMap == nil {
+		return ""
+	}
+
+	n := t.PkgPath() + "." + t.Name()
+
+	if name != "" {
+		n = n + "." + name
+	}
+
+	return ts.reflector.CommentMap[n]
 }
 
 type typeSystem struct {
@@ -27,6 +51,7 @@ type typeSystem struct {
 	typesByName map[string]Type
 	typesByType map[reflect.Type]Type
 
+	reflector        jsonschema.Reflector
 	globalJsonSchema jsonschema.Schema
 }
 

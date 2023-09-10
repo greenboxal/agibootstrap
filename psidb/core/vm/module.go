@@ -12,6 +12,7 @@ type IModule interface {
 	Register(ctx context.Context) error
 }
 
+// Module represents a module source file
 type Module struct {
 	psi.NodeBase
 

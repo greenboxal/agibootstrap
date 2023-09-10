@@ -101,12 +101,14 @@ func (d *dynamicType) String() string {
 
 func newDynamicInterface(ctx context.Context, registry *TypeRegistry, def typing.InterfaceDefinition) (*dynamicInterface, error) {
 	id := psi.NodeInterfaceDefinition{
-		Name: def.Name,
+		Name:        def.Name,
+		Description: def.Description,
 	}
 
 	for _, action := range def.Actions {
 		da := psi.NodeActionDefinition{
 			Name:         action.Name,
+			Description:  action.Description,
 			RequestType:  nil,
 			ResponseType: nil,
 		}
@@ -149,8 +151,8 @@ type dynamicInterface struct {
 	lm *ModuleInstance
 }
 
-func (d *dynamicInterface) Name() string { return d.ifaceDefinition.Name }
-
+func (d *dynamicInterface) Name() string                        { return d.ifaceDefinition.Name }
+func (d *dynamicInterface) Description() string                 { return d.definition.Description }
 func (d *dynamicInterface) Actions() []psi.NodeActionDefinition { return maps.Values(d.actions) }
 
 func (d *dynamicInterface) ValidateImplementation(def psi.VTableDefinition) error {

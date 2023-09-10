@@ -18,6 +18,7 @@ import (
 	openai2 "github.com/sashabaranov/go-openai"
 	"golang.org/x/exp/slices"
 
+	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/modules/gpt"
@@ -37,11 +38,15 @@ var ConversationType = psi.DefineNodeType[*Conversation](
 )
 var _ IConversation = (*Conversation)(nil)
 
+// IConversation is an interface that defines the methods that a Conversation node must implement.
 type IConversation interface {
 	chat.IChat
 
+	// OnMessageReceived is called when a message is received by the conversation.
 	OnMessageReceived(ctx context.Context, req *OnMessageReceivedRequest) error
+	// OnMessageSideEffect is called when a message is received by the conversation.
 	OnMessageSideEffect(ctx context.Context, req *OnMessageSideEffectRequest) error
+	// OnForkMerging is called when a fork is merged into the conversation.
 	OnForkMerging(ctx context.Context, req *OnForkMergingRequest) error
 }
 
@@ -378,6 +383,7 @@ func (c *Conversation) OnForkMerging(ctx context.Context, req *OnForkMergingRequ
 
 func (c *Conversation) OnMessageReceived(ctx context.Context, req *OnMessageReceivedRequest) (err error) {
 	tx := coreapi.GetTransaction(ctx)
+	opts := c.BuildDefaultOptions().MergeWith(req.Options)
 
 	lastMessage, err := req.Message.Resolve(ctx)
 
@@ -400,7 +406,7 @@ func (c *Conversation) OnMessageReceived(ctx context.Context, req *OnMessageRece
 		m.From.ID = c.CanonicalPath()
 		m.From.Name = "InspectNode"
 		m.From.Role = msn.RoleFunction
-		m.Text = fmt.Sprintf("Error: %v", cause)
+		m.Text = fmt.Sprintf("Error: %s", cause)
 
 		if req.ToolSelection != nil {
 			m.From.Name = req.ToolSelection.Name
@@ -437,7 +443,7 @@ func (c *Conversation) OnMessageReceived(ctx context.Context, req *OnMessageRece
 
 	pb := NewPromptBuilder()
 	pb.WithClient(c.Client)
-	pb.WithModelOptions(c.BuildDefaultOptions().MergeWith(req.Options))
+	pb.WithModelOptions(opts)
 
 	messages, err := fork.SliceMessages(ctx, nil, lastMessage)
 
@@ -506,6 +512,17 @@ File Type: %s
 
 		if req.ToolSelection != nil && req.ToolSelection.Name != "" {
 			pb.ForceTool(req.ToolSelection.Name)
+		} else if req.Options.ForceFunctionCall != nil {
+			tool := *req.Options.ForceFunctionCall
+
+			if tool != "" {
+				pb.ForceTool(tool)
+			}
+		} else if lastMessage.From.Role == msn.RoleUser {
+			if strings.HasPrefix(lastMessage.Text, "/enter-run-loop") {
+				ffc := "ShowAvailableFunctionsForNode"
+				pb.ForceTool(ffc)
+			}
 		}
 	}
 
@@ -532,7 +549,7 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 		m.From.ID = c.CanonicalPath()
 		m.From.Name = "InspectNode"
 		m.From.Role = msn.RoleFunction
-		m.Text = fmt.Sprintf("Error: %v", cause)
+		m.Text = fmt.Sprintf("Error: %s", cause)
 
 		if req.ToolSelection != nil {
 			m.From.Name = req.ToolSelection.Name
@@ -601,8 +618,10 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 			Path psi.Path `json:"path"`
 		}
 
-		if err := json.Unmarshal([]byte(req.ToolSelection.Arguments), &args); err != nil {
-			panic(err)
+		if strings.TrimSpace(req.ToolSelection.Arguments) != "" {
+			if err := json.Unmarshal([]byte(req.ToolSelection.Arguments), &args); err != nil {
+				panic(err)
+			}
 		}
 
 		if args.Path.IsEmpty() && len(baseMessage.Attachments) > 0 {
@@ -775,9 +794,9 @@ func (c *Conversation) OnMessageSideEffect(ctx context.Context, req *OnMessageSi
 				writer.Write([]byte(fmt.Sprintf("Error: %v", err)))
 				return
 			}
-		} else {
-			writer.Write([]byte("Continue"))
 		}
+
+		writer.Write([]byte("\n\nContinue."))
 	}()
 
 	replyMessage := chat.NewMessage(chat.MessageKindEmit)
@@ -944,6 +963,8 @@ func (c *Conversation) AcceptMessage(ctx context.Context, msg *chat.Message) err
 	return nil
 }
 
+var logger = logging.GetLogger("psi/mod/chat")
+
 func (c *Conversation) addMessage(ctx context.Context, m *chat.Message) (*chat.Message, error) {
 	if m.Timestamp == "" {
 		m.Timestamp = strconv.FormatInt(time.Now().UnixNano(), 10)
@@ -954,6 +975,10 @@ func (c *Conversation) addMessage(ctx context.Context, m *chat.Message) (*chat.M
 	}
 
 	if m.Parent() == nil {
+		if m.Kind == chat.MessageKindError {
+			logger.Error(m.Text)
+		}
+
 		m.SetParent(c)
 	}
 
@@ -969,7 +994,7 @@ func (c *Conversation) consumeChoice(ctx context.Context, baseMessage *chat.Mess
 		return err
 	}
 
-	if choice.Reason == openai2.FinishReasonFunctionCall && choice.Tool != nil {
+	if choice.Reason == openai2.FinishReasonFunctionCall || choice.Tool != nil && choice.Tool.Name != "" {
 		if (choice.Tool.Focus == nil || choice.Tool.Focus.IsEmpty()) && len(baseMessage.Attachments) > 0 {
 			if choice.Tool == nil {
 				choice.Tool = &PromptToolSelection{}

@@ -251,6 +251,10 @@ func (c *Config) ReadIdentityFile() error {
 			return err
 		}
 
+		if err := os.MkdirAll(path.Dir(c.IdentityFile), 0755); err != nil {
+			return err
+		}
+
 		f, err := os.OpenFile(c.IdentityFile, os.O_CREATE|os.O_WRONLY, 0600)
 
 		if err != nil {

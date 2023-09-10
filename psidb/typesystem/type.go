@@ -40,6 +40,8 @@ type basicType struct {
 func (bt *basicType) initialize(ts TypeSystem) {
 	bt.universe = ts
 	bt.operatorMap = make([]map[string]Operator, len(bt.operators))
+
+	bt.jsonSchema.Description = ts.(*typeSystem).LookupComment(bt.runtimeType, "")
 }
 
 func (bt *basicType) Name() TypeName                         { return bt.name }

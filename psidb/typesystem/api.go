@@ -59,6 +59,8 @@ type Field interface {
 	IsOptional() bool
 
 	Resolve(v Value) Value
+
+	RuntimeField() *reflect.StructField
 }
 
 type TypeSystem interface {
@@ -66,4 +68,6 @@ type TypeSystem interface {
 	Register(t Type)
 	LookupByName(name string) Type
 	LookupByType(typ reflect.Type) Type
+
+	LookupComment(t reflect.Type, name string) string
 }
