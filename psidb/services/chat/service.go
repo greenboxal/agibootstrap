@@ -3,31 +3,18 @@ package chat
 import (
 	"context"
 
-	"go.uber.org/fx"
-
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
 	"github.com/greenboxal/agibootstrap/psidb/psi"
-	"github.com/greenboxal/agibootstrap/psidb/services/migrations"
 )
 
 type Service struct {
 	core coreapi.Core
 }
 
-func NewService(
-	lc fx.Lifecycle,
-	core coreapi.Core,
-	migrator migrations.Migrator,
-) *Service {
+func NewService(core coreapi.Core) *Service {
 	svc := &Service{
 		core: core,
 	}
-
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			return migrator.Migrate(ctx, migrationSet)
-		},
-	})
 
 	return svc
 }

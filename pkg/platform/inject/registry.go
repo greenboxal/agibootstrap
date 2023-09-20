@@ -38,8 +38,19 @@ func (sr *ServiceRegistry) Add(def ScopedServiceDefinition) {
 	sr.definitions = append(sr.definitions, def)
 }
 
-func ProvideRegisteredService[T any](scope ServiceRegistrationScope, factory func(ctx ResolutionContext) (T, error)) fx.Option {
-	return fx.Invoke(func(srm *ServiceRegistrationManager, svc T) {
+func ProvideRegisteredService[T any](scope ServiceRegistrationScope, constructor any) fx.Option {
+	return fx.Invoke(func(srm *ServiceRegistrationManager) {
+		def := ScopedServiceDefinition{
+			ServiceDefinition: Provide[T](constructor),
+			Scope:             scope,
+		}
+
+		srm.RegisterService(def)
+	})
+}
+
+func ProvideRegisteredServiceFactory[T any](scope ServiceRegistrationScope, factory func(ctx ResolutionContext) (T, error)) fx.Option {
+	return fx.Invoke(func(srm *ServiceRegistrationManager) {
 		def := ScopedServiceDefinition{
 			ServiceDefinition: ProvideFactory(factory),
 			Scope:             scope,

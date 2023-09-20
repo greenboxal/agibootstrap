@@ -59,3 +59,24 @@ func (tc *ThreadContext) BuildPrompt() *PromptBuilder {
 	pb.WithClient(tc.Client)
 	return pb
 }
+
+func (c *Conversation) AcceptMessage(ctx context.Context, msg *chat.Message) error {
+	_, err := c.addMessage(ctx, msg)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Conversation) CreateThreadContext(ctx context.Context, message *chat.Message) *ThreadContext {
+	return &ThreadContext{
+		Ctx:          ctx,
+		Client:       c.Client,
+		ModelOptions: c.BuildDefaultOptions(),
+		History:      c,
+		Log:          c,
+		BaseMessage:  message,
+	}
+}

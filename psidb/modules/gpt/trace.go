@@ -10,6 +10,7 @@ import (
 	openai2 "github.com/sashabaranov/go-openai"
 
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
+	"github.com/greenboxal/agibootstrap/psidb/psi"
 	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
@@ -20,7 +21,9 @@ type StreamingTraceChunk struct {
 
 	Role         msn.Role             `json:"role"`
 	FunctionCall *openai.FunctionCall `json:"function_call"`
-	Content      string               `json:"text_chunk"`
+	Content      string               `json:"content"`
+
+	Tags []string `json:"tags"`
 }
 
 type Trace struct {
@@ -31,9 +34,10 @@ type Trace struct {
 	Choices  []openai.ChatCompletionChoice  `json:"choices"`
 	Error    error                          `json:"error"`
 	Done     bool                           `json:"done"`
+	Tags     []string                       `json:"tags"`
 }
 
-func CreateTrace(ctx context.Context, req openai.ChatCompletionRequest) *Trace {
+func CreateTrace(ctx context.Context, req openai.ChatCompletionRequest, tags ...string) *Trace {
 	sess := coreapi.GetSession(ctx)
 
 	n := req.N
@@ -48,6 +52,18 @@ func CreateTrace(ctx context.Context, req openai.ChatCompletionRequest) *Trace {
 		TraceID:  uuid.NewString(),
 		Messages: req.Messages,
 		Choices:  make([]openai.ChatCompletionChoice, n),
+		Tags:     append(tags, psi.GetTraceTags(ctx)...),
+	}
+
+	for i := 0; i < len(t.Choices); i++ {
+		t.dispatchChunk(StreamingTraceChunk{
+			TraceID:      t.TraceID,
+			Index:        i,
+			FinishReason: "",
+			Content:      "",
+			FunctionCall: nil,
+			Tags:         t.Tags,
+		})
 	}
 
 	return t

@@ -3,6 +3,7 @@ package rpcv1
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
@@ -85,10 +86,10 @@ func (ns *NodeService) RenderNode(ctx context.Context, req *RenderNodeRequest) (
 }
 
 type CallNodeActionRequest struct {
-	Path      psi.Path `json:"path"`
-	Interface string   `json:"interface"`
-	Action    string   `json:"action"`
-	Args      []byte   `json:"args"`
+	Path      psi.Path        `json:"path"`
+	Interface string          `json:"interface"`
+	Action    string          `json:"action"`
+	Args      json.RawMessage `json:"args"`
 }
 
 type CallNodeActionResponse struct {

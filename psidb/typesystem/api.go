@@ -27,6 +27,10 @@ type Type interface {
 	AssignableTo(other Type) bool
 
 	ConvertFromAny(v Value) (Value, error)
+
+	NumMethods() int
+	Method(name string) Method
+	MethodByIndex(index int) Method
 }
 
 type StructType interface {
@@ -63,11 +67,31 @@ type Field interface {
 	RuntimeField() *reflect.StructField
 }
 
+type Method interface {
+	Name() string
+	DeclaringType() Type
+
+	NumIn() int
+	In(index int) Type
+
+	NumOut() int
+	Out(index int) Type
+
+	IsVariadic() bool
+
+	Call(receiver Value, args ...Value) ([]Value, error)
+	CallSlice(receiver Value, args ...Value) ([]Value, error)
+}
+
 type TypeSystem interface {
-	GlobalJsonSchema() *jsonschema.Schema
+	GlobalJsonSchema() any
+
 	Register(t Type)
 	LookupByName(name string) Type
 	LookupByType(typ reflect.Type) Type
 
 	LookupComment(t reflect.Type, name string) string
+
+	CompileBundleFor(schema *jsonschema.Schema) *jsonschema.Schema
+	CompileFlatBundleFor(schema *jsonschema.Schema) *jsonschema.Schema
 }

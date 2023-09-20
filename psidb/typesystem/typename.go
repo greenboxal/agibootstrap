@@ -2,6 +2,7 @@ package typesystem
 
 import (
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/gertd/go-pluralize"
@@ -136,6 +137,29 @@ var packageTypeNameMap = map[string]string{
 }
 
 func GetTypeName(typ reflect.Type) TypeName {
+	if typ.Kind() == reflect.Ptr {
+		ptrCount := 0
+		actualTyp := typ
+
+		for actualTyp.Kind() == reflect.Ptr {
+			ptrCount++
+			actualTyp = actualTyp.Elem()
+		}
+
+		if ptrCount > 0 {
+			inCountArg := TypeName{}
+			inCountArg.Name = strconv.FormatInt(int64(ptrCount), 10)
+			inCountArg.Plural = inCountArg.Name
+
+			baseName := GetTypeName(actualTyp)
+
+			return TypeName{
+				Package: "_rt_",
+				Name:    "ptr",
+			}.WithParameters(inCountArg, baseName)
+		}
+	}
+
 	parsed := utils.GetParsedTypeName(typ)
 
 	if parsed.Pkg == "" {

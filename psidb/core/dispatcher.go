@@ -155,19 +155,17 @@ func (d *Dispatcher) DispatchTask(task *scheduler.Task) error {
 		span.End()
 	}()
 
-	if not.SessionID != "" {
-		sess := coreapi.GetSession(ctx)
+	sess := coreapi.GetSession(ctx)
 
-		if sess == nil || sess.UUID() != not.SessionID {
-			sess = d.sessionManager.GetOrCreateSession(coreapi.SessionConfig{
-				SessionID: not.SessionID,
-			})
+	if sess == nil || sess.UUID() != not.SessionID {
+		sess = d.sessionManager.GetOrCreateSession(coreapi.SessionConfig{
+			SessionID: not.SessionID,
+		})
 
-			ctx = coreapi.WithSession(ctx, sess)
-		}
+		ctx = coreapi.WithSession(ctx, sess)
 	}
 
-	err = d.core.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
+	err = sess.RunTransaction(ctx, func(ctx context.Context, tx coreapi.Transaction) error {
 		target, err := tx.Resolve(ctx, not.Notified)
 
 		if err != nil {

@@ -15,6 +15,8 @@ const (
 	PrimitiveKindStruct
 	PrimitiveKindInterface
 	PrimitiveKindLink
+	PrimitiveKindFunction
+	PrimitiveKindVector
 )
 
 func (p PrimitiveKind) MarshalJSON() ([]byte, error) {
@@ -47,6 +49,10 @@ func (p *PrimitiveKind) UnmarshalJSON(data []byte) error {
 		*p = PrimitiveKindInterface
 	case `"link"`:
 		*p = PrimitiveKindLink
+	case `"function"`:
+		*p = PrimitiveKindFunction
+	case `"vector"`:
+		*p = PrimitiveKindFunction
 	}
 
 	panic("unknown primitive kind")
@@ -78,6 +84,10 @@ func (p PrimitiveKind) String() string {
 		return "interface"
 	case PrimitiveKindLink:
 		return "link"
+	case PrimitiveKindFunction:
+		return "function"
+	case PrimitiveKindVector:
+		return "vector"
 	}
 
 	return "unknown"

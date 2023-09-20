@@ -15,6 +15,7 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/modules/stdlib"
 	"github.com/greenboxal/agibootstrap/psidb/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/chat"
+	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
 type Agent struct {
@@ -128,6 +129,7 @@ func buildActionsFor(node psi.Node) map[string]llm.FunctionDeclaration {
 
 			if action.RequestType != nil {
 				def := action.RequestType.JsonSchema()
+				def = typesystem.FlattenJsonSchema(typesystem.Universe(), def)
 
 				if def.Type == "object" {
 					args.Type = def.Type

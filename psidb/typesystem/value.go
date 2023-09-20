@@ -37,6 +37,10 @@ func (v Value) Interface() any {
 	return v.v.Interface()
 }
 
+func (v Value) AsBuilder() ipld.NodeBuilder {
+	return newNodeBuilder(v)
+}
+
 func (v Value) AsNode() ipld.Node {
 	if !v.v.IsValid() {
 

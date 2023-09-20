@@ -17,7 +17,7 @@ import (
 
 	"github.com/greenboxal/agibootstrap/pkg/gpt/promptml"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
-	gpt2 "github.com/greenboxal/agibootstrap/psidb/modules/gpt"
+	gpt "github.com/greenboxal/agibootstrap/psidb/modules/gpt"
 	"github.com/greenboxal/agibootstrap/psidb/psi"
 	"github.com/greenboxal/agibootstrap/psidb/services/chat"
 )
@@ -63,7 +63,7 @@ func (s simpleTool) ToolDefinition() *openai.FunctionDefinition { return s.defin
 
 type PromptBuilder struct {
 	client       *openai.Client
-	modelOptions gpt2.ModelOptions
+	modelOptions gpt.ModelOptions
 
 	tokenizer tokenizers.BasicTokenizer
 
@@ -88,7 +88,7 @@ func NewPromptBuilder() *PromptBuilder {
 		messages: map[PromptBuilderHook][]PromptMessageSource{},
 		tools:    map[string]PromptBuilderTool{},
 
-		tokenizer: gpt2.GlobalModelTokenizer,
+		tokenizer: gpt.GlobalModelTokenizer,
 	}
 
 	return b
@@ -127,7 +127,7 @@ func (b *PromptBuilder) AppendModelMessage(hook PromptBuilderHook, msg ...openai
 func (b *PromptBuilder) SetFocus(msg *chat.Message) { b.focus = msg }
 func (b *PromptBuilder) GetFocus() *chat.Message    { return b.focus }
 
-func (b *PromptBuilder) WithModelOptions(opts gpt2.ModelOptions) {
+func (b *PromptBuilder) WithModelOptions(opts gpt.ModelOptions) {
 	b.modelOptions = b.modelOptions.MergeWith(opts)
 }
 
@@ -363,19 +363,6 @@ func (b *PromptBuilder) Build(ctx context.Context) openai.ChatCompletionRequest 
 	return request
 }
 
-type ExecuteOptions struct {
-	Client       *openai.Client
-	ModelOptions gpt2.ModelOptions
-}
-
-func (o *ExecuteOptions) Apply(options ...ExecuteOption) {
-	for _, opt := range options {
-		opt(o)
-	}
-}
-
-type ExecuteOption func(o *ExecuteOptions)
-
 func (b *PromptBuilder) Execute(ctx context.Context, options ...ExecuteOption) (*PromptResponse, error) {
 	var opts ExecuteOptions
 	opts.Client = b.client
@@ -384,17 +371,17 @@ func (b *PromptBuilder) Execute(ctx context.Context, options ...ExecuteOption) (
 
 	request := b.Build(ctx)
 
-	trace := gpt2.CreateTrace(ctx, request)
+	trace := gpt.CreateTrace(ctx, request)
 	defer trace.End()
 
-	err := func() error {
+	runRequest := func(ctx context.Context, req openai.ChatCompletionRequest) error {
 		ctx, span := tracer.Start(ctx, "openai.CreateChatCompletionStream")
 		defer span.End()
 
 		res, err := opts.Client.CreateChatCompletionStream(ctx, request)
 
 		if err != nil {
-			return err
+			panic(err)
 		}
 
 		defer res.Close()
@@ -405,47 +392,143 @@ func (b *PromptBuilder) Execute(ctx context.Context, options ...ExecuteOption) (
 			if errors.Is(err, io.EOF) {
 				break
 			} else if err != nil {
-				trace.ReportError(err)
-
 				return err
 			}
 
 			trace.ConsumeOpenAI(chunk)
+
+			for _, choice := range chunk.Choices {
+				for _, parser := range opts.StreamingParsers {
+					if err := parser.ParseChoiceStreamed(ctx, choice); err != nil {
+						return err
+					}
+				}
+			}
 		}
 
 		return nil
-	}()
-
-	if err != nil {
-		return nil, err
 	}
 
-	return &PromptResponse{
-		Raw: trace,
+	var recoveryMessages []*openai.ChatCompletionMessage
 
-		Choices: lo.Map(trace.Choices, func(c openai.ChatCompletionChoice, _ int) PromptResponseChoice {
-			msg := chat.NewMessage(chat.MessageKindEmit)
-			msg.FromOpenAI(c.Message)
+	handlerError := func(err error) error {
+		var recoverable *RecoverableError
 
-			choice := PromptResponseChoice{
-				Index:   c.Index,
-				Reason:  c.FinishReason,
-				Message: msg,
+		if errors.As(err, &recoverable) {
+			if recoveryMessages == nil {
+				recoveryMessages = make([]*openai.ChatCompletionMessage, len(trace.Choices))
 			}
 
-			if msg.FunctionCall != nil {
-				choice.Tool = &PromptToolSelection{
-					Name:      msg.FunctionCall.Name,
-					Arguments: msg.FunctionCall.Arguments,
+			// FIXME: Handle multiple recoverable errors on multiple choices
+			for i, choice := range trace.Choices {
+				if recoveryMessages[i] == nil {
+					request.Messages = append(request.Messages, openai.ChatCompletionMessage{
+						Role: "assistant",
+					})
+
+					recoveryMessages[i] = &request.Messages[len(request.Messages)-1]
+				}
+
+				recoveryMessage := recoveryMessages[i]
+
+				partialMessage := choice.Message
+
+				if partialMessage.FunctionCall != nil {
+					if recoveryMessage.FunctionCall == nil {
+						recoveryMessage.FunctionCall = &openai.FunctionCall{}
+					}
+
+					recoveryMessage.FunctionCall.Name = partialMessage.FunctionCall.Name
+
+					recoveryMessage.FunctionCall.Arguments += partialMessage.FunctionCall.Arguments
+					recoveryMessage.FunctionCall.Arguments = recoveryMessage.FunctionCall.Arguments[:recoverable.RecoverablePosition.Offset]
+				} else {
+					recoveryMessage.Content += partialMessage.Content
+					recoveryMessage.Content = recoveryMessage.Content[:recoverable.RecoverablePosition.Offset]
 				}
 			}
 
-			return choice
-		}),
-	}, nil
+			return nil
+		}
+
+		return err
+	}
+
+	for {
+		err := runRequest(ctx, request)
+
+		if err != nil {
+			if err := handlerError(err); err != nil {
+				return nil, err
+			}
+
+			continue
+		}
+
+		pr := &PromptResponse{
+			Raw: trace,
+
+			Choices: lo.Map(trace.Choices, func(c openai.ChatCompletionChoice, _ int) PromptResponseChoice {
+				recoveredMessage := c.Message
+
+				if recoveryMessages != nil && c.Index < len(recoveryMessages) {
+					recoveryMessage := recoveryMessages[c.Index]
+
+					if recoveryMessage != nil {
+						if recoveryMessage.FunctionCall != nil {
+							if recoveredMessage.FunctionCall == nil {
+								recoveredMessage.FunctionCall = &openai.FunctionCall{}
+							}
+
+							recoveredMessage.FunctionCall.Name = recoveryMessage.FunctionCall.Name
+							recoveredMessage.FunctionCall.Arguments = recoveryMessage.FunctionCall.Arguments + recoveredMessage.FunctionCall.Arguments
+						}
+
+						recoveredMessage.Content = recoveryMessage.Content + recoveredMessage.Content
+					}
+				}
+
+				msg := chat.NewMessage(chat.MessageKindEmit)
+				msg.FromOpenAI(recoveredMessage)
+
+				choice := PromptResponseChoice{
+					Index:   c.Index,
+					Reason:  c.FinishReason,
+					Message: msg,
+				}
+
+				if msg.FunctionCall != nil {
+					choice.Tool = &PromptToolSelection{
+						Name:      msg.FunctionCall.Name,
+						Arguments: msg.FunctionCall.Arguments,
+					}
+				}
+
+				return choice
+			}),
+		}
+
+		for _, choice := range pr.Choices {
+			for _, parser := range opts.StreamingParsers {
+				if err := parser.ParseChoice(ctx, choice); err != nil {
+					if err := handlerError(err); err != nil {
+						return nil, err
+					}
+
+					continue
+				}
+			}
+		}
+
+		return pr, nil
+	}
 }
 
 func (b *PromptBuilder) ExecuteAndParse(ctx context.Context, parser ResultParser, options ...ExecuteOption) error {
+	if sp, ok := parser.(StreamedResultParser); ok {
+		options = append(options, ExecuteWithStreamingParser(sp))
+	}
+
 	result, err := b.Execute(ctx, options...)
 
 	if err != nil {
@@ -462,8 +545,8 @@ func (b *PromptBuilder) ExecuteAndParse(ctx context.Context, parser ResultParser
 }
 
 func (b *PromptBuilder) renderPml(ctx context.Context, root promptml.Parent, o *openai.ChatCompletionRequest) (err error) {
-	stage := promptml.NewStage(root, gpt2.GlobalModelTokenizer)
-	stage.MaxTokens = (gpt2.GlobalClient.MaxTokensForModel(o.Model) / 4 * 3) - int((float64(o.MaxTokens)*1.1)+10) - 256
+	stage := promptml.NewStage(root, gpt.GlobalModelTokenizer)
+	stage.MaxTokens = (gpt.GlobalClient.MaxTokensForModel(o.Model) / 4 * 3) - int((float64(o.MaxTokens)*1.1)+10) - 256
 
 	if err := root.Update(ctx); err != nil {
 		return err
@@ -521,13 +604,34 @@ func (b *PromptBuilder) renderPml(ctx context.Context, root promptml.Parent, o *
 	return
 }
 
+type ExecuteOptions struct {
+	Client       *openai.Client
+	ModelOptions gpt.ModelOptions
+
+	StreamingParsers []StreamedResultParser
+}
+
+func (o *ExecuteOptions) Apply(options ...ExecuteOption) {
+	for _, opt := range options {
+		opt(o)
+	}
+}
+
+type ExecuteOption func(o *ExecuteOptions)
+
+func ExecuteWithStreamingParser(parser StreamedResultParser) ExecuteOption {
+	return func(o *ExecuteOptions) {
+		o.StreamingParsers = append(o.StreamingParsers, parser)
+	}
+}
+
 func ExecuteWithClient(client *openai.Client) ExecuteOption {
 	return func(o *ExecuteOptions) {
 		o.Client = client
 	}
 }
 
-func ExecuteWithModelOptions(opts gpt2.ModelOptions) ExecuteOption {
+func ExecuteWithModelOptions(opts gpt.ModelOptions) ExecuteOption {
 	return func(o *ExecuteOptions) {
 		o.ModelOptions = o.ModelOptions.MergeWith(opts)
 	}

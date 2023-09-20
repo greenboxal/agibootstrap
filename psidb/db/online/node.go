@@ -35,6 +35,7 @@ const (
 	liveNodeFlagInjected
 	liveNodeFlagIsInitializing
 	liveNodeFlagInitialized
+	liveNodeFlagDeleted
 )
 
 type LiveNode struct {
@@ -461,7 +462,7 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 
 	//logger.Debugw("Save", "path", ln.path)
 
-	if ln.flags&liveNodeFlagDirty == 0 {
+	if ln.flags&liveNodeFlagDirty == 0 || ln.flags&liveNodeFlagDeleted != 0 {
 		return nil
 	}
 
@@ -614,6 +615,57 @@ func (ln *LiveNode) Save(ctx context.Context) error {
 	if ln.node != nil {
 		ln.g.markClean(ln.node)
 	}
+
+	return nil
+}
+
+func (ln *LiveNode) Delete(ctx context.Context) error {
+	ln.mu.Lock()
+	defer ln.mu.Unlock()
+
+	if ln.flags&liveNodeFlagDeleted != 0 {
+		return nil
+	}
+
+	if ln.flags&liveNodeFlagPrefetched == 0 {
+		if err := ln.prefetchNode(ctx); err != nil && !errors.Is(err, psi.ErrNodeNotFound) {
+			return err
+		}
+	}
+
+	if ln.frozen == nil {
+		return nil
+	}
+
+	if ln.parent != nil {
+		pnh, err := ln.parent.reopen(ctx, graphfs.OpenNodeOptions{
+			Flags: graphfs.OpenNodeFlagsCreate | graphfs.OpenNodeFlagsWrite | graphfs.OpenNodeFlagsAppend | graphfs.OpenNodeFlagsRead,
+		})
+
+		if err != nil {
+			return err
+		}
+
+		if err := pnh.RemoveEdge(ctx, ln.path.Name()); err != nil {
+			return err
+		}
+	}
+
+	ln.frozen.Flags |= coreapi.NodeFlagRemoved
+
+	nh, err := ln.reopen(ctx, graphfs.OpenNodeOptions{
+		Flags: graphfs.OpenNodeFlagsCreate | graphfs.OpenNodeFlagsWrite | graphfs.OpenNodeFlagsAppend | graphfs.OpenNodeFlagsRead,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	if err := nh.Write(ctx, ln.frozen); err != nil {
+		return err
+	}
+
+	ln.flags |= liveNodeFlagDeleted
 
 	return nil
 }
@@ -813,7 +865,14 @@ func (ln *LiveNode) OnEdgeAdded(added psi.Edge) {
 }
 
 func (ln *LiveNode) OnEdgeRemoved(removed psi.Edge) {
-	ln.markEdgeDirty(removed.Key().GetKey())
+	ln.markEdgeRemoved(removed.Key().GetKey())
+}
+
+func (ln *LiveNode) OnChildAdded(removed psi.Node) {
+}
+
+func (ln *LiveNode) OnChildRemoved(removed psi.Node) {
+	ln.markEdgeRemoved(removed.SelfIdentity().Name())
 }
 
 func (ln *LiveNode) OnParentChange(newParent psi.Node) {
@@ -823,7 +882,11 @@ func (ln *LiveNode) OnParentChange(newParent psi.Node) {
 		ln.parent = ln.g.nodeForNode(newParent)
 	}
 
-	ln.path = ln.parent.Path().Join(ln.node.SelfIdentity())
+	if ln.parent == nil {
+		ln.path = ln.node.SelfIdentity()
+	} else {
+		ln.path = ln.parent.Path().Join(ln.node.SelfIdentity())
+	}
 
 	if ln.frozen != nil && !ln.frozen.Path.Equals(ln.path) {
 		ln.frozen = nil
@@ -842,6 +905,23 @@ func (ln *LiveNode) OnInvalidated() {
 
 func (ln *LiveNode) OnUpdated(ctx context.Context) error {
 	return ln.Save(ctx)
+}
+
+func (ln *LiveNode) markEdgeRemoved(key psi.EdgeKey) {
+	e := ln.edges[key]
+
+	if e == nil || e.frozen == nil {
+		return
+	}
+
+	e.frozen.Flags |= coreapi.EdgeFlagRemoved
+	e.dirty = true
+
+	ln.flags |= liveNodeFlagDirty
+
+	if ln.node != nil {
+		ln.g.markDirty(ln.node)
+	}
 }
 
 func (ln *LiveNode) markEdgeDirty(key psi.EdgeKey) {

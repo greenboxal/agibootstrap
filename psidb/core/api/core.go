@@ -7,6 +7,8 @@ import (
 )
 
 type Core interface {
+	Ready() <-chan struct{}
+
 	Config() *Config
 	Journal() Journal
 	MetadataStore() DataStore

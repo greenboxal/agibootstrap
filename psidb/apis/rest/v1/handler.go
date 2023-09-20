@@ -121,7 +121,7 @@ func (r *ResourceHandler) ServeHTTP(writer http.ResponseWriter, request *http.Re
 }
 
 func (r *ResourceHandler) handleRequest(req *Request) (any, error) {
-	req.AcceptedFormats = contentnegotiation.ParseAcceptHeaders(req.Header.Values("Accept")...)
+	req.AcceptedFormats = contentnegotiation.ParseAcceptHeaders(req.Header.Values("Match")...)
 
 	if s := req.Header.Get("Content-Type"); s != "" {
 		req.ContentType = contentnegotiation.NewMediaType(s)

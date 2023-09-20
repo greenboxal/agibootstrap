@@ -19,4 +19,5 @@ var Module = fx.Module(
 
 	inject.WithRegisteredService[indexing2.NodeEmbedder](inject.ServiceRegistrationScopeSingleton),
 	inject.WithRegisteredService[*openai.Client](inject.ServiceRegistrationScopeSingleton),
+	inject.WithRegisteredService[*EmbeddingCacheManager](inject.ServiceRegistrationScopeSingleton),
 )

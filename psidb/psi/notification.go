@@ -48,8 +48,9 @@ type Confirmation struct {
 type Notification struct {
 	Nonce uint64 `json:"nonce"`
 
-	SessionID string `json:"session_id"`
-	TraceID   string `json:"trace_id"`
+	SessionID string   `json:"session_id"`
+	TraceID   string   `json:"trace_id"`
+	TraceTags []string `json:"trace_tags"`
 
 	Notifier Path `json:"notifier"`
 	Notified Path `json:"notified"`
@@ -98,12 +99,22 @@ func (n Notification) WithOptions(options ...NotificationOption) Notification {
 	return n
 }
 
-type NotificationTrace struct {
-	TraceID    string `json:"T,omitempty`
-	SpanID     string `json:"S,omitempty"`
-	TraceFlags int    `json:"F,omitempty"`
-	TraceState string `json:"ST,omitempty"`
-	Remote     bool   `json:"R,omitempty"`
+var ctxKeyTraceTags = &struct{ traceTags string }{traceTags: "trace_tags"}
+
+func GetTraceTags(ctx context.Context) []string {
+	v := ctx.Value(ctxKeyTraceTags)
+
+	if v == nil {
+		return nil
+	}
+
+	return v.([]string)
+}
+
+func AppendTraceTags(ctx context.Context, tags ...string) context.Context {
+	current := GetTraceTags(ctx)
+
+	return context.WithValue(ctx, ctxKeyTraceTags, append(current, tags...))
 }
 
 func (n Notification) Apply(ctx context.Context, target Node) (any, error) {
@@ -115,13 +126,6 @@ func (n Notification) Apply(ctx context.Context, target Node) (any, error) {
 		if err := json.Unmarshal([]byte(n.TraceID), &carrier); err != nil {
 			return nil, err
 		}
-
-		/*cfg := trace.SpanContextConfig{}
-		cfg.TraceID, _ = trace.TraceIDFromHex(n.TraceID.TraceID)
-		cfg.SpanID, _ = trace.SpanIDFromHex(n.TraceID.SpanID)
-		cfg.TraceState, _ = trace.ParseTraceState(n.TraceID.TraceState)
-		cfg.TraceFlags = trace.TraceFlags(n.TraceID.TraceFlags)
-		cfg.Remote = n.TraceID.Remote*/
 
 		propagator := otel.GetTextMapPropagator()
 		ctx = propagator.Extract(ctx, carrier)

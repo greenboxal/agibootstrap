@@ -6,22 +6,13 @@ import (
 	"sync"
 
 	"github.com/ipld/go-ipld-prime/linking"
-	"go.opentelemetry.io/otel"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/greenboxal/agibootstrap/pkg/platform/inject"
-	"github.com/greenboxal/agibootstrap/pkg/platform/logging"
 	"github.com/greenboxal/agibootstrap/pkg/platform/stdlib/iterators"
 	"github.com/greenboxal/agibootstrap/psidb/core/api"
 	graphfs "github.com/greenboxal/agibootstrap/psidb/db/graphfs"
 	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
-
-var logger = logging.GetLogger("livegraph")
-var tracer = otel.Tracer("livegraph", trace.WithInstrumentationAttributes(
-	semconv.ServiceName("psidb-graph"),
-))
 
 type LiveGraph struct {
 	mu sync.RWMutex
@@ -123,8 +114,9 @@ func (lg *LiveGraph) addLiveNode(node psi.Node) (ln *LiveNode, err error) {
 }
 
 func (lg *LiveGraph) Delete(ctx context.Context, n psi.Node) error {
-	// TODO: Implement this
-	return nil
+	ln := lg.nodeForNode(n)
+
+	return ln.Delete(ctx)
 }
 
 func (lg *LiveGraph) Resolve(ctx context.Context, path psi.Path) (psi.Node, error) {

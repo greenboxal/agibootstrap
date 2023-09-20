@@ -4,4 +4,34 @@ set -euo pipefail
 
 . "$PSIDB_SDK/sdk/psidb-bash/psidb.sh"
 
-psidb_rpc_node "$@"
+parser_definition() {
+  setup   REST help:usage -- "Usage: psidb-rpc-node <node path> <interface> <action> [args]" ''
+  msg -- 'Options:'
+  disp    :usage  -h --help
+  disp    VERSION    --version
+}
+
+eval "$(getoptions parser_definition) exit 1"
+
+NODE_PATH="${1:-}"
+INTERFACE="${2:-}"
+ACTION="${3:-}"
+
+if [[ -z "$NODE_PATH" ]]; then
+  echo "Missing node path" >&2
+  exit 1
+fi
+
+if [[ -z "$INTERFACE" ]]; then
+  echo "Missing interface" >&2
+  exit 1
+fi
+
+if [[ -z "$ACTION" ]]; then
+  echo "Missing action" >&2
+  exit 1
+fi
+
+shift 3;
+
+psidb_rpc_node "$NODE_PATH" "$INTERFACE" "$ACTION" "$@"

@@ -15,6 +15,18 @@ type ModelOptions struct {
 	ForceFunctionCall *string `json:"force_function_call"`
 }
 
+func String(s string) *string {
+	return &s
+}
+
+func Int(i int) *int {
+	return &i
+}
+
+func Float32(f float32) *float32 {
+	return &f
+}
+
 func (o ModelOptions) MergeWith(opts ModelOptions) ModelOptions {
 	if opts.Model != nil {
 		o.Model = opts.Model

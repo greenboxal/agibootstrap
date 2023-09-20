@@ -8,12 +8,21 @@ psidb_create_node() {
 }
 
 psidb_rpc_node() {
+  local p iface act params
+
   p=$1
   iface=$2
   act=$3
-  args=$(echo -n "${4:-"{}"}" | base64)
-  shift 3
+  shift 3;
+
+  params=()
+
+  for arg in "${@:-}"; do
+    key="${arg%=*}"
+    value="${arg#*=}"
+    params+=("params[args][$key]=$value")
+  done
 
   http --verbose --verify=no POST "$PSIDB_ENDPOINT/rpc/v1" jsonrpc=2.0 id=1 method=NodeService.CallNodeAction \
-    "params[path]=$p" "params[interface]=$iface" "params[action]=$act" "params[args]=$args"
+    "params[path]=$p" "params[interface]=$iface" "params[action]=$act" "${params[@]}"
 }

@@ -1,13 +1,18 @@
 package typesystem
 
 import (
+	"encoding/json"
 	"os"
 	"path"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/iancoleman/orderedmap"
 	"github.com/invopop/jsonschema"
+	"github.com/jbenet/goprocess"
+	"github.com/xeipuuv/gojsonpointer"
 )
 
 func newTypeSystem() *typeSystem {
@@ -28,7 +33,147 @@ func newTypeSystem() *typeSystem {
 		}
 	}
 
+	goprocess.Go(func(proc goprocess.Process) {
+		for {
+			select {
+			case <-proc.Closing():
+				return
+			case <-time.After(time.Second * 5):
+				ts.snapshotJsonSchema()
+			}
+		}
+	})
+
 	return ts
+}
+func (ts *typeSystem) CompileBundleFor(schema *jsonschema.Schema) *jsonschema.Schema {
+	ts.m.RLock()
+	defer ts.m.RUnlock()
+
+	var bundle jsonschema.Schema
+
+	bundle = *schema
+
+	if bundle.Definitions == nil {
+		bundle.Definitions = map[string]*jsonschema.Schema{}
+	}
+
+	var walk func(ref string, schema *jsonschema.Schema)
+
+	seen := map[*jsonschema.Schema]bool{}
+
+	walk = func(ref string, schema *jsonschema.Schema) {
+		if ref == "" && schema.Ref != "" {
+			ref = schema.Ref
+		}
+
+		if seen[schema] {
+			return
+		}
+
+		seen[schema] = true
+
+		if ref != "" {
+			li := strings.LastIndex(ref, "/")
+			name := ref[li+1:]
+
+			def := ts.globalJsonSchema.Definitions[name]
+
+			if def != nil {
+				walk(ref, def)
+			}
+
+			bundle.Definitions[name] = def
+		}
+
+		if schema.Properties != nil && len(schema.Properties.Keys()) > 0 {
+			for _, k := range schema.Properties.Keys() {
+				v, _ := schema.Properties.Get(k)
+
+				prop := v.(*jsonschema.Schema)
+
+				walk("", prop)
+			}
+		}
+
+		if schema.Items != nil {
+			walk("", schema.Items)
+		}
+	}
+
+	walk("", schema)
+
+	return &bundle
+}
+
+func (ts *typeSystem) CompileFlatBundleFor(schema *jsonschema.Schema) *jsonschema.Schema {
+	var bundle jsonschema.Schema
+	var cloneAndPatch func(schema *jsonschema.Schema) *jsonschema.Schema
+
+	ts.m.RLock()
+	defer ts.m.RUnlock()
+
+	bundle = *schema
+	definitions := bundle.Definitions
+
+	if definitions == nil {
+		definitions = map[string]*jsonschema.Schema{}
+	}
+
+	cloneAndPatch = func(schema *jsonschema.Schema) *jsonschema.Schema {
+		result := &jsonschema.Schema{}
+
+		if schema.Ref != "" {
+			li := strings.LastIndex(schema.Ref, "/")
+			name := schema.Ref[li+1:]
+
+			def := definitions[name]
+
+			if def != nil {
+				return def
+			}
+
+			schema = ts.LookupByJsonSchemaRef(schema.Ref)
+
+			definitions[name] = schema
+		}
+
+		*result = *schema
+
+		if schema.Properties != nil && len(schema.Properties.Keys()) > 0 {
+			props := orderedmap.New()
+
+			for _, k := range schema.Properties.Keys() {
+				v, _ := schema.Properties.Get(k)
+				prop := v.(*jsonschema.Schema)
+
+				props.Set(k, cloneAndPatch(prop))
+			}
+
+			schema.Properties = props
+		}
+
+		if schema.PatternProperties != nil {
+			props := map[string]*jsonschema.Schema{}
+
+			for k, v := range schema.PatternProperties {
+				props[k] = cloneAndPatch(v)
+			}
+
+			schema.PatternProperties = props
+		}
+
+		if schema.Items != nil {
+			schema.Items = cloneAndPatch(schema.Items)
+		}
+
+		return result
+	}
+
+	bundle = *cloneAndPatch(schema)
+	bundle.Definitions = definitions
+
+	return &bundle
 }
 
 func (ts *typeSystem) LookupComment(t reflect.Type, name string) string {
@@ -53,10 +198,15 @@ type typeSystem struct {
 
 	reflector        jsonschema.Reflector
 	globalJsonSchema jsonschema.Schema
+
+	globalJsonSchemaSnapshot map[string]any
 }
 
-func (ts *typeSystem) GlobalJsonSchema() *jsonschema.Schema {
-	return &ts.globalJsonSchema
+func (ts *typeSystem) GlobalJsonSchema() any {
+	ts.m.RLock()
+	defer ts.m.RUnlock()
+
+	return ts.globalJsonSchemaSnapshot
 }
 
 func (ts *typeSystem) Register(t Type) {
@@ -183,4 +333,71 @@ func (ts *typeSystem) Initialize() {
 			return ValueOf(result), nil
 		}
 	})
+}
+
+func (ts *typeSystem) LookupByJsonSchemaRef(ref string) *jsonschema.Schema {
+	parts := strings.SplitN(ref, "#", 2)
+	root := parts[0]
+	pointer := ""
+
+	if root != "" {
+		panic("invalid ref")
+	}
+
+	if len(parts) > 1 {
+		pointer = parts[1]
+	}
+
+	if pointer == "" {
+		panic("invalid ref")
+	}
+
+	parsed, err := gojsonpointer.NewJsonPointer(parts[1])
+
+	if err != nil {
+		panic(err)
+	}
+
+	if ts.globalJsonSchemaSnapshot == nil {
+		ts.snapshotJsonSchema()
+	}
+
+	result, _, err := parsed.Get(ts.globalJsonSchemaSnapshot)
+
+	if err != nil {
+		panic(err)
+	}
+
+	var resultSchema jsonschema.Schema
+
+	data, err := json.Marshal(result)
+
+	if err != nil {
+		panic(err)
+	}
+
+	if err := resultSchema.UnmarshalJSON(data); err != nil {
+		panic(err)
+	}
+
+	return &resultSchema
+}
+
+func (ts *typeSystem) snapshotJsonSchema() {
+	ts.m.RLock()
+	defer ts.m.RUnlock()
+
+	data, err := ts.globalJsonSchema.MarshalJSON()
+
+	if err != nil {
+		panic(err)
+	}
+
+	var result map[string]any
+
+	if err := json.Unmarshal(data, &result); err != nil {
+		panic(err)
+	}
+
+	ts.globalJsonSchemaSnapshot = result
 }

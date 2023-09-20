@@ -4,6 +4,7 @@ import (
 	"encoding"
 	"encoding/json"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,6 +53,9 @@ func newTypeFromReflection(typ reflect.Type, opts ...typeCreationOption) Type {
 	case PrimitiveKindInterface:
 		return newInterfaceType(typ, opts...)
 
+	case PrimitiveKindFunction:
+		return newFunctionType(typ, opts...)
+
 	default:
 		return newScalarType(typ, opts...)
 	}
@@ -88,6 +92,15 @@ func (it *interfaceType) initialize(ts TypeSystem) {
 
 	it.ipldType = schema.SpawnAny(it.name.ToTitle())
 	it.ipldPrototype = &ValuePrototype{T: it}
+
+	it.jsonSchema.Type = "interface"
+	it.jsonSchema.Properties = orderedmap.New()
+
+	for _, m := range it.methods {
+		it.jsonSchema.Properties.Set(m.Name(), &jsonschema.Schema{
+			Ref: "#/$defs/" + mangleFunctionName(m.(*reflectedMethod).m.Type).NormalizedFullNameWithArguments(),
+		})
+	}
 }
 
 func newScalarType(typ reflect.Type, option ...typeCreationOption) *scalarType {
@@ -139,6 +152,12 @@ func newScalarType(typ reflect.Type, option ...typeCreationOption) *scalarType {
 		st.ipldPrimitive = basicnode.Prototype.Link
 		st.ipldRepresentationKind = datamodel.Kind_Link
 		st.jsonSchema.Type = "string"
+	case PrimitiveKindVector:
+		st.ipldType = schema.SpawnList(st.name.ToTitle(), "Float64", false)
+		st.ipldPrimitive = basicnode.Prototype.List
+		st.ipldRepresentationKind = datamodel.Kind_List
+		st.jsonSchema.Type = "array"
+		st.jsonSchema.Items = &jsonschema.Schema{Type: "number"}
 	default:
 		panic("invalid scalar type")
 	}
@@ -289,6 +308,41 @@ func (st *structType) initialize(ts TypeSystem) {
 
 		if f.RuntimeField() != nil {
 			schemaRef.Description = ts.(*typeSystem).LookupComment(st.RuntimeType(), f.RuntimeField().Name)
+
+			if k := f.RuntimeField().Type.Kind(); k != reflect.Pointer && k != reflect.Interface {
+				schemaRef = f.Type().JsonSchema()
+			}
+
+			tag := f.RuntimeField().Tag.Get("jsonschmea")
+			tagOpts := strings.Split(tag, ",")
+			for _, opt := range tagOpts {
+				kv := strings.Split(opt, "=")
+
+				switch kv[0] {
+				case "title":
+					schemaRef.Title = kv[1]
+				case "description":
+					schemaRef.Description = kv[1]
+				case "type":
+					schemaRef.Type = kv[1]
+				case "format":
+					schemaRef.Format = kv[1]
+				case "pattern":
+					schemaRef.Pattern = kv[1]
+				case "minLength":
+					schemaRef.MinLength, _ = strconv.Atoi(kv[1])
+				case "maxLength":
+					schemaRef.MaxLength, _ = strconv.Atoi(kv[1])
+				case "minimum":
+					schemaRef.Minimum, _ = strconv.Atoi(kv[1])
+				case "maximum":
+					schemaRef.Maximum, _ = strconv.Atoi(kv[1])
+				case "exclusiveMinimum":
+					schemaRef.ExclusiveMinimum = true
+				case "exclusiveMaximum":
+					schemaRef.ExclusiveMaximum = true
+				}
+			}
 		}
 
 		st.jsonSchema.Properties.Set(f.Name(), schemaRef)
@@ -409,10 +463,22 @@ func (mt *mapType) initialize(ts TypeSystem) {
 	mt.ipldPrimitive = basicnode.Prototype.Map
 	mt.ipldPrototype = &ValuePrototype{T: mt}
 	mt.ipldRepresentationKind = datamodel.Kind_Map
+
 	mt.jsonSchema.Type = "object"
+
+	mt.jsonSchema.PatternProperties = map[string]*jsonschema.Schema{
+		".*": {
+			Ref: "#/$defs/" + mt.Value().Name().NormalizedFullNameWithArguments(),
+		},
+	}
 }
 
 func newListType(typ reflect.Type, option ...typeCreationOption) *listType {
+	switch typ.Kind() {
+	case reflect.Array:
+
+	}
+
 	valName := GetTypeName(typ.Elem())
 	name := GetTypeName(typ).WithParameters(valName)
 
@@ -443,8 +509,117 @@ func (lt *listType) initialize(ts TypeSystem) {
 	lt.ipldPrimitive = basicnode.Prototype.List
 	lt.ipldPrototype = &ValuePrototype{T: lt}
 	lt.ipldRepresentationKind = datamodel.Kind_List
+
+	refPath := "#/$defs/" + lt.Elem().Name().NormalizedFullNameWithArguments()
+	schemaRef := &jsonschema.Schema{
+		Ref: refPath,
+	}
+
 	lt.jsonSchema.Type = "array"
-	lt.jsonSchema.Items = lt.elem.JsonSchema()
+	lt.jsonSchema.Items = schemaRef
+}
+
+func mangleFunctionName(typ reflect.Type) TypeName {
+	parameters := make([]TypeName, 1+typ.NumIn()+typ.NumOut())
+
+	inCountArg := TypeName{}
+	inCountArg.Name = strconv.FormatInt(int64(typ.NumIn()), 10)
+	inCountArg.Plural = inCountArg.Name
+
+	parameters[0] = inCountArg
+
+	for i := 0; i < typ.NumIn(); i++ {
+		parameters[1+i] = GetTypeName(typ.In(i))
+	}
+
+	for i := 0; i < typ.NumOut(); i++ {
+		parameters[1+i+typ.NumIn()] = GetTypeName(typ.Out(i))
+	}
+
+	return GetTypeName(typ).WithParameters(parameters...)
+}
+
+type functionType struct {
+	basicType
+
+	in  []Type
+	out []Type
+}
+
+func newFunctionType(typ reflect.Type, option ...typeCreationOption) *functionType {
+	name := mangleFunctionName(typ)
+
+	ft := &functionType{
+		basicType: basicType{
+			primitiveKind: PrimitiveKindFunction,
+			name:          name,
+			runtimeType:   typ,
+		},
+	}
+
+	ft.self = ft
+
+	for _, opt := range option {
+		opt(&ft.basicType)
+	}
+
+	return ft
+}
+
+func makeSchemaRef(t Type) *jsonschema.Schema {
+	return &jsonschema.Schema{
+		Ref: "#/$defs/" + t.Name().NormalizedFullNameWithArguments(),
+	}
+}
+
+func (ft *functionType) initialize(ts TypeSystem) {
+	ft.basicType.initialize(ts)
+
+	ft.in = make([]Type, 0, ft.runtimeType.NumIn())
+	ft.out = make([]Type, 0, ft.runtimeType.NumOut())
+
+	for i := 0; i < ft.runtimeType.NumIn(); i++ {
+		ft.in = append(ft.in, ts.LookupByType(ft.runtimeType.In(i)))
+	}
+
+	for i := 0; i < ft.runtimeType.NumOut(); i++ {
+		ft.out = append(ft.out, ts.LookupByType(ft.runtimeType.Out(i)))
+	}
+
+	ft.ipldType = schema.SpawnAny(ft.name.ToTitle())
+	ft.ipldPrimitive = basicnode.Prototype.Any
+	ft.ipldPrototype = &ValuePrototype{T: ft}
+	ft.ipldRepresentationKind = datamodel.Kind_Link
+
+	ft.jsonSchema.Type = "function"
+	ft.jsonSchema.Properties = orderedmap.New()
+
+	requestType := &jsonschema.Schema{}
+
+	if len(ft.in) == 1 {
+		requestType = makeSchemaRef(ft.in[0])
+	} else {
+		requestType.Type = "array"
+		requestType.PrefixItems = make([]*jsonschema.Schema, 0, len(ft.in))
+		for _, in := range ft.in {
+			requestType.PrefixItems = append(requestType.PrefixItems, makeSchemaRef(in))
+		}
+	}
+
+	responseType := &jsonschema.Schema{}
+
+	if len(ft.out) == 1 {
+		responseType = makeSchemaRef(ft.out[0])
+	} else {
+		responseType.Type = "array"
+		responseType.PrefixItems = make([]*jsonschema.Schema, 0, len(ft.out))
+		for _, out := range ft.out {
+			responseType.PrefixItems = append(responseType.PrefixItems, makeSchemaRef(out))
+		}
+	}
+
+	ft.jsonSchema.Properties.Set("request_type", requestType)
+	ft.jsonSchema.Properties.Set("response_type", responseType)
 }
 
 type HasIpldPrimitiveType interface {
@@ -484,6 +659,8 @@ func getPrimitiveKind(typ reflect.Type) PrimitiveKind {
 	case reflect.Uint32:
 		fallthrough
 	case reflect.Uint64:
+		fallthrough
+	case reflect.Uintptr:
 		return PrimitiveKindUnsignedInt
 	case reflect.Float32:
 		fallthrough
@@ -495,12 +672,22 @@ func getPrimitiveKind(typ reflect.Type) PrimitiveKind {
 		fallthrough
 	case reflect.Slice:
 		return PrimitiveKindList
+	case reflect.Complex64:
+		return PrimitiveKindVector
+	case reflect.Complex128:
+		return PrimitiveKindVector
 	case reflect.Map:
 		return PrimitiveKindMap
 	case reflect.Struct:
 		return PrimitiveKindStruct
+	case reflect.Chan:
+		fallthrough
+	case reflect.UnsafePointer:
+		fallthrough
 	case reflect.Interface:
 		return PrimitiveKindInterface
+	case reflect.Func:
+		return PrimitiveKindFunction
 	case reflect.Pointer:
 		return getPrimitiveKind(typ.Elem())
 	default:

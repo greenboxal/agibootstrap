@@ -3,8 +3,12 @@ package typesystem
 import (
 	"reflect"
 
+	"github.com/iancoleman/orderedmap"
+	"github.com/invopop/jsonschema"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/schema"
+	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
 )
 
 var globalTypeSystem = newTypeSystem()
@@ -182,4 +186,97 @@ func Implements[T any](typ reflect.Type) bool {
 	}
 
 	return typ.Implements(iface)
+}
+
+func FlattenJsonSchema(u TypeSystem, schema *jsonschema.Schema) *jsonschema.Schema {
+	var refStack []*jsonschema.Schema
+	var flatten func(schema *jsonschema.Schema, clone bool) *jsonschema.Schema
+
+	ts := u.(*typeSystem)
+
+	cloneAndQueue := func(schema *jsonschema.Schema) *jsonschema.Schema {
+		if schema == nil {
+			return nil
+		}
+
+		return flatten(schema, true)
+	}
+
+	flatten = func(originalSchema *jsonschema.Schema, clone bool) *jsonschema.Schema {
+		if slices.Contains(refStack, originalSchema) {
+			panic("circular ref")
+		}
+
+		refStack = append(refStack, originalSchema)
+
+		defer func() {
+			last := len(refStack) - 1
+
+			if refStack[last] != originalSchema {
+				panic("invalid ref stack")
+			}
+
+			refStack = refStack[:last]
+		}()
+
+		resultSchema := originalSchema
+
+		if clone {
+			cloned := *resultSchema
+			resultSchema = &cloned
+		}
+
+		if resultSchema.Ref != "" {
+			ref := ts.LookupByJsonSchemaRef(resultSchema.Ref)
+
+			if ref == nil {
+				panic("invalid ref")
+			}
+
+			*resultSchema = *ref
+		}
+
+		if resultSchema.Properties != nil {
+			props := orderedmap.New()
+
+			for _, key := range resultSchema.Properties.Keys() {
+				v, _ := resultSchema.Properties.Get(key)
+				prop := v.(*jsonschema.Schema)
+
+				props.Set(key, cloneAndQueue(prop))
+			}
+
+			resultSchema.Properties = props
+		}
+
+		if resultSchema.Items != nil {
+			resultSchema.Items = cloneAndQueue(resultSchema.Items)
+		}
+
+		if resultSchema.AdditionalProperties != nil {
+			resultSchema.AdditionalProperties = cloneAndQueue(resultSchema.AdditionalProperties)
+		}
+
+		if resultSchema.AllOf != nil {
+			resultSchema.AllOf = lo.Map(resultSchema.AllOf, func(item *jsonschema.Schema, _ int) *jsonschema.Schema {
+				return cloneAndQueue(item)
+			})
+		}
+
+		if resultSchema.AnyOf != nil {
+			resultSchema.AnyOf = lo.Map(resultSchema.AnyOf, func(item *jsonschema.Schema, _ int) *jsonschema.Schema {
+				return cloneAndQueue(item)
+			})
+		}
+
+		if resultSchema.OneOf != nil {
+			resultSchema.OneOf = lo.Map(resultSchema.OneOf, func(item *jsonschema.Schema, _ int) *jsonschema.Schema {
+				return cloneAndQueue(item)
+			})
+		}
+
+		return resultSchema
+	}
+
+	return cloneAndQueue(schema)
 }

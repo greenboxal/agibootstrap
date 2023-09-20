@@ -175,6 +175,10 @@ func (sb *DataStoreSuperBlock) Create(ctx context.Context, self *graphfs.CacheEn
 }
 
 func (sb *DataStoreSuperBlock) Lookup(ctx context.Context, self *graphfs.INode, dentry *graphfs.CacheEntry) (*graphfs.CacheEntry, error) {
+	if self == nil {
+		return nil, nil
+	}
+
 	ctx, span := tracer.Start(ctx, "DataStoreSuperBlock.Lookup")
 	defer span.End()
 

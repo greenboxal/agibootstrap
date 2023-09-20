@@ -57,6 +57,9 @@ func (t *transaction) Notify(ctx context.Context, not psi.Notification) error {
 		not.SessionID = t.session.UUID()
 	}
 
+	tags := append([]string{}, psi.GetTraceTags(ctx)...)
+	not.TraceTags = append(tags, not.TraceTags...)
+
 	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
 		carrier := propagation2.MapCarrier{}
 

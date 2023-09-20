@@ -112,8 +112,12 @@ func (ib *ifaceBuilder) AssembleValue() datamodel.NodeAssembler {
 	}
 
 	if name == "@value" {
-
+		panic("???")
 	} else {
+		if ib.v.typ == nil {
+			panic("???")
+		}
+
 		st := ib.v.typ.Struct()
 		fld := st.Field(name)
 

@@ -56,7 +56,7 @@ func init() {
 	metricsClient, err := statsd.New(os.Getenv("PSIDB_STATSD"))
 
 	if err != nil {
-		panic(err)
+		//panic(err)
 	}
 
 	rootMetrics = metricsClient

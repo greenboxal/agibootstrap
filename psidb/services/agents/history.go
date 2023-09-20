@@ -32,3 +32,13 @@ type ChatHistoryFunc func(ctx context.Context) (iterators.Iterator[*chat.Message
 func (c ChatHistoryFunc) Messages(ctx context.Context) (iterators.Iterator[*chat.Message], error) {
 	return c(ctx)
 }
+
+func (c *Conversation) MessageIterator(ctx context.Context) (iterators.Iterator[*chat.Message], error) {
+	msgs, err := c.SliceMessages(ctx, nil, nil)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return iterators.FromSlice(msgs), nil
+}

@@ -32,6 +32,9 @@ type basicType struct {
 	operators   []Operator
 	operatorMap []map[string]Operator
 
+	methods   []Method
+	methodMap map[string]Method
+
 	decodeFromAny func(v Value) (Value, error)
 
 	universe TypeSystem
@@ -40,7 +43,43 @@ type basicType struct {
 func (bt *basicType) initialize(ts TypeSystem) {
 	bt.universe = ts
 	bt.operatorMap = make([]map[string]Operator, len(bt.operators))
+	bt.methodMap = make(map[string]Method, len(bt.methods))
 
+	walkMethods := func(t reflect.Type) {
+		for i := 0; i < t.NumMethod(); i++ {
+			m := t.Method(i)
+			mt := ts.LookupByType(m.Type)
+
+			if !m.IsExported() {
+				continue
+			}
+
+			reth := newReflectedMethod(bt.self, m, mt)
+
+			bt.methods = append(bt.methods, reth)
+		}
+	}
+
+	walkMethods(bt.runtimeType)
+
+	if bt.runtimeType.Kind() != reflect.Pointer {
+		walkMethods(reflect.PointerTo(bt.runtimeType))
+	}
+
+	// Thanks GPT
+	/*for i, op := range bt.operators {
+		if bt.operatorMap[op.Arity()] == nil {
+			bt.operatorMap[op.Arity()] = make(map[string]Operator)
+		}
+
+		bt.operatorMap[op.Arity()][op.Name()] = op
+	}*/
+
+	for _, m := range bt.methods {
+		bt.methodMap[m.Name()] = m
+	}
+
+	//bt.jsonSchema.ID = bt.jsonSchema.ID.Add(bt.name.NormalizedFullNameWithArguments())
 	bt.jsonSchema.Description = ts.(*typeSystem).LookupComment(bt.runtimeType, "")
 }
 
@@ -78,6 +117,16 @@ func (bt *basicType) ConvertFromAny(v Value) (Value, error) {
 	}
 
 	return Value{}, fmt.Errorf("cannot convert from any to %s", bt.name)
+}
+
+func (lt *basicType) NumMethods() int           { return len(lt.methods) }
+func (lt *basicType) Method(name string) Method { return lt.methodMap[name] }
+func (lt *basicType) MethodByIndex(index int) Method {
+	if index < 0 || index >= len(lt.methods) {
+		panic("index out of range")
+	}
+
+	return lt.methods[index]
 }
 
 type interfaceType struct {

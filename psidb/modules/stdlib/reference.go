@@ -28,7 +28,9 @@ func Ref[T psi.Node](node T) *Reference[T] {
 	}
 
 	p := node.CanonicalPath()
-	return &Reference[T]{Path: p}
+	ref := &Reference[T]{Path: p, cached: node}
+	ref.hasCachedValue.Store(true)
+	return ref
 }
 
 func (nr *Reference[T]) SetPathReference(ctx context.Context, p psi.Path) error {

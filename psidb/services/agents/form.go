@@ -135,7 +135,7 @@ Fix the error above in the form.
 
 	err = pb.ExecuteAndParse(ctx.Ctx, MultiParser(
 		ParseToLog(ctx.Log, ctx.BaseMessage),
-		ParseJson(&patch),
+		ParseJson(PromptParserTargetText, &patch),
 	))
 
 	if err != nil {
@@ -191,7 +191,7 @@ Fill the following field in the form: %s
 
 		err = pb.ExecuteAndParse(ctx.Ctx, MultiParser(
 			ParseToLog(ctx.Log, ctx.BaseMessage),
-			ParseJson(&patch),
+			ParseJson(PromptParserTargetText, &patch),
 		))
 
 		if err != nil {
@@ -243,7 +243,7 @@ Complete the form below following the JSONSchema above.
 
 	err = pb.ExecuteAndParse(ctx.Ctx, MultiParser(
 		ParseToLog(ctx.Log, ctx.BaseMessage),
-		ParseJson(&f.Data),
+		ParseJson(PromptParserTargetText, &f.Data),
 	))
 
 	if err != nil {

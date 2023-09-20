@@ -25,6 +25,9 @@ type NodeSnapshot interface {
 
 	Resolve(ctx context.Context, path Path) (Node, error)
 
+	OnChildAdded(added Node)
+	OnChildRemoved(removed Node)
+
 	OnEdgeAdded(added Edge)
 	OnEdgeRemoved(removed Edge)
 

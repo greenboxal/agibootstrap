@@ -345,6 +345,10 @@ func (n *NodeBase) onChildrenChange(ev collectionsfx.ListChangeEvent[Node]) {
 					if child.Parent() == n.self {
 						child.SetParent(nil)
 						child.PsiNodeBase().indexInParent = -1
+
+						if n.snap != nil {
+							n.snap.OnChildRemoved(child)
+						}
 					}
 				}
 			}
@@ -357,6 +361,10 @@ func (n *NodeBase) onChildrenChange(ev collectionsfx.ListChangeEvent[Node]) {
 
 					child.SetParent(n.self)
 					child.PsiNodeBase().indexInParent = ev.From() + i
+
+					if n.snap != nil {
+						n.snap.OnChildAdded(child)
+					}
 				}
 			}
 		}
