@@ -31,6 +31,11 @@ func (c *CachedEmbedder) GetEmbeddings(ctx context.Context, chunks []string) ([]
 	hashes := make([]multihash.Multihash, len(chunks))
 
 	for i, chunk := range chunks {
+		if chunk == "" {
+			embeddings[i] = llm.Embedding{Embeddings: make([]float32, c.Dimensions())}
+			continue
+		}
+
 		mh, err := multihash.Sum([]byte(chunk), multihash.SHA2_256, -1)
 
 		if err != nil {

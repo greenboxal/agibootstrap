@@ -54,6 +54,8 @@ func (f SkinBase[T]) RenderNode(ctx SkinRendererContext, node psi.Node) error {
 }
 
 type Theme interface {
+	AddSkin(skin SkinRenderer)
+
 	SkinForNode(contentType string, skinName string, node psi.Node) SkinRenderer
 }
 
@@ -113,6 +115,16 @@ type ThemeBase struct {
 
 	Skins    map[SkinKey]SkinRenderer
 	Patterns []SkinKeyPattern
+}
+
+func (t *ThemeBase) AddSkin(skin SkinRenderer) {
+	key := SkinKey{
+		NodeType:    skin.GetNodeType().Name(),
+		ContentType: skin.GetContentType(),
+		SkinName:    skin.GetSkinName(),
+	}
+
+	t.Skins[key] = skin
 }
 
 func (t *ThemeBase) lookup(contentType, skinName string, node psi.Node) SkinRenderer {

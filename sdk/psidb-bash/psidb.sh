@@ -26,3 +26,10 @@ psidb_rpc_node() {
   http --verbose --verify=no POST "$PSIDB_ENDPOINT/rpc/v1" jsonrpc=2.0 id=1 method=NodeService.CallNodeAction \
     "params[path]=$p" "params[interface]=$iface" "params[action]=$act" "${params[@]}"
 }
+
+psidb_get_node() {
+  p=$1
+  shift 1;
+
+  http --verify=no GET "$PSIDB_ENDPOINT/v1/psi/$p" Accept:application/json Content-Type:application/json "$@"
+}

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+. "$PSIDB_SDK/sdk/psidb-bash/psidb.sh"
+
+parser_definition() {
+  setup   REST help:usage -- "Usage: psidb-get-node <node path>"
+  msg -- 'Options:'
+  disp    :usage  -h --help
+  disp    VERSION    --version
+}
+
+eval "$(getoptions parser_definition) exit 1"
+
+NODE_PATH="${1:-}"
+
+if [[ -z "$NODE_PATH" ]]; then
+  echo "Missing node path" >&2
+  exit 1
+fi
+
+shift 1;
+
+psidb_get_node "$NODE_PATH" "$@"

@@ -16,8 +16,9 @@ type IModule interface {
 type Module struct {
 	psi.NodeBase
 
-	Name   string `json:"name,omitempty"`
-	Source string `json:"source"`
+	Name       string `json:"name,omitempty"`
+	Source     string `json:"source"`
+	SourceFile string `json:"source_file,omitempty"`
 
 	cached   *CachedModule
 	instance *ModuleInstance

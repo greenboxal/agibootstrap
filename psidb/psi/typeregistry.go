@@ -161,9 +161,9 @@ func formatTypeName(typName typesystem.TypeName) string {
 
 	pkg = strings.ReplaceAll(pkg, "/", ".")
 
-	if len(typName.Parameters) > 0 {
+	if len(typName.InParameters) > 0 {
 		args = "["
-		for i, param := range typName.Parameters {
+		for i, param := range typName.InParameters {
 			if i > 0 {
 				args += ", "
 			}

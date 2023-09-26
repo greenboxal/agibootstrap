@@ -424,7 +424,7 @@ func (st *structType) initialize(ts TypeSystem) {
 func newMapType(typ reflect.Type, option ...typeCreationOption) *mapType {
 	keyName := GetTypeName(typ.Key())
 	valName := GetTypeName(typ.Elem())
-	name := GetTypeName(typ).WithParameters(keyName, valName)
+	name := GetTypeName(typ).WithInParameters(keyName, valName)
 
 	mt := &mapType{
 		basicType: basicType{
@@ -480,7 +480,7 @@ func newListType(typ reflect.Type, option ...typeCreationOption) *listType {
 	}
 
 	valName := GetTypeName(typ.Elem())
-	name := GetTypeName(typ).WithParameters(valName)
+	name := GetTypeName(typ).WithInParameters(valName)
 
 	lt := &listType{
 		basicType: basicType{
@@ -520,23 +520,21 @@ func (lt *listType) initialize(ts TypeSystem) {
 }
 
 func mangleFunctionName(typ reflect.Type) TypeName {
-	parameters := make([]TypeName, 1+typ.NumIn()+typ.NumOut())
+	in := make([]TypeName, typ.NumIn())
+	out := make([]TypeName, typ.NumOut())
 
 	inCountArg := TypeName{}
 	inCountArg.Name = strconv.FormatInt(int64(typ.NumIn()), 10)
-	inCountArg.Plural = inCountArg.Name
-
-	parameters[0] = inCountArg
 
 	for i := 0; i < typ.NumIn(); i++ {
-		parameters[1+i] = GetTypeName(typ.In(i))
+		in[i] = GetTypeName(typ.In(i))
 	}
 
 	for i := 0; i < typ.NumOut(); i++ {
-		parameters[1+i+typ.NumIn()] = GetTypeName(typ.Out(i))
+		out[i] = GetTypeName(typ.Out(i))
 	}
 
-	return GetTypeName(typ).WithParameters(parameters...)
+	return GetTypeName(typ).WithInParameters(in...).WithOutParameters(out...)
 }
 
 type functionType struct {

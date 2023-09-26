@@ -109,6 +109,10 @@ func (idx *Index) AddNode(ctx context.Context, req *AddNodeRequest) error {
 
 	entry, oldChunks, newChunks, err := idx.prepareNode(ctx, node)
 
+	if err != nil {
+		return err
+	}
+
 	for _, chunk := range oldChunks {
 		err := idx.GetLiveIndex().RemoveChunk(chunk.Ordinal)
 

@@ -30,11 +30,13 @@ const paths = {
     appPath: resolveApp('.'),
     appPackageJson: resolveApp('package.json'),
     appSrc: resolveApp('src'),
+    packagesDir: resolveApp('packages'),
     appTsConfig: resolveApp('tsconfig.json'),
     appJsConfig: resolveApp('jsconfig.json'),
     appNodeModules: resolveApp('node_modules'),
     appTsBuildInfoFile: resolveApp('node_modules/.cache/tsconfig.tsbuildinfo'),
     publicUrlOrPath: "/",
+
 };
 
 const moduleFileExtensions = [
@@ -260,7 +262,11 @@ module.exports = function(webpackEnv) {
             modules: ['node_modules'],
             extensions: moduleFileExtensions,
             alias: {
-
+                "@psidb/sdk/types": [path.resolve(paths.packagesDir, "psidb-sdk/src/types"), path.resolve(paths.appSrc, "__generated__")],
+                "@psidb/sdk": [path.resolve(paths.packagesDir, "psidb-sdk/src"), paths.appSrc],
+                "@psidb/psidb-sdk/types": [path.resolve(paths.packagesDir,"psidb-sdk/src/types"), path.resolve(paths.appSrc, "__generated__")],
+                "@psidb/psidb-sdk": [path.resolve(paths.packagesDir,"psidb-sdk/src"), paths.appSrc],
+                "@psidb/webpack": [path.resolve(paths.packagesDir, "psidb-webpack/src")],
             }
         },
 

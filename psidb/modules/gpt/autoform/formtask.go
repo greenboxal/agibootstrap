@@ -19,25 +19,25 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/typesystem"
 )
 
-type FormTaskToolHandler[T any] func(ctx context.Context, form *FormTask, choice PromptResponseChoice, arg T) error
+type FormTaskToolHandler[Ctx, T any] func(ctx context.Context, form Ctx, choice PromptResponseChoice, arg T) error
 
-type IFormTaskTool interface {
+type IFormTaskTool[Ctx any] interface {
 	PromptBuilderTool
 
-	Execute(ctx context.Context, form *FormTask, choice PromptResponseChoice) error
+	Execute(ctx context.Context, form Ctx, choice PromptResponseChoice) error
 }
 
-type FormTaskTool[T any] struct {
+type FormTaskTool[Ctx, T any] struct {
 	Name        string
 	Description string
-	Handler     FormTaskToolHandler[T]
+	Handler     FormTaskToolHandler[Ctx, T]
 }
 
-func (f *FormTaskTool[T]) ToolName() string {
+func (f *FormTaskTool[Ctx, T]) ToolName() string {
 	return f.Name
 }
 
-func (f *FormTaskTool[T]) ToolDefinition() *openai.FunctionDefinition {
+func (f *FormTaskTool[Ctx, T]) ToolDefinition() *openai.FunctionDefinition {
 	var args llm.FunctionParams
 
 	args.Type = "object"
@@ -71,9 +71,9 @@ func (f *FormTaskTool[T]) ToolDefinition() *openai.FunctionDefinition {
 	}
 }
 
-func (f *FormTaskTool[T]) GetName() string { return f.Name }
+func (f *FormTaskTool[Ctx, T]) GetName() string { return f.Name }
 
-func (f *FormTaskTool[T]) Execute(ctx context.Context, form *FormTask, choice PromptResponseChoice) error {
+func (f *FormTaskTool[Ctx, T]) Execute(ctx context.Context, form Ctx, choice PromptResponseChoice) error {
 	var args T
 
 	callForm := NewForm(WithSchemaFor[T]())
@@ -105,11 +105,11 @@ type FormTask struct {
 	epoch  int
 	errors []gojsonschema.ResultError
 
-	tools map[string]IFormTaskTool
+	tools map[string]IFormTaskTool[*FormTask]
 }
 
-func MakeTool[T any](name string, description string, handler FormTaskToolHandler[T]) *FormTaskTool[T] {
-	return &FormTaskTool[T]{Name: name, Description: description, Handler: handler}
+func MakeTool[Ctx, T any](name string, description string, handler FormTaskToolHandler[Ctx, T]) *FormTaskTool[Ctx, T] {
+	return &FormTaskTool[Ctx, T]{Name: name, Description: description, Handler: handler}
 }
 
 type SetFieldValue struct {
@@ -121,7 +121,7 @@ func NewFormTask(form *Form, history PromptMessageSource) *FormTask {
 	ft := &FormTask{
 		form:        form,
 		pastHistory: history,
-		tools:       map[string]IFormTaskTool{},
+		tools:       map[string]IFormTaskTool[*FormTask]{},
 	}
 
 	ft.DirectedTask = *NewDirectedTask(ft)
@@ -386,7 +386,7 @@ Schema: ` + string(schemaJson),
 			return nil
 		}),
 
-		OnParseComplete(func(ctx context.Context, choice PromptResponseChoice) error {
+		OnChoiceParsed(func(ctx context.Context, choice PromptResponseChoice) error {
 			fmt.Printf("\n")
 
 			if choice.Reason == openai.FinishReasonFunctionCall {
@@ -458,6 +458,7 @@ type FunctionCallParser struct {
 	ParsedFunctionArguments string
 
 	SelectedTool PromptBuilderTool
+	Choice       *PromptResponseChoice
 }
 
 func (f *FunctionCallParser) ParseChoice(ctx context.Context, choice PromptResponseChoice) error {
@@ -471,11 +472,12 @@ func (f *FunctionCallParser) ParseChoice(ctx context.Context, choice PromptRespo
 
 	f.ParsedFunctionName = choice.Message.FunctionCall.Name
 	f.ParsedFunctionArguments = choice.Message.FunctionCall.Arguments
+	f.Choice = &choice
 
 	return nil
 }
 
-func OnParseComplete(fn func(ctx context.Context, choice PromptResponseChoice) error) ResultParser {
+func OnChoiceParsed(fn func(ctx context.Context, choice PromptResponseChoice) error) ResultParser {
 	return ResultParserFunc(fn)
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 
@@ -31,6 +32,9 @@ type Context struct {
 	handles *ObjectHandleTable
 
 	objKeysFn *v8go.Function
+
+	console basicConsole
+	timers  basicTimers
 }
 
 func NewContext(baseCtx context.Context, iso *Isolate, sp inject.ServiceLocator) *Context {
@@ -46,9 +50,25 @@ func NewContext(baseCtx context.Context, iso *Isolate, sp inject.ServiceLocator)
 
 	iso.registerContext(ctx)
 
-	MustSet(ctx.ctx.Global(), "console", ctx.MustWrapValue(reflect.ValueOf(&basicConsole{
+	ctx.console = basicConsole{
 		logger: logging.GetLoggerCtx(baseCtx, "vm/console").Desugar().ZapLogger().Sugar(),
-	})))
+	}
+
+	ctx.timers = basicTimers{
+		ctx:    ctx,
+		timers: map[int]func(){},
+	}
+
+	MustSet(ctx.ctx.Global(), "global", ctx.ctx.Global())
+	MustSet(ctx.ctx.Global(), "console", ctx.MustWrapValue(reflect.ValueOf(&ctx.console)))
+
+	timers := ctx.MustWrapValue(reflect.ValueOf(&ctx.timers))
+
+	MustSet(ctx.ctx.Global(), "__timers", timers)
+	MustSet(ctx.ctx.Global(), "setTimeout", MustGet(timers.Object(), "setTimeout"))
+	MustSet(ctx.ctx.Global(), "setInterval", MustGet(timers.Object(), "setInterval"))
+	MustSet(ctx.ctx.Global(), "clearTimeout", MustGet(timers.Object(), "clearTimeout"))
+	MustSet(ctx.ctx.Global(), "clearInterval", MustGet(timers.Object(), "clearInterval"))
 
 	return ctx
 }
@@ -62,6 +82,16 @@ func (vmctx *Context) Load(ctx context.Context, m *Module) (*ModuleInstance, err
 		src := ModuleSource{
 			Name:   m.Name,
 			Source: m.Source,
+		}
+
+		if m.Source == "" && m.SourceFile != "" {
+			data, err := os.ReadFile(m.SourceFile)
+
+			if err != nil {
+				return nil, err
+			}
+
+			src.Source = string(data)
 		}
 
 		src.Source = fmt.Sprintf("(function(module, exports, require) {%s\n})", src.Source)
@@ -471,4 +501,14 @@ func (vmctx *Context) UnwrapValueAsAny(value *v8go.Value, elem reflect.Value) (e
 	elem.Set(reflect.ValueOf(res))
 
 	return nil
+}
+
+func (vmctx *Context) Eval(source, origin string) (*v8go.Value, error) {
+	result, err := vmctx.ctx.RunScript(source, origin)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }

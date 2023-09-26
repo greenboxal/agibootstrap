@@ -225,7 +225,7 @@ func (ts *typeSystem) Register(t Type) {
 }
 
 func (ts *typeSystem) doRegister(t Type) bool {
-	name := t.Name().NormalizedFullNameWithArguments()
+	name := t.Name().MangledName()
 
 	if _, ok := ts.typesByType[t.RuntimeType()]; ok {
 		panic("type already registered")
@@ -237,7 +237,7 @@ func (ts *typeSystem) doRegister(t Type) bool {
 
 	ts.typesByType[t.RuntimeType()] = t
 	ts.typesByName[name] = t
-	ts.globalJsonSchema.Definitions[t.Name().NormalizedFullNameWithArguments()] = t.JsonSchema()
+	ts.globalJsonSchema.Definitions[t.Name().MangledName()] = t.JsonSchema()
 
 	return true
 }

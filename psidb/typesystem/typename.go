@@ -1,28 +1,155 @@
 package typesystem
 
 import (
+	"path"
 	"reflect"
-	"strconv"
 	"strings"
 
-	"github.com/gertd/go-pluralize"
 	"github.com/samber/lo"
 	"github.com/stoewer/go-strcase"
 
 	"github.com/greenboxal/aip/aip-sdk/pkg/utils"
 )
 
-var pluralizeClient = pluralize.NewClient()
+type TypeClass int
 
-type TypeName struct {
-	Package    string
-	Name       string
-	Plural     string
-	Parameters []TypeName
+const (
+	TypeClassUnknown TypeClass = iota
+	TypeClassObject
+	TypeClassFunction
+	TypeClassArray
+	TypeClassMap
+	TypeClassInterface
+	TypeClassPointer
+	TypeClassReference
+)
+
+func (tc TypeClass) Prefix() string {
+	switch tc {
+	case TypeClassObject:
+		return "O"
+	case TypeClassFunction:
+		return "F"
+	case TypeClassInterface:
+		return "I"
+	case TypeClassArray:
+		return "A"
+	case TypeClassMap:
+		return "M"
+	case TypeClassPointer:
+		return "P"
+	case TypeClassReference:
+		return "R"
+	default:
+		return ""
+	}
 }
 
-func (n TypeName) WithParameters(parameters ...TypeName) TypeName {
-	n.Parameters = parameters
+type TypeName struct {
+	Class   TypeClass
+	Package string
+	Name    string
+
+	InParameters  []TypeName
+	OutParameters []TypeName
+}
+
+func ParseMangledName(mangledName string) (tn TypeName, rest string) {
+	rest = mangledName
+
+	parenIndex := strings.IndexByte(rest, '(')
+
+	if parenIndex == -1 {
+		parenIndex = len(rest)
+	}
+
+	fullName := strings.Split(rest[:parenIndex], "/")
+	rest = rest[parenIndex:]
+
+	tn.Package = strings.Join(fullName[:len(fullName)-1], "/")
+	tn.Name = fullName[len(fullName)-1]
+
+	if len(rest) == 0 {
+		return
+	}
+
+	if rest[0] != '(' {
+		return
+	}
+
+	rest = rest[1:]
+	tn.InParameters = []TypeName{}
+
+	for len(rest) > 0 {
+		var nested TypeName
+
+		if rest[0] == ')' {
+			if tn.OutParameters == nil {
+				rest = rest[1:]
+				tn.OutParameters = []TypeName{}
+			} else {
+				break
+			}
+		} else if rest[0] == ';' {
+			return
+		}
+
+		if len(rest) == 0 {
+			break
+		}
+
+		nested, rest = ParseMangledName(rest)
+
+		if tn.OutParameters == nil {
+			tn.InParameters = append(tn.InParameters, nested)
+		} else {
+			tn.OutParameters = append(tn.OutParameters, nested)
+		}
+
+		if len(rest) > 0 && rest[0] == ';' {
+			rest = rest[1:]
+		}
+	}
+
+	if tn.OutParameters == nil {
+		if len(rest) > 0 {
+			if rest[0] != ')' {
+				panic("invalid mangled name")
+			}
+
+			rest = rest[1:]
+		}
+	}
+
+	return
+}
+
+func (n TypeName) MangledName() string {
+	base := n.Class.Prefix() + path.Join(n.Package, n.Name)
+	args := ""
+
+	if len(n.InParameters) > 0 || len(n.OutParameters) > 0 {
+		in := lo.Map(n.InParameters, func(arg TypeName, _index int) string {
+			return arg.MangledName()
+		})
+
+		out := lo.Map(n.OutParameters, func(arg TypeName, _index int) string {
+			return arg.MangledName()
+		})
+
+		args = "(" + strings.Join(in, ";") + ")" + strings.Join(out, ";")
+	}
+
+	return base + args
+}
+
+func (n TypeName) WithInParameters(parameters ...TypeName) TypeName {
+	n.InParameters = parameters
+	return n
+}
+
+func (n TypeName) WithOutParameters(parameters ...TypeName) TypeName {
+	n.OutParameters = parameters
 	return n
 }
 
@@ -30,30 +157,18 @@ func (n TypeName) ToTitle() string {
 	return strcase.UpperCamelCase(n.Name)
 }
 
-func (n TypeName) ToTitlePlural() string {
-	if n.Plural == "" {
-		n.Plural = pluralizeClient.Plural(n.Name)
-	}
-
-	return strcase.UpperCamelCase(n.Plural)
-}
-
 func (n TypeName) FullName() string {
-	if n.Package != "" {
-		return strings.ReplaceAll(n.Package, "/", ".") + "." + n.Name
-	}
-
-	return n.Name
+	return path.Join(n.Package, n.Name)
 }
 
 func (n TypeName) Args() []string {
-	return lo.Map(n.Parameters, func(arg TypeName, _index int) string {
+	return lo.Map(n.InParameters, func(arg TypeName, _index int) string {
 		return arg.String()
 	})
 }
 
 func (n TypeName) NameWithArgs() string {
-	if len(n.Parameters) > 0 {
+	if len(n.InParameters) > 0 {
 		a := n.Args()
 
 		args := strings.Join(a, "_QZQZ_")
@@ -66,16 +181,7 @@ func (n TypeName) NameWithArgs() string {
 }
 
 func (n TypeName) FullNameWithArgs() string {
-	if len(n.Parameters) > 0 {
-		a := n.Args()
-
-		args := strings.Join(a, "_QZQZ_")
-		args = "_QZQZ_" + args + "_QZQZ_"
-
-		return n.FullName() + args
-	}
-
-	return n.FullName()
+	return n.MangledName()
 }
 
 func (n TypeName) GoString() string {
@@ -85,8 +191,8 @@ func (n TypeName) GoString() string {
 func (n TypeName) String() string {
 	args := ""
 
-	if len(n.Parameters) > 0 {
-		a := lo.Map(n.Parameters, func(arg TypeName, _index int) string {
+	if len(n.InParameters) > 0 {
+		a := lo.Map(n.InParameters, func(arg TypeName, _index int) string {
 			return arg.String()
 		})
 
@@ -98,28 +204,34 @@ func (n TypeName) String() string {
 }
 
 func (n TypeName) NormalizedFullNameWithArguments() string {
-	args := ""
-
-	if len(n.Parameters) > 0 {
-		a := lo.Map(n.Parameters, func(arg TypeName, _index int) string {
-			return arg.String()
-		})
-
-		args = strings.Join(a, "_QZQZ_")
-		args = "_QZQZ_" + args + "_QZQZ_"
-	}
-
-	return utils.NormalizeName(n.FullName() + args)
+	return n.FullNameWithArgs()
 }
 
 func AsTypeName(parsed utils.ParsedTypeName) TypeName {
-	return TypeName{
+	for len(parsed.Pkg) > 0 && parsed.Pkg[0] == '*' {
+		return TypeName{
+			Name: "ptr",
+			InParameters: []TypeName{AsTypeName(utils.ParsedTypeName{
+				Name: parsed.Name,
+				Pkg:  parsed.Pkg[1:],
+			})},
+		}
+	}
+
+	parsed.Pkg = rewritePackageName(parsed.Pkg)
+
+	tn := TypeName{
 		Name:    parsed.Name,
 		Package: parsed.Pkg,
-		Parameters: lo.Map(parsed.Args, func(item utils.ParsedTypeName, index int) TypeName {
-			return AsTypeName(item)
-		}),
 	}
+
+	if len(parsed.Args) > 0 {
+		tn.InParameters = lo.Map(parsed.Args, func(item utils.ParsedTypeName, index int) TypeName {
+			return AsTypeName(item)
+		})
+	}
+
+	return tn
 }
 
 var packageTypeNameMap = map[string]string{
@@ -137,50 +249,39 @@ var packageTypeNameMap = map[string]string{
 }
 
 func GetTypeName(typ reflect.Type) TypeName {
-	if typ.Kind() == reflect.Ptr {
-		ptrCount := 0
-		actualTyp := typ
-
-		for actualTyp.Kind() == reflect.Ptr {
-			ptrCount++
-			actualTyp = actualTyp.Elem()
-		}
-
-		if ptrCount > 0 {
-			inCountArg := TypeName{}
-			inCountArg.Name = strconv.FormatInt(int64(ptrCount), 10)
-			inCountArg.Plural = inCountArg.Name
-
-			baseName := GetTypeName(actualTyp)
-
-			return TypeName{
-				Package: "_rt_",
-				Name:    "ptr",
-			}.WithParameters(inCountArg, baseName)
-		}
-	}
-
 	parsed := utils.GetParsedTypeName(typ)
 
-	if parsed.Pkg == "" {
-		parsed.Pkg = "_rt_"
+	tn := AsTypeName(parsed)
+
+	if typ.Kind() == reflect.Func {
+		if typ.NumIn() > 0 {
+			tn.InParameters = make([]TypeName, typ.NumIn())
+
+			for i := 0; i < typ.NumIn(); i++ {
+				tn.InParameters[i] = GetTypeName(typ.In(i))
+			}
+		}
+
+		if typ.NumOut() > 0 {
+			tn.OutParameters = make([]TypeName, typ.NumOut())
+
+			for i := 0; i < typ.NumOut(); i++ {
+				tn.OutParameters[i] = GetTypeName(typ.Out(i))
+			}
+		}
+	} else if typ.Kind() == reflect.Slice || typ.Kind() == reflect.Array || typ.Kind() == reflect.Pointer {
+		tn.InParameters = []TypeName{GetTypeName(typ.Elem())}
+	} else if typ.Kind() == reflect.Map {
+		tn.InParameters = []TypeName{GetTypeName(typ.Key()), GetTypeName(typ.Elem())}
 	}
 
-	parsed.Pkg = rewritePackageName(parsed.Pkg)
-	parsed.Pkg = strings.ReplaceAll(parsed.Pkg, "/", ".")
-
-	return AsTypeName(parsed)
+	return tn
 }
 
 func ParseTypeName(name string) TypeName {
 	parsed := utils.ParseTypeName(name)
 
-	if parsed.Pkg == "" {
-		parsed.Pkg = "_rt_"
-	}
-
 	parsed.Pkg = rewritePackageName(parsed.Pkg)
-	parsed.Pkg = strings.ReplaceAll(parsed.Pkg, "/", ".")
 
 	return AsTypeName(parsed)
 }

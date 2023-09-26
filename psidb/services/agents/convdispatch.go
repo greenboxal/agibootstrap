@@ -322,15 +322,7 @@ func (c *Conversation) dispatchNodeAction(ctx context.Context, req *OnMessageSid
 			}
 		}
 
-		writer.Write([]byte(`
-
-## Success
-
-Please provide more data by calling a function to continue the conversation.
-
-You can also return a message to the user. ONLY DO THIS WHEN YOU COMPLETED YOUR LAST TASK.
-
-`))
+		writer.Write([]byte(`Please proceed to the next step of the operation you requested. What specific action would you like me to take now?`))
 	}()
 
 	replyMessage := chat.NewMessage(chat.MessageKindEmit)

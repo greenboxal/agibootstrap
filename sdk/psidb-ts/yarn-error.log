@@ -1,8 +1,8 @@
 Arguments: 
-  /Users/jonathanlima/.nodenv/versions/18.13.0/bin/node /Users/jonathanlima/.nodenv/versions/18.13.0/bin/yarn add ts-patch
+  /Users/jonathanlima/.nodenv/versions/18.13.0/bin/node /Users/jonathanlima/.nodenv/versions/18.13.0/bin/yarn add eslint-babel
 
 PATH: 
-  /Users/jonathanlima/.nodenv/versions/18.13.0/bin:/opt/homebrew/Cellar/nodenv/1.4.0/libexec:/opt/homebrew/Cellar/go/1.20.5/libexec/bin:/Users/jonathanlima/go/bin:/Users/jonathanlima/.wasmer/bin:/Users/jonathanlima/.pyenv/libexec/pyenv:/Users/jonathanlima/.pyenv/libexec:/Users/jonathanlima/.pyenv/shims:/Users/jonathanlima/.pyenv/bin:/Users/jonathanlima/.nodenv/shims:/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin:/Library/Apple/usr/bin:/Users/jonathanlima/go/bin:/Users/jonathanlima/.rover/bin:/Users/jonathanlima/.sg:/Applications/Visual Studio Code.app/Contents/Resources/app/bin:/Users/jonathanlima/.wasmer/globals/wapm_packages/.bin
+  /Users/jonathanlima/.nodenv/versions/18.13.0/bin:/opt/homebrew/Cellar/nodenv/1.4.0/libexec:/opt/homebrew/Cellar/go/1.20.5/libexec/bin:/Users/jonathanlima/go/bin:/Users/jonathanlima/.wasmer/bin:/Users/jonathanlima/.pyenv/libexec/pyenv:/Users/jonathanlima/.pyenv/libexec:/Users/jonathanlima/.pyenv/shims:/Users/jonathanlima/.pyenv/bin:/Users/jonathanlima/.nodenv/shims:/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/X11/bin:/Library/Apple/usr/bin:/Users/jonathanlima/go/bin:/Users/jonathanlima/.rover/bin:/Users/jonathanlima/.sg:/Applications/Visual Studio Code.app/Contents/Resources/app/bin:/Users/jonathanlima/.wasmer/globals/wapm_packages/.bin
 
 Yarn version: 
   1.22.19
@@ -14,12 +14,17 @@ Platform:
   darwin arm64
 
 Trace: 
-  SyntaxError: /Users/jonathanlima/mark/agibootstrap/staging/sdk/psidb-ts/package.json: Unexpected token } in JSON at position 222
-      at JSON.parse (<anonymous>)
-      at /Users/jonathanlima/.nodenv/versions/18.13.0/lib/node_modules/yarn/lib/cli.js:1629:59
-      at Generator.next (<anonymous>)
-      at step (/Users/jonathanlima/.nodenv/versions/18.13.0/lib/node_modules/yarn/lib/cli.js:310:30)
-      at /Users/jonathanlima/.nodenv/versions/18.13.0/lib/node_modules/yarn/lib/cli.js:321:13
+  Error: https://registry.yarnpkg.com/eslint-babel: Not found
+      at params.callback [as _callback] (/Users/jonathanlima/.nodenv/versions/18.13.0/lib/node_modules/yarn/lib/cli.js:66145:18)
+      at self.callback (/Users/jonathanlima/.nodenv/versions/18.13.0/lib/node_modules/yarn/lib/cli.js:140890:22)
+      at Request.emit (node:events:513:28)
+      at Request.<anonymous> (/Users/jonathanlima/.nodenv/versions/18.13.0/lib/node_modules/yarn/lib/cli.js:141862:10)
+      at Request.emit (node:events:513:28)
+      at IncomingMessage.<anonymous> (/Users/jonathanlima/.nodenv/versions/18.13.0/lib/node_modules/yarn/lib/cli.js:141784:12)
+      at Object.onceWrapper (node:events:627:28)
+      at IncomingMessage.emit (node:events:525:35)
+      at endReadableNT (node:internal/streams/readable:1359:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
 
 npm manifest: 
   {
@@ -30,7 +35,7 @@ npm manifest:
     "private": true,
     "scripts": {
       "test": "echo \"Error: no test specified\" && exit 1",
-      "prepare": "ts-patch install -s",
+      "prepare": "ts-patch install -s"
     },
     "keywords": [],
     "author": "",
@@ -51,20 +56,30 @@ npm manifest:
       "webpack-cli": "^5.1.4"
     },
     "dependencies": {
+      "@apidevtools/json-schema-ref-parser": "^10.1.0",
       "@loopback/repository": "^6.1.2",
       "@loopback/repository-json-schema": "^7.1.2",
       "@types/jsonschema": "^1.1.1",
+      "@types/ramda": "^0.29.4",
+      "case": "^1.6.3",
       "cmd-ts": "^0.13.0",
       "dts-bundle-generator": "^8.0.1",
       "eslint": "^8.48.0",
       "eslint-config-react-app": "^7.0.1",
+      "eslint-plugin-unused-imports": "^3.0.0",
       "eslint-webpack-plugin": "^4.0.1",
       "jsonschema": "^1.4.1",
+      "promdash": "^1.2.1",
+      "ramda": "^0.29.0",
       "react": "^18.2.0",
       "react-dev-utils": "^12.0.1",
+      "reflect-metadata": "^0.1.13",
       "resolve": "^1.22.4",
+      "simple-http-request-builder": "^2.0.0",
+      "simple-http-rest-client": "^2.0.2",
       "ts-json-schema-generator": "^1.3.0",
       "ts-loader": "^9.4.4",
+      "ts-patch": "^3.0.2",
       "ts-to-json": "^1.8.3",
       "tst-reflect": "^0.12.0",
       "tst-reflect-transformer": "^1.0.0-alpha.11",
@@ -72,6 +87,7 @@ npm manifest:
       "types-webpack-bundler": "^1.0.2",
       "typescript": "^5.2.2",
       "typescript-json-schema": "^0.61.0",
+      "typescript-rtti": "^0.9.6",
       "webpack-manifest-plugin": "^5.0.0"
     },
     "eslintConfig": {
@@ -101,6 +117,17 @@ Lockfile:
     dependencies:
       "@jridgewell/gen-mapping" "^0.3.0"
       "@jridgewell/trace-mapping" "^0.3.9"
+  
+  "@apidevtools/json-schema-ref-parser@^10.1.0":
+    version "10.1.0"
+    resolved "https://registry.yarnpkg.com/@apidevtools/json-schema-ref-parser/-/json-schema-ref-parser-10.1.0.tgz#bf54494039a56fa7f77fed17dc6f01dfde50f64c"
+    integrity sha512-3e+viyMuXdrcK8v5pvP+SDoAQ77FH6OyRmuK48SZKmdHJRFm87RsSs8qm6kP39a/pOPURByJw+OXzQIqcfmKtA==
+    dependencies:
+      "@jsdevtools/ono" "^7.1.3"
+      "@types/json-schema" "^7.0.11"
+      "@types/lodash.clonedeep" "^4.5.7"
+      js-yaml "^4.1.0"
+      lodash.clonedeep "^4.5.0"
   
   "@babel/code-frame@^7.0.0", "@babel/code-frame@^7.16.0", "@babel/code-frame@^7.22.10", "@babel/code-frame@^7.22.5", "@babel/code-frame@^7.8.3":
     version "7.22.10"
@@ -1451,6 +1478,11 @@ Lockfile:
       "@jridgewell/resolve-uri" "^3.1.0"
       "@jridgewell/sourcemap-codec" "^1.4.14"
   
+  "@jsdevtools/ono@^7.1.3":
+    version "7.1.3"
+    resolved "https://registry.yarnpkg.com/@jsdevtools/ono/-/ono-7.1.3.tgz#9df03bbd7c696a5c58885c34aa06da41c8543796"
+    integrity sha512-4JQNk+3mVzK3xh2rqd6RB4J46qUR19azEHBneZyTZM+c456qOrbbM/5xcR8huNCCcbVt7+UmizG6GuUvPvKUYg==
+  
   "@loopback/filter@^4.1.2":
     version "4.1.2"
     resolved "https://registry.npmjs.org/@loopback/filter/-/filter-4.1.2.tgz"
@@ -1618,7 +1650,7 @@ Lockfile:
     dependencies:
       "@types/istanbul-lib-report" "*"
   
-  "@types/json-schema@*", "@types/json-schema@^7.0.12", "@types/json-schema@^7.0.4", "@types/json-schema@^7.0.5", "@types/json-schema@^7.0.8", "@types/json-schema@^7.0.9":
+  "@types/json-schema@*", "@types/json-schema@^7.0.11", "@types/json-schema@^7.0.12", "@types/json-schema@^7.0.4", "@types/json-schema@^7.0.5", "@types/json-schema@^7.0.8", "@types/json-schema@^7.0.9":
     version "7.0.12"
     resolved "https://registry.npmjs.org/@types/json-schema/-/json-schema-7.0.12.tgz"
     integrity sha512-Hr5Jfhc9eYOQNPYO5WLDq/n4jqijdHNlDXjuAQkkt+mWdQR+XJToOHrsD4cPaMXpn6KO7y2+wM8AZEs8VpBLVA==
@@ -1644,6 +1676,18 @@ Lockfile:
     version "0.16.2"
     resolved "https://registry.npmjs.org/@types/katex/-/katex-0.16.2.tgz"
     integrity sha512-dHsSjSlU/EWEEbeNADr3FtZZOAXPkFPUO457QCnoNqcZQXNqNEu/svQd0Nritvd3wNff4vvC/f4e6xgX3Llt8A==
+  
+  "@types/lodash.clonedeep@^4.5.7":
+    version "4.5.7"
+    resolved "https://registry.yarnpkg.com/@types/lodash.clonedeep/-/lodash.clonedeep-4.5.7.tgz#0e119f582ed6f9e6b373c04a644651763214f197"
+    integrity sha512-ccNqkPptFIXrpVqUECi60/DFxjNKsfoQxSQsgcBJCX/fuX1wgyQieojkcWH/KpE3xzLoWN/2k+ZeGqIN3paSvw==
+    dependencies:
+      "@types/lodash" "*"
+  
+  "@types/lodash@*":
+    version "4.14.198"
+    resolved "https://registry.yarnpkg.com/@types/lodash/-/lodash-4.14.198.tgz#4d27465257011aedc741a809f1269941fa2c5d4c"
+    integrity sha512-trNJ/vtMZYMLhfN45uLq4ShQSw0/S7xCTLLVM+WM1rmFpba/VS42jVUgaO3w/NOLiWR/09lnYk0yMaA/atdIsg==
   
   "@types/mdast@^3.0.0":
     version "3.0.12"
@@ -1671,6 +1715,13 @@ Lockfile:
     version "4.0.0"
     resolved "https://registry.npmjs.org/@types/parse-json/-/parse-json-4.0.0.tgz"
     integrity sha512-//oorEZjL6sbPcKUaCdIGlIUeH26mgzimjBB77G6XRgnDl/L5wOnpyBGRe/Mmf5CVW3PwEBE1NjiMZ/ssFh4wA==
+  
+  "@types/ramda@^0.29.4":
+    version "0.29.4"
+    resolved "https://registry.yarnpkg.com/@types/ramda/-/ramda-0.29.4.tgz#4bfe4729586290089d613d1becf8da4cf4054df5"
+    integrity sha512-bd3nyfkZd5EVxuBf1kW6wvFz61SvAEfXXISIEIePJOj2XRjCHyro1ikvDXTXIlpRtuC6lwTMfYdkXCD+oiXQfw==
+    dependencies:
+      types-ramda "^0.29.4"
   
   "@types/semver@^7.3.12":
     version "7.5.1"
@@ -2379,6 +2430,11 @@ Lockfile:
       tslib "^2.0.3"
       upper-case-first "^2.0.2"
   
+  case@^1.6.3:
+    version "1.6.3"
+    resolved "https://registry.yarnpkg.com/case/-/case-1.6.3.tgz#0a4386e3e9825351ca2e6216c60467ff5f1ea1c9"
+    integrity sha512-mzDSXIPaFwVDvZAHqZ9VlbyF4yyXRuX6IvB06WvPYkqJVO24kX1PPhv9bfpKNFZyxYFmmgo03HUiD8iklmJYRQ==
+  
   ccount@^2.0.0:
     version "2.0.1"
     resolved "https://registry.npmjs.org/ccount/-/ccount-2.0.1.tgz"
@@ -2909,6 +2965,11 @@ Lockfile:
       is-date-object "^1.0.1"
       is-symbol "^1.0.2"
   
+  es6-promise@^4.2.8:
+    version "4.2.8"
+    resolved "https://registry.yarnpkg.com/es6-promise/-/es6-promise-4.2.8.tgz#4eb21594c972bc40553d276e510539143db53e0a"
+    integrity sha512-HJDGx5daxeIvxdBxvG2cb9g4tEvwIk3i8+nhX0yGrYmZUzbkdg8QbDevheDB8gd0//uPj4c1EQua8Q+MViT0/w==
+  
   esbuild@^0.18.11, esbuild@^0.18.2:
     version "0.18.20"
     resolved "https://registry.npmjs.org/esbuild/-/esbuild-0.18.20.tgz"
@@ -3086,6 +3147,18 @@ Lockfile:
     integrity sha512-5eX9e1Kc2PqVRed3taaLnAAqPZGEX75C+M/rXzUAI3wIg/ZxzUm1OVAwfe/O+vE+6YXOLetSe9g5GKD2ecXipw==
     dependencies:
       "@typescript-eslint/utils" "^5.58.0"
+  
+  eslint-plugin-unused-imports@^3.0.0:
+    version "3.0.0"
+    resolved "https://registry.yarnpkg.com/eslint-plugin-unused-imports/-/eslint-plugin-unused-imports-3.0.0.tgz#d25175b0072ff16a91892c3aa72a09ca3a9e69e7"
+    integrity sha512-sduiswLJfZHeeBJ+MQaG+xYzSWdRXoSw61DpU13mzWumCkR0ufD0HmO4kdNokjrkluMHpj/7PJeN35pgbhW3kw==
+    dependencies:
+      eslint-rule-composer "^0.3.0"
+  
+  eslint-rule-composer@^0.3.0:
+    version "0.3.0"
+    resolved "https://registry.yarnpkg.com/eslint-rule-composer/-/eslint-rule-composer-0.3.0.tgz#79320c927b0c5c0d3d3d2b76c8b4a488f25bbaf9"
+    integrity sha512-bt+Sh8CtDmn2OajxvNO+BX7Wn4CIWMpTRm3MaiKPCQcnnlm0CS2mhui6QaoeQugs+3Kj2ESKEEGJUdVafwhiCg==
   
   eslint-scope@5.1.1, eslint-scope@^5.1.1:
     version "5.1.1"
@@ -4338,6 +4411,11 @@ Lockfile:
     dependencies:
       p-locate "^6.0.0"
   
+  lodash.clonedeep@^4.5.0:
+    version "4.5.0"
+    resolved "https://registry.yarnpkg.com/lodash.clonedeep/-/lodash.clonedeep-4.5.0.tgz#e23f3f9c4f8fbdde872529c1071857a086e5ccef"
+    integrity sha512-H5ZhCF25riFd9uB5UCkVKo61m3S/xZk1x4wA6yp/L3RFP6Z/eHH1ymQcGLo7J3GMPfm0V/7m1tryHuGVxpqEBQ==
+  
   lodash.debounce@^4.0.8:
     version "4.0.8"
     resolved "https://registry.npmjs.org/lodash.debounce/-/lodash.debounce-4.0.8.tgz"
@@ -4353,7 +4431,7 @@ Lockfile:
     resolved "https://registry.npmjs.org/lodash.sortby/-/lodash.sortby-4.7.0.tgz"
     integrity sha512-HDWXG8isMntAyRF5vZ7xKuEvOhT4AhlRt/3czTSjvGUxjYCBVRQY48ViDHyfYz9VIoBkW4TMGQNapx+l3RUwdA==
   
-  lodash@^4.17.20, lodash@^4.17.21:
+  lodash@^4.17.15, lodash@^4.17.20, lodash@^4.17.21:
     version "4.17.21"
     resolved "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz"
     integrity sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==
@@ -4930,7 +5008,7 @@ Lockfile:
     dependencies:
       brace-expansion "^2.0.1"
   
-  minimist@^1.2.0, minimist@^1.2.6:
+  minimist@^1.2.0, minimist@^1.2.6, minimist@^1.2.8:
     version "1.2.8"
     resolved "https://registry.npmjs.org/minimist/-/minimist-1.2.8.tgz"
     integrity sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==
@@ -5344,6 +5422,14 @@ Lockfile:
     resolved "https://registry.npmjs.org/process-nextick-args/-/process-nextick-args-2.0.1.tgz"
     integrity sha512-3ouUOpQhtgrbOa17J7+uxOTpITYWaGP7/AhoR3+A+/1e9skrzelGi/dXzEYyvbxubEF6Wn2ypscTKiKJFFn1ag==
   
+  promdash@^1.2.1:
+    version "1.2.1"
+    resolved "https://registry.yarnpkg.com/promdash/-/promdash-1.2.1.tgz#4f2931cdd61b2b15ab7b21827c161ad7cd41b7d5"
+    integrity sha512-KT7QtbyxbSd+l6k4LkINSNQfiNbqW4XjtLyxYJe7oVqEnxtygNGv/RP2QbmOf1TAl2YguLbL3Zqo/nfttziGgA==
+    dependencies:
+      es6-promise "^4.2.8"
+      lodash "^4.17.15"
+  
   prompts@^2.4.2:
     version "2.4.2"
     resolved "https://registry.npmjs.org/prompts/-/prompts-2.4.2.tgz"
@@ -5390,6 +5476,11 @@ Lockfile:
     version "1.2.3"
     resolved "https://registry.npmjs.org/queue-microtask/-/queue-microtask-1.2.3.tgz"
     integrity sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==
+  
+  ramda@^0.29.0:
+    version "0.29.0"
+    resolved "https://registry.yarnpkg.com/ramda/-/ramda-0.29.0.tgz#fbbb67a740a754c8a4cbb41e2a6e0eb8507f55fb"
+    integrity sha512-BBea6L67bYLtdbOqfp8f58fPMqEwx0doL+pAi8TZyp2YWz8R9G8z9x75CZI8W+ftqhFHCpEX2cRnUUXK130iKA==
   
   randombytes@^2.1.0:
     version "2.1.0"
@@ -5440,7 +5531,7 @@ Lockfile:
   
   react@^18.2.0:
     version "18.2.0"
-    resolved "https://registry.npmjs.org/react/-/react-18.2.0.tgz"
+    resolved "https://registry.yarnpkg.com/react/-/react-18.2.0.tgz#555bd98592883255fa00de14f1151a917b5d77d5"
     integrity sha512-/3IjMdb2L9QbBdWiW5e3P2/npwMBaU9mHCSCUzNln0ZCYbcfTsGbTJrU/kGemdH2IWmB2ioZ+zkxtmq6g09fGQ==
     dependencies:
       loose-envify "^1.1.0"
@@ -5478,6 +5569,11 @@ Lockfile:
     integrity sha512-8HrF5ZsXk5FAH9dgsx3BlUer73nIhuj+9OrQwEbLTPOBzGkL1lsFCR01am+v+0m2Cmbs1nP12hLDl5FA7EszKA==
     dependencies:
       minimatch "^3.0.5"
+  
+  reflect-metadata@^0.1.13:
+    version "0.1.13"
+    resolved "https://registry.yarnpkg.com/reflect-metadata/-/reflect-metadata-0.1.13.tgz#67ae3ca57c972a2aa1642b10fe363fe32d49dc08"
+    integrity sha512-Ts1Y/anZELhSsjMcU605fU9RE4Oi3p5ORujwbIKXfWa+0Zxs510Qrmrce5/Jowq3cHSZSJqBjypxmHarc+vEWg==
   
   reflect.getprototypeof@^1.0.3:
     version "1.0.4"
@@ -5628,7 +5724,7 @@ Lockfile:
     resolved "https://registry.npmjs.org/resolve-from/-/resolve-from-5.0.0.tgz"
     integrity sha512-qYg9KP24dD5qka9J47d0aVky0N+b4fTU89LN9iDnjB5waksiC49rvMB0PrUJQGoTmH50XPiqOvAjDfaijGxYZw==
   
-  resolve@>=1.9.0, resolve@^1.14.2, resolve@^1.19.0, resolve@^1.20.0, resolve@^1.22.4:
+  resolve@>=1.9.0, resolve@^1.14.2, resolve@^1.19.0, resolve@^1.20.0, resolve@^1.22.2, resolve@^1.22.4:
     version "1.22.4"
     resolved "https://registry.npmjs.org/resolve/-/resolve-1.22.4.tgz"
     integrity sha512-PXNdCiPqDqeUou+w1C2eTQbNfxKSuMxqTCuvlmmMsk1NWHL5fRrhY6Pl0qEYYc6+QqGClco1Qj8XnjPego4wfg==
@@ -5760,7 +5856,7 @@ Lockfile:
     resolved "https://registry.npmjs.org/semver/-/semver-6.3.1.tgz"
     integrity sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==
   
-  semver@^7.3.2, semver@^7.3.4, semver@^7.3.7, semver@^7.5.4:
+  semver@^7.3.2, semver@^7.3.4, semver@^7.3.7, semver@^7.3.8, semver@^7.5.4:
     version "7.5.4"
     resolved "https://registry.npmjs.org/semver/-/semver-7.5.4.tgz"
     integrity sha512-1bCSESV6Pv+i21Hvpxp3Dx+pSD8lIPt8uVjRrxAUt/nbswYc+tK6Y2btiULjd4+fnq15PX+nqQDC7Oft7WkwcA==
@@ -5820,6 +5916,24 @@ Lockfile:
     version "3.0.7"
     resolved "https://registry.npmjs.org/signal-exit/-/signal-exit-3.0.7.tgz"
     integrity sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ==
+  
+  simple-http-request-builder@^2.0.0:
+    version "2.0.0"
+    resolved "https://registry.yarnpkg.com/simple-http-request-builder/-/simple-http-request-builder-2.0.0.tgz#d13cb15064bf3100e676696000330e8e1e5ebbf0"
+    integrity sha512-h05YfqQDeYpT0NQ3ixH/UNZWFPFptIzytNNmfc92C8G9EqiVquc6VGIL6jmsEsyJFMxO2ouSK2eNZ+6eFxIy/w==
+  
+  simple-http-rest-client@^2.0.2:
+    version "2.0.2"
+    resolved "https://registry.yarnpkg.com/simple-http-rest-client/-/simple-http-rest-client-2.0.2.tgz#8a415640fc098a1777ebef060d6b3c647db180fc"
+    integrity sha512-s+TORSjq+WjyiJb7NTPAetm84rK95IZFyE+LXJ7AaxBqSjNrxsNeJtGWVJwCt24aAY6AhvwaHVfzM0aRSARdyw==
+    dependencies:
+      simple-http-request-builder "^2.0.0"
+      simple-logging-system "^1.1.0"
+  
+  simple-logging-system@^1.1.0:
+    version "1.1.0"
+    resolved "https://registry.yarnpkg.com/simple-logging-system/-/simple-logging-system-1.1.0.tgz#5b4d0378b3d12b7e1448945f8d4d3893b65300d2"
+    integrity sha512-/Yn+rE0vF533vqJlcSkeBNaS9DEiAH1XyuKb9MDlS3VZ5m9VgxDWJzhGsixKsvK6RSK6sCfdpXPpkEI+gDd1Lg==
   
   sisteransi@^1.0.5:
     version "1.0.5"
@@ -6166,6 +6280,18 @@ Lockfile:
       v8-compile-cache-lib "^3.0.1"
       yn "3.1.1"
   
+  ts-patch@^3.0.2:
+    version "3.0.2"
+    resolved "https://registry.yarnpkg.com/ts-patch/-/ts-patch-3.0.2.tgz#cbdf88e4dfb596e4dab8f2c8269361d33270a0ba"
+    integrity sha512-iTg8euqiNsNM1VDfOsVIsP0bM4kAVXU38n7TGQSkky7YQX/syh6sDPIRkvSS0HjT8ZOr0pq1h+5Le6jdB3hiJQ==
+    dependencies:
+      chalk "^4.1.2"
+      global-prefix "^3.0.0"
+      minimist "^1.2.8"
+      resolve "^1.22.2"
+      semver "^7.3.8"
+      strip-ansi "^6.0.1"
+  
   ts-to-json@^1.8.3:
     version "1.8.3"
     resolved "https://registry.npmjs.org/ts-to-json/-/ts-to-json-1.8.3.tgz"
@@ -6180,6 +6306,11 @@ Lockfile:
       safe-stable-stringify "^2.4.3"
       sortobject "^4.16.0"
       typescript "~5.1.3"
+  
+  ts-toolbelt@^9.6.0:
+    version "9.6.0"
+    resolved "https://registry.yarnpkg.com/ts-toolbelt/-/ts-toolbelt-9.6.0.tgz#50a25426cfed500d4a09bd1b3afb6f28879edfd5"
+    integrity sha512-nsZd8ZeNUzukXPlJmTBwUAuABDe/9qtVDelJeT/qW0ow3ZS3BsQJtNkan1802aM9Uf68/Y8ljw86Hu0h5IUW3w==
   
   tsconfig-paths@^3.14.2:
     version "3.14.2"
@@ -6305,6 +6436,13 @@ Lockfile:
       for-each "^0.3.3"
       is-typed-array "^1.1.9"
   
+  types-ramda@^0.29.4:
+    version "0.29.4"
+    resolved "https://registry.yarnpkg.com/types-ramda/-/types-ramda-0.29.4.tgz#8d9b51df2e550a05cedab541cc75dcd72972c625"
+    integrity sha512-XO/820iRsCDwqLjE8XE+b57cVGPyk1h+U9lBGpDWvbEky+NQChvHVwaKM05WnW1c5z3EVQh8NhXFmh2E/1YazQ==
+    dependencies:
+      ts-toolbelt "^9.6.0"
+  
   types-webpack-bundler@^1.0.2:
     version "1.0.2"
     resolved "https://registry.npmjs.org/types-webpack-bundler/-/types-webpack-bundler-1.0.2.tgz"
@@ -6323,6 +6461,11 @@ Lockfile:
       ts-node "^10.9.1"
       typescript "~5.1.0"
       yargs "^17.1.1"
+  
+  typescript-rtti@^0.9.6:
+    version "0.9.6"
+    resolved "https://registry.yarnpkg.com/typescript-rtti/-/typescript-rtti-0.9.6.tgz#d55b66d87cd7012f926ae92370d7f24dd07af4cc"
+    integrity sha512-tDv7FfdiMqlOIhkbOiVBDvu+ufF49GLoccaDFXFELko79w2CwJMVUEiZxPpHNG0q/9s+CCbFv/4Pf2uPl2+5CQ==
   
   typescript@>=5.0.2, typescript@^5.2.2:
     version "5.2.2"

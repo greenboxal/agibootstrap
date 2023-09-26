@@ -19,6 +19,8 @@ type Document struct {
 	UUID    string `json:"uuid"`
 	Title   string `json:"title"`
 	Content string `json:"content"`
+
+	Observations string `json:"observations"`
 }
 
 func (d *Document) PsiNodeName() string { return d.UUID }

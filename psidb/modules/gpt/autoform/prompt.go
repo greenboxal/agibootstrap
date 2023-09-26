@@ -30,16 +30,11 @@ type PromptBuilder struct {
 	forceTool   *string
 	tools       map[string]PromptBuilderTool
 
-	focus       *chat.Message
-	allMessages []*chat.Message
-
-	Context map[string]any
+	focus *chat.Message
 }
 
 func NewPromptBuilder() *PromptBuilder {
 	b := &PromptBuilder{
-		Context: map[string]any{},
-
 		hooks:    map[PromptBuilderHook][]PromptBuilderHookFunc{},
 		messages: map[PromptBuilderHook][]PromptMessageSource{},
 		tools:    map[string]PromptBuilderTool{},
@@ -51,8 +46,6 @@ func NewPromptBuilder() *PromptBuilder {
 }
 
 func (b *PromptBuilder) WithClient(client *openai.Client) { b.client = client }
-
-func (b *PromptBuilder) AllMessages() []*chat.Message { return b.allMessages }
 
 func (b *PromptBuilder) AddHook(hook PromptBuilderHook, fn PromptBuilderHookFunc) {
 	b.hooks[hook] = append(b.hooks[hook], fn)

@@ -25,7 +25,13 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
-    "plugins": [{ "transform": "typescript-rtti/dist/transformer" }]
+    "paths": {
+      "@psidb/sdk/types/*": ["packages/psidb-sdk/src/types/*", "src/__generated__/*"],
+      "@psidb/sdk/*": ["packages/psidb-sdk/src/*", "src/*"],
+      "@psidb/psidb-sdk/types/*": ["packages/psidb-sdk/src/types/*", "src/__generated__/*"],
+      "@psidb/psidb-sdk/*": ["packages/psidb-sdk/src/*", "src/*"],
+      "@psidb/webpack/*": ["packages/psidb-webpack/src/*"]
+    }
   },
   "include": [
     "./src"
