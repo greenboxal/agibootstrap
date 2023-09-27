@@ -71,7 +71,7 @@ type CommentGroup struct {
 
 var CommentGroupType = psi.DefineNodeType[*CommentGroup]()
 
-var EdgeKindCommentGroupList = psi.DefineEdgeType[*Comment]("legacy_GoCommentGroupList")
+var EdgeKindCommentGroupList = psi.DefineEdgeType[*Comment]("GoCommentGroupList")
 
 func (n *CommentGroup) GetList() []*Comment      { return psi.GetEdges(n, EdgeKindCommentGroupList) }
 func (n *CommentGroup) SetList(nodes []*Comment) { psi.UpdateEdges(n, EdgeKindCommentGroupList, nodes) }
@@ -116,11 +116,11 @@ type Field struct {
 
 var FieldType = psi.DefineNodeType[*Field]()
 
-var EdgeKindFieldDoc = psi.DefineEdgeType[*CommentGroup]("legacy_GoFieldDoc")
-var EdgeKindFieldNames = psi.DefineEdgeType[*Ident]("legacy_GoFieldNames")
-var EdgeKindFieldType = psi.DefineEdgeType[Expr]("legacy_GoFieldType")
-var EdgeKindFieldTag = psi.DefineEdgeType[*BasicLit]("legacy_GoFieldTag")
-var EdgeKindFieldComment = psi.DefineEdgeType[*CommentGroup]("legacy_GoFieldComment")
+var EdgeKindFieldDoc = psi.DefineEdgeType[*CommentGroup]("GoFieldDoc")
+var EdgeKindFieldNames = psi.DefineEdgeType[*Ident]("GoFieldNames")
+var EdgeKindFieldType = psi.DefineEdgeType[Expr]("GoFieldType")
+var EdgeKindFieldTag = psi.DefineEdgeType[*BasicLit]("GoFieldTag")
+var EdgeKindFieldComment = psi.DefineEdgeType[*CommentGroup]("GoFieldComment")
 
 func (n *Field) GetDoc() *CommentGroup {
 	return psi.GetEdgeOrNil[*CommentGroup](n, EdgeKindFieldDoc.Singleton())
@@ -225,7 +225,7 @@ type FieldList struct {
 
 var FieldListType = psi.DefineNodeType[*FieldList]()
 
-var EdgeKindFieldListList = psi.DefineEdgeType[*Field]("legacy_GoFieldListList")
+var EdgeKindFieldListList = psi.DefineEdgeType[*Field]("GoFieldListList")
 
 func (n *FieldList) GetList() []*Field      { return psi.GetEdges(n, EdgeKindFieldListList) }
 func (n *FieldList) SetList(nodes []*Field) { psi.UpdateEdges(n, EdgeKindFieldListList, nodes) }
@@ -333,7 +333,7 @@ type Ellipsis struct {
 
 var EllipsisType = psi.DefineNodeType[*Ellipsis]()
 
-var EdgeKindEllipsisElt = psi.DefineEdgeType[Expr]("legacy_GoEllipsisElt")
+var EdgeKindEllipsisElt = psi.DefineEdgeType[Expr]("GoEllipsisElt")
 
 func (n *Ellipsis) GetElt() Expr     { return psi.GetEdgeOrNil[Expr](n, EdgeKindEllipsisElt.Singleton()) }
 func (n *Ellipsis) SetElt(node Expr) { psi.UpdateEdge(n, EdgeKindEllipsisElt.Singleton(), node) }
@@ -413,8 +413,8 @@ type FuncLit struct {
 
 var FuncLitType = psi.DefineNodeType[*FuncLit]()
 
-var EdgeKindFuncLitType = psi.DefineEdgeType[*FuncType]("legacy_GoFuncLitType")
-var EdgeKindFuncLitBody = psi.DefineEdgeType[*BlockStmt]("legacy_GoFuncLitBody")
+var EdgeKindFuncLitType = psi.DefineEdgeType[*FuncType]("GoFuncLitType")
+var EdgeKindFuncLitBody = psi.DefineEdgeType[*BlockStmt]("GoFuncLitBody")
 
 func (n *FuncLit) GetType() *FuncType {
 	return psi.GetEdgeOrNil[*FuncType](n, EdgeKindFuncLitType.Singleton())
@@ -476,8 +476,8 @@ type CompositeLit struct {
 
 var CompositeLitType = psi.DefineNodeType[*CompositeLit]()
 
-var EdgeKindCompositeLitType = psi.DefineEdgeType[Expr]("legacy_GoCompositeLitType")
-var EdgeKindCompositeLitElts = psi.DefineEdgeType[Expr]("legacy_GoCompositeLitElts")
+var EdgeKindCompositeLitType = psi.DefineEdgeType[Expr]("GoCompositeLitType")
+var EdgeKindCompositeLitElts = psi.DefineEdgeType[Expr]("GoCompositeLitElts")
 
 func (n *CompositeLit) GetType() Expr {
 	return psi.GetEdgeOrNil[Expr](n, EdgeKindCompositeLitType.Singleton())
@@ -541,7 +541,7 @@ type ParenExpr struct {
 
 var ParenExprType = psi.DefineNodeType[*ParenExpr]()
 
-var EdgeKindParenExprX = psi.DefineEdgeType[Expr]("legacy_GoParenExprX")
+var EdgeKindParenExprX = psi.DefineEdgeType[Expr]("GoParenExprX")
 
 func (n *ParenExpr) GetX() Expr     { return psi.GetEdgeOrNil[Expr](n, EdgeKindParenExprX.Singleton()) }
 func (n *ParenExpr) SetX(node Expr) { psi.UpdateEdge(n, EdgeKindParenExprX.Singleton(), node) }
@@ -585,8 +585,8 @@ type SelectorExpr struct {
 
 var SelectorExprType = psi.DefineNodeType[*SelectorExpr]()
 
-var EdgeKindSelectorExprX = psi.DefineEdgeType[Expr]("legacy_GoSelectorExprX")
-var EdgeKindSelectorExprSel = psi.DefineEdgeType[*Ident]("legacy_GoSelectorExprSel")
+var EdgeKindSelectorExprX = psi.DefineEdgeType[Expr]("GoSelectorExprX")
+var EdgeKindSelectorExprSel = psi.DefineEdgeType[*Ident]("GoSelectorExprSel")
 
 func (n *SelectorExpr) GetX() Expr {
 	return psi.GetEdgeOrNil[Expr](n, EdgeKindSelectorExprX.Singleton())
@@ -649,8 +649,8 @@ type IndexExpr struct {
 
 var IndexExprType = psi.DefineNodeType[*IndexExpr]()
 
-var EdgeKindIndexExprX = psi.DefineEdgeType[Expr]("legacy_GoIndexExprX")
-var EdgeKindIndexExprIndex = psi.DefineEdgeType[Expr]("legacy_GoIndexExprIndex")
+var EdgeKindIndexExprX = psi.DefineEdgeType[Expr]("GoIndexExprX")
+var EdgeKindIndexExprIndex = psi.DefineEdgeType[Expr]("GoIndexExprIndex")
 
 func (n *IndexExpr) GetX() Expr     { return psi.GetEdgeOrNil[Expr](n, EdgeKindIndexExprX.Singleton()) }
 func (n *IndexExpr) SetX(node Expr) { psi.UpdateEdge(n, EdgeKindIndexExprX.Singleton(), node) }
@@ -709,8 +709,8 @@ type IndexListExpr struct {
 
 var IndexListExprType = psi.DefineNodeType[*IndexListExpr]()
 
-var EdgeKindIndexListExprX = psi.DefineEdgeType[Expr]("legacy_GoIndexListExprX")
-var EdgeKindIndexListExprIndices = psi.DefineEdgeType[Expr]("legacy_GoIndexListExprIndices")
+var EdgeKindIndexListExprX = psi.DefineEdgeType[Expr]("GoIndexListExprX")
+var EdgeKindIndexListExprIndices = psi.DefineEdgeType[Expr]("GoIndexListExprIndices")
 
 func (n *IndexListExpr) GetX() Expr {
 	return psi.GetEdgeOrNil[Expr](n, EdgeKindIndexListExprX.Singleton())
@@ -773,10 +773,10 @@ type SliceExpr struct {
 
 var SliceExprType = psi.DefineNodeType[*SliceExpr]()
 
-var EdgeKindSliceExprX = psi.DefineEdgeType[Expr]("legacy_GoSliceExprX")
-var EdgeKindSliceExprLow = psi.DefineEdgeType[Expr]("legacy_GoSliceExprLow")
-var EdgeKindSliceExprHigh = psi.DefineEdgeType[Expr]("legacy_GoSliceExprHigh")
-var EdgeKindSliceExprMax = psi.DefineEdgeType[Expr]("legacy_GoSliceExprMax")
+var EdgeKindSliceExprX = psi.DefineEdgeType[Expr]("GoSliceExprX")
+var EdgeKindSliceExprLow = psi.DefineEdgeType[Expr]("GoSliceExprLow")
+var EdgeKindSliceExprHigh = psi.DefineEdgeType[Expr]("GoSliceExprHigh")
+var EdgeKindSliceExprMax = psi.DefineEdgeType[Expr]("GoSliceExprMax")
 
 func (n *SliceExpr) GetX() Expr       { return psi.GetEdgeOrNil[Expr](n, EdgeKindSliceExprX.Singleton()) }
 func (n *SliceExpr) SetX(node Expr)   { psi.UpdateEdge(n, EdgeKindSliceExprX.Singleton(), node) }
@@ -863,8 +863,8 @@ type TypeAssertExpr struct {
 
 var TypeAssertExprType = psi.DefineNodeType[*TypeAssertExpr]()
 
-var EdgeKindTypeAssertExprX = psi.DefineEdgeType[Expr]("legacy_GoTypeAssertExprX")
-var EdgeKindTypeAssertExprType = psi.DefineEdgeType[Expr]("legacy_GoTypeAssertExprType")
+var EdgeKindTypeAssertExprX = psi.DefineEdgeType[Expr]("GoTypeAssertExprX")
+var EdgeKindTypeAssertExprType = psi.DefineEdgeType[Expr]("GoTypeAssertExprType")
 
 func (n *TypeAssertExpr) GetX() Expr {
 	return psi.GetEdgeOrNil[Expr](n, EdgeKindTypeAssertExprX.Singleton())
@@ -929,8 +929,8 @@ type CallExpr struct {
 
 var CallExprType = psi.DefineNodeType[*CallExpr]()
 
-var EdgeKindCallExprFun = psi.DefineEdgeType[Expr]("legacy_GoCallExprFun")
-var EdgeKindCallExprArgs = psi.DefineEdgeType[Expr]("legacy_GoCallExprArgs")
+var EdgeKindCallExprFun = psi.DefineEdgeType[Expr]("GoCallExprFun")
+var EdgeKindCallExprArgs = psi.DefineEdgeType[Expr]("GoCallExprArgs")
 
 func (n *CallExpr) GetFun() Expr         { return psi.GetEdgeOrNil[Expr](n, EdgeKindCallExprFun.Singleton()) }
 func (n *CallExpr) SetFun(node Expr)     { psi.UpdateEdge(n, EdgeKindCallExprFun.Singleton(), node) }
@@ -988,7 +988,7 @@ type StarExpr struct {
 
 var StarExprType = psi.DefineNodeType[*StarExpr]()
 
-var EdgeKindStarExprX = psi.DefineEdgeType[Expr]("legacy_GoStarExprX")
+var EdgeKindStarExprX = psi.DefineEdgeType[Expr]("GoStarExprX")
 
 func (n *StarExpr) GetX() Expr     { return psi.GetEdgeOrNil[Expr](n, EdgeKindStarExprX.Singleton()) }
 func (n *StarExpr) SetX(node Expr) { psi.UpdateEdge(n, EdgeKindStarExprX.Singleton(), node) }
@@ -1033,7 +1033,7 @@ type UnaryExpr struct {
 
 var UnaryExprType = psi.DefineNodeType[*UnaryExpr]()
 
-var EdgeKindUnaryExprX = psi.DefineEdgeType[Expr]("legacy_GoUnaryExprX")
+var EdgeKindUnaryExprX = psi.DefineEdgeType[Expr]("GoUnaryExprX")
 
 func (n *UnaryExpr) GetX() Expr     { return psi.GetEdgeOrNil[Expr](n, EdgeKindUnaryExprX.Singleton()) }
 func (n *UnaryExpr) SetX(node Expr) { psi.UpdateEdge(n, EdgeKindUnaryExprX.Singleton(), node) }
@@ -1080,8 +1080,8 @@ type BinaryExpr struct {
 
 var BinaryExprType = psi.DefineNodeType[*BinaryExpr]()
 
-var EdgeKindBinaryExprX = psi.DefineEdgeType[Expr]("legacy_GoBinaryExprX")
-var EdgeKindBinaryExprY = psi.DefineEdgeType[Expr]("legacy_GoBinaryExprY")
+var EdgeKindBinaryExprX = psi.DefineEdgeType[Expr]("GoBinaryExprX")
+var EdgeKindBinaryExprY = psi.DefineEdgeType[Expr]("GoBinaryExprY")
 
 func (n *BinaryExpr) GetX() Expr     { return psi.GetEdgeOrNil[Expr](n, EdgeKindBinaryExprX.Singleton()) }
 func (n *BinaryExpr) SetX(node Expr) { psi.UpdateEdge(n, EdgeKindBinaryExprX.Singleton(), node) }
@@ -1140,8 +1140,8 @@ type KeyValueExpr struct {
 
 var KeyValueExprType = psi.DefineNodeType[*KeyValueExpr]()
 
-var EdgeKindKeyValueExprKey = psi.DefineEdgeType[Expr]("legacy_GoKeyValueExprKey")
-var EdgeKindKeyValueExprValue = psi.DefineEdgeType[Expr]("legacy_GoKeyValueExprValue")
+var EdgeKindKeyValueExprKey = psi.DefineEdgeType[Expr]("GoKeyValueExprKey")
+var EdgeKindKeyValueExprValue = psi.DefineEdgeType[Expr]("GoKeyValueExprValue")
 
 func (n *KeyValueExpr) GetKey() Expr {
 	return psi.GetEdgeOrNil[Expr](n, EdgeKindKeyValueExprKey.Singleton())
@@ -1206,8 +1206,8 @@ type ArrayType struct {
 
 var ArrayTypeType = psi.DefineNodeType[*ArrayType]()
 
-var EdgeKindArrayTypeLen = psi.DefineEdgeType[Expr]("legacy_GoArrayTypeLen")
-var EdgeKindArrayTypeElt = psi.DefineEdgeType[Expr]("legacy_GoArrayTypeElt")
+var EdgeKindArrayTypeLen = psi.DefineEdgeType[Expr]("GoArrayTypeLen")
+var EdgeKindArrayTypeElt = psi.DefineEdgeType[Expr]("GoArrayTypeElt")
 
 func (n *ArrayType) GetLen() Expr     { return psi.GetEdgeOrNil[Expr](n, EdgeKindArrayTypeLen.Singleton()) }
 func (n *ArrayType) SetLen(node Expr) { psi.UpdateEdge(n, EdgeKindArrayTypeLen.Singleton(), node) }
@@ -1265,7 +1265,7 @@ type StructType struct {
 
 var StructTypeType = psi.DefineNodeType[*StructType]()
 
-var EdgeKindStructTypeFields = psi.DefineEdgeType[*FieldList]("legacy_GoStructTypeFields")
+var EdgeKindStructTypeFields = psi.DefineEdgeType[*FieldList]("GoStructTypeFields")
 
 func (n *StructType) GetFields() *FieldList {
 	return psi.GetEdgeOrNil[*FieldList](n, EdgeKindStructTypeFields.Singleton())
@@ -1315,9 +1315,9 @@ type FuncType struct {
 
 var FuncTypeType = psi.DefineNodeType[*FuncType]()
 
-var EdgeKindFuncTypeTypeParams = psi.DefineEdgeType[*FieldList]("legacy_GoFuncTypeTypeParams")
-var EdgeKindFuncTypeParams = psi.DefineEdgeType[*FieldList]("legacy_GoFuncTypeParams")
-var EdgeKindFuncTypeResults = psi.DefineEdgeType[*FieldList]("legacy_GoFuncTypeResults")
+var EdgeKindFuncTypeTypeParams = psi.DefineEdgeType[*FieldList]("GoFuncTypeTypeParams")
+var EdgeKindFuncTypeParams = psi.DefineEdgeType[*FieldList]("GoFuncTypeParams")
+var EdgeKindFuncTypeResults = psi.DefineEdgeType[*FieldList]("GoFuncTypeResults")
 
 func (n *FuncType) GetTypeParams() *FieldList {
 	return psi.GetEdgeOrNil[*FieldList](n, EdgeKindFuncTypeTypeParams.Singleton())
@@ -1400,7 +1400,7 @@ type InterfaceType struct {
 
 var InterfaceTypeType = psi.DefineNodeType[*InterfaceType]()
 
-var EdgeKindInterfaceTypeMethods = psi.DefineEdgeType[*FieldList]("legacy_GoInterfaceTypeMethods")
+var EdgeKindInterfaceTypeMethods = psi.DefineEdgeType[*FieldList]("GoInterfaceTypeMethods")
 
 func (n *InterfaceType) GetMethods() *FieldList {
 	return psi.GetEdgeOrNil[*FieldList](n, EdgeKindInterfaceTypeMethods.Singleton())
@@ -1450,8 +1450,8 @@ type MapType struct {
 
 var MapTypeType = psi.DefineNodeType[*MapType]()
 
-var EdgeKindMapTypeKey = psi.DefineEdgeType[Expr]("legacy_GoMapTypeKey")
-var EdgeKindMapTypeValue = psi.DefineEdgeType[Expr]("legacy_GoMapTypeValue")
+var EdgeKindMapTypeKey = psi.DefineEdgeType[Expr]("GoMapTypeKey")
+var EdgeKindMapTypeValue = psi.DefineEdgeType[Expr]("GoMapTypeValue")
 
 func (n *MapType) GetKey() Expr       { return psi.GetEdgeOrNil[Expr](n, EdgeKindMapTypeKey.Singleton()) }
 func (n *MapType) SetKey(node Expr)   { psi.UpdateEdge(n, EdgeKindMapTypeKey.Singleton(), node) }
@@ -1509,7 +1509,7 @@ type ChanType struct {
 
 var ChanTypeType = psi.DefineNodeType[*ChanType]()
 
-var EdgeKindChanTypeValue = psi.DefineEdgeType[Expr]("legacy_GoChanTypeValue")
+var EdgeKindChanTypeValue = psi.DefineEdgeType[Expr]("GoChanTypeValue")
 
 func (n *ChanType) GetValue() Expr {
 	return psi.GetEdgeOrNil[Expr](n, EdgeKindChanTypeValue.Singleton())
@@ -1587,7 +1587,7 @@ type DeclStmt struct {
 
 var DeclStmtType = psi.DefineNodeType[*DeclStmt]()
 
-var EdgeKindDeclStmtDecl = psi.DefineEdgeType[Decl]("legacy_GoDeclStmtDecl")
+var EdgeKindDeclStmtDecl = psi.DefineEdgeType[Decl]("GoDeclStmtDecl")
 
 func (n *DeclStmt) GetDecl() Decl     { return psi.GetEdgeOrNil[Decl](n, EdgeKindDeclStmtDecl.Singleton()) }
 func (n *DeclStmt) SetDecl(node Decl) { psi.UpdateEdge(n, EdgeKindDeclStmtDecl.Singleton(), node) }
@@ -1664,8 +1664,8 @@ type LabeledStmt struct {
 
 var LabeledStmtType = psi.DefineNodeType[*LabeledStmt]()
 
-var EdgeKindLabeledStmtLabel = psi.DefineEdgeType[*Ident]("legacy_GoLabeledStmtLabel")
-var EdgeKindLabeledStmtStmt = psi.DefineEdgeType[Stmt]("legacy_GoLabeledStmtStmt")
+var EdgeKindLabeledStmtLabel = psi.DefineEdgeType[*Ident]("GoLabeledStmtLabel")
+var EdgeKindLabeledStmtStmt = psi.DefineEdgeType[Stmt]("GoLabeledStmtStmt")
 
 func (n *LabeledStmt) GetLabel() *Ident {
 	return psi.GetEdgeOrNil[*Ident](n, EdgeKindLabeledStmtLabel.Singleton())
@@ -1730,7 +1730,7 @@ type ExprStmt struct {
 
 var ExprStmtType = psi.DefineNodeType[*ExprStmt]()
 
-var EdgeKindExprStmtX = psi.DefineEdgeType[Expr]("legacy_GoExprStmtX")
+var EdgeKindExprStmtX = psi.DefineEdgeType[Expr]("GoExprStmtX")
 
 func (n *ExprStmt) GetX() Expr     { return psi.GetEdgeOrNil[Expr](n, EdgeKindExprStmtX.Singleton()) }
 func (n *ExprStmt) SetX(node Expr) { psi.UpdateEdge(n, EdgeKindExprStmtX.Singleton(), node) }
@@ -1774,8 +1774,8 @@ type SendStmt struct {
 
 var SendStmtType = psi.DefineNodeType[*SendStmt]()
 
-var EdgeKindSendStmtChan = psi.DefineEdgeType[Expr]("legacy_GoSendStmtChan")
-var EdgeKindSendStmtValue = psi.DefineEdgeType[Expr]("legacy_GoSendStmtValue")
+var EdgeKindSendStmtChan = psi.DefineEdgeType[Expr]("GoSendStmtChan")
+var EdgeKindSendStmtValue = psi.DefineEdgeType[Expr]("GoSendStmtValue")
 
 func (n *SendStmt) GetChan() Expr     { return psi.GetEdgeOrNil[Expr](n, EdgeKindSendStmtChan.Singleton()) }
 func (n *SendStmt) SetChan(node Expr) { psi.UpdateEdge(n, EdgeKindSendStmtChan.Singleton(), node) }
@@ -1835,7 +1835,7 @@ type IncDecStmt struct {
 
 var IncDecStmtType = psi.DefineNodeType[*IncDecStmt]()
 
-var EdgeKindIncDecStmtX = psi.DefineEdgeType[Expr]("legacy_GoIncDecStmtX")
+var EdgeKindIncDecStmtX = psi.DefineEdgeType[Expr]("GoIncDecStmtX")
 
 func (n *IncDecStmt) GetX() Expr     { return psi.GetEdgeOrNil[Expr](n, EdgeKindIncDecStmtX.Singleton()) }
 func (n *IncDecStmt) SetX(node Expr) { psi.UpdateEdge(n, EdgeKindIncDecStmtX.Singleton(), node) }
@@ -1882,8 +1882,8 @@ type AssignStmt struct {
 
 var AssignStmtType = psi.DefineNodeType[*AssignStmt]()
 
-var EdgeKindAssignStmtLhs = psi.DefineEdgeType[Expr]("legacy_GoAssignStmtLhs")
-var EdgeKindAssignStmtRhs = psi.DefineEdgeType[Expr]("legacy_GoAssignStmtRhs")
+var EdgeKindAssignStmtLhs = psi.DefineEdgeType[Expr]("GoAssignStmtLhs")
+var EdgeKindAssignStmtRhs = psi.DefineEdgeType[Expr]("GoAssignStmtRhs")
 
 func (n *AssignStmt) GetLhs() []Expr      { return psi.GetEdges(n, EdgeKindAssignStmtLhs) }
 func (n *AssignStmt) SetLhs(nodes []Expr) { psi.UpdateEdges(n, EdgeKindAssignStmtLhs, nodes) }
@@ -1944,7 +1944,7 @@ type GoStmt struct {
 
 var GoStmtType = psi.DefineNodeType[*GoStmt]()
 
-var EdgeKindGoStmtCall = psi.DefineEdgeType[*CallExpr]("legacy_GoGoStmtCall")
+var EdgeKindGoStmtCall = psi.DefineEdgeType[*CallExpr]("GoGoStmtCall")
 
 func (n *GoStmt) GetCall() *CallExpr {
 	return psi.GetEdgeOrNil[*CallExpr](n, EdgeKindGoStmtCall.Singleton())
@@ -1990,7 +1990,7 @@ type DeferStmt struct {
 
 var DeferStmtType = psi.DefineNodeType[*DeferStmt]()
 
-var EdgeKindDeferStmtCall = psi.DefineEdgeType[*CallExpr]("legacy_GoDeferStmtCall")
+var EdgeKindDeferStmtCall = psi.DefineEdgeType[*CallExpr]("GoDeferStmtCall")
 
 func (n *DeferStmt) GetCall() *CallExpr {
 	return psi.GetEdgeOrNil[*CallExpr](n, EdgeKindDeferStmtCall.Singleton())
@@ -2038,7 +2038,7 @@ type ReturnStmt struct {
 
 var ReturnStmtType = psi.DefineNodeType[*ReturnStmt]()
 
-var EdgeKindReturnStmtResults = psi.DefineEdgeType[Expr]("legacy_GoReturnStmtResults")
+var EdgeKindReturnStmtResults = psi.DefineEdgeType[Expr]("GoReturnStmtResults")
 
 func (n *ReturnStmt) GetResults() []Expr      { return psi.GetEdges(n, EdgeKindReturnStmtResults) }
 func (n *ReturnStmt) SetResults(nodes []Expr) { psi.UpdateEdges(n, EdgeKindReturnStmtResults, nodes) }
@@ -2084,7 +2084,7 @@ type BranchStmt struct {
 
 var BranchStmtType = psi.DefineNodeType[*BranchStmt]()
 
-var EdgeKindBranchStmtLabel = psi.DefineEdgeType[*Ident]("legacy_GoBranchStmtLabel")
+var EdgeKindBranchStmtLabel = psi.DefineEdgeType[*Ident]("GoBranchStmtLabel")
 
 func (n *BranchStmt) GetLabel() *Ident {
 	return psi.GetEdgeOrNil[*Ident](n, EdgeKindBranchStmtLabel.Singleton())
@@ -2134,7 +2134,7 @@ type BlockStmt struct {
 
 var BlockStmtType = psi.DefineNodeType[*BlockStmt]()
 
-var EdgeKindBlockStmtList = psi.DefineEdgeType[Stmt]("legacy_GoBlockStmtList")
+var EdgeKindBlockStmtList = psi.DefineEdgeType[Stmt]("GoBlockStmtList")
 
 func (n *BlockStmt) GetList() []Stmt      { return psi.GetEdges(n, EdgeKindBlockStmtList) }
 func (n *BlockStmt) SetList(nodes []Stmt) { psi.UpdateEdges(n, EdgeKindBlockStmtList, nodes) }
@@ -2179,10 +2179,10 @@ type IfStmt struct {
 
 var IfStmtType = psi.DefineNodeType[*IfStmt]()
 
-var EdgeKindIfStmtInit = psi.DefineEdgeType[Stmt]("legacy_GoIfStmtInit")
-var EdgeKindIfStmtCond = psi.DefineEdgeType[Expr]("legacy_GoIfStmtCond")
-var EdgeKindIfStmtBody = psi.DefineEdgeType[*BlockStmt]("legacy_GoIfStmtBody")
-var EdgeKindIfStmtElse = psi.DefineEdgeType[Stmt]("legacy_GoIfStmtElse")
+var EdgeKindIfStmtInit = psi.DefineEdgeType[Stmt]("GoIfStmtInit")
+var EdgeKindIfStmtCond = psi.DefineEdgeType[Expr]("GoIfStmtCond")
+var EdgeKindIfStmtBody = psi.DefineEdgeType[*BlockStmt]("GoIfStmtBody")
+var EdgeKindIfStmtElse = psi.DefineEdgeType[Stmt]("GoIfStmtElse")
 
 func (n *IfStmt) GetInit() Stmt     { return psi.GetEdgeOrNil[Stmt](n, EdgeKindIfStmtInit.Singleton()) }
 func (n *IfStmt) SetInit(node Stmt) { psi.UpdateEdge(n, EdgeKindIfStmtInit.Singleton(), node) }
@@ -2267,8 +2267,8 @@ type CaseClause struct {
 
 var CaseClauseType = psi.DefineNodeType[*CaseClause]()
 
-var EdgeKindCaseClauseList = psi.DefineEdgeType[Expr]("legacy_GoCaseClauseList")
-var EdgeKindCaseClauseBody = psi.DefineEdgeType[Stmt]("legacy_GoCaseClauseBody")
+var EdgeKindCaseClauseList = psi.DefineEdgeType[Expr]("GoCaseClauseList")
+var EdgeKindCaseClauseBody = psi.DefineEdgeType[Stmt]("GoCaseClauseBody")
 
 func (n *CaseClause) GetList() []Expr      { return psi.GetEdges(n, EdgeKindCaseClauseList) }
 func (n *CaseClause) SetList(nodes []Expr) { psi.UpdateEdges(n, EdgeKindCaseClauseList, nodes) }
@@ -2327,9 +2327,9 @@ type SwitchStmt struct {
 
 var SwitchStmtType = psi.DefineNodeType[*SwitchStmt]()
 
-var EdgeKindSwitchStmtInit = psi.DefineEdgeType[Stmt]("legacy_GoSwitchStmtInit")
-var EdgeKindSwitchStmtTag = psi.DefineEdgeType[Expr]("legacy_GoSwitchStmtTag")
-var EdgeKindSwitchStmtBody = psi.DefineEdgeType[*BlockStmt]("legacy_GoSwitchStmtBody")
+var EdgeKindSwitchStmtInit = psi.DefineEdgeType[Stmt]("GoSwitchStmtInit")
+var EdgeKindSwitchStmtTag = psi.DefineEdgeType[Expr]("GoSwitchStmtTag")
+var EdgeKindSwitchStmtBody = psi.DefineEdgeType[*BlockStmt]("GoSwitchStmtBody")
 
 func (n *SwitchStmt) GetInit() Stmt {
 	return psi.GetEdgeOrNil[Stmt](n, EdgeKindSwitchStmtInit.Singleton())
@@ -2407,9 +2407,9 @@ type TypeSwitchStmt struct {
 
 var TypeSwitchStmtType = psi.DefineNodeType[*TypeSwitchStmt]()
 
-var EdgeKindTypeSwitchStmtInit = psi.DefineEdgeType[Stmt]("legacy_GoTypeSwitchStmtInit")
-var EdgeKindTypeSwitchStmtAssign = psi.DefineEdgeType[Stmt]("legacy_GoTypeSwitchStmtAssign")
-var EdgeKindTypeSwitchStmtBody = psi.DefineEdgeType[*BlockStmt]("legacy_GoTypeSwitchStmtBody")
+var EdgeKindTypeSwitchStmtInit = psi.DefineEdgeType[Stmt]("GoTypeSwitchStmtInit")
+var EdgeKindTypeSwitchStmtAssign = psi.DefineEdgeType[Stmt]("GoTypeSwitchStmtAssign")
+var EdgeKindTypeSwitchStmtBody = psi.DefineEdgeType[*BlockStmt]("GoTypeSwitchStmtBody")
 
 func (n *TypeSwitchStmt) GetInit() Stmt {
 	return psi.GetEdgeOrNil[Stmt](n, EdgeKindTypeSwitchStmtInit.Singleton())
@@ -2491,8 +2491,8 @@ type CommClause struct {
 
 var CommClauseType = psi.DefineNodeType[*CommClause]()
 
-var EdgeKindCommClauseComm = psi.DefineEdgeType[Stmt]("legacy_GoCommClauseComm")
-var EdgeKindCommClauseBody = psi.DefineEdgeType[Stmt]("legacy_GoCommClauseBody")
+var EdgeKindCommClauseComm = psi.DefineEdgeType[Stmt]("GoCommClauseComm")
+var EdgeKindCommClauseBody = psi.DefineEdgeType[Stmt]("GoCommClauseBody")
 
 func (n *CommClause) GetComm() Stmt {
 	return psi.GetEdgeOrNil[Stmt](n, EdgeKindCommClauseComm.Singleton())
@@ -2552,7 +2552,7 @@ type SelectStmt struct {
 
 var SelectStmtType = psi.DefineNodeType[*SelectStmt]()
 
-var EdgeKindSelectStmtBody = psi.DefineEdgeType[*BlockStmt]("legacy_GoSelectStmtBody")
+var EdgeKindSelectStmtBody = psi.DefineEdgeType[*BlockStmt]("GoSelectStmtBody")
 
 func (n *SelectStmt) GetBody() *BlockStmt {
 	return psi.GetEdgeOrNil[*BlockStmt](n, EdgeKindSelectStmtBody.Singleton())
@@ -2600,10 +2600,10 @@ type ForStmt struct {
 
 var ForStmtType = psi.DefineNodeType[*ForStmt]()
 
-var EdgeKindForStmtInit = psi.DefineEdgeType[Stmt]("legacy_GoForStmtInit")
-var EdgeKindForStmtCond = psi.DefineEdgeType[Expr]("legacy_GoForStmtCond")
-var EdgeKindForStmtPost = psi.DefineEdgeType[Stmt]("legacy_GoForStmtPost")
-var EdgeKindForStmtBody = psi.DefineEdgeType[*BlockStmt]("legacy_GoForStmtBody")
+var EdgeKindForStmtInit = psi.DefineEdgeType[Stmt]("GoForStmtInit")
+var EdgeKindForStmtCond = psi.DefineEdgeType[Expr]("GoForStmtCond")
+var EdgeKindForStmtPost = psi.DefineEdgeType[Stmt]("GoForStmtPost")
+var EdgeKindForStmtBody = psi.DefineEdgeType[*BlockStmt]("GoForStmtBody")
 
 func (n *ForStmt) GetInit() Stmt     { return psi.GetEdgeOrNil[Stmt](n, EdgeKindForStmtInit.Singleton()) }
 func (n *ForStmt) SetInit(node Stmt) { psi.UpdateEdge(n, EdgeKindForStmtInit.Singleton(), node) }
@@ -2689,9 +2689,9 @@ type RangeStmt struct {
 
 var RangeStmtType = psi.DefineNodeType[*RangeStmt]()
 
-var EdgeKindRangeStmtKey = psi.DefineEdgeType[Expr]("legacy_GoRangeStmtKey")
-var EdgeKindRangeStmtX = psi.DefineEdgeType[Expr]("legacy_GoRangeStmtX")
-var EdgeKindRangeStmtBody = psi.DefineEdgeType[*BlockStmt]("legacy_GoRangeStmtBody")
+var EdgeKindRangeStmtKey = psi.DefineEdgeType[Expr]("GoRangeStmtKey")
+var EdgeKindRangeStmtX = psi.DefineEdgeType[Expr]("GoRangeStmtX")
+var EdgeKindRangeStmtBody = psi.DefineEdgeType[*BlockStmt]("GoRangeStmtBody")
 
 func (n *RangeStmt) GetKey() Expr     { return psi.GetEdgeOrNil[Expr](n, EdgeKindRangeStmtKey.Singleton()) }
 func (n *RangeStmt) SetKey(node Expr) { psi.UpdateEdge(n, EdgeKindRangeStmtKey.Singleton(), node) }
@@ -2775,10 +2775,10 @@ type ImportSpec struct {
 
 var ImportSpecType = psi.DefineNodeType[*ImportSpec]()
 
-var EdgeKindImportSpecDoc = psi.DefineEdgeType[*CommentGroup]("legacy_GoImportSpecDoc")
-var EdgeKindImportSpecName = psi.DefineEdgeType[*Ident]("legacy_GoImportSpecName")
-var EdgeKindImportSpecPath = psi.DefineEdgeType[*BasicLit]("legacy_GoImportSpecPath")
-var EdgeKindImportSpecComment = psi.DefineEdgeType[*CommentGroup]("legacy_GoImportSpecComment")
+var EdgeKindImportSpecDoc = psi.DefineEdgeType[*CommentGroup]("GoImportSpecDoc")
+var EdgeKindImportSpecName = psi.DefineEdgeType[*Ident]("GoImportSpecName")
+var EdgeKindImportSpecPath = psi.DefineEdgeType[*BasicLit]("GoImportSpecPath")
+var EdgeKindImportSpecComment = psi.DefineEdgeType[*CommentGroup]("GoImportSpecComment")
 
 func (n *ImportSpec) GetDoc() *CommentGroup {
 	return psi.GetEdgeOrNil[*CommentGroup](n, EdgeKindImportSpecDoc.Singleton())
@@ -2877,11 +2877,11 @@ type ValueSpec struct {
 
 var ValueSpecType = psi.DefineNodeType[*ValueSpec]()
 
-var EdgeKindValueSpecDoc = psi.DefineEdgeType[*CommentGroup]("legacy_GoValueSpecDoc")
-var EdgeKindValueSpecNames = psi.DefineEdgeType[*Ident]("legacy_GoValueSpecNames")
-var EdgeKindValueSpecType = psi.DefineEdgeType[Expr]("legacy_GoValueSpecType")
-var EdgeKindValueSpecValues = psi.DefineEdgeType[Expr]("legacy_GoValueSpecValues")
-var EdgeKindValueSpecComment = psi.DefineEdgeType[*CommentGroup]("legacy_GoValueSpecComment")
+var EdgeKindValueSpecDoc = psi.DefineEdgeType[*CommentGroup]("GoValueSpecDoc")
+var EdgeKindValueSpecNames = psi.DefineEdgeType[*Ident]("GoValueSpecNames")
+var EdgeKindValueSpecType = psi.DefineEdgeType[Expr]("GoValueSpecType")
+var EdgeKindValueSpecValues = psi.DefineEdgeType[Expr]("GoValueSpecValues")
+var EdgeKindValueSpecComment = psi.DefineEdgeType[*CommentGroup]("GoValueSpecComment")
 
 func (n *ValueSpec) GetDoc() *CommentGroup {
 	return psi.GetEdgeOrNil[*CommentGroup](n, EdgeKindValueSpecDoc.Singleton())
@@ -2989,11 +2989,11 @@ type TypeSpec struct {
 
 var TypeSpecType = psi.DefineNodeType[*TypeSpec]()
 
-var EdgeKindTypeSpecDoc = psi.DefineEdgeType[*CommentGroup]("legacy_GoTypeSpecDoc")
-var EdgeKindTypeSpecName = psi.DefineEdgeType[*Ident]("legacy_GoTypeSpecName")
-var EdgeKindTypeSpecTypeParams = psi.DefineEdgeType[*FieldList]("legacy_GoTypeSpecTypeParams")
-var EdgeKindTypeSpecType = psi.DefineEdgeType[Expr]("legacy_GoTypeSpecType")
-var EdgeKindTypeSpecComment = psi.DefineEdgeType[*CommentGroup]("legacy_GoTypeSpecComment")
+var EdgeKindTypeSpecDoc = psi.DefineEdgeType[*CommentGroup]("GoTypeSpecDoc")
+var EdgeKindTypeSpecName = psi.DefineEdgeType[*Ident]("GoTypeSpecName")
+var EdgeKindTypeSpecTypeParams = psi.DefineEdgeType[*FieldList]("GoTypeSpecTypeParams")
+var EdgeKindTypeSpecType = psi.DefineEdgeType[Expr]("GoTypeSpecType")
+var EdgeKindTypeSpecComment = psi.DefineEdgeType[*CommentGroup]("GoTypeSpecComment")
 
 func (n *TypeSpec) GetDoc() *CommentGroup {
 	return psi.GetEdgeOrNil[*CommentGroup](n, EdgeKindTypeSpecDoc.Singleton())
@@ -3134,8 +3134,8 @@ type GenDecl struct {
 
 var GenDeclType = psi.DefineNodeType[*GenDecl]()
 
-var EdgeKindGenDeclDoc = psi.DefineEdgeType[*CommentGroup]("legacy_GoGenDeclDoc")
-var EdgeKindGenDeclSpecs = psi.DefineEdgeType[Spec]("legacy_GoGenDeclSpecs")
+var EdgeKindGenDeclDoc = psi.DefineEdgeType[*CommentGroup]("GoGenDeclDoc")
+var EdgeKindGenDeclSpecs = psi.DefineEdgeType[Spec]("GoGenDeclSpecs")
 
 func (n *GenDecl) GetDoc() *CommentGroup {
 	return psi.GetEdgeOrNil[*CommentGroup](n, EdgeKindGenDeclDoc.Singleton())
@@ -3197,11 +3197,11 @@ type FuncDecl struct {
 
 var FuncDeclType = psi.DefineNodeType[*FuncDecl]()
 
-var EdgeKindFuncDeclDoc = psi.DefineEdgeType[*CommentGroup]("legacy_GoFuncDeclDoc")
-var EdgeKindFuncDeclRecv = psi.DefineEdgeType[*FieldList]("legacy_GoFuncDeclRecv")
-var EdgeKindFuncDeclName = psi.DefineEdgeType[*Ident]("legacy_GoFuncDeclName")
-var EdgeKindFuncDeclType = psi.DefineEdgeType[*FuncType]("legacy_GoFuncDeclType")
-var EdgeKindFuncDeclBody = psi.DefineEdgeType[*BlockStmt]("legacy_GoFuncDeclBody")
+var EdgeKindFuncDeclDoc = psi.DefineEdgeType[*CommentGroup]("GoFuncDeclDoc")
+var EdgeKindFuncDeclRecv = psi.DefineEdgeType[*FieldList]("GoFuncDeclRecv")
+var EdgeKindFuncDeclName = psi.DefineEdgeType[*Ident]("GoFuncDeclName")
+var EdgeKindFuncDeclType = psi.DefineEdgeType[*FuncType]("GoFuncDeclType")
+var EdgeKindFuncDeclBody = psi.DefineEdgeType[*BlockStmt]("GoFuncDeclBody")
 
 func (n *FuncDecl) GetDoc() *CommentGroup {
 	return psi.GetEdgeOrNil[*CommentGroup](n, EdgeKindFuncDeclDoc.Singleton())
@@ -3313,11 +3313,11 @@ type File struct {
 
 var FileType = psi.DefineNodeType[*File]()
 
-var EdgeKindFileDoc = psi.DefineEdgeType[*CommentGroup]("legacy_GoFileDoc")
-var EdgeKindFileName = psi.DefineEdgeType[*Ident]("legacy_GoFileName")
-var EdgeKindFileDecls = psi.DefineEdgeType[Decl]("legacy_GoFileDecls")
-var EdgeKindFileImports = psi.DefineEdgeType[*ImportSpec]("legacy_GoFileImports")
-var EdgeKindFileComments = psi.DefineEdgeType[*CommentGroup]("legacy_GoFileComments")
+var EdgeKindFileDoc = psi.DefineEdgeType[*CommentGroup]("GoFileDoc")
+var EdgeKindFileName = psi.DefineEdgeType[*Ident]("GoFileName")
+var EdgeKindFileDecls = psi.DefineEdgeType[Decl]("GoFileDecls")
+var EdgeKindFileImports = psi.DefineEdgeType[*ImportSpec]("GoFileImports")
+var EdgeKindFileComments = psi.DefineEdgeType[*CommentGroup]("GoFileComments")
 
 func (n *File) GetDoc() *CommentGroup {
 	return psi.GetEdgeOrNil[*CommentGroup](n, EdgeKindFileDoc.Singleton())

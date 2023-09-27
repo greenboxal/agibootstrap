@@ -168,16 +168,21 @@ func (n TypeName) Args() []string {
 }
 
 func (n TypeName) NameWithArgs() string {
-	if len(n.InParameters) > 0 {
-		a := n.Args()
+	args := ""
 
-		args := strings.Join(a, "_QZQZ_")
-		args = "_QZQZ_" + args + "_QZQZ_"
+	if len(n.InParameters) > 0 || len(n.OutParameters) > 0 {
+		in := lo.Map(n.InParameters, func(arg TypeName, _index int) string {
+			return arg.MangledName()
+		})
 
-		return n.Name + args
+		out := lo.Map(n.OutParameters, func(arg TypeName, _index int) string {
+			return arg.MangledName()
+		})
+
+		args = "(" + strings.Join(in, ";") + ")" + strings.Join(out, ";")
 	}
 
-	return n.Name
+	return n.Name + args
 }
 
 func (n TypeName) FullNameWithArgs() string {
@@ -239,9 +244,9 @@ var packageTypeNameMap = map[string]string{
 
 	"github.com/greenboxal/agibootstrap/psidb/core/api": "psidb",
 
-	"github.com/greenboxal/agibootstrap/psidb/core/":     "psidb.",
-	"github.com/greenboxal/agibootstrap/psidb/db/":       "psidb.",
-	"github.com/greenboxal/agibootstrap/psidb/services/": "psidb.",
+	"github.com/greenboxal/agibootstrap/psidb/core/":     "psidb/",
+	"github.com/greenboxal/agibootstrap/psidb/db/":       "psidb/",
+	"github.com/greenboxal/agibootstrap/psidb/services/": "psidb/",
 	"github.com/greenboxal/agibootstrap/psidb/apps/":     "",
 	"github.com/greenboxal/agibootstrap/psidb/modules/":  "",
 

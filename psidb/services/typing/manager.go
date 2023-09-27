@@ -7,7 +7,6 @@ import (
 
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
-	"github.com/samber/lo"
 	"go.uber.org/fx"
 
 	coreapi "github.com/greenboxal/agibootstrap/psidb/core/api"
@@ -68,10 +67,9 @@ func (m *Manager) Start(ctx context.Context) error {
 }
 
 func (m *Manager) newTypeFromTypeWithName(ctx context.Context, name string, nt typesystem.Type) (*Type, error) {
-	name = strings.ReplaceAll(name, "/", ".")
 	name = strings.ReplaceAll(name, "[", "_QZQZ_")
 	name = strings.ReplaceAll(name, "]", "_QZQZ_")
-	lastIndex := strings.LastIndex(name, ".")
+	lastIndex := strings.LastIndex(name, "/")
 
 	t := &Type{
 		Name:          name[lastIndex+1:],
@@ -176,9 +174,8 @@ func (m *Manager) registerNodeType(ctx context.Context, nt psi.NodeType) (*Type,
 }
 
 func (m *Manager) CreateType(ctx context.Context, typ *Type) (*Type, error) {
-	pkgComponents := strings.Split(typ.FullName, ".")
-	pkgComponents = pkgComponents[:len(pkgComponents)-1]
-	pkgName := strings.Join(pkgComponents, ".")
+	pkgComponents := typesystem.ParseTypeName(typ.FullName)
+	pkgName := pkgComponents.Package
 
 	pkg, err := m.lookupPackage(ctx, pkgName, true)
 
@@ -196,9 +193,9 @@ func (m *Manager) CreateType(ctx context.Context, typ *Type) (*Type, error) {
 }
 
 func (m *Manager) LookupType(ctx context.Context, name string) (resolved *Type, err error) {
-	typeNameComponents := strings.Split(name, ".")
-	pkgName := strings.Join(typeNameComponents[:len(typeNameComponents)-1], ".")
-	typeName := typeNameComponents[len(typeNameComponents)-1]
+	components := typesystem.ParseTypeName(name)
+	pkgName := components.Package
+	typeName := components.NameWithArgs()
 
 	pkg, err := m.lookupPackage(ctx, pkgName, false)
 
@@ -218,7 +215,7 @@ func (m *Manager) LookupType(ctx context.Context, name string) (resolved *Type, 
 func (m *Manager) lookupPackage(ctx context.Context, name string, create bool) (resolved *Package, err error) {
 	tx := coreapi.GetTransaction(ctx)
 
-	pkgs := strings.Split(strings.ReplaceAll(name, "/", "."), ".")
+	pkgs := strings.Split(name, "/")
 
 	p := RootPath
 
@@ -263,18 +260,4 @@ func (m *Manager) lookupPackage(ctx context.Context, name string, create bool) (
 	}
 
 	return resolved, nil
-}
-
-func ConvertTypeNameToPath(typeName typesystem.TypeName) psi.Path {
-	return ConvertNameToPath(typeName.FullNameWithArgs())
-}
-
-func ConvertNameToPath(name string) psi.Path {
-	pkgs := strings.Split(name, ".")
-
-	elements := lo.Map(pkgs, func(pkg string, _ int) psi.PathElement {
-		return psi.PathElement{Name: pkg}
-	})
-
-	return RootPath.Join(psi.PathFromElements("", false, elements...))
 }

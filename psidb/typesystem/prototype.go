@@ -105,6 +105,10 @@ func (ib *ifaceBuilder) AssembleValue() datamodel.NodeAssembler {
 
 	if ib.actual == nil && ib.t.v.IsValid() {
 		ib.actual = Universe().LookupByName(ib.t.v.String())
+
+		if ib.actual == nil {
+			panic("???")
+		}
 	}
 
 	if !ib.v.v.IsValid() && ib.actual != nil {

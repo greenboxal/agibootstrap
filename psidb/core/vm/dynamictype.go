@@ -6,7 +6,6 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/greenboxal/aip/aip-sdk/pkg/utils"
 	"github.com/ipld/go-ipld-prime"
 	"golang.org/x/exp/maps"
 
@@ -44,7 +43,7 @@ func (d *dynamicType) DecodeNode(r io.Reader, decoder ipld.Decoder) (psi.Node, e
 func NewDynamicType(ctx context.Context, registry *TypeRegistry, definition *typing.Type) (psi.NodeType, error) {
 	dt := &dynamicType{
 		typ:  definition,
-		name: typesystem.AsTypeName(utils.ParseTypeName(definition.FullName)),
+		name: typesystem.ParseTypeName(definition.FullName),
 
 		def: psi.NodeTypeDefinition{
 			Name: definition.FullName,

@@ -161,7 +161,7 @@ type MutableNodeReference interface {
 
 var mutableNodeReferenceType = reflect.TypeOf((*MutableNodeReference)(nil)).Elem()
 
-func (nt *nodeType) Name() string                   { return nt.name.FullNameWithArgs() }
+func (nt *nodeType) Name() string                   { return nt.name.MangledName() }
 func (nt *nodeType) Type() typesystem.Type          { return nt.typ }
 func (nt *nodeType) TypeName() typesystem.TypeName  { return nt.name }
 func (nt *nodeType) RuntimeType() reflect.Type      { return nt.typ.RuntimeType() }

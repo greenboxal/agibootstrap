@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 
 	"github.com/greenboxal/aip/aip-sdk/pkg/utils"
@@ -158,8 +157,6 @@ func formatTypeName(typName typesystem.TypeName) string {
 	pkg := typName.Package
 	name := typName.Name
 	args := ""
-
-	pkg = strings.ReplaceAll(pkg, "/", ".")
 
 	if len(typName.InParameters) > 0 {
 		args = "["

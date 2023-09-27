@@ -20,6 +20,8 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/network"
 	"github.com/greenboxal/agibootstrap/psidb/services/agents"
 	"github.com/greenboxal/agibootstrap/psidb/services/chat"
+	"github.com/greenboxal/agibootstrap/psidb/services/codeanalysis"
+	"github.com/greenboxal/agibootstrap/psidb/services/codeanalysis/langs"
 	"github.com/greenboxal/agibootstrap/psidb/services/copywriter"
 	"github.com/greenboxal/agibootstrap/psidb/services/docs"
 	"github.com/greenboxal/agibootstrap/psidb/services/iam"
@@ -58,6 +60,8 @@ var BaseModules = fx.Options(
 	kb.Module,
 	iam.Module,
 	chat.Module,
+	codeanalysis.Module,
+	langs.Module,
 	copywriter.Module,
 	agents.Module,
 	docs.Module,

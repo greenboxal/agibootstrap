@@ -1,8 +1,6 @@
 package typing
 
 import (
-	"strings"
-
 	"github.com/invopop/jsonschema"
 
 	"github.com/greenboxal/agibootstrap/psidb/psi"
@@ -29,11 +27,10 @@ type Type struct {
 var TypeType = psi.DefineNodeType[*Type]()
 
 func NewType(fullName string) *Type {
-	nameComponents := strings.Split(fullName, ".")
-	name := nameComponents[len(nameComponents)-1]
+	nameComponents := typesystem.ParseTypeName(fullName)
 
 	t := &Type{
-		Name:     name,
+		Name:     nameComponents.NameWithArgs(),
 		FullName: fullName,
 	}
 

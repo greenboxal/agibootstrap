@@ -10,7 +10,7 @@ import (
 	"github.com/greenboxal/agibootstrap/psidb/psi"
 )
 
-type Scope struct {
+type Scope2 struct {
 	psi.NodeBase
 
 	IndexName string `json:"index_name"`
@@ -21,29 +21,29 @@ type Scope struct {
 	Index NodeIndex `json:"-"`
 }
 
-var ScopeType = psi.DefineNodeType[*Scope]()
-var ScopeEdge = psi.DefineEdgeType[*Scope]("psidb.scope")
-var ScopeRootEdge = psi.DefineEdgeType[psi.Node]("psidb.scope.root")
+var ScopeType = psi.DefineNodeType[*Scope2]()
+var ScopeEdge = psi.DefineEdgeType[*Scope2]("psidb.scope2")
+var ScopeRootEdge = psi.DefineEdgeType[psi.Node]("psidb.scope.root2")
 
-func NewScope() *Scope {
-	scp := &Scope{}
+func NewScope() *Scope2 {
+	scp := &Scope2{}
 	scp.IndexName = uuid.NewString()
 	scp.Init(scp, psi.WithNodeType(ScopeType))
 
 	return scp
 }
 
-func (scp *Scope) PsiNodeName() string { return scp.IndexName }
+func (scp *Scope2) PsiNodeName() string { return scp.IndexName }
 
-func (scp *Scope) SetRoot(root psi.Node) {
+func (scp *Scope2) SetRoot(root psi.Node) {
 	scp.SetEdge(ScopeRootEdge.Singleton(), root)
 }
 
-func (scp *Scope) GetRoot() psi.Node {
+func (scp *Scope2) GetRoot() psi.Node {
 	return psi.GetEdgeOrNil[psi.Node](scp, ScopeRootEdge.Singleton())
 }
 
-func (scp *Scope) Upsert(ctx context.Context, node psi.Node) error {
+func (scp *Scope2) Upsert(ctx context.Context, node psi.Node) error {
 	idx, err := scp.GetIndex(ctx)
 
 	if err != nil {
@@ -53,7 +53,7 @@ func (scp *Scope) Upsert(ctx context.Context, node psi.Node) error {
 	return idx.IndexNode(ctx, node)
 }
 
-func (scp *Scope) GetIndex(ctx context.Context) (NodeIndex, error) {
+func (scp *Scope2) GetIndex(ctx context.Context) (NodeIndex, error) {
 	if scp.IndexManager == nil {
 		tx := coreapi.GetTransaction(ctx)
 
@@ -79,7 +79,7 @@ func (scp *Scope) GetIndex(ctx context.Context) (NodeIndex, error) {
 	return scp.Index, nil
 }
 
-func (scp *Scope) Close() error {
+func (scp *Scope2) Close() error {
 	if scp.Index != nil {
 		if err := scp.Index.Close(); err != nil {
 			return err
@@ -91,20 +91,20 @@ func (scp *Scope) Close() error {
 	return nil
 }
 
-func GetNodeScope(node psi.Node) *Scope {
-	return psi.GetEdgeOrNil[*Scope](node, ScopeEdge.Singleton())
+func GetNodeScope(node psi.Node) *Scope2 {
+	return psi.GetEdgeOrNil[*Scope2](node, ScopeEdge.Singleton())
 }
 
-func SetNodeScope(node psi.Node, scp *Scope) {
+func SetNodeScope(node psi.Node, scp *Scope2) {
 	node.SetEdge(ScopeEdge.Singleton(), scp)
 }
 
-func GetHierarchyScope(ctx context.Context, node psi.Node) *Scope {
+func GetHierarchyScope(ctx context.Context, node psi.Node) *Scope2 {
 	for ; node != nil; node = node.Parent() {
 		scp := node.ResolveChild(ctx, ScopeEdge.Singleton().AsPathElement())
 
 		if scp != nil {
-			scp, ok := scp.(*Scope)
+			scp, ok := scp.(*Scope2)
 
 			if !ok {
 				node.ResolveChild(ctx, ScopeEdge.Singleton().AsPathElement())

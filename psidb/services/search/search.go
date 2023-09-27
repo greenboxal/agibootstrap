@@ -52,7 +52,7 @@ func (s *Service) Search(ctx context.Context, request *SearchRequest) (*SearchRe
 		return nil, err
 	}
 
-	scp, ok := scpNode.(*indexing2.Scope)
+	scp, ok := scpNode.(*indexing2.Scope2)
 
 	if !ok {
 		return nil, fmt.Errorf("scope node is not a scope")

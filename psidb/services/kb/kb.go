@@ -56,7 +56,7 @@ var KnowledgeBaseType = psi.DefineNodeType[*KnowledgeBase](
 	psi.WithInterfaceFromNode(KnowledgeBaseInterface),
 )
 
-var EdgeKindKnowledgeBaseDocuments = psi.DefineEdgeType[*indexing.Scope]("kb.documents")
+var EdgeKindKnowledgeBaseDocuments = psi.DefineEdgeType[*indexing.Scope2]("kb.documents")
 
 func NewKnowledgeBase() *KnowledgeBase {
 	kb := &KnowledgeBase{}
@@ -67,12 +67,12 @@ func NewKnowledgeBase() *KnowledgeBase {
 
 func (kb *KnowledgeBase) PsiNodeName() string { return kb.Name }
 
-func (kb *KnowledgeBase) GetGlobalDocumentScope(ctx context.Context) *indexing.Scope {
-	return psi.MustResolveChildOrCreate[*indexing.Scope](
+func (kb *KnowledgeBase) GetGlobalDocumentScope(ctx context.Context) *indexing.Scope2 {
+	return psi.MustResolveChildOrCreate[*indexing.Scope2](
 		ctx,
 		kb,
 		EdgeKindKnowledgeBaseDocuments.Singleton().AsPathElement(),
-		func() *indexing.Scope {
+		func() *indexing.Scope2 {
 			scp := indexing.NewScope()
 			scp.SetParent(kb)
 			kb.SetEdge(EdgeKindKnowledgeBaseDocuments.Singleton(), scp)
